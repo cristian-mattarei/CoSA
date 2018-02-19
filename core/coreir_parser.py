@@ -11,7 +11,7 @@
 import coreir
 
 from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE, FALSE, And, BV
-from pysmt.typing import BOOL, BV1, BV8, BV16, BV32, BV64, BV128
+from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
 from core.transition_system import TS
@@ -27,31 +27,21 @@ REG   = "reg"
 
 
 def BVVar(name, width):
-    if width == 1:
-        return Symbol(name, BV1)
-    elif width == 8:
-        return Symbol(name, BV8)
-    elif width == 16:
-        return Symbol(name, BV16)
-    elif width == 32:
-        return Symbol(name, BV32)
-    elif width == 64:
-        return Symbol(name, BV64)
-    elif width == 128:
-        return Symbol(name, BV128)
-    else:
-        raise UndefinedTypeException
+    if width <= 0 or not isinstance(width, int):
+        raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
+
+    return Symbol(name, _BVType(width))
 
 class SMTModules(object):
 
     @staticmethod
     def assert_op(expr):
         return "(assert "+ expr + ")"
-    
+
     @staticmethod
     def binary_op_eqass(op, in1, in2, out):
         return SMTModules.assert_op("(= (" + op + " " + in1 + " " + in2 + ") " + out + ")")
-    
+
     @staticmethod
     def SMTBop(op, in0, in1, out):
       # INIT: TRUE
@@ -61,7 +51,7 @@ class SMTModules(object):
       ts = TS(formula.get_free_variables(), TRUE(), TRUE(), formula)
       ts.comment = comment
       return ts
-    
+
     @staticmethod
     def Add(in0,in1,out):
         return SMTModules.SMTBop(BVAnd,in0,in1,out)
@@ -74,19 +64,19 @@ class SMTModules(object):
         ts = TS(formula.get_free_variables(), TRUE(), TRUE(), formula)
         ts.comment = comment
         return ts
-    
+
 class CoreIRParser(object):
 
     file = None
     context = None
-    
+
     def __init__(self, file, *libs):
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
 
         self.file = file
-    
+
     def parse(self):
 
         var_defs = []
@@ -94,7 +84,7 @@ class CoreIRParser(object):
 
         top_module = self.context.load_from_file(self.file)
         top_def = top_module.definition
-        modules = {} 
+        modules = {}
 
 
         for inst in top_def.instances:
