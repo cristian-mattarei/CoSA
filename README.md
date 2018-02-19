@@ -1,0 +1,2 @@
+# CoSA
+CoreIR Symbolic Analyzer
