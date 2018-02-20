@@ -10,11 +10,12 @@
 
 import coreir
 
-from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE, FALSE, And, BV
+from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE, FALSE, And, BV, Implies, BVExtract
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
 from core.transition_system import TS
+from util.utils import is_number
 from util.logger import Logger
 from six.moves import cStringIO
 
@@ -65,6 +66,25 @@ class SMTModules(object):
         ts.comment = comment
         return ts
 
+
+    @staticmethod
+    def Reg(in_, clk, clr, out):
+      # INIT: out = 0
+      # TRANS: ((!clk & clk') -> (out' = in)) & (!(!clk & clk') -> (out' = out))
+      comment = ";; Reg (in, clk, out) = (" + in_.symbol_name() + ", " + clk.symbol_name() + ", " + out.symbol_name() + ")"
+      ival = BV(0, out.symbol_type().width)
+      init = EqualsOrIff(out, ival)
+      bclk = EqualsOrIff(clk, BV(1, 1))
+      
+      trans_1 = Implies(And(Not(bclk), TS.to_next(bclk)), EqualsOrIff(TS.get_prime(out), in_))
+      trans_2 = Implies(Not(And(Not(bclk), TS.to_next(bclk))), EqualsOrIff(TS.get_prime(out), out))
+      
+      trans = And(trans_1, trans_2)
+      ts = TS(trans.get_free_variables(), init, trans, TRUE())
+      ts.comment = comment
+      return ts
+
+    
 class CoreIRParser(object):
 
     file = None
@@ -84,8 +104,10 @@ class CoreIRParser(object):
 
         top_module = self.context.load_from_file(self.file)
         top_def = top_module.definition
+        interface = list(top_module.type.items())
+        print(top_module.type, interface[0][1].kind)
         modules = {}
-
+        quit(0)
 
         for inst in top_def.instances:
             inst_name = inst.selectpath
@@ -93,8 +115,6 @@ class CoreIRParser(object):
             inst_args = inst.module.generator_args
             inst_intr = list(inst.module.type.items())
             modname = (SEP.join(inst_name))+SEP
-
-    #        print(inst_name, inst_type, "\n") #, list(inst_intr))  #list(inst.module.type.items())[0][1].size
 
             if inst_type == ADD:
                 in0 = BVVar(modname+inst_intr[0][0], inst_intr[0][1].size)
@@ -113,22 +133,37 @@ class CoreIRParser(object):
                 var_defs += ts.vars
                 continue
 
+            if inst_type == REG:
+                clk = BVVar(modname+inst_intr[0][0], inst_intr[0][1].size)
+                clr = BVVar(modname+inst_intr[1][0], inst_intr[1][1].size)
+                in_ = BVVar(modname+inst_intr[2][0], inst_intr[2][1].size)
+                out = BVVar(modname+inst_intr[3][0], inst_intr[3][1].size)
+                
+                ts = SMTModules.Reg(in_, clk, clr, out)
+                mod_defs.append(ts)
+                var_defs += ts.vars
+                continue
+            
             Logger.log("*** MODULE TYPE \"%s\" IS NOT DEFINED!!"%(inst_type), 0)
 
 
+        varmap = dict([(s.symbol_name(), s) for s in var_defs])
+            
         for var_def in set(var_defs):
             print(str(var_def))
             print(str(TS.get_prime(var_def)))
 
+        buf = cStringIO()
+        printer = SmtPrinter(buf)
+            
         for mod_def in mod_defs:
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
             mod_def.inline_invar()
             print(mod_def.comment)
 
             printer.printer(mod_def.init)
             print(SMTModules.assert_op(buf.getvalue()))
             buf.truncate(0)
+            
             printer.printer(mod_def.trans)
             print(SMTModules.assert_op(buf.getvalue()))
             buf.truncate(0)
@@ -137,8 +172,24 @@ class CoreIRParser(object):
             first = SEP.join(conn.first.selectpath)
             second = SEP.join(conn.second.selectpath)
 
-            print(conn.first.selectpath, conn.second.selectpath)
+            if is_number(conn.first.selectpath[-1]):
+                first = varmap[SEP.join(conn.first.selectpath[:-1])]
+                sel = int(conn.first.selectpath[-1])
+                first = BVExtract(first, sel, sel)
+            else:
+                first = varmap[SEP.join(conn.first.selectpath)]
 
-
+            if is_number(conn.second.selectpath[-1]):
+                second = varmap[SEP.join(conn.second.selectpath[:-1])]
+                sel = int(conn.second.selectpath[-1])
+                second = BVExtract(second, sel, sel)
+            else:
+                second = varmap[SEP.join(conn.second.selectpath)]
+                
+            eq = EqualsOrIff(first, second)
+            
+            printer.printer(eq)
+            print(SMTModules.assert_op(buf.getvalue()))
+            buf.truncate(0)
 
         return var_defs, mod_defs
