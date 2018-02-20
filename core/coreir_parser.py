@@ -14,7 +14,7 @@ from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE,
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
-from core.transition_system import TS
+from core.transition_system import TS, HTS
 from util.utils import is_number
 from util.logger import Logger
 from six.moves import cStringIO
@@ -49,7 +49,7 @@ class SMTModules(object):
       # TRANS: ((in0 <op> in1) = out) & ((in0' & in1') = out')
       comment = ";; " + op.__name__ + " (in0, in1, out) = (" + in0.symbol_name() + ", " + in1.symbol_name() + ", " + out.symbol_name() + ")"
       formula = EqualsOrIff(op(in0,in1), out)
-      ts = TS(formula.get_free_variables(), TRUE(), TRUE(), formula)
+      ts = TS(set([in0, in1, out]), TRUE(), TRUE(), formula)
       ts.comment = comment
       return ts
 
@@ -62,24 +62,27 @@ class SMTModules(object):
         const = BV(value, out.symbol_type().width)
         formula = EqualsOrIff(out, const)
         comment = ";; Const (out, val) = (" + out.symbol_name() + ", " + str(const) + ")"
-        ts = TS(formula.get_free_variables(), TRUE(), TRUE(), formula)
+        ts = TS(set([out]), TRUE(), TRUE(), formula)
         ts.comment = comment
         return ts
 
 
     @staticmethod
     def Reg(in_, clk, clr, out, initval):
-      # INIT: out = 0
-      # TRANS: ((!clk & clk') -> (out' = in)) & (!(!clk & clk') -> (out' = out))
+      # INIT: out = initval
+      # TRANS: (((!clk & clk') -> ((!clr -> (out' = in)) & (clr -> (out' = 0)))) & (!(!clk & clk') -> (out' = out)))
       comment = ";; Reg (in, clk, out) = (" + in_.symbol_name() + ", " + clk.symbol_name() + ", " + out.symbol_name() + ")"
       init = EqualsOrIff(out, initval)
       bclk = EqualsOrIff(clk, BV(1, 1))
-      
-      trans_1 = Implies(And(Not(bclk), TS.to_next(bclk)), EqualsOrIff(TS.get_prime(out), in_))
+      bclr = EqualsOrIff(clr, BV(1, 1))
+      zero = BV(0, out.symbol_type().width)
+
+      trans_0 = And(Implies(Not(bclr), EqualsOrIff(TS.get_prime(out), in_)), Implies(bclr, EqualsOrIff(TS.get_prime(out), zero)))
+      trans_1 = Implies(And(Not(bclk), TS.to_next(bclk)), trans_0)
       trans_2 = Implies(Not(And(Not(bclk), TS.to_next(bclk))), EqualsOrIff(TS.get_prime(out), out))
       
       trans = And(trans_1, trans_2)
-      ts = TS(trans.get_free_variables(), init, trans, TRUE())
+      ts = TS(set([in_, clk, clr, out]), init, trans, TRUE())
       ts.comment = comment
       return ts
 
@@ -98,76 +101,82 @@ class CoreIRParser(object):
 
     def parse(self):
 
-        var_defs = []
-        mod_defs = []
+        # var_defs = []
+        # mod_defs = []
 
+        
         top_module = self.context.load_from_file(self.file)
         top_def = top_module.definition
         interface = list(top_module.type.items())
-        print(top_module.type, interface[0][1].kind)
         modules = {}
-        quit(0)
 
+        hts = HTS(top_module.name)
+        
         for inst in top_def.instances:
+            ts = None
+            
             inst_name = inst.selectpath
             inst_type = inst.module.name
             inst_args = inst.module.generator_args
-            print(inst.module.type.items())
-            inst_intr = list(inst.module.type.items())
+            inst_intr = dict(inst.module.type.items())
             modname = (SEP.join(inst_name))+SEP
 
             if inst_type == ADD:
-                in0 = BVVar(modname+inst_intr[0][0], inst_intr[0][1].size)
-                in1 = BVVar(modname+inst_intr[1][0], inst_intr[1][1].size)
-                out = BVVar(modname+inst_intr[2][0], inst_intr[2][1].size)
+                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
+                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
+                out = BVVar(modname+"out", inst_intr["out"].size)
                 ts = SMTModules.Add(in0,in1,out)
-                mod_defs.append(ts)
-                var_defs += ts.vars
-                continue
+                # mod_defs.append(ts)
+                # var_defs += ts.vars
 
             if inst_type == CONST:
                 value = inst.config["value"].value.val
-                out = BVVar(modname+inst_intr[0][0], inst_intr[0][1].size)
+                out = BVVar(modname+"out", inst_intr["out"].size)
                 ts = SMTModules.Const(out,value)
-                mod_defs.append(ts)
-                var_defs += ts.vars
-                continue
+                # mod_defs.append(ts)
+                # var_defs += ts.vars
 
             if inst_type == REG:
-                clk = BVVar(modname+inst_intr[0][0], inst_intr[0][1].size)
-                clr = BVVar(modname+inst_intr[1][0], inst_intr[1][1].size)
-                in_ = BVVar(modname+inst_intr[2][0], inst_intr[2][1].size)
-                out = BVVar(modname+inst_intr[3][0], inst_intr[3][1].size)
-                ival = BV(0, out.symbol_type().width)
-
+                clk = BVVar(modname+"clk", inst_intr["clk"].size)
+                clr = BVVar(modname+"clr", inst_intr["clr"].size)
+                in_ = BVVar(modname+"in", inst_intr["in"].size)
+                out = BVVar(modname+"out", inst_intr["out"].size)
+                ival = BV(inst.config["init"].value.val, out.symbol_type().width)
                 ts = SMTModules.Reg(in_, clk, clr, out, ival)
-                mod_defs.append(ts)
-                var_defs += ts.vars
-                continue
-            
-            Logger.log("*** MODULE TYPE \"%s\" IS NOT DEFINED!!"%(inst_type), 0)
+                # mod_defs.append(ts)
+                # var_defs += ts.vars
 
-
-        varmap = dict([(s.symbol_name(), s) for s in var_defs])
+            if ts is not None:
+                hts.add_ts(ts)
+            else:                
+                Logger.log("*** MODULE TYPE \"%s\" IS NOT DEFINED!!"%(inst_type), 0)
+                
             
-        for var_def in set(var_defs):
-            print(str(var_def))
-            print(str(TS.get_prime(var_def)))
+        # for var_def in set(var_defs):
+        #     print(str(var_def))
+        #     print(str(TS.get_prime(var_def)))
 
-        buf = cStringIO()
-        printer = SmtPrinter(buf)
-            
-        for mod_def in mod_defs:
-            mod_def.inline_invar()
-            print(mod_def.comment)
+        for var in interface:
+            varname = "self"+SEP+var[0]
+            # var_defs.append(BVVar(varname, var[1].size))
+            hts.add_var(BVVar(varname, var[1].size))
 
-            printer.printer(mod_def.init)
-            print(SMTModules.assert_op(buf.getvalue()))
-            buf.truncate(0)
+        varmap = dict([(s.symbol_name(), s) for s in hts.vars])
             
-            printer.printer(mod_def.trans)
-            print(SMTModules.assert_op(buf.getvalue()))
-            buf.truncate(0)
+        # buf = cStringIO()
+        # printer = SmtPrinter(buf)
+            
+        # for mod_def in mod_defs:
+        #     mod_def.inline_invar()
+        #     print(mod_def.comment)
+
+        #     printer.printer(mod_def.init)
+        #     print(SMTModules.assert_op(buf.getvalue()))
+        #     buf.truncate(0)
+            
+        #     printer.printer(mod_def.trans)
+        #     print(SMTModules.assert_op(buf.getvalue()))
+        #     buf.truncate(0)
 
         for conn in top_def.connections:
             first = SEP.join(conn.first.selectpath)
@@ -188,9 +197,11 @@ class CoreIRParser(object):
                 second = varmap[SEP.join(conn.second.selectpath)]
                 
             eq = EqualsOrIff(first, second)
-            
-            printer.printer(eq)
-            print(SMTModules.assert_op(buf.getvalue()))
-            buf.truncate(0)
 
-        return var_defs, mod_defs
+            hts.add_ts(TS(set([]), TRUE(), TRUE(), eq))
+            
+            # printer.printer(eq)
+            # print(SMTModules.assert_op(buf.getvalue()))
+            # buf.truncate(0)
+
+        return hts

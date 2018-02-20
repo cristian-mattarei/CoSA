@@ -13,6 +13,7 @@ import coreir
 import argparse
 
 from core.coreir_parser import CoreIRParser
+from analyzers.bmc import BMC
 from util.logger import Logger
 
 class UndefinedTypeException(Exception):
@@ -29,7 +30,12 @@ class Config(object):
     
 def run(config):
     parser = CoreIRParser(config.strfile)
-    parser.parse()
+    hts = parser.parse()
+
+    bmc = BMC(hts)
+
+    bmc.simulate(10)
+    
 
 if __name__ == "__main__":
 
