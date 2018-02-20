@@ -68,12 +68,11 @@ class SMTModules(object):
 
 
     @staticmethod
-    def Reg(in_, clk, clr, out):
+    def Reg(in_, clk, clr, out, initval):
       # INIT: out = 0
       # TRANS: ((!clk & clk') -> (out' = in)) & (!(!clk & clk') -> (out' = out))
       comment = ";; Reg (in, clk, out) = (" + in_.symbol_name() + ", " + clk.symbol_name() + ", " + out.symbol_name() + ")"
-      ival = BV(0, out.symbol_type().width)
-      init = EqualsOrIff(out, ival)
+      init = EqualsOrIff(out, initval)
       bclk = EqualsOrIff(clk, BV(1, 1))
       
       trans_1 = Implies(And(Not(bclk), TS.to_next(bclk)), EqualsOrIff(TS.get_prime(out), in_))
@@ -113,6 +112,7 @@ class CoreIRParser(object):
             inst_name = inst.selectpath
             inst_type = inst.module.name
             inst_args = inst.module.generator_args
+            print(inst.module.type.items())
             inst_intr = list(inst.module.type.items())
             modname = (SEP.join(inst_name))+SEP
 
@@ -138,8 +138,9 @@ class CoreIRParser(object):
                 clr = BVVar(modname+inst_intr[1][0], inst_intr[1][1].size)
                 in_ = BVVar(modname+inst_intr[2][0], inst_intr[2][1].size)
                 out = BVVar(modname+inst_intr[3][0], inst_intr[3][1].size)
-                
-                ts = SMTModules.Reg(in_, clk, clr, out)
+                ival = BV(0, out.symbol_type().width)
+
+                ts = SMTModules.Reg(in_, clk, clr, out, ival)
                 mod_defs.append(ts)
                 var_defs += ts.vars
                 continue
