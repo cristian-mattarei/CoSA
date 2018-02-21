@@ -12,6 +12,7 @@ from pysmt.shortcuts import Symbol, And, TRUE
 
 NEXT = "_N"
 AT = "_AT"
+SEP = "$"
 
 class HTS(object):
 
@@ -86,6 +87,7 @@ class TS(object):
     def remove_invar(self):
         if self.invar is not None:
             self.trans = And([self.trans, self.invar, TS.to_next(self.invar)])
+            self.init = And(self.init, self.invar)
 
         self.invar = None
 

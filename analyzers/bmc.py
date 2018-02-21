@@ -9,9 +9,11 @@
 # limitations under the License.
 
 from pysmt.shortcuts import And, Solver
-from core.transition_system import TS, HTS
+from core.transition_system import TS, HTS, SEP
 
 from util.logger import Logger
+
+NSEP = "."
 
 class BMC(object):
 
@@ -28,26 +30,53 @@ class BMC(object):
     def set_property(self, prop):
         self.prop = prop
 
-    def at_time(self, trans, i):
-        varmap_i  = [(v, TS.get_timed(v, i)) for v in self.hts.vars]
-        varmap_ip = [(TS.get_prime(v), TS.get_timed(v, i+1)) for v in self.hts.vars]
+    def at_time(self, trans, t):
+        varmap_t  = [(v, TS.get_timed(v, t)) for v in self.hts.vars]
+        varmap_tp = [(TS.get_prime(v), TS.get_timed(v, t+1)) for v in self.hts.vars]
 
-        varmap = dict(varmap_i + varmap_ip)
+        varmap = dict(varmap_t + varmap_tp)
 
         return trans.substitute(varmap)
         
     def unroll(self, k):
-        self.hts.remove_invars()
         init = self.hts.single_init()
         trans = self.hts.single_trans()
+        invar = self.hts.single_invar()
 
-        formula = init
-
-        for i in range(k):
-            formula = And(formula, self.at_time(trans, i))
+        formula = And(init, invar)
+        formula = self.at_time(formula, 0)
+        
+        for t in range(k):
+            formula = And(formula, self.at_time(trans, t))
+            formula = And(formula, self.at_time(trans, t+1))
 
         return formula
+
+    def remap_name(self, name):
+        return name.replace(SEP, NSEP)
+
+    def print_model(self, model, length, only_changing_vars=True):
+
+        Logger.log("---> INIT <---", 0)
+
+        prevass = []
         
+        for var in self.hts.vars:
+            varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
+            prevass.append(varass)
+            Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
+
+        prevass = dict(prevass)
+            
+        for t in range(length-1):
+            Logger.log("\n---> TIME %s <---"%(t+1), 0)
+
+            for var in self.hts.vars:
+                varass = (var.symbol_name(), model.get_value(TS.get_timed(var, t+1)))
+                if prevass[varass[0]] != varass[1]:
+                    Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
+                    prevass[varass[0]] = varass[1]
+                    
         
     def simulate(self, k):
         formula = self.unroll(k)
@@ -58,5 +87,8 @@ class BMC(object):
 
         if res:
             Logger.log("SAT", 0)
-
+            model = self.solver.get_model()
+            self.print_model(model, k)
+        else:
+            Logger.log("UNSAT", 0)
     
