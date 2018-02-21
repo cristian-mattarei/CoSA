@@ -175,6 +175,7 @@ class Modules(object):
         
         trans = And(trans_1, trans_2)
         ts = TS(set([v for v in vars_ if v is not None]), init, trans, TRUE())
+        ts.state_vars = set([out])
         ts.comment = comment
         return ts
 
@@ -359,6 +360,10 @@ class CoreIRParser(object):
             varname = SELF+SEP+var[0]
             bvvar = BVVar(varname, var[1].size)
             hts.add_var(bvvar)
+            if(var[1].is_input()):
+                hts.inputs.add(bvvar)
+            else:
+                hts.outputs.add(bvvar)
 
             # Adding clock behavior 
             if var[0] == CLK:

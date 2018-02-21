@@ -22,6 +22,8 @@ class Config(object):
     simulate = False
     bmc_length = 10
     safety = None
+    equivalence = None
+    symbolic_init = None
     
     def __init__(self):
         self.strfile = None
@@ -29,6 +31,8 @@ class Config(object):
         self.simulate = False
         self.bmc_length = 10
         self.safety = None
+        self.equivalence = None
+        self.symbolic_init = False
     
 def run(config):
     parser = CoreIRParser(config.strfile)
@@ -41,7 +45,12 @@ def run(config):
 
     if config.safety:
         bmc.safety(config.safety, config.bmc_length)
-    
+
+    if config.equivalence:
+        parser2 = CoreIRParser(config.equivalence)
+        hts2 = parser2.parse()
+        bmc.equivalence(hts2, config.bmc_length, config.symbolic_init)
+        
 
 if __name__ == "__main__":
 
@@ -60,6 +69,14 @@ if __name__ == "__main__":
     parser.add_argument('--safety', metavar='safety', type=str, required=False,
                        help='safety verification using BMC')
 
+    parser.set_defaults(equivalence=None)
+    parser.add_argument('--equivalence', metavar='equivalence', type=str, required=False,
+                       help='equivalence checking using BMC')
+
+    parser.set_defaults(symbolic_init=False)
+    parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
+                       help='symbolic inititial state for equivalence checking')
+
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='bmc_length', type=int, required=False,
                         help='depth of BMC unrolling')
@@ -76,6 +93,8 @@ if __name__ == "__main__":
     config.strfile = args.input_file
     config.simulate = args.simulate
     config.safety = args.safety
+    config.equivalence = args.equivalence
+    config.symbolic_init = args.symbolic_init
     config.bmc_length = args.bmc_length
     
     config.verbosity = args.verbosity
@@ -87,7 +106,9 @@ if __name__ == "__main__":
     if len(sys.argv)==1:
         ok = False
 
-    if not(config.simulate or (config.safety is not None)):
+    if not(config.simulate or \
+           (config.safety is not None) or \
+           (config.equivalence is not None)):
         Logger.error("analysis selection is necessary")
         ok = False
         

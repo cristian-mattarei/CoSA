@@ -19,12 +19,17 @@ class HTS(object):
     tss = None
     sub = None
     name = None
+    inputs = None
+    outputs = None
     
     def __init__(self, name):
         self.tss = []
         self.sub = []
         self.vars = set([])
+        self.state_vars = set([])
         self.name = name
+        self.inputs = set([])
+        self.outputs = set([])
 
     def add_ts(self, ts):
         self.ts.append(ts)
@@ -34,10 +39,14 @@ class HTS(object):
 
     def add_var(self, var):
         self.vars.add(var)
+
+    def add_state_var(self, var):
+        self.state_vars.add(var)
         
     def add_ts(self, ts):
         self.tss.append(ts)
         self.vars = set(self.vars.union(ts.vars))
+        self.state_vars = set(self.state_vars.union(ts.state_vars))
 
     def remove_invars(self):
         for ts in self.tss:
@@ -70,6 +79,7 @@ class HTS(object):
 class TS(object):
 
     vars = None
+    state_vars = None
     init = None
     trans = None
     invar = None
@@ -78,6 +88,7 @@ class TS(object):
     
     def __init__(self, vars, init, trans, invar):
         self.vars = vars
+        self.state_vars = set([])
         self.init = init
         self.trans = trans
         self.invar = invar
@@ -102,6 +113,10 @@ class TS(object):
     @staticmethod
     def get_timed(v, t):
         return Symbol("%s%s%s" % (v.symbol_name(), AT, str(t)), v.symbol_type())
+
+    @staticmethod
+    def get_prefix(v, pref):
+        return Symbol("%s%s" % (pref, v.symbol_name()), v.symbol_type())
     
     @staticmethod
     def to_next(formula):

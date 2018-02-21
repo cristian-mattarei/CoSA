@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import And, Solver, TRUE, Not
+from pysmt.shortcuts import And, Solver, TRUE, Not, EqualsOrIff, Iff, Symbol, BOOL
 from pysmt.parsing import HRParser, parse
 from core.transition_system import TS, HTS, SEP
 
@@ -21,6 +21,9 @@ import re
 NSEP = "."
 
 KEYWORDS = ["not"]
+
+S1 = "sys1$"
+S2 = "sys2$"
 
 class BMC(object):
 
@@ -36,40 +39,39 @@ class BMC(object):
     def set_property(self, prop):
         self.prop = prop
 
-    def at_time(self, trans, t):
-        varmap_t  = [(v, TS.get_timed(v, t)) for v in self.hts.vars]
-        varmap_tp = [(TS.get_prime(v), TS.get_timed(v, t+1)) for v in self.hts.vars]
+    def at_time(self, hts, trans, t):
+        varmap_t  = [(v, TS.get_timed(v, t)) for v in hts.vars]
+        varmap_tp = [(TS.get_prime(v), TS.get_timed(v, t+1)) for v in hts.vars]
 
         varmap = dict(varmap_t + varmap_tp)
 
         return trans.substitute(varmap)
         
-    def unroll(self, k, assumption=TRUE()):
-        init = self.hts.single_init()
-        trans = self.hts.single_trans()
-        invar = self.hts.single_invar()
+    def unroll(self, hts, k, assumption=TRUE()):
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
 
         formula = And(init, invar)
-        formula = self.at_time(formula, 0)
+        formula = self.at_time(hts, formula, 0)
         
-        for t in range(k+1):
-            formula = And(formula, self.at_time(assumption, t))
-            formula = And(formula, self.at_time(trans, t))
-            formula = And(formula, self.at_time(trans, t+1))
-            formula = And(formula, self.at_time(invar, t+1))
+        for t in range(k):
+            formula = And(formula, self.at_time(hts, assumption, t))
+            formula = And(formula, self.at_time(hts, trans, t))
+            formula = And(formula, self.at_time(hts, invar, t+1))
 
         return formula
 
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_model(self, model, length, diff_only=True):
+    def print_model(self, hts, model, length, diff_only=True):
 
         Logger.log("---> INIT <---", 0)
 
         prevass = []
         
-        for var in self.hts.vars:
+        for var in hts.vars:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
             if diff_only: prevass.append(varass)
             Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
@@ -79,15 +81,72 @@ class BMC(object):
         for t in range(length):
             Logger.log("\n---> STEP %s <---"%(t+1), 0)
 
-            for var in self.hts.vars:
+            for var in hts.vars:
                 varass = (var.symbol_name(), model.get_value(TS.get_timed(var, t+1)))
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
                     Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
                     if diff_only: prevass[varass[0]] = varass[1]
                     
+
+    def equivalence(self, hts2, k, symbolic_init):
+        htseq = HTS("eq")
+
+        map1 = dict([(v, TS.get_prefix(v, S1)) for v in self.hts.vars])
+        map2 = dict([(v, TS.get_prefix(v, S2)) for v in hts2.vars])
+
+        ts1_init = TRUE()
+        ts2_init = TRUE()
         
+        if not symbolic_init:
+            ts1_init = self.hts.single_init().substitute(map1)
+            ts2_init = hts2.single_init().substitute(map2)
+        
+        ts1 = TS(set([TS.get_prefix(v, S1) for v in self.hts.vars]),\
+                 ts1_init,\
+                 self.hts.single_trans().substitute(map1),\
+                 self.hts.single_invar().substitute(map1))
+
+        ts2 = TS(set([TS.get_prefix(v, S2) for v in hts2.vars]),\
+                 ts2_init,\
+                 hts2.single_trans().substitute(map2),\
+                 hts2.single_invar().substitute(map2))
+
+        htseq.add_ts(ts1)
+        htseq.add_ts(ts2)
+
+        inputs = self.hts.inputs.union(hts2.inputs)
+        outputs = self.hts.outputs.union(hts2.outputs)
+
+        if symbolic_init:
+            states = self.hts.state_vars.union(hts2.state_vars)
+        else:
+            states = []
+            
+        eqinputs = TRUE()
+        eqoutputs = TRUE()
+        eqstates = TRUE()
+        
+        for inp in inputs:
+            eqinputs = And(eqinputs, EqualsOrIff(TS.get_prefix(inp, S1), TS.get_prefix(inp, S2)))
+
+        for out in outputs:
+            eqoutputs = And(eqoutputs, EqualsOrIff(TS.get_prefix(out, S1), TS.get_prefix(out, S2)))
+
+        for svar in states:
+            eqstates = And(eqstates, EqualsOrIff(TS.get_prefix(svar, S1), TS.get_prefix(svar, S2)))
+            
+        miter_out = Symbol("eq_S1_S2", BOOL)
+        eqoutputs = Iff(miter_out, eqoutputs)
+
+        htseq.add_ts(TS(set([miter_out]), TRUE(), TRUE(), And(eqinputs, eqoutputs)))
+
+        if symbolic_init:
+            htseq.add_ts(TS(set([]), eqstates, TRUE(), TRUE()))
+        
+        self.solve(htseq, miter_out, "eq_S1_S2", k)
+                    
     def simulate(self, k):
-        formula = self.unroll(k)
+        formula = self.unroll(self.hts, k)
         
         if Logger.level(2):
             buf = cStringIO()
@@ -102,27 +161,15 @@ class BMC(object):
         if res:
             Logger.log("TRACE:", 0)
             model = self.solver.get_model()
-            self.print_model(model, k)
+            self.print_model(self.hts, model, k)
         else:
             Logger.log("NO TRACE!!", 0)
 
-    def safety(self, strprop, k):
-        prop = strprop.replace(".","$")
 
-        for lit in re.findall("([a-zA-Z][a-zA-Z$0-9]*)+", prop):
-            if lit in KEYWORDS:
-                continue
-            prop = prop.replace(lit, "\"%s\""%lit)
-
-        try:
-            prop = parse(prop)
-        except Exception as e:
-            print(e)
-            return
-
-        for t in range(k):
-            formula = self.unroll(t)
-            formula = And(formula, Not(self.at_time(prop, t+1)))
+    def solve(self, hts, prop, strprop, k):
+        for t in range(k+1):
+            formula = self.unroll(hts, t)
+            formula = And(formula, Not(self.at_time(hts, prop, t)))
 
             if Logger.level(2):
                 buf = cStringIO()
@@ -137,8 +184,25 @@ class BMC(object):
             if res:
                 Logger.log("Property %s is FALSE:"%(strprop), 0)
                 model = self.solver.get_model()
-                self.print_model(model, t)
+                self.print_model(hts, model, t)
                 break
             else:
-                Logger.log("No counterexample found with k=%s for property \"%s\""%(t+1, strprop), 0)
+                Logger.log("No counterexample found with k=%s for property \"%s\""%(t, strprop), 0)
+
+            
+    def safety(self, strprop, k):
+        prop = strprop.replace(".","$")
+
+        for lit in re.findall("([a-zA-Z][a-zA-Z$0-9]*)+", prop):
+            if lit in KEYWORDS:
+                continue
+            prop = prop.replace(lit, "\"%s\""%lit)
+
+        try:
+            prop = parse(prop)
+        except Exception as e:
+            print(e)
+            return
+
+        self.solve(self.hts, prop, strprop, k)
             
