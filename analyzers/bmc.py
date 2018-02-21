@@ -26,7 +26,6 @@ class BMC(object):
 
         self.solver = Solver(name="z3")
 
-
     def set_property(self, prop):
         self.prop = prop
 

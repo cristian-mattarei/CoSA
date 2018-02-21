@@ -10,7 +10,7 @@
 
 import coreir
 
-from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE, FALSE, And, BV, Implies, BVExtract
+from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE, FALSE, And, BV, Implies, BVExtract, BVSub
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
@@ -23,7 +23,9 @@ from six.moves import cStringIO
 ADD   = "add"
 CONST = "const"
 REG   = "reg"
-
+MUX   = "mux"
+SUB   = "sub"
+EQ    = "eq"
 
 def BVVar(name, width):
     if width <= 0 or not isinstance(width, int):
@@ -35,11 +37,11 @@ class Modules(object):
 
     @staticmethod
     def SMTBop(op, in0, in1, out):
-      # INIT: TRUE
-      # TRANS: ((in0 <op> in1) = out) & ((in0' & in1') = out')
-      comment = ";; " + op.__name__ + " (in0, in1, out) = (" + in0.symbol_name() + ", " + in1.symbol_name() + ", " + out.symbol_name() + ")"
-      formula = EqualsOrIff(op(in0,in1), out)
-      ts = TS(set([in0, in1, out]), TRUE(), TRUE(), formula)
+      # INVAR: ((in0 <op> in1) = out) & ((in0' & in1') = out')
+      vars_ = [in0,in1,out]
+      comment = (";; " + op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+      invar = EqualsOrIff(op(in0,in1), out)
+      ts = TS(set(vars_), TRUE(), TRUE(), invar)
       ts.comment = comment
       return ts
 
@@ -47,6 +49,10 @@ class Modules(object):
     def Add(in0,in1,out):
         return Modules.SMTBop(BVAnd,in0,in1,out)
 
+    @staticmethod
+    def Sub(in0,in1,out):
+        return Modules.SMTBop(BVSub,in0,in1,out)
+    
     @staticmethod
     def Const(out, value):
         const = BV(value, out.symbol_type().width)
@@ -71,7 +77,8 @@ class Modules(object):
     def Reg(in_, clk, clr, out, initval):
       # INIT: out = initval
       # TRANS: (((!clk & clk') -> ((!clr -> (out' = in)) & (clr -> (out' = 0)))) & (!(!clk & clk') -> (out' = out)))
-      comment = ";; Reg (in, clk, out) = (" + in_.symbol_name() + ", " + clk.symbol_name() + ", " + out.symbol_name() + ")"
+      vars_ = [in_,clk,clr,out]
+      comment = ";; Reg (in, clk, clr, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
       init = EqualsOrIff(out, initval)
       bclk = EqualsOrIff(clk, BV(1, 1))
       bclr = EqualsOrIff(clr, BV(1, 1))
@@ -82,10 +89,34 @@ class Modules(object):
       trans_2 = Implies(Not(And(Not(bclk), TS.to_next(bclk))), EqualsOrIff(TS.get_prime(out), out))
       
       trans = And(trans_1, trans_2)
-      ts = TS(set([in_, clk, clr, out]), init, trans, TRUE())
+      ts = TS(set(vars_), init, trans, TRUE())
       ts.comment = comment
       return ts
 
+    @staticmethod
+    def Mux(in0, in1, sel, out):
+      # INVAR: ((sel = 0) -> (out = in0)) & ((sel = 1) -> (out = in1))
+      vars_ = [in0,in1,sel,out]
+      comment = ";; Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+      bsel = EqualsOrIff(sel, BV(0, 1))
+      invar = And(Implies(bsel, EqualsOrIff(in0, out)), Implies(Not(bsel), EqualsOrIff(in1, out)))
+      ts = TS(set(vars_), TRUE(), TRUE(), invar)
+      ts.comment = comment
+      return ts
+
+    @staticmethod
+    def Eq(in0, in1, out):
+      # INVAR: (((in0 = in1) -> (out = #b1)) & ((in0 != in1) -> (out = #b0)))
+      vars_ = [in0,in1,out]
+      comment = ";; Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+      eq = EqualsOrIff(in0, in1)
+      zero = EqualsOrIff(out, BV(0, 1))
+      one = EqualsOrIff(out, BV(1, 1))
+      invar = And(Implies(eq, one), Implies(Not(eq), zero))
+      ts = TS(set(vars_), TRUE(), TRUE(), invar)
+      ts.comment = comment
+      return ts
+  
     
 class CoreIRParser(object):
 
@@ -112,7 +143,7 @@ class CoreIRParser(object):
             
             inst_name = inst.selectpath
             inst_type = inst.module.name
-            inst_args = inst.module.generator_args
+            #inst_args = inst.module.generator_args
             inst_intr = dict(inst.module.type.items())
             modname = (SEP.join(inst_name))+SEP
 
@@ -122,8 +153,26 @@ class CoreIRParser(object):
                 out = BVVar(modname+"out", inst_intr["out"].size)
                 ts = Modules.Add(in0,in1,out)
 
+            if inst_type == SUB:
+                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
+                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
+                out = BVVar(modname+"out", inst_intr["out"].size)
+                ts = Modules.Sub(in0,in1,out)
+
+            if inst_type == EQ:
+                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
+                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
+                out = BVVar(modname+"out", inst_intr["out"].size)
+                ts = Modules.Eq(in0,in1,out)
+                
             if inst_type == CONST:
-                value = inst.config["value"].value.val
+                value = inst.config["value"].value
+
+                if type(value) == bool:
+                    value = 1 if value else 0
+                else:
+                    value = value.val
+                
                 out = BVVar(modname+"out", inst_intr["out"].size)
                 ts = Modules.Const(out,value)
 
@@ -135,6 +184,13 @@ class CoreIRParser(object):
                 ival = BV(inst.config["init"].value.val, out.symbol_type().width)
                 ts = Modules.Reg(in_, clk, clr, out, ival)
 
+            if inst_type == MUX:
+                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
+                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
+                sel = BVVar(modname+"sel", inst_intr["sel"].size)
+                out = BVVar(modname+"out", inst_intr["out"].size)
+                ts = Modules.Mux(in0, in1, sel, out)
+                
             if ts is not None:
                 hts.add_ts(ts)
             else:                
