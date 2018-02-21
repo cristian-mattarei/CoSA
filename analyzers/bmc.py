@@ -70,8 +70,11 @@ class BMC(object):
         Logger.log("---> INIT <---", 0)
 
         prevass = []
+
+        varlist = list(hts.vars)
+        varlist
         
-        for var in hts.vars:
+        for var in varlist:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
             if diff_only: prevass.append(varass)
             Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
@@ -79,9 +82,9 @@ class BMC(object):
         if diff_only: prevass = dict(prevass)
             
         for t in range(length):
-            Logger.log("\n---> STEP %s <---"%(t+1), 0)
+            Logger.log("\n---> STATE %s <---"%(t+1), 0)
 
-            for var in hts.vars:
+            for var in varlist:
                 varass = (var.symbol_name(), model.get_value(TS.get_timed(var, t+1)))
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
                     Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
@@ -167,6 +170,8 @@ class BMC(object):
 
 
     def solve(self, hts, prop, strprop, k):
+        Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
+        
         for t in range(k+1):
             formula = self.unroll(hts, t)
             formula = And(formula, Not(self.at_time(hts, prop, t)))
@@ -182,12 +187,12 @@ class BMC(object):
             res = self.solver.solve()
 
             if res:
-                Logger.log("Property %s is FALSE:"%(strprop), 0)
+                Logger.log("Counterexample found with k=%s"%(t), 0)
                 model = self.solver.get_model()
                 self.print_model(hts, model, t)
                 break
             else:
-                Logger.log("No counterexample found with k=%s for property \"%s\""%(t, strprop), 0)
+                Logger.log("No counterexample found with k=%s"%(t), 0)
 
             
     def safety(self, strprop, k):
