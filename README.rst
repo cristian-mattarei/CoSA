@@ -1,6 +1,8 @@
 CoSA: CoreIR Symbolic Analyzer
 ========================
 
+
+
 ========================
 Requirements
 ========================
