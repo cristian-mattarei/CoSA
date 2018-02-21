@@ -12,6 +12,9 @@ from pysmt.shortcuts import And, Solver, TRUE, Not
 from pysmt.parsing import HRParser, parse
 from core.transition_system import TS, HTS, SEP
 
+from six.moves import cStringIO
+from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+
 from util.logger import Logger
 import re
 
@@ -53,6 +56,7 @@ class BMC(object):
             formula = And(formula, self.at_time(assumption, t))
             formula = And(formula, self.at_time(trans, t))
             formula = And(formula, self.at_time(trans, t+1))
+            formula = And(formula, self.at_time(invar, t+1))
 
         return formula
 
@@ -84,7 +88,13 @@ class BMC(object):
         
     def simulate(self, k):
         formula = self.unroll(k)
-
+        
+        if Logger.level(2):
+            buf = cStringIO()
+            printer = SmtPrinter(buf)
+            printer.printer(formula)
+            print(buf.getvalue())
+        
         self.solver.reset_assertions()
         self.solver.add_assertion(formula)
         res = self.solver.solve()
@@ -97,22 +107,27 @@ class BMC(object):
             Logger.log("NO TRACE!!", 0)
 
     def safety(self, strprop, k):
-        for lit in re.findall("([a-zA-Z][a-zA-Z\.0-9]*)+", strprop):
+        prop = strprop.replace(".","$")
+
+        for lit in re.findall("([a-zA-Z][a-zA-Z$0-9]*)+", prop):
             if lit in KEYWORDS:
                 continue
-            strprop = strprop.replace(lit, "\"%s\""%lit)
-
-        strprop = strprop.replace(".","$")
+            prop = prop.replace(lit, "\"%s\""%lit)
 
         try:
-            prop = parse(strprop)
+            prop = parse(prop)
         except Exception as e:
             print(e)
             return
 
-
         formula = self.unroll(k)
-        formula = And(formula, Not(self.at_time(prop, k)))
+        formula = And(formula, Not(self.at_time(prop, k+1)))
+
+        if Logger.level(2):
+            buf = cStringIO()
+            printer = SmtPrinter(buf)
+            printer.printer(formula)
+            print(buf.getvalue())
         
         self.solver.reset_assertions()
         self.solver.add_assertion(formula)
@@ -123,5 +138,5 @@ class BMC(object):
             model = self.solver.get_model()
             self.print_model(model, k)
         else:
-            Logger.log("No counterexample found for property %s:"%(strprop), 0)
+            Logger.log("No counterexample found with k=%s for property \"%s\""%(k, strprop), 0)
             
