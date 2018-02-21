@@ -120,23 +120,25 @@ class BMC(object):
             print(e)
             return
 
-        formula = self.unroll(k)
-        formula = And(formula, Not(self.at_time(prop, k+1)))
+        for t in range(k):
+            formula = self.unroll(t)
+            formula = And(formula, Not(self.at_time(prop, t+1)))
 
-        if Logger.level(2):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue())
-        
-        self.solver.reset_assertions()
-        self.solver.add_assertion(formula)
-        res = self.solver.solve()
+            if Logger.level(2):
+                buf = cStringIO()
+                printer = SmtPrinter(buf)
+                printer.printer(formula)
+                print(buf.getvalue())
 
-        if res:
-            Logger.log("Property %s is FALSE:"%(strprop), 0)
-            model = self.solver.get_model()
-            self.print_model(model, k)
-        else:
-            Logger.log("No counterexample found with k=%s for property \"%s\""%(k, strprop), 0)
+            self.solver.reset_assertions()
+            self.solver.add_assertion(formula)
+            res = self.solver.solve()
+
+            if res:
+                Logger.log("Property %s is FALSE:"%(strprop), 0)
+                model = self.solver.get_model()
+                self.print_model(model, t)
+                break
+            else:
+                Logger.log("No counterexample found with k=%s for property \"%s\""%(t+1, strprop), 0)
             
