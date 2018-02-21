@@ -2,37 +2,6 @@
 "namespaces":{
   "global":{
     "modules":{
-      "counter":{
-        "type":["Record",{
-          "clk":["Named","coreir.clkIn"],
-          "clr":"BitIn",
-          "out":["Array",16,"Bit"]
-        }],
-        "instances":{
-          "a":{
-            "genref":"coreir.add",
-            "genargs":{"width":["Int",16]}
-          },
-          "c1":{
-            "genref":"coreir.const",
-            "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],1]}
-          },
-          "r":{
-            "genref":"mantle.reg",
-            "genargs":{"has_clr":["Bool",true], "has_en":["Bool",false], "has_rst":["Bool",false], "width":["Int",16]},
-            "modargs":{"init":[["BitVector",16],0]}
-          }
-        },
-        "connections":[
-          ["a.in0","c1.out"],
-          ["a.in1","r.out"],
-          ["a.out","r.in"],
-          ["r.clk","self.clk"],
-          ["r.clr","self.clr"],
-          ["r.out","self.out"]
-        ]
-      },
       "counters":{
         "type":["Record",{
           "clk":["Named","coreir.clkIn"]
@@ -47,9 +16,18 @@
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],1]}
           },
-          "count0$r":{
-            "genref":"mantle.reg",
-            "genargs":{"has_clr":["Bool",true], "has_en":["Bool",false], "has_rst":["Bool",false], "width":["Int",16]},
+          "count0$r$c0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],0]}
+          },
+          "count0$r$clrMux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "count0$r$reg0":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
             "modargs":{"init":[["BitVector",16],0]}
           },
           "count1$a":{
@@ -61,23 +39,36 @@
             "genargs":{"width":["Int",16]},
             "modargs":{"value":[["BitVector",16],1]}
           },
-          "count1$r":{
-            "genref":"mantle.reg",
-            "genargs":{"has_clr":["Bool",true], "has_en":["Bool",false], "has_rst":["Bool",false], "width":["Int",16]},
+          "count1$r$c0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],0]}
+          },
+          "count1$r$clrMux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "count1$r$reg0":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
             "modargs":{"init":[["BitVector",16],0]}
           }
         },
         "connections":[
           ["count0$a.in0","count0$c1.out"],
-          ["count0$a.in1","count0$r.out"],
-          ["count0$a.out","count0$r.in"],
-          ["count0$r.clk","self.clk"],
-          ["count0$r.clr","count1$r.out.8"],
+          ["count0$a.in1","count0$r$reg0.out"],
+          ["count0$a.out","count0$r$clrMux.in0"],
+          ["count0$r$c0.out","count0$r$clrMux.in1"],
+          ["count0$r$clrMux.out","count0$r$reg0.in"],
+          ["count0$r$clrMux.sel","count1$r$reg0.out.8"],
+          ["count0$r$reg0.clk","self.clk"],
           ["count1$a.in0","count1$c1.out"],
-          ["count1$a.in1","count1$r.out"],
-          ["count1$a.out","count1$r.in"],
-          ["count1$r.clk","self.clk"],
-          ["count1$r.clr","count0$r.out.4"]
+          ["count1$a.in1","count1$r$reg0.out"],
+          ["count1$a.out","count1$r$clrMux.in0"],
+          ["count1$r$c0.out","count1$r$clrMux.in1"],
+          ["count1$r$clrMux.out","count1$r$reg0.in"],
+          ["count1$r$clrMux.sel","count0$r$reg0.out.4"],
+          ["count1$r$reg0.clk","self.clk"]
         ],
         "metadata":{"properties":[["exec_to_30","invar","\"out\" != 0ud16_10"],["out_plus_1","invar","(!B(\"clk\") & next(B(\"clk\")) & !B(\"clr\")) -> (next(\"out\") = (\"out\" + 0ud16_1))"],["reset","ltl","G(F((!B(\"clk\") & next(B(\"clk\")) & !B(\"clr\")) -> (next(\"out\") = 0ud16_0)))"]]}
       }

@@ -21,12 +21,14 @@ class Config(object):
     verbosity = 1
     simulate = False
     bmc_length = 10
+    safety = None
     
     def __init__(self):
         self.strfile = None
         self.verbosity = 1
         self.simulate = False
         self.bmc_length = 10
+        self.safety = None
     
 def run(config):
     parser = CoreIRParser(config.strfile)
@@ -36,6 +38,9 @@ def run(config):
 
     if config.simulate:
         bmc.simulate(config.bmc_length)
+
+    if config.safety:
+        bmc.safety(config.safety, config.bmc_length)
     
 
 if __name__ == "__main__":
@@ -48,9 +53,13 @@ if __name__ == "__main__":
 
 
     parser.set_defaults(simulate=False)
-    parser.add_argument('-s', '--simulate', dest='simulate', action='store_true',
+    parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC')
-    
+
+    parser.set_defaults(safety=None)
+    parser.add_argument('--safety', metavar='safety', type=str, required=False,
+                       help='safety verification using BMC')
+
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='bmc_length', type=int, required=False,
                         help='depth of BMC unrolling')
@@ -66,6 +75,7 @@ if __name__ == "__main__":
     
     config.strfile = args.input_file
     config.simulate = args.simulate
+    config.safety = args.safety
     config.bmc_length = args.bmc_length
     
     config.verbosity = args.verbosity
@@ -77,7 +87,7 @@ if __name__ == "__main__":
     if len(sys.argv)==1:
         ok = False
 
-    if not(config.simulate):
+    if not(config.simulate or (config.safety is not None)):
         Logger.error("analysis selection is necessary")
         ok = False
         

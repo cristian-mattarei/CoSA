@@ -386,6 +386,8 @@ class CoreIRParser(object):
                 
             eq = EqualsOrIff(first, second)
 
+            Logger.log(str(eq), 1)
+
             hts.add_ts(TS(set([]), TRUE(), TRUE(), eq))
 
         return hts

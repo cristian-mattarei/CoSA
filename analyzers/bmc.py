@@ -8,12 +8,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import And, Solver
+from pysmt.shortcuts import And, Solver, TRUE, Not
+from pysmt.parsing import HRParser, parse
 from core.transition_system import TS, HTS, SEP
 
 from util.logger import Logger
+import re
 
 NSEP = "."
+
+KEYWORDS = ["not"]
 
 class BMC(object):
 
@@ -37,7 +41,7 @@ class BMC(object):
 
         return trans.substitute(varmap)
         
-    def unroll(self, k):
+    def unroll(self, k, assumption=TRUE()):
         init = self.hts.single_init()
         trans = self.hts.single_trans()
         invar = self.hts.single_invar()
@@ -46,6 +50,7 @@ class BMC(object):
         formula = self.at_time(formula, 0)
         
         for t in range(k+1):
+            formula = And(formula, self.at_time(assumption, t))
             formula = And(formula, self.at_time(trans, t))
             formula = And(formula, self.at_time(trans, t+1))
 
@@ -90,4 +95,33 @@ class BMC(object):
             self.print_model(model, k)
         else:
             Logger.log("NO TRACE!!", 0)
-    
+
+    def safety(self, strprop, k):
+        for lit in re.findall("([a-zA-Z][a-zA-Z\.0-9]*)+", strprop):
+            if lit in KEYWORDS:
+                continue
+            strprop = strprop.replace(lit, "\"%s\""%lit)
+
+        strprop = strprop.replace(".","$")
+
+        try:
+            prop = parse(strprop)
+        except Exception as e:
+            print(e)
+            return
+
+
+        formula = self.unroll(k)
+        formula = And(formula, Not(self.at_time(prop, k)))
+        
+        self.solver.reset_assertions()
+        self.solver.add_assertion(formula)
+        res = self.solver.solve()
+
+        if res:
+            Logger.log("Property %s is FALSE:"%(strprop), 0)
+            model = self.solver.get_model()
+            self.print_model(model, k)
+        else:
+            Logger.log("No counterexample found for property %s:"%(strprop), 0)
+            
