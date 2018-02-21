@@ -201,6 +201,7 @@ class CoreIRParser(object):
             bvvar = BVVar(varname, var[1].size)
             hts.add_var(bvvar)
 
+            # Adding clock behavior 
             if var[0] == "clk":
                 hts.add_ts(Modules.Clock(bvvar))
 

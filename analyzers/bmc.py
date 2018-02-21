@@ -45,7 +45,7 @@ class BMC(object):
         formula = And(init, invar)
         formula = self.at_time(formula, 0)
         
-        for t in range(k):
+        for t in range(k+1):
             formula = And(formula, self.at_time(trans, t))
             formula = And(formula, self.at_time(trans, t+1))
 
@@ -54,7 +54,7 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_model(self, model, length, only_changing_vars=True):
+    def print_model(self, model, length, diff_only=True):
 
         Logger.log("---> INIT <---", 0)
 
@@ -62,19 +62,19 @@ class BMC(object):
         
         for var in self.hts.vars:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
-            prevass.append(varass)
+            if diff_only: prevass.append(varass)
             Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
 
-        prevass = dict(prevass)
+        if diff_only: prevass = dict(prevass)
             
-        for t in range(length-1):
-            Logger.log("\n---> TIME %s <---"%(t+1), 0)
+        for t in range(length):
+            Logger.log("\n---> STEP %s <---"%(t+1), 0)
 
             for var in self.hts.vars:
                 varass = (var.symbol_name(), model.get_value(TS.get_timed(var, t+1)))
-                if prevass[varass[0]] != varass[1]:
+                if (not diff_only) or (prevass[varass[0]] != varass[1]):
                     Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
-                    prevass[varass[0]] = varass[1]
+                    if diff_only: prevass[varass[0]] = varass[1]
                     
         
     def simulate(self, k):
@@ -85,9 +85,9 @@ class BMC(object):
         res = self.solver.solve()
 
         if res:
-            Logger.log("SAT", 0)
+            Logger.log("TRACE:", 0)
             model = self.solver.get_model()
             self.print_model(model, k)
         else:
-            Logger.log("UNSAT", 0)
+            Logger.log("NO TRACE!!", 0)
     
