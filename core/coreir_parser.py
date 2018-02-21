@@ -79,7 +79,8 @@ class Modules(object):
       # TRANS: (((!clk & clk') -> ((!clr -> (out' = in)) & (clr -> (out' = 0)))) & (!(!clk & clk') -> (out' = out)))
       vars_ = [in_,clk,clr,out]
       comment = ";; Reg (in, clk, clr, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
-      init = EqualsOrIff(out, initval)
+      binitval = BV(initval, out.symbol_type().width)
+      init = EqualsOrIff(out, binitval)
       bclk = EqualsOrIff(clk, BV(1, 1))
       bclr = EqualsOrIff(clr, BV(1, 1))
       zero = BV(0, out.symbol_type().width)
@@ -147,49 +148,39 @@ class CoreIRParser(object):
             inst_intr = dict(inst.module.type.items())
             modname = (SEP.join(inst_name))+SEP
 
+            keywords = "in"
+            for x in ["in0", "in1", "out", "clk", "clr", "in", "out", "sel"]:
+                if x in inst_intr:
+                    setattr(self, x+("_" if x in keywords else ""), BVVar(modname+x, inst_intr[x].size))
+
+            for x in ["init", "value"]:
+                if x in inst.config:
+                    xval = inst.config[x].value
+                    if type(xval) == bool:
+                        xval = 1 if xval else 0
+                    else:
+                        xval = xval.val
+                    
+                    setattr(self, x, xval)
+                    
+                    
             if inst_type == ADD:
-                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
-                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
-                out = BVVar(modname+"out", inst_intr["out"].size)
-                ts = Modules.Add(in0,in1,out)
+                ts = Modules.Add(self.in0, self.in1, self.out)
 
             if inst_type == SUB:
-                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
-                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
-                out = BVVar(modname+"out", inst_intr["out"].size)
-                ts = Modules.Sub(in0,in1,out)
+                ts = Modules.Sub(self.in0, self.in1, self.out)
 
             if inst_type == EQ:
-                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
-                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
-                out = BVVar(modname+"out", inst_intr["out"].size)
-                ts = Modules.Eq(in0,in1,out)
+                ts = Modules.Eq(self.in0, self.in1, self.out)
                 
             if inst_type == CONST:
-                value = inst.config["value"].value
-
-                if type(value) == bool:
-                    value = 1 if value else 0
-                else:
-                    value = value.val
-                
-                out = BVVar(modname+"out", inst_intr["out"].size)
-                ts = Modules.Const(out,value)
+                ts = Modules.Const(self.out, self.value)
 
             if inst_type == REG:
-                clk = BVVar(modname+"clk", inst_intr["clk"].size)
-                clr = BVVar(modname+"clr", inst_intr["clr"].size)
-                in_ = BVVar(modname+"in", inst_intr["in"].size)
-                out = BVVar(modname+"out", inst_intr["out"].size)
-                ival = BV(inst.config["init"].value.val, out.symbol_type().width)
-                ts = Modules.Reg(in_, clk, clr, out, ival)
+                ts = Modules.Reg(self.in_, self.clk, self.clr, self.out, self.init)
 
             if inst_type == MUX:
-                in0 = BVVar(modname+"in0", inst_intr["in0"].size)
-                in1 = BVVar(modname+"in1", inst_intr["in1"].size)
-                sel = BVVar(modname+"sel", inst_intr["sel"].size)
-                out = BVVar(modname+"out", inst_intr["out"].size)
-                ts = Modules.Mux(in0, in1, sel, out)
+                ts = Modules.Mux(self.in0, self.in1, self.sel, self.out)
                 
             if ts is not None:
                 hts.add_ts(ts)
