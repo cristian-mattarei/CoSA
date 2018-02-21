@@ -194,7 +194,7 @@ class CoreIRParser(object):
             if ts is not None:
                 hts.add_ts(ts)
             else:                
-                Logger.error("*** MODULE TYPE \"%s\" IS NOT DEFINED!!"%(inst_type))
+                Logger.error("Module type \"%s\" is not defined"%(inst_type))
                 
         for var in interface:
             varname = "self"+SEP+var[0]

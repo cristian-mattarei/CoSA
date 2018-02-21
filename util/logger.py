@@ -31,7 +31,7 @@ class Logger(object):
 
     @staticmethod        
     def error(msg):
-        sys.stderr.write(msg+"\n")
+        sys.stderr.write("ERROR: "+msg+"\n")
         sys.stderr.flush()
             
     @staticmethod        
