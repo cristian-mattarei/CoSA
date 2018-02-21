@@ -1,5 +1,5 @@
-# CoSA
-CoreIR Symbolic Analyzer
+CoSA: CoreIR Symbolic Analyzer
+========================
 
 ========================
 Requirements
