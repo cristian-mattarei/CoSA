@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import And, Solver, TRUE, Not, EqualsOrIff, Iff, Symbol, BOOL
+from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL
 from pysmt.parsing import HRParser, parse
 from core.transition_system import TS, HTS, SEP
 
@@ -29,10 +29,12 @@ class BMCConfig(object):
 
     incremental = False
     solver = None
+    full_trace = False
     
     def __init__(self):
         self.incremental = True
         self.solver = Solver(name="z3")
+        self.full_trace = False
 
 class BMC(object):
 
@@ -81,14 +83,17 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_model(self, hts, model, length, diff_only=True):
+    def print_trace(self, hts, model, length, diff_only=True):
 
         Logger.log("---> INIT <---", 0)
 
         prevass = []
 
-        varlist = list(hts.vars)
-        varlist
+        if self.config.full_trace:
+            varlist = list(hts.vars)
+        else:
+            varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
+
         
         for var in varlist:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
@@ -166,28 +171,14 @@ class BMC(object):
         (t, model) = self.solve(htseq, miter_out, "eq_S1_S2", k, inc)
             
         if t > -1:
-            self.print_model(htseq, model, t)
+            self.print_trace(htseq, model, t)
         
                     
     def simulate(self, k):
-        formula = self.unroll(self.hts, k)
-        
-        if Logger.level(2):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue())
-        
-        self.config.solver.reset_assertions()
-        self.config.solver.add_assertion(formula)
-        res = self.config.solver.solve()
-
-        if res:
-            Logger.log("TRACE:", 0)
-            model = self.config.solver.get_model()
-            self.print_model(self.hts, model, k)
-        else:
-            Logger.log("NO TRACE!!", 0)
+        (t, model) = self.solve(self.hts, FALSE(), "FALSE", k, False)
+            
+        if t > -1:
+            self.print_trace(self.hts, model, t)
 
 
     def solve(self, hts, prop, strprop, k, inc=True):
@@ -255,4 +246,4 @@ class BMC(object):
         (t, model) = self.solve(self.hts, prop, strprop, k)
 
         if t > -1:
-            self.print_model(self.hts, model, t)
+            self.print_trace(self.hts, model, t)

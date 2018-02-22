@@ -21,6 +21,7 @@ class HTS(object):
     name = None
     inputs = None
     outputs = None
+    state_vars = None
     
     def __init__(self, name):
         self.tss = []

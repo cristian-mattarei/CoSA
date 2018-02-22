@@ -25,6 +25,7 @@ class Config(object):
     equivalence = None
     symbolic_init = None
     fsm_check = False
+    full_trace = False
     
     def __init__(self):
         self.strfile = None
@@ -35,12 +36,15 @@ class Config(object):
         self.equivalence = None
         self.symbolic_init = False
         self.fsm_check = False
+        self.full_trace = False
     
 def run(config):
     parser = CoreIRParser(config.strfile)
     hts = parser.parse()
 
     bmc = BMC(hts)
+
+    bmc.config.full_trace = config.full_trace
 
     if config.simulate:
         bmc.simulate(config.bmc_length)
@@ -85,6 +89,10 @@ if __name__ == "__main__":
     parser.set_defaults(fsm_check=False)
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic')
+
+    parser.set_defaults(full_trace=False)
+    parser.add_argument('--full-trace', dest='full_trace', action='store_true',
+                       help='show all variables in the counterexamples')
     
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='bmc_length', type=int, required=False,
@@ -106,6 +114,7 @@ if __name__ == "__main__":
     config.symbolic_init = args.symbolic_init
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
+    config.full_trace = args.full_trace
     
     config.verbosity = args.verbosity
 
