@@ -24,6 +24,7 @@ class Config(object):
     safety = None
     equivalence = None
     symbolic_init = None
+    fsm_check = False
     
     def __init__(self):
         self.strfile = None
@@ -33,6 +34,7 @@ class Config(object):
         self.safety = None
         self.equivalence = None
         self.symbolic_init = False
+        self.fsm_check = False
     
 def run(config):
     parser = CoreIRParser(config.strfile)
@@ -50,6 +52,9 @@ def run(config):
         parser2 = CoreIRParser(config.equivalence)
         hts2 = parser2.parse()
         bmc.equivalence(hts2, config.bmc_length, config.symbolic_init)
+
+    if config.fsm_check:
+        bmc.equivalence(hts, 1, True, False)
         
 
 if __name__ == "__main__":
@@ -77,6 +82,10 @@ if __name__ == "__main__":
     parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
                        help='symbolic inititial state for equivalence checking')
 
+    parser.set_defaults(fsm_check=False)
+    parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
+                       help='check if the state machine is deterministic')
+    
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='bmc_length', type=int, required=False,
                         help='depth of BMC unrolling')
@@ -95,6 +104,7 @@ if __name__ == "__main__":
     config.safety = args.safety
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
+    config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
     
     config.verbosity = args.verbosity
@@ -108,7 +118,8 @@ if __name__ == "__main__":
 
     if not(config.simulate or \
            (config.safety is not None) or \
-           (config.equivalence is not None)):
+           (config.equivalence is not None) or\
+           (config.fsm_check)):
         Logger.error("analysis selection is necessary")
         ok = False
         

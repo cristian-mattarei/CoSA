@@ -25,19 +25,23 @@ KEYWORDS = ["not"]
 S1 = "sys1$"
 S2 = "sys2$"
 
+class BMCConfig(object):
+
+    incremental = False
+    solver = None
+    
+    def __init__(self):
+        self.incremental = True
+        self.solver = Solver(name="z3")
+
 class BMC(object):
 
     hts = None
-    prop = None
-    
+    config = None
+
     def __init__(self, hts):
         self.hts = hts
-        self.prop = None
-
-        self.solver = Solver(name="z3")
-
-    def set_property(self, prop):
-        self.prop = prop
+        self.config = BMCConfig()
 
     def at_time(self, hts, trans, t):
         varmap_t  = [(v, TS.get_timed(v, t)) for v in hts.vars]
@@ -47,18 +51,30 @@ class BMC(object):
 
         return trans.substitute(varmap)
         
-    def unroll(self, hts, k, assumption=TRUE()):
+    def unroll(self, hts, k_end, k_start=0, assumption=TRUE()):
+        Logger.log("Unroll from %s to %s"%(k_start, k_end), 1)
+        
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        formula = And(init, invar)
-        formula = self.at_time(hts, formula, 0)
+        formula = TRUE()
         
-        for t in range(k):
+        if k_start == 0:
+            formula = And(init, invar)
+            formula = self.at_time(hts, formula, 0)
+            Logger.log("Add init and invar", 1)
+        else:
+            if k_start == k_end:
+                k_start -= 1
+            
+        t = k_start
+        while t < k_end:
             formula = And(formula, self.at_time(hts, assumption, t))
             formula = And(formula, self.at_time(hts, trans, t))
             formula = And(formula, self.at_time(hts, invar, t+1))
+            Logger.log("Add trans, k=%s"%t, 1)
+            t += 1
 
         return formula
 
@@ -91,7 +107,7 @@ class BMC(object):
                     if diff_only: prevass[varass[0]] = varass[1]
                     
 
-    def equivalence(self, hts2, k, symbolic_init):
+    def equivalence(self, hts2, k, symbolic_init, inc=True):
         htseq = HTS("eq")
 
         map1 = dict([(v, TS.get_prefix(v, S1)) for v in self.hts.vars])
@@ -145,8 +161,13 @@ class BMC(object):
 
         if symbolic_init:
             htseq.add_ts(TS(set([]), eqstates, TRUE(), TRUE()))
+
+
+        (t, model) = self.solve(htseq, miter_out, "eq_S1_S2", k, inc)
+            
+        if t > -1:
+            self.print_model(htseq, model, t)
         
-        self.solve(htseq, miter_out, "eq_S1_S2", k)
                     
     def simulate(self, k):
         formula = self.unroll(self.hts, k)
@@ -157,24 +178,42 @@ class BMC(object):
             printer.printer(formula)
             print(buf.getvalue())
         
-        self.solver.reset_assertions()
-        self.solver.add_assertion(formula)
-        res = self.solver.solve()
+        self.config.solver.reset_assertions()
+        self.config.solver.add_assertion(formula)
+        res = self.config.solver.solve()
 
         if res:
             Logger.log("TRACE:", 0)
-            model = self.solver.get_model()
+            model = self.config.solver.get_model()
             self.print_model(self.hts, model, k)
         else:
             Logger.log("NO TRACE!!", 0)
 
 
-    def solve(self, hts, prop, strprop, k):
+    def solve(self, hts, prop, strprop, k, inc=True):
         Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
+
+        if self.config.incremental:
+            self.config.solver.reset_assertions()
         
-        for t in range(k+1):
-            formula = self.unroll(hts, t)
-            formula = And(formula, Not(self.at_time(hts, prop, t)))
+        t = 0 if inc else k
+        while (t < k+1):
+            if not self.config.incremental:
+                self.config.solver.reset_assertions()
+
+            t_start = 0
+
+            if self.config.incremental:
+                t_start = t
+
+            formula = self.unroll(hts, t, t_start)
+            self.config.solver.add_assertion(formula)
+
+            if self.config.incremental:
+                self.config.solver.push()
+            
+            propt = Not(self.at_time(hts, prop, t))
+            self.config.solver.add_assertion(propt)
 
             if Logger.level(2):
                 buf = cStringIO()
@@ -182,17 +221,21 @@ class BMC(object):
                 printer.printer(formula)
                 print(buf.getvalue())
 
-            self.solver.reset_assertions()
-            self.solver.add_assertion(formula)
-            res = self.solver.solve()
+            res = self.config.solver.solve()
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 0)
-                model = self.solver.get_model()
-                self.print_model(hts, model, t)
-                break
+                model = self.config.solver.get_model()
+                return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 0)
+
+            if self.config.incremental:
+                self.config.solver.pop()
+                
+            t += 1
+                
+        return (-1, None)
 
             
     def safety(self, strprop, k):
@@ -209,5 +252,7 @@ class BMC(object):
             print(e)
             return
 
-        self.solve(self.hts, prop, strprop, k)
-            
+        (t, model) = self.solve(self.hts, prop, strprop, k)
+
+        if t > -1:
+            self.print_model(self.hts, model, t)
