@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.')
 
     parser.set_defaults(input_file=None)
-    parser.add_argument('-i', '--input_file', metavar='input_file', type=str, required=False,
+    parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
                         help='input file, CoreIR json format')
 
 
@@ -75,11 +75,11 @@ if __name__ == "__main__":
                        help='simulate system using BMC')
 
     parser.set_defaults(safety=None)
-    parser.add_argument('--safety', metavar='safety', type=str, required=False,
+    parser.add_argument('--safety', metavar='<property>', type=str, required=False,
                        help='safety verification using BMC')
 
     parser.set_defaults(equivalence=None)
-    parser.add_argument('--equivalence', metavar='equivalence', type=str, required=False,
+    parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
                        help='equivalence checking using BMC')
 
     parser.set_defaults(symbolic_init=False)
@@ -95,11 +95,11 @@ if __name__ == "__main__":
                        help='show all variables in the counterexamples')
     
     parser.set_defaults(bmc_length=10)
-    parser.add_argument('-k', '--bmc-length', metavar='bmc_length', type=int, required=False,
+    parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
                         help='depth of BMC unrolling')
     
     parser.set_defaults(verbosity=1)
-    parser.add_argument('-v', dest='verbosity', metavar="verbosity", type=int,
+    parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%1)
 
 
