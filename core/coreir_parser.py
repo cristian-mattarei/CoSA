@@ -22,37 +22,6 @@ from six.moves import cStringIO
 
 SELF = "self"
 
-ADD   = "add"
-AND   = "and"
-XOR   = "xor"
-OR    = "or"
-CONST = "const"
-REG   = "reg"
-MUX   = "mux"
-SUB   = "sub"
-EQ    = "eq"
-ORR   = "orr"
-ANDR  = "andr"
-MUL   = "mul"
-NOT   = "not"
-ZEXT  = "zext"
-LSHR  = "lshr"
-ASHR  = "ashr"
-SLICE = "slice"
-
-IN0 = "in0"
-IN1 = "in1"
-OUT = "out"
-CLK = "clk"
-CLR = "clr"
-IN  = "in"
-SEL = "sel"
-
-VALUE = "value"
-INIT  = "init"
-LOW   = "lo"
-HIGH  = "hi"
-
 def BVVar(name, width):
     if width <= 0 or not isinstance(width, int):
         raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
@@ -249,6 +218,8 @@ class CoreIRParser(object):
     file = None
     context = None
 
+    attrnames = None
+
     def __init__(self, file, *libs):
         self.context = coreir.Context()
         for lib in libs:
@@ -256,6 +227,60 @@ class CoreIRParser(object):
 
         self.file = file
 
+        self.__init_attrnames()
+
+    def __init_attrnames(self):
+        def add_name(name, varname=None):
+            if varname is None:
+                varname = name
+            setattr(self, name.upper(), varname)
+            return name
+        
+        self.attrnames = []
+        self.attrnames.append(add_name("in0"))
+        self.attrnames.append(add_name("in1"))
+        self.attrnames.append(add_name("out"))
+        self.attrnames.append(add_name("clk"))
+        self.attrnames.append(add_name("clr"))
+        self.attrnames.append(add_name("in"))
+        self.attrnames.append(add_name("sel"))
+        self.attrnames.append(add_name("value"))
+        self.attrnames.append(add_name("init"))
+        self.attrnames.append(add_name("low", "lo"))
+        self.attrnames.append(add_name("high", "hi"))
+            
+    def __mod_to_impl(self, inst_type, args):
+        mod_map = []
+        mod_map.append(("not",  (Modules.Not,  [self.IN, self.OUT])))
+        mod_map.append(("not",  (Modules.Not,  [self.IN, self.OUT])))
+        mod_map.append(("zext", (Modules.Zext, [self.IN, self.OUT])))
+        mod_map.append(("orr",  (Modules.Orr,  [self.IN, self.OUT])))
+        mod_map.append(("andr", (Modules.Andr, [self.IN, self.OUT])))
+        
+        mod_map.append(("lshr", (Modules.LShr, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("ashr", (Modules.AShr, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("add",  (Modules.Add,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("and",  (Modules.And,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("xor",  (Modules.Xor,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
+        
+        mod_map.append(("const", (Modules.Const, [self.OUT, self.VALUE])))
+        mod_map.append(("reg",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.OUT, self.INIT])))
+        mod_map.append(("mux",   (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
+        mod_map.append(("slice", (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
+        
+        mod_map = dict(mod_map)
+
+        ts = None
+        
+        if inst_type in mod_map:
+            ts = mod_map[inst_type][0](*args(mod_map[inst_type][1]))
+
+        return ts
+        
     def parse(self):
         top_module = self.context.load_from_file(self.file)
         top_def = top_module.definition
@@ -274,13 +299,13 @@ class CoreIRParser(object):
 
             values_dic = {}
 
-            for x in [IN0, IN1, OUT, CLK, CLR, IN, SEL]:
+            for x in self.attrnames:
                 if x in inst_intr:
                     values_dic[x] = BVVar(modname+x, inst_intr[x].size)
                 else:
                     values_dic[x] = None
 
-            for x in [VALUE, INIT]:
+            for x in self.attrnames:
                 if x in inst.config:
                     xval = inst.config[x].value
                     if type(xval) == bool:
@@ -293,63 +318,14 @@ class CoreIRParser(object):
             if inst.module.generated:
                 inst_args = inst.module.generator_args
 
-                for x in [LOW, HIGH]:
+                for x in self.attrnames:
                     if x in inst_args:
                         values_dic[x] = inst_args[x].value
                     
             def args(ports_list):
                 return [values_dic[x] for x in ports_list]
 
-            if inst_type == NOT:
-                ts = Modules.Not(*args([IN, OUT])) 
-
-            if inst_type == ZEXT:
-                ts = Modules.Zext(*args([IN, OUT])) 
-
-            if inst_type == LSHR:
-                ts = Modules.LShr(*args([IN0, IN1, OUT])) 
-                
-            if inst_type == ASHR:
-                ts = Modules.AShr(*args([IN0, IN1, OUT])) 
-                
-            if inst_type == ADD:
-                ts = Modules.Add(*args([IN0, IN1, OUT])) 
-
-            if inst_type == AND:
-                ts = Modules.And(*args([IN0, IN1, OUT])) 
-
-            if inst_type == XOR:
-                ts = Modules.Xor(*args([IN0, IN1, OUT])) 
-                
-            if inst_type == OR:
-                ts = Modules.Or(*args([IN0, IN1, OUT])) 
-
-            if inst_type == ORR:
-                ts = Modules.Orr(*args([IN, OUT])) 
-
-            if inst_type == ANDR:
-                ts = Modules.Andr(*args([IN, OUT])) 
-                
-            if inst_type == SUB:
-                ts = Modules.Sub(*args([IN0, IN1, OUT]))
-
-            if inst_type == MUL:
-                ts = Modules.Mul(*args([IN0, IN1, OUT]))
-                
-            if inst_type == EQ:
-                ts = Modules.Eq(*args([IN0, IN1, OUT]))
-                
-            if inst_type == CONST:
-                ts = Modules.Const(*args([OUT, VALUE]))
-
-            if inst_type == REG:
-                ts = Modules.Reg(*args([IN, CLK, CLR, OUT, INIT]))
-
-            if inst_type == MUX:
-                ts = Modules.Mux(*args([IN0, IN1, SEL, OUT]))
-
-            if inst_type == SLICE:
-                ts = Modules.Slice(*args([IN, OUT, LOW, HIGH]))
+            ts = self.__mod_to_impl(inst_type, args)
                 
             if ts is not None:
                 hts.add_ts(ts)
@@ -366,7 +342,7 @@ class CoreIRParser(object):
                 hts.outputs.add(bvvar)
 
             # Adding clock behavior 
-            if var[0] == CLK:
+            if var[0] == self.CLK:
                 hts.add_ts(Modules.Clock(bvvar))
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
