@@ -62,7 +62,7 @@ def BVVar(name, width):
 class Modules(object):
 
     @staticmethod
-    def SMTUop(op, in_, out):
+    def Uop(op, in_, out):
         # INVAR: (<op> in) = out)
         vars_ = [in_,out]
         comment = (";; " + op.__name__ + " (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
@@ -73,7 +73,7 @@ class Modules(object):
         return ts
     
     @staticmethod
-    def SMTBop(op, in0, in1, out):
+    def Bop(op, in0, in1, out):
         # INVAR: (in0 <op> in1) = out
         vars_ = [in0,in1,out]
         comment = (";; " + op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
@@ -85,7 +85,7 @@ class Modules(object):
 
     @staticmethod
     def Not(in_,out):
-        return Modules.SMTUop(BVNot,in_,out)
+        return Modules.Uop(BVNot,in_,out)
 
     @staticmethod
     def Zext(in_,out):
@@ -101,35 +101,35 @@ class Modules(object):
 
     @staticmethod
     def LShr(in0,in1,out):
-        return Modules.SMTBop(BVLShr,in0,in1,out)
+        return Modules.Bop(BVLShr,in0,in1,out)
 
     @staticmethod
     def AShr(in0,in1,out):
-        return Modules.SMTBop(BVAShr,in0,in1,out)
+        return Modules.Bop(BVAShr,in0,in1,out)
 
     @staticmethod
     def Add(in0,in1,out):
-        return Modules.SMTBop(BVAdd,in0,in1,out)
+        return Modules.Bop(BVAdd,in0,in1,out)
 
     @staticmethod
     def And(in0,in1,out):
-        return Modules.SMTBop(BVAnd,in0,in1,out)
+        return Modules.Bop(BVAnd,in0,in1,out)
 
     @staticmethod
     def Xor(in0,in1,out):
-        return Modules.SMTBop(BVXor,in0,in1,out)
+        return Modules.Bop(BVXor,in0,in1,out)
     
     @staticmethod
     def Or(in0,in1,out):
-        return Modules.SMTBop(BVOr,in0,in1,out)
+        return Modules.Bop(BVOr,in0,in1,out)
     
     @staticmethod
     def Sub(in0,in1,out):
-        return Modules.SMTBop(BVSub,in0,in1,out)
+        return Modules.Bop(BVSub,in0,in1,out)
 
     @staticmethod
     def Mul(in0,in1,out):
-        return Modules.SMTBop(BVMul,in0,in1,out)
+        return Modules.Bop(BVMul,in0,in1,out)
     
     @staticmethod
     def Const(out, value):
