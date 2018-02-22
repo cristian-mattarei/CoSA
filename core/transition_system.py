@@ -35,6 +35,9 @@ class HTS(object):
     def add_ts(self, ts):
         self.ts.append(ts)
 
+        self.vars = self.vars.union(ts.vars)
+        self.state_vars = self.state_vars.union(ts.state_vars)
+
     def add_sub(self, sub):
         self.sub.append(sub)
 

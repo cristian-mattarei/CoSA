@@ -129,11 +129,13 @@ class BMC(object):
                  ts1_init,\
                  self.hts.single_trans().substitute(map1),\
                  self.hts.single_invar().substitute(map1))
+        ts1.state_vars = set([TS.get_prefix(v, S1) for v in self.hts.state_vars])
 
         ts2 = TS(set([TS.get_prefix(v, S2) for v in hts2.vars]),\
                  ts2_init,\
                  hts2.single_trans().substitute(map2),\
                  hts2.single_invar().substitute(map2))
+        ts2.state_vars = set([TS.get_prefix(v, S2) for v in hts2.state_vars])
 
         htseq.add_ts(ts1)
         htseq.add_ts(ts2)
@@ -141,6 +143,9 @@ class BMC(object):
         inputs = self.hts.inputs.union(hts2.inputs)
         outputs = self.hts.outputs.union(hts2.outputs)
 
+        htseq.inputs = set([TS.get_prefix(v, S1) for v in self.hts.inputs]).union(set([TS.get_prefix(v, S2) for v in hts2.inputs]))
+        htseq.outputs = set([TS.get_prefix(v, S1) for v in self.hts.outputs]).union(set([TS.get_prefix(v, S2) for v in hts2.outputs]))
+        
         if symbolic_init:
             states = self.hts.state_vars.union(hts2.state_vars)
         else:
