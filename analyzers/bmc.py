@@ -19,7 +19,7 @@ from util.logger import Logger
 import re
 
 NSEP = "."
-
+NL = "\n"
 KEYWORDS = ["not"]
 
 S1 = "sys1$"
@@ -30,11 +30,13 @@ class BMCConfig(object):
     incremental = False
     solver = None
     full_trace = False
+    trace_file = None
     
     def __init__(self):
         self.incremental = True
         self.solver = Solver(name="z3")
         self.full_trace = False
+        self.trace_file = None
 
 class BMC(object):
 
@@ -84,10 +86,10 @@ class BMC(object):
         return name.replace(SEP, NSEP)
 
     def print_trace(self, hts, model, length, diff_only=True):
-
-        Logger.log("---> INIT <---", 0)
-
+        trace = []
         prevass = []
+            
+        trace.append("---> INIT <---")
 
         if self.config.full_trace:
             varlist = list(hts.vars)
@@ -96,22 +98,29 @@ class BMC(object):
 
         strvarlist = [(var.symbol_name(), var) for var in varlist]
         strvarlist.sort()
-            
+        
         for var in varlist:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
             if diff_only: prevass.append(varass)
-            Logger.log("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
+            trace.append("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]))
 
         if diff_only: prevass = dict(prevass)
             
         for t in range(length):
-            Logger.log("\n---> STATE %s <---"%(t+1), 0)
+            trace.append("\n---> STATE %s <---"%(t+1))
                      
             for var in strvarlist:
                 varass = (var[1].symbol_name(), model.get_value(TS.get_timed(var[1], t+1)))
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
-                    Logger.log("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]), 0)
+                    trace.append("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]))
                     if diff_only: prevass[varass[0]] = varass[1]
+
+        trace = NL.join(trace)
+        if self.config.trace_file is None:
+            Logger.log(trace, 0)
+        else:
+            with open(self.config.trace_file, "w") as f:
+                f.write(trace)
                     
 
     def equivalence(self, hts2, k, symbolic_init, inc=True):
@@ -199,10 +208,7 @@ class BMC(object):
             if not self.config.incremental:
                 self.config.solver.reset_assertions()
 
-            t_start = 0
-
-            if self.config.incremental:
-                t_start = t
+            t_start = 0 if not self.config.incremental else t
 
             formula = self.unroll(hts, t, t_start)
             self.config.solver.add_assertion(formula)
@@ -239,7 +245,7 @@ class BMC(object):
     def safety(self, strprop, k):
         prop = strprop.replace(".","$")
 
-        for lit in re.findall("([a-zA-Z][a-zA-Z$0-9]*)+", prop):
+        for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", prop):
             if lit in KEYWORDS:
                 continue
             prop = prop.replace(lit, "\"%s\""%lit)

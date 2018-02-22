@@ -26,6 +26,7 @@ class Config(object):
     symbolic_init = None
     fsm_check = False
     full_trace = False
+    trace_file = None
     
     def __init__(self):
         self.strfile = None
@@ -37,6 +38,7 @@ class Config(object):
         self.symbolic_init = False
         self.fsm_check = False
         self.full_trace = False
+        self.trace_file = None
     
 def run(config):
     parser = CoreIRParser(config.strfile)
@@ -45,6 +47,7 @@ def run(config):
     bmc = BMC(hts)
 
     bmc.config.full_trace = config.full_trace
+    bmc.config.trace_file = config.trace_file
 
     if config.simulate:
         bmc.simulate(config.bmc_length)
@@ -93,6 +96,10 @@ if __name__ == "__main__":
     parser.set_defaults(full_trace=False)
     parser.add_argument('--full-trace', dest='full_trace', action='store_true',
                        help='show all variables in the counterexamples')
+
+    parser.set_defaults(trace=None)
+    parser.add_argument('--trace', metavar='<trace file>', type=str, required=False,
+                       help='write the counterexample to file')
     
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
@@ -115,6 +122,7 @@ if __name__ == "__main__":
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
     config.full_trace = args.full_trace
+    config.trace_file = args.trace
     
     config.verbosity = args.verbosity
 
