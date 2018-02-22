@@ -98,17 +98,17 @@ class BMC(object):
         for var in varlist:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
             if diff_only: prevass.append(varass)
-            Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
+            Logger.log("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
 
         if diff_only: prevass = dict(prevass)
             
         for t in range(length):
             Logger.log("\n---> STATE %s <---"%(t+1), 0)
-
+                     
             for var in varlist:
                 varass = (var.symbol_name(), model.get_value(TS.get_timed(var, t+1)))
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
-                    Logger.log("  %s = %s"%(self.remap_name(varass[0]), varass[1]), 0)
+                    Logger.log("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]), 0)
                     if diff_only: prevass[varass[0]] = varass[1]
                     
 

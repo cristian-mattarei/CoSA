@@ -234,7 +234,7 @@ class CoreIRParser(object):
             if varname is None:
                 varname = name
             setattr(self, name.upper(), varname)
-            return name
+            return varname
         
         self.attrnames = []
         self.attrnames.append(add_name("in0"))
@@ -321,7 +321,8 @@ class CoreIRParser(object):
                 for x in self.attrnames:
                     if x in inst_args:
                         values_dic[x] = inst_args[x].value
-                    
+
+
             def args(ports_list):
                 return [values_dic[x] for x in ports_list]
 
