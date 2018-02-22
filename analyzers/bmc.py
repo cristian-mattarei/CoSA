@@ -94,7 +94,9 @@ class BMC(object):
         else:
             varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
 
-        
+        strvarlist = [(var.symbol_name(), var) for var in varlist]
+        strvarlist.sort()
+            
         for var in varlist:
             varass = (var.symbol_name(), model.get_value(TS.get_timed(var, 0)))
             if diff_only: prevass.append(varass)
@@ -105,8 +107,8 @@ class BMC(object):
         for t in range(length):
             Logger.log("\n---> STATE %s <---"%(t+1), 0)
                      
-            for var in varlist:
-                varass = (var.symbol_name(), model.get_value(TS.get_timed(var, t+1)))
+            for var in strvarlist:
+                varass = (var[1].symbol_name(), model.get_value(TS.get_timed(var[1], t+1)))
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
                     Logger.log("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]), 0)
                     if diff_only: prevass[varass[0]] = varass[1]
