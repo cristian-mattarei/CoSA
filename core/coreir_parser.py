@@ -10,7 +10,11 @@
 
 import coreir
 
-from pysmt.shortcuts import get_env, Symbol, Iff, Not, BVAnd, EqualsOrIff, TRUE, FALSE, And, BV, Implies, BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVAShr
+from pysmt.shortcuts import get_env, Symbol, BV, \
+    TRUE, FALSE, \
+    And, Implies, Iff, Not, BVAnd, EqualsOrIff, \
+    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVAShr
+
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
@@ -18,7 +22,6 @@ from core.transition_system import TS, HTS, SEP
 from util.utils import is_number
 from util.logger import Logger
 from six.moves import cStringIO
-
 
 SELF = "self"
 
@@ -40,6 +43,10 @@ class Modules(object):
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
+
+    @staticmethod
+    def Not(in_,out):
+        return Modules.Uop(BVNot,in_,out)
     
     @staticmethod
     def Bop(op, in0, in1, out):
@@ -48,22 +55,6 @@ class Modules(object):
         comment = (";; " + op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 1)
         invar = EqualsOrIff(op(in0,in1), out)
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
-        return ts
-
-    @staticmethod
-    def Not(in_,out):
-        return Modules.Uop(BVNot,in_,out)
-
-    @staticmethod
-    def Zext(in_,out):
-        # INVAR: (<op> in) = out)
-        vars_ = [in_,out]
-        comment = (";; ZExt (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 1)
-        length = (out.symbol_type().width)-(in_.symbol_type().width)
-        invar = EqualsOrIff(BVZExt(in_, length), out)
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
@@ -99,6 +90,50 @@ class Modules(object):
     @staticmethod
     def Mul(in0,in1,out):
         return Modules.Bop(BVMul,in0,in1,out)
+
+    @staticmethod
+    def Ult(in0,in1,out):
+        return Modules.Bop(BVUlt,in0,in1,out)
+    
+    @staticmethod
+    def Ule(in0,in1,out):
+        return Modules.Bop(BVUle,in0,in1,out)
+    
+    @staticmethod
+    def Ugt(in0,in1,out):
+        return Modules.Bop(BVUgt,in0,in1,out)
+    
+    @staticmethod
+    def Uge(in0,in1,out):
+        return Modules.Bop(BVUge,in0,in1,out)
+    
+    @staticmethod
+    def Slt(in0,in1,out):
+        return Modules.Bop(BVSlt,in0,in1,out)
+    
+    @staticmethod
+    def Sle(in0,in1,out):
+        return Modules.Bop(BVSle,in0,in1,out)
+    
+    @staticmethod
+    def Sgt(in0,in1,out):
+        return Modules.Bop(BVSgt,in0,in1,out)
+    
+    @staticmethod
+    def Sge(in0,in1,out):
+        return Modules.Bop(BVSge,in0,in1,out)
+
+    @staticmethod
+    def Zext(in_,out):
+        # INVAR: (<op> in) = out)
+        vars_ = [in_,out]
+        comment = (";; ZExt (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        Logger.log(comment, 1)
+        length = (out.symbol_type().width)-(in_.symbol_type().width)
+        invar = EqualsOrIff(BVZExt(in_, length), out)
+        ts = TS(set(vars_), TRUE(), TRUE(), invar)
+        ts.comment = comment
+        return ts
     
     @staticmethod
     def Const(out, value):
@@ -266,6 +301,15 @@ class CoreIRParser(object):
         mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
+
+        mod_map.append(("ult",  (Modules.Ult,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("ule",  (Modules.Ule,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("ugt",  (Modules.Ugt,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("uge",  (Modules.Uge,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("slt",  (Modules.Slt,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("sle",  (Modules.Sle,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
         
         mod_map.append(("const", (Modules.Const, [self.OUT, self.VALUE])))
         mod_map.append(("reg",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.OUT, self.INIT])))
