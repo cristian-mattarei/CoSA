@@ -191,6 +191,7 @@ class BMC(object):
         
                     
     def simulate(self, k):
+        self.config.incremental = False
         (t, model) = self.solve(self.hts, FALSE(), "FALSE", k, False)
             
         if t > -1:

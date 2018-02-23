@@ -99,6 +99,9 @@ class TS(object):
 
         self.comment = None
 
+    def __repr__(self):
+        return "V: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.init), str(self.trans), str(self.invar))
+        
     def remove_invar(self):
         if self.invar is not None:
             self.trans = And([self.trans, self.invar, TS.to_next(self.invar)])

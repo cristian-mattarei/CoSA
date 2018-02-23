@@ -412,8 +412,8 @@ class CoreIRParser(object):
             else:
                 hts.outputs.add(bvvar)
 
-            # Adding clock behavior 
-            if var[0] == self.CLK:
+            # Adding clock behavior
+            if var[0].lower() == self.CLK:
                 hts.add_ts(Modules.Clock(bvvar))
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
