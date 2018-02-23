@@ -56,7 +56,7 @@ class BMC(object):
         return trans.substitute(varmap)
         
     def unroll(self, hts, k_end, k_start=0, assumption=TRUE()):
-        Logger.log("Unroll from %s to %s"%(k_start, k_end), 1)
+        Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
         
         init = hts.single_init()
         trans = hts.single_trans()
@@ -67,7 +67,7 @@ class BMC(object):
         if k_start == 0:
             formula = And(init, invar)
             formula = self.at_time(hts, formula, 0)
-            Logger.log("Add init and invar", 1)
+            Logger.log("Add init and invar", 2)
         else:
             if k_start == k_end:
                 k_start -= 1
@@ -77,7 +77,7 @@ class BMC(object):
             formula = And(formula, self.at_time(hts, assumption, t))
             formula = And(formula, self.at_time(hts, trans, t))
             formula = And(formula, self.at_time(hts, invar, t+1))
-            Logger.log("Add trans, k=%s"%t, 1)
+            Logger.log("Add trans, k=%s"%t, 2)
             t += 1
 
         return formula
@@ -129,7 +129,11 @@ class BMC(object):
         (t, model) = self.combined_system(hts2, k, symbolic_init, inc)
             
         if t > -1:
+            Logger.log("Systems are NOT equivalent", 0)
             self.print_trace(htseq, model, t)
+        else:
+            Logger.log("Systems are equivalent with k=%s"%k, 0)
+            
 
     def fsm_check(self):
         Logger.log("Checking FSM:", 0)
@@ -137,7 +141,10 @@ class BMC(object):
         (t, model) = self.combined_system(self.hts, 1, True, False)
             
         if t > -1:
+            Logger.log("FSM is NOT deterministic", 0)            
             self.print_trace(htseq, model, t)
+        else:
+            Logger.log("FSM is deterministic", 0)
             
                 
     def combined_system(self, hts2, k, symbolic_init, inc=True):
@@ -204,14 +211,15 @@ class BMC(object):
         return self.solve(htseq, miter_out, "eq_S1_S2", k, inc)
                     
     def simulate(self, k):
-        Logger.log("Simulation at k=%s:"%(k), 0)
+        Logger.log("Simulation with k=%s:"%(k), 0)
 
         self.config.incremental = False
         (t, model) = self.solve(self.hts, FALSE(), "FALSE", k, False)
             
         if t > -1:
             self.print_trace(self.hts, model, t)
-
+        else:
+            Logger.log("Deadlock wit k=%s"%k, 0)
 
     def solve(self, hts, prop, strprop, k, inc=True):
         if self.config.incremental:
@@ -242,11 +250,11 @@ class BMC(object):
             res = self.config.solver.solve()
 
             if res:
-                Logger.log("Counterexample found with k=%s"%(t), 0)
+                Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self.config.solver.get_model()
                 return (t, model)
             else:
-                Logger.log("No counterexample found with k=%s"%(t), 0)
+                Logger.log("No counterexample found with k=%s"%(t), 1)
 
             if self.config.incremental:
                 self.config.solver.pop()
@@ -275,4 +283,7 @@ class BMC(object):
         (t, model) = self.solve(self.hts, prop, strprop, k)
 
         if t > -1:
+            Logger.log("Property is FALSE", 0)
             self.print_trace(self.hts, model, t)
+        else:
+            Logger.log("No counterexample found", 0)
