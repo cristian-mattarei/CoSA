@@ -56,6 +56,16 @@ def run(config):
     bmc.config.full_trace = config.full_trace
     bmc.config.trace_file = config.trace_file
 
+    if Logger.level(1):
+        stat = []
+        stat.append("Statistics (System 1):")
+        stat.append("  Variables:\t%s"%(len(hts.vars)))
+        stat.append("  StateVars:\t%s"%(len(hts.state_vars)))
+        stat.append("  Inputs:\t%s"%(len(hts.inputs)))
+        stat.append("  Outputs:\t%s"%(len(hts.outputs)))
+        print("\n".join(stat))
+
+    
     if config.simulate:
         bmc.simulate(config.bmc_length)
 
@@ -70,6 +80,16 @@ def run(config):
             parser2.run_passes()
         
         hts2 = parser2.parse()
+
+        if Logger.level(1):
+            stat = []
+            stat.append("Statistics (System 2):")
+            stat.append("  Variables:\t%s"%(len(hts2.vars)))
+            stat.append("  StateVars:\t%s"%(len(hts2.state_vars)))
+            stat.append("  Inputs:\t%s"%(len(hts2.inputs)))
+            stat.append("  Outputs:\t%s"%(len(hts2.outputs)))
+            print("\n".join(stat))
+        
         bmc.equivalence(hts2, config.bmc_length, config.symbolic_init)
 
     if config.fsm_check:

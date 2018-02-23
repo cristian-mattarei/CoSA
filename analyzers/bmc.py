@@ -252,6 +252,7 @@ class BMC(object):
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self.config.solver.get_model()
+                Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
