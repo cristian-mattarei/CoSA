@@ -124,6 +124,23 @@ class BMC(object):
                     
 
     def equivalence(self, hts2, k, symbolic_init, inc=True):
+        Logger.log("Equivalenche check with k=%s:"%(k), 0)
+
+        (t, model) = self.combined_system(hts2, k, symbolic_init, inc)
+            
+        if t > -1:
+            self.print_trace(htseq, model, t)
+
+    def fsm_check(self):
+        Logger.log("Checking FSM:", 0)
+
+        (t, model) = self.combined_system(self.hts, 1, True, False)
+            
+        if t > -1:
+            self.print_trace(htseq, model, t)
+            
+                
+    def combined_system(self, hts2, k, symbolic_init, inc=True):
         htseq = HTS("eq")
 
         map1 = dict([(v, TS.get_prefix(v, S1)) for v in self.hts.vars])
@@ -184,13 +201,11 @@ class BMC(object):
             htseq.add_ts(TS(set([]), eqstates, TRUE(), TRUE()))
 
 
-        (t, model) = self.solve(htseq, miter_out, "eq_S1_S2", k, inc)
-            
-        if t > -1:
-            self.print_trace(htseq, model, t)
-        
+        return self.solve(htseq, miter_out, "eq_S1_S2", k, inc)
                     
     def simulate(self, k):
+        Logger.log("Simulation at k=%s:"%(k), 0)
+
         self.config.incremental = False
         (t, model) = self.solve(self.hts, FALSE(), "FALSE", k, False)
             
@@ -199,8 +214,6 @@ class BMC(object):
 
 
     def solve(self, hts, prop, strprop, k, inc=True):
-        Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-
         if self.config.incremental:
             self.config.solver.reset_assertions()
         
@@ -244,6 +257,8 @@ class BMC(object):
 
             
     def safety(self, strprop, k):
+        Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
+
         prop = strprop.replace(".","$")
 
         for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", prop):

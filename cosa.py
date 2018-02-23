@@ -61,7 +61,7 @@ def run(config):
         bmc.equivalence(hts2, config.bmc_length, config.symbolic_init)
 
     if config.fsm_check:
-        bmc.equivalence(hts, 1, True, False)
+        bmc.fsm_check()
         
 
 if __name__ == "__main__":
