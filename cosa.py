@@ -64,6 +64,11 @@ def run(config):
 
     if config.equivalence:
         parser2 = CoreIRParser(config.equivalence)
+        
+        if config.run_passes:
+            Logger.log("Running passes:", 0)
+            parser2.run_passes()
+        
         hts2 = parser2.parse()
         bmc.equivalence(hts2, config.bmc_length, config.symbolic_init)
 
