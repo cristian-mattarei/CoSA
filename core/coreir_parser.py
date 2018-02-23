@@ -289,6 +289,9 @@ class CoreIRParser(object):
 
         self.__init_attrnames()
 
+    def run_passes(self):
+        self.context.run_passes(['rungenerators','cullgraph','flattentypes','flatten','verifyflattenedtypes'])
+        
     def __init_attrnames(self):
         def add_name(name, varname=None):
             if varname is None:

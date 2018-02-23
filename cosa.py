@@ -27,6 +27,7 @@ class Config(object):
     fsm_check = False
     full_trace = False
     trace_file = None
+    run_passes = False
     
     def __init__(self):
         self.strfile = None
@@ -39,9 +40,15 @@ class Config(object):
         self.fsm_check = False
         self.full_trace = False
         self.trace_file = None
+        self.run_passes = False
     
 def run(config):
     parser = CoreIRParser(config.strfile)
+
+    if config.run_passes:
+        Logger.log("Running passes:", 0)
+        parser.run_passes()
+    
     hts = parser.parse()
 
     bmc = BMC(hts)
@@ -72,6 +79,10 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
                         help='input file, CoreIR json format')
 
+    parser.set_defaults(run_passes=False)
+    parser.add_argument('--run-passes', dest='run_passes', action='store_true',
+                       help='run necessary passes to process the CoreIR file')
+    
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC')
@@ -122,6 +133,7 @@ if __name__ == "__main__":
     config.bmc_length = args.bmc_length
     config.full_trace = args.full_trace
     config.trace_file = args.trace
+    config.run_passes = args.run_passes
     
     config.verbosity = args.verbosity
 
