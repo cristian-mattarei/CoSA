@@ -72,7 +72,6 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
                         help='input file, CoreIR json format')
 
-
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC')

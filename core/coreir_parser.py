@@ -10,10 +10,10 @@
 
 import coreir
 
-from pysmt.shortcuts import get_env, Symbol, BV, \
+from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, \
-    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVAShr
+    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVAShr, BVULT, BVUGT, BVUGE
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
@@ -60,6 +60,18 @@ class Modules(object):
         return ts
 
     @staticmethod
+    def BopBool(op, in0, in1, out):
+        # INVAR: (in0 <op> in1) = out
+        vars_ = [in0,in1,out]
+        comment = (";; " + op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        Logger.log(comment, 1)
+        bout = EqualsOrIff(out, BV(1, 1))
+        invar = Iff(op(in0,in1), bout)
+        ts = TS(set(vars_), TRUE(), TRUE(), invar)
+        ts.comment = comment
+        return ts
+    
+    @staticmethod
     def LShr(in0,in1,out):
         return Modules.Bop(BVLShr,in0,in1,out)
 
@@ -93,7 +105,7 @@ class Modules(object):
 
     @staticmethod
     def Ult(in0,in1,out):
-        return Modules.Bop(BVUlt,in0,in1,out)
+        return Modules.BopBool(BVULT,in0,in1,out)
     
     @staticmethod
     def Ule(in0,in1,out):
@@ -101,11 +113,11 @@ class Modules(object):
     
     @staticmethod
     def Ugt(in0,in1,out):
-        return Modules.Bop(BVUgt,in0,in1,out)
+        return Modules.BopBool(BVUGT,in0,in1,out)
     
     @staticmethod
     def Uge(in0,in1,out):
-        return Modules.Bop(BVUge,in0,in1,out)
+        return Modules.BopBool(BVUGE,in0,in1,out)
     
     @staticmethod
     def Slt(in0,in1,out):
@@ -157,11 +169,13 @@ class Modules(object):
         return ts
 
     @staticmethod
-    def Reg(in_, clk, clr, out, initval):
+    def Reg(in_, clk, clr, rst, out, initval):
         # INIT: out = initval
-        # TRANS: (((!clk & clk') -> ((!clr -> (out' = in)) & (clr -> (out' = 0)))) & (!(!clk & clk') -> (out' = out)))
-        vars_ = [in_,clk,clr,out]
-        comment = ";; Reg (in, clk, clr, out) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+        # TRANS: ((!clk & clk') -> (((clr) -> (out' = 0)) & ((rst & !clr) -> (out' = initval)) & ((!rst & !clr) -> (out' = in)))) & 
+        #        (!(!clk & clk') -> (out' = out)))
+        # trans gives priority to clr signal over rst
+        vars_ = [in_,clk,clr,rst,out]
+        comment = ";; Reg (in, clk, clr, rst, out) = (%s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 1)
         binitval = BV(initval, out.symbol_type().width)
         init = EqualsOrIff(out, binitval)
@@ -170,14 +184,24 @@ class Modules(object):
         else:
             bclr = FALSE()
 
+        if rst is not None:
+            brst = EqualsOrIff(rst, BV(1, 1))
+        else:
+            brst = FALSE()
+            
         bclk = EqualsOrIff(clk, BV(1, 1))
         zero = BV(0, out.symbol_type().width)
 
-        trans_0 = And(Implies(Not(bclr), EqualsOrIff(TS.get_prime(out), in_)), Implies(bclr, EqualsOrIff(TS.get_prime(out), zero)))
-        trans_1 = Implies(And(Not(bclk), TS.to_next(bclk)), trans_0)
-        trans_2 = Implies(Not(And(Not(bclk), TS.to_next(bclk))), EqualsOrIff(TS.get_prime(out), out))
-        
-        trans = And(trans_1, trans_2)
+        ri_clk = And(Not(bclk), TS.to_next(bclk))
+        do_clk = And(bclk, Not(TS.to_next(bclk)))
+
+        tr_clr = Implies(bclr, EqualsOrIff(TS.get_prime(out), zero))
+        tr_rst_nclr = Implies(And(brst, Not(bclr)), EqualsOrIff(TS.get_prime(out), binitval))
+        tr_nrst_nclr = Implies(And(Not(brst), Not(bclr)), EqualsOrIff(TS.get_prime(out), in_))
+        trans_ri = And(tr_clr, tr_rst_nclr, tr_nrst_nclr)
+        trans_do = EqualsOrIff(out, TS.get_prime(out))
+                
+        trans = And(Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
         ts = TS(set([v for v in vars_ if v is not None]), init, trans, TRUE())
         ts.state_vars = set([out])
         ts.comment = comment
@@ -277,6 +301,7 @@ class CoreIRParser(object):
         self.attrnames.append(add_name("out"))
         self.attrnames.append(add_name("clk"))
         self.attrnames.append(add_name("clr"))
+        self.attrnames.append(add_name("rst"))
         self.attrnames.append(add_name("in"))
         self.attrnames.append(add_name("sel"))
         self.attrnames.append(add_name("value"))
@@ -312,7 +337,8 @@ class CoreIRParser(object):
         mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
         
         mod_map.append(("const", (Modules.Const, [self.OUT, self.VALUE])))
-        mod_map.append(("reg",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.OUT, self.INIT])))
+        mod_map.append(("reg",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
+        mod_map.append(("regrst",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
         mod_map.append(("mux",   (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice", (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         
