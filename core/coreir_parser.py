@@ -202,6 +202,7 @@ class Modules(object):
         trans_do = EqualsOrIff(out, TS.get_prime(out))
                 
         trans = And(Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
+        trans = simplify(trans)
         ts = TS(set([v for v in vars_ if v is not None]), init, trans, TRUE())
         ts.state_vars = set([out])
         ts.comment = comment
