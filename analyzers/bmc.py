@@ -255,11 +255,13 @@ class BMC(object):
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
+                Logger.msg(".", 0, not(Logger.level(1)))
 
             if self.config.incremental:
                 self.config.solver.pop()
                 
             t += 1
+        Logger.log("", 0, not(Logger.level(1)))
                 
         return (-1, None)
 
