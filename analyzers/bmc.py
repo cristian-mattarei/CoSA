@@ -276,7 +276,7 @@ class BMC(object):
         for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", prop):
             if lit in KEYWORDS:
                 continue
-            prop = prop.replace(lit, "\"%s\""%lit)
+            prop = prop.replace(lit, "\'%s\'"%lit)
 
         try:
             prop = parse(prop)

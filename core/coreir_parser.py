@@ -9,6 +9,7 @@
 # limitations under the License.
 
 import coreir
+import sys
 
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
@@ -290,7 +291,11 @@ class CoreIRParser(object):
         self.__init_attrnames()
 
     def run_passes(self):
-        self.context.run_passes(['rungenerators','cullgraph','flattentypes','flatten','verifyflattenedtypes'])
+        self.context.run_passes(['rungenerators',\
+                                 'cullgraph',\
+                                 'flattentypes',\
+                                 'flatten',\
+                                 'verifyflattenedtypes'])
         
     def __init_attrnames(self):
         def add_name(name, varname=None):
@@ -357,6 +362,7 @@ class CoreIRParser(object):
         
     def parse(self):
         top_module = self.context.load_from_file(self.file)
+
         top_def = top_module.definition
         interface = list(top_module.type.items())
         modules = {}
