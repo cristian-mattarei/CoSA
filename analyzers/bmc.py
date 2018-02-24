@@ -271,7 +271,7 @@ class BMC(object):
     def safety(self, strprop, k):
         Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
 
-        prop = strprop.replace(".","$")
+        prop = strprop.replace(".","$").replace("\\","")
 
         for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", prop):
             if lit in KEYWORDS:
