@@ -2,10 +2,52 @@
 "namespaces":{
   "global":{
     "modules":{
+      "counter":{
+        "type":["Record",[
+          ["clk",["Named","coreir.clkIn"]],
+          ["clr","BitIn"],
+          ["out",["Array",16,"Bit"]]
+        ]],
+        "instances":{
+          "a":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "c1":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0001"]}
+          },
+          "r$c0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "r$clrMux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "r$reg0":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"init":[["BitVector",16],"16'h0000"]}
+          }
+        },
+        "connections":[
+          ["a.in0","c1.out"],
+          ["a.in1","r$reg0.out"],
+          ["a.out","r$clrMux.in0"],
+          ["r$c0.out","r$clrMux.in1"],
+          ["r$clrMux.out","r$reg0.in"],
+          ["r$clrMux.sel","self.clr"],
+          ["r$reg0.clk","self.clk"],
+          ["r$reg0.out","self.out"]
+        ]
+      },
       "counters":{
-        "type":["Record",{
-          "clk":["Named","coreir.clkIn"]
-        }],
+        "type":["Record",[
+          ["clk",["Named","coreir.clkIn"]]
+        ]],
         "instances":{
           "count0$a":{
             "genref":"coreir.add",
@@ -14,12 +56,12 @@
           "count0$c1":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],1]}
+            "modargs":{"value":[["BitVector",16],"16'h0001"]}
           },
           "count0$r$c0":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],0]}
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
           },
           "count0$r$clrMux":{
             "genref":"coreir.mux",
@@ -28,7 +70,7 @@
           "count0$r$reg0":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
-            "modargs":{"init":[["BitVector",16],0]}
+            "modargs":{"init":[["BitVector",16],"16'h0000"]}
           },
           "count1$a":{
             "genref":"coreir.add",
@@ -37,12 +79,12 @@
           "count1$c1":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],1]}
+            "modargs":{"value":[["BitVector",16],"16'h0001"]}
           },
           "count1$r$c0":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],0]}
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
           },
           "count1$r$clrMux":{
             "genref":"coreir.mux",
@@ -51,7 +93,7 @@
           "count1$r$reg0":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
-            "modargs":{"init":[["BitVector",16],0]}
+            "modargs":{"init":[["BitVector",16],"16'h0000"]}
           }
         },
         "connections":[
