@@ -345,11 +345,11 @@ class CoreIRParser(object):
         mod_map.append(("sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
         
-        mod_map.append(("const", (Modules.Const, [self.OUT, self.VALUE])))
-        mod_map.append(("reg",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
-        mod_map.append(("regrst",   (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
-        mod_map.append(("mux",   (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
-        mod_map.append(("slice", (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
+        mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
+        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
+        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
+        mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
+        mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         
         mod_map = dict(mod_map)
 

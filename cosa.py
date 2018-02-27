@@ -12,9 +12,13 @@ import sys
 import coreir
 import argparse
 
+from argparse import RawTextHelpFormatter
+
 from core.coreir_parser import CoreIRParser
 from analyzers.bmc import BMC
 from util.logger import Logger
+
+from core.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 
 class Config(object):
     strfile = None
@@ -28,8 +32,12 @@ class Config(object):
     full_trace = False
     trace_file = None
     run_passes = False
+    printer = None
+    translate = None
     
     def __init__(self):
+        PrintersFactory.init_printers()
+        
         self.strfile = None
         self.verbosity = 1
         self.simulate = False
@@ -41,6 +49,8 @@ class Config(object):
         self.full_trace = False
         self.trace_file = None
         self.run_passes = False
+        self.printer = PrintersFactory.get_default().get_name()
+        self.translate = None
     
 def run(config):
     parser = CoreIRParser(config.strfile)
@@ -51,6 +61,8 @@ def run(config):
     
     hts = parser.parse()
 
+    printsmv = True
+    
     bmc = BMC(hts)
 
     bmc.config.full_trace = config.full_trace
@@ -65,7 +77,13 @@ def run(config):
         stat.append("  Outputs:\t%s"%(len(hts.outputs)))
         print("\n".join(stat))
 
-    
+
+    if config.translate:
+        Logger.log("Writing system to \"%s\""%(config.translate), 0)
+        printer = PrintersFactory.printer_by_name(config.printer)
+        with open(config.translate, "w") as f:
+            f.write(printer.print_hts(hts))
+        
     if config.simulate:
         bmc.simulate(config.bmc_length)
 
@@ -98,8 +116,11 @@ def run(config):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.')
+    parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
 
+    config = Config()
+    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
+    
     parser.set_defaults(input_file=None)
     parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
                         help='input file, CoreIR json format')
@@ -139,6 +160,14 @@ if __name__ == "__main__":
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
                         help='depth of BMC unrolling')
+
+    parser.set_defaults(translate=None)
+    parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
+                       help='translate input file')
+
+    parser.set_defaults(printer=config.printer)
+    parser.add_argument('-p', '--printer', metavar='printer', type=str, nargs='?', 
+                        help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
     
     parser.set_defaults(verbosity=1)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
@@ -147,7 +176,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config = Config()
     
     config.strfile = args.input_file
     config.simulate = args.simulate
@@ -159,6 +187,7 @@ if __name__ == "__main__":
     config.full_trace = args.full_trace
     config.trace_file = args.trace
     config.run_passes = args.run_passes
+    config.translate = args.translate
     
     config.verbosity = args.verbosity
 
@@ -169,9 +198,15 @@ if __name__ == "__main__":
     if len(sys.argv)==1:
         ok = False
 
+    if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
+        config.printer = args.printer
+    else:
+        Logger.error("Printer \"%s\" not found"%(args.printer))
+        
     if not(config.simulate or \
            (config.safety is not None) or \
            (config.equivalence is not None) or\
+           (config.translate is not None) or\
            (config.fsm_check)):
         Logger.error("analysis selection is necessary")
         ok = False
