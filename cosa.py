@@ -153,10 +153,6 @@ if __name__ == "__main__":
     parser.set_defaults(input_file=None)
     parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
                         help='input file, CoreIR json format')
-
-    parser.set_defaults(run_passes=False)
-    parser.add_argument('--run-passes', dest='run_passes', action='store_true',
-                       help='run necessary passes to process the CoreIR file')
     
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
@@ -174,37 +170,41 @@ if __name__ == "__main__":
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
                        help='equivalence checking using BMC')
 
-    parser.set_defaults(symbolic_init=False)
-    parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
-                       help='symbolic inititial state for equivalence checking')
-
     parser.set_defaults(fsm_check=False)
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic')
-
-    parser.set_defaults(full_trace=False)
-    parser.add_argument('--full-trace', dest='full_trace', action='store_true',
-                       help='show all variables in the counterexamples')
-
-    parser.set_defaults(prefix=None)
-    parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
-                       help='write the counterexamples with specified location prefix')
-    
-    parser.set_defaults(bmc_length=10)
-    parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
-                        help='depth of BMC unrolling')
 
     parser.set_defaults(translate=None)
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file')
 
+    parser.set_defaults(bmc_length=config.bmc_length)
+    parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
+                        help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
+    
+    parser.set_defaults(symbolic_init=config.symbolic_init)
+    parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
+                       help='symbolic inititial state for equivalence checking. (Default is \"%s\")'%config.symbolic_init)
+
+    parser.set_defaults(run_passes=config.run_passes)
+    parser.add_argument('--run-passes', dest='run_passes', action='store_true',
+                        help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
+    
+    parser.set_defaults(full_trace=config.full_trace)
+    parser.add_argument('--full-trace', dest='full_trace', action='store_true',
+                       help="show all variables in the counterexamples. (Default is \"%s\")"%config.full_trace)
+
+    parser.set_defaults(prefix=None)
+    parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
+                       help='write the counterexamples with specified location prefix')
+
     parser.set_defaults(printer=config.printer)
     parser.add_argument('--printer', metavar='printer', type=str, nargs='?', 
                         help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
     
-    parser.set_defaults(verbosity=1)
+    parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
-                        help="verbosity level. (Default is \"%s\")"%1)
+                        help="verbosity level. (Default is \"%s\")"%config.verbosity)
 
 
     args = parser.parse_args()
