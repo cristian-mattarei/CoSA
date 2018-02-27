@@ -167,8 +167,8 @@ if __name__ == "__main__":
                        help='safety verification using BMC')
     
     parser.set_defaults(properties=None)
-    parser.add_argument('-p', '--properties', metavar='<list of invariant properties>', type=str, required=False,
-                       help='invariant properties')
+    parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
+                       help='comma separated list of invariant properties')
     
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
