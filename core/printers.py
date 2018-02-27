@@ -136,6 +136,7 @@ class SMVHTSPrinter(HTSPrinter):
             if formula not in [TRUE(), FALSE()]:
                 self.write("\n%s\n"%keyword)
                 self.printer(formula)
+                self.write("\n")
 
 
         self.write("\n%s\n"%("-"*lenstr))
