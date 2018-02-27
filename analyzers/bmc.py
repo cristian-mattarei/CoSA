@@ -9,7 +9,6 @@
 # limitations under the License.
 
 from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL
-from pysmt.parsing import HRParser, parse
 from core.transition_system import TS, HTS, SEP
 
 from six.moves import cStringIO
@@ -20,7 +19,6 @@ import re
 
 NSEP = "."
 NL = "\n"
-KEYWORDS = ["not"]
 
 S1 = "sys1$"
 S2 = "sys2$"
@@ -30,18 +28,20 @@ class BMCConfig(object):
     incremental = False
     solver = None
     full_trace = False
-    trace_file = None
+    prefix = None
     
     def __init__(self):
         self.incremental = True
         self.solver = Solver(name="z3")
         self.full_trace = False
-        self.trace_file = None
+        self.prefix = None
 
 class BMC(object):
 
     hts = None
     config = None
+
+    TraceID = 0
 
     def __init__(self, hts):
         self.hts = hts
@@ -116,16 +116,15 @@ class BMC(object):
                     if diff_only: prevass[varass[0]] = varass[1]
 
         trace = NL.join(trace)
-        if self.config.trace_file is None:
+        if self.config.prefix is None:
             Logger.log(trace, 0)
         else:
-            with open(self.config.trace_file, "w") as f:
+            BMC.TraceID += 1
+            trace_file = "%s-id_%s.txt"%(self.config.prefix, BMC.TraceID)
+            with open(trace_file, "w") as f:
                 f.write(trace)
-                    
 
     def equivalence(self, hts2, k, symbolic_init, inc=True):
-        Logger.log("Equivalenche check with k=%s:"%(k), 0)
-
         (htseq, t, model) = self.combined_system(hts2, k, symbolic_init, inc)
             
         if t > -1:
@@ -136,8 +135,6 @@ class BMC(object):
             
 
     def fsm_check(self):
-        Logger.log("Checking FSM:", 0)
-
         (htseq, t, model) = self.combined_system(self.hts, 1, True, False)
             
         if t > -1:
@@ -212,8 +209,6 @@ class BMC(object):
         return (htseq, t, model)
                     
     def simulate(self, k):
-        Logger.log("Simulation with k=%s:"%(k), 0)
-
         self.config.incremental = False
         (t, model) = self.solve(self.hts, FALSE(), "FALSE", k, False)
             
@@ -222,7 +217,7 @@ class BMC(object):
         else:
             Logger.log("Deadlock wit k=%s"%k, 0)
 
-    def solve(self, hts, prop, strprop, k, inc=True):
+    def solve(self, hts, prop, k, inc=True):
         if self.config.incremental:
             self.config.solver.reset_assertions()
         
@@ -268,23 +263,9 @@ class BMC(object):
         return (-1, None)
 
             
-    def safety(self, strprop, k):
-        Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-
-        prop = strprop.replace(".","$").replace("\\","")
-
-        for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", prop):
-            if lit in KEYWORDS:
-                continue
-            prop = prop.replace(lit, "\'%s\'"%lit)
-
-        try:
-            prop = parse(prop)
-        except Exception as e:
-            print(e)
-            return
-
-        (t, model) = self.solve(self.hts, prop, strprop, k)
+    def safety(self, prop, k):
+        
+        (t, model) = self.solve(self.hts, prop, k)
 
         if t > -1:
             Logger.log("Property is FALSE", 0)

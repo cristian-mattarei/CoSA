@@ -21,40 +21,59 @@ from util.logger import Logger
 from core.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 
 class Config(object):
+    parser = None
     strfile = None
     verbosity = 1
     simulate = False
     bmc_length = 10
     safety = None
+    properties = None
     equivalence = None
     symbolic_init = None
     fsm_check = False
     full_trace = False
-    trace_file = None
+    prefix = None
     run_passes = False
     printer = None
     translate = None
     
     def __init__(self):
         PrintersFactory.init_printers()
-        
+
+        self.parser = None
         self.strfile = None
         self.verbosity = 1
         self.simulate = False
         self.bmc_length = 10
         self.safety = None
+        self.properties = None
         self.equivalence = None
         self.symbolic_init = False
         self.fsm_check = False
         self.full_trace = False
-        self.trace_file = None
+        self.prefix = None
         self.run_passes = False
         self.printer = PrintersFactory.get_default().get_name()
         self.translate = None
+
+
+def parse_properties(config):
+    (parser, strprops) = (config.parser, config.properties)
+    props = []
+
+    for strprop in strprops:
+        try:
+            props.append((strprop, parser.parse_formula(strprop)))
+        except Exception as e:
+            Logger.error(str(e))
+
+    return props
+
     
 def run(config):
     parser = CoreIRParser(config.strfile)
-
+    config.parser = parser
+    
     if config.run_passes:
         Logger.log("Running passes:", 0)
         parser.run_passes()
@@ -66,7 +85,7 @@ def run(config):
     bmc = BMC(hts)
 
     bmc.config.full_trace = config.full_trace
-    bmc.config.trace_file = config.trace_file
+    bmc.config.prefix = config.prefix
 
     if Logger.level(1):
         stat = []
@@ -77,20 +96,28 @@ def run(config):
         stat.append("  Outputs:\t%s"%(len(hts.outputs)))
         print("\n".join(stat))
 
-
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
         printer = PrintersFactory.printer_by_name(config.printer)
+
+        properties = None
+        if config.properties:
+            properties = parse_properties(config)
+        
         with open(config.translate, "w") as f:
-            f.write(printer.print_hts(hts))
+            f.write(printer.print_hts(hts, properties))
         
     if config.simulate:
+        Logger.log("Simulation with k=%s:"%(config.bmc_length), 0)
         bmc.simulate(config.bmc_length)
 
     if config.safety:
-        bmc.safety(config.safety, config.bmc_length)
+        for (strprop, prop) in parse_properties(config):
+            Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
+            bmc.safety(prop, config.bmc_length)
 
     if config.equivalence:
+        Logger.log("Equivalenche check with k=%s:"%(config.bmc_length), 0)
         parser2 = CoreIRParser(config.equivalence)
         
         if config.run_passes:
@@ -111,6 +138,8 @@ def run(config):
         bmc.equivalence(hts2, config.bmc_length, config.symbolic_init)
 
     if config.fsm_check:
+        Logger.log("Checking FSM:", 0)
+
         bmc.fsm_check()
         
 
@@ -133,10 +162,14 @@ if __name__ == "__main__":
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC')
 
-    parser.set_defaults(safety=None)
-    parser.add_argument('--safety', metavar='<property>', type=str, required=False,
+    parser.set_defaults(safety=False)
+    parser.add_argument('--safety', dest='safety', action='store_true',
                        help='safety verification using BMC')
-
+    
+    parser.set_defaults(properties=None)
+    parser.add_argument('-p', '--properties', metavar='<list of invariant properties>', type=str, required=False,
+                       help='invariant properties')
+    
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
                        help='equivalence checking using BMC')
@@ -153,9 +186,9 @@ if __name__ == "__main__":
     parser.add_argument('--full-trace', dest='full_trace', action='store_true',
                        help='show all variables in the counterexamples')
 
-    parser.set_defaults(trace=None)
-    parser.add_argument('--trace', metavar='<trace file>', type=str, required=False,
-                       help='write the counterexample to file')
+    parser.set_defaults(prefix=None)
+    parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
+                       help='write the counterexamples with specified location prefix')
     
     parser.set_defaults(bmc_length=10)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
@@ -166,7 +199,7 @@ if __name__ == "__main__":
                        help='translate input file')
 
     parser.set_defaults(printer=config.printer)
-    parser.add_argument('-p', '--printer', metavar='printer', type=str, nargs='?', 
+    parser.add_argument('--printer', metavar='printer', type=str, nargs='?', 
                         help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
     
     parser.set_defaults(verbosity=1)
@@ -180,12 +213,13 @@ if __name__ == "__main__":
     config.strfile = args.input_file
     config.simulate = args.simulate
     config.safety = args.safety
+    config.properties = args.properties
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
     config.full_trace = args.full_trace
-    config.trace_file = args.trace
+    config.prefix = args.prefix
     config.run_passes = args.run_passes
     config.translate = args.translate
     
@@ -204,12 +238,19 @@ if __name__ == "__main__":
         Logger.error("Printer \"%s\" not found"%(args.printer))
         
     if not(config.simulate or \
-           (config.safety is not None) or \
+           (config.safety) or \
            (config.equivalence is not None) or\
            (config.translate is not None) or\
            (config.fsm_check)):
-        Logger.error("analysis selection is necessary")
+        Logger.error("Analysis selection is necessary")
         ok = False
+
+    if config.safety and (config.properties is None):
+        Logger.error("Safety verification requires at least a property")
+        ok = False
+
+    if config.properties is not None:
+        config.properties = [p.strip() for p in config.properties.split(",")]
         
     if not ok:
         parser.print_help()

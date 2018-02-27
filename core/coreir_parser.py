@@ -10,6 +10,7 @@
 
 import coreir
 import sys
+import re
 
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
@@ -18,6 +19,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
+from pysmt.parsing import parse
 
 from core.transition_system import TS, HTS, SEP
 from util.utils import is_number
@@ -25,6 +27,8 @@ from util.logger import Logger
 from six.moves import cStringIO
 
 SELF = "self"
+
+KEYWORDS = ["not"]
 
 def BVVar(name, width):
     if width <= 0 or not isinstance(width, int):
@@ -363,7 +367,17 @@ class CoreIRParser(object):
             ts = mod_map[inst_type][0](*args(mod_map[inst_type][1]))
 
         return ts
-        
+
+    def parse_formula(self, strformula):
+        formula = strformula.replace(".","$").replace("\\","")
+
+        for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", formula):
+            if lit in KEYWORDS:
+                continue
+            formula = formula.replace(lit, "\'%s\'"%lit)
+
+        return parse(formula)
+    
     def parse(self):
         top_module = self.context.load_from_file(self.file)
 

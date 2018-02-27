@@ -105,15 +105,21 @@ class SMVHTSPrinter(HTSPrinter):
         printer = SMVPrinter(self.stream)
         self.printer = printer.printer
 
-    def print_hts(self, hts):
+    def print_hts(self, hts, properties=None):
         self.write("MODULE main\n")
 
+        if properties is not None:
+            for strprop, prop in properties:
+                self.write("\nINVARSPEC ")
+                self.printer(prop)
+                self.write(";\n")
+        
         for ts in hts.tss:
-            self.__single_hts(ts)
+            self.__print_single_hts(ts)
 
         return self.stream.getvalue()
             
-    def __single_hts(self, hts):
+    def __print_single_hts(self, hts):
 
         lenstr = len(hts.comment)+3
         
@@ -128,7 +134,6 @@ class SMVHTSPrinter(HTSPrinter):
         if hts.vars: self.write("\nDEFINE\n")
         for var in hts.vars:
             self.write("%s := next(%s);\n"%(TS.get_prime(var).symbol_name(), var.symbol_name()))
-
 
         sections = [(simplify(hts.init),"INIT"), (simplify(hts.invar),"INVAR"), (simplify(hts.trans),"TRANS")]
             
