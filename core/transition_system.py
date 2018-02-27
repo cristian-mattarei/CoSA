@@ -52,6 +52,9 @@ class HTS(object):
         self.vars = set(self.vars.union(ts.vars))
         self.state_vars = set(self.state_vars.union(ts.state_vars))
 
+    def is_input(self, var):
+        return var in self.inputs
+        
     def remove_invars(self):
         for ts in self.tss:
             ts.remove_invar()

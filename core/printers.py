@@ -13,7 +13,7 @@ from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
 from core.transition_system import TS
 
-from pysmt.shortcuts import Symbol
+from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE
 
 from six.moves import cStringIO
 
@@ -106,26 +106,39 @@ class SMVHTSPrinter(HTSPrinter):
         self.printer = printer.printer
 
     def print_hts(self, hts):
+        self.write("MODULE main\n")
 
-        self.write("MODULE main\n\n")
-
-        for var in hts.vars:
-            self.write("VAR %s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
-
-        self.write("\nINIT\n")
-        self.printer(hts.single_init())
-
-        self.write("\n\nDEFINE\n")
-        for var in hts.vars:
-            self.write("%s := next(%s);\n"%(TS.get_prime(var).symbol_name(), var.symbol_name()))
-        
-        self.write("\nTRANS\n")
-        self.printer(hts.single_trans())
-
-        self.write("\n\nINVAR\n")
-        self.printer(hts.single_invar())
+        for ts in hts.tss:
+            self.__single_hts(ts)
 
         return self.stream.getvalue()
+            
+    def __single_hts(self, hts):
+
+        lenstr = len(hts.comment)+3
+        
+        self.write("\n%s\n"%("-"*lenstr))
+        self.write("-- %s\n"%hts.comment)
+        self.write("%s\n"%("-"*lenstr))
+        
+        if hts.vars: self.write("\nVAR\n")
+        for var in hts.vars:
+            self.write("%s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
+
+        if hts.vars: self.write("\nDEFINE\n")
+        for var in hts.vars:
+            self.write("%s := next(%s);\n"%(TS.get_prime(var).symbol_name(), var.symbol_name()))
+
+
+        sections = [(simplify(hts.init),"INIT"), (simplify(hts.invar),"INVAR"), (simplify(hts.trans),"TRANS")]
+            
+        for (formula, keyword) in sections:
+            if formula not in [TRUE(), FALSE()]:
+                self.write("\n%s\n"%keyword)
+                self.printer(formula)
+
+
+        self.write("\n%s\n"%("-"*lenstr))
         
     
 class SMVPrinter(HRPrinter):

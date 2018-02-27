@@ -38,7 +38,7 @@ class Modules(object):
     def Uop(op, in_, out):
         # INVAR: (<op> in) = out)
         vars_ = [in_,out]
-        comment = (";; " + op.__name__ + " (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        comment = (op.__name__ + " (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         invar = EqualsOrIff(op(in_), out)
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
@@ -53,7 +53,7 @@ class Modules(object):
     def Bop(op, in0, in1, out):
         # INVAR: (in0 <op> in1) = out
         vars_ = [in0,in1,out]
-        comment = (";; " + op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        comment = (op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         invar = EqualsOrIff(op(in0,in1), out)
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
@@ -64,7 +64,7 @@ class Modules(object):
     def BopBool(op, in0, in1, out):
         # INVAR: (in0 <op> in1) = out
         vars_ = [in0,in1,out]
-        comment = (";; " + op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        comment = (op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         bout = EqualsOrIff(out, BV(1, 1))
         invar = Iff(op(in0,in1), bout)
@@ -140,7 +140,7 @@ class Modules(object):
     def Zext(in_,out):
         # INVAR: (<op> in) = out)
         vars_ = [in_,out]
-        comment = (";; ZExt (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        comment = ("ZExt (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         length = (out.symbol_type().width)-(in_.symbol_type().width)
         invar = EqualsOrIff(BVZExt(in_, length), out)
@@ -152,7 +152,7 @@ class Modules(object):
     def Const(out, value):
         const = BV(value, out.symbol_type().width)
         formula = EqualsOrIff(out, const)
-        comment = ";; Const (out, val) = (" + out.symbol_name() + ", " + str(const) + ")"
+        comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(const) + ")"
         Logger.log(comment, 2)
         ts = TS(set([out]), TRUE(), TRUE(), formula)
         ts.comment = comment
@@ -162,11 +162,13 @@ class Modules(object):
     def Clock(clk):
         # INIT: clk = 0
         # TRANS: clk' = !clk
-        bclk = EqualsOrIff(clk, BV(1, 1))
-        init = Not(bclk)
-        trans = EqualsOrIff(Not(bclk), TS.to_next(bclk))
+        comment = "Clock (clk) = (" + clk.symbol_name() + ")"
+        clk0 = EqualsOrIff(clk, BV(0, 1))
+        clk1 = EqualsOrIff(clk, BV(1, 1))
+        init = clk0
+        trans = EqualsOrIff(clk0, TS.to_next(clk1))
         ts = TS(set([clk]), init, trans, TRUE())
-        ts.comment = ""
+        ts.comment = comment
         return ts
 
     @staticmethod
@@ -176,7 +178,7 @@ class Modules(object):
         #        (!(!clk & clk') -> (out' = out)))
         # trans gives priority to clr signal over rst
         vars_ = [in_,clk,clr,rst,out]
-        comment = ";; Reg (in, clk, clr, rst, out) = (%s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+        comment = "Reg (in, clk, clr, rst, out) = (%s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 2)
         binitval = BV(initval, out.symbol_type().width)
         init = EqualsOrIff(out, binitval)
@@ -190,11 +192,13 @@ class Modules(object):
         else:
             brst = FALSE()
             
-        bclk = EqualsOrIff(clk, BV(1, 1))
+        clk0 = EqualsOrIff(clk, BV(0, 1))
+        clk1 = EqualsOrIff(clk, BV(1, 1))
+        
         zero = BV(0, out.symbol_type().width)
 
-        ri_clk = And(Not(bclk), TS.to_next(bclk))
-        do_clk = And(bclk, Not(TS.to_next(bclk)))
+        ri_clk = And(clk0, TS.to_next(clk1))
+        do_clk = And(clk1, TS.to_next(clk0))
 
         tr_clr = Implies(bclr, EqualsOrIff(TS.get_prime(out), zero))
         tr_rst_nclr = Implies(And(brst, Not(bclr)), EqualsOrIff(TS.get_prime(out), binitval))
@@ -213,7 +217,7 @@ class Modules(object):
     def Mux(in0, in1, sel, out):
         # INVAR: ((sel = 0) -> (out = in0)) & ((sel = 1) -> (out = in1))
         vars_ = [in0,in1,sel,out]
-        comment = ";; Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+        comment = "Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         bsel = EqualsOrIff(sel, BV(0, 1))
         invar = And(Implies(bsel, EqualsOrIff(in0, out)), Implies(Not(bsel), EqualsOrIff(in1, out)))
@@ -225,7 +229,7 @@ class Modules(object):
     def Eq(in0, in1, out):
         # INVAR: (((in0 = in1) -> (out = #b1)) & ((in0 != in1) -> (out = #b0)))
         vars_ = [in0,in1,out]
-        comment = ";; Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+        comment = "Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         eq = EqualsOrIff(in0, in1)
         zero = EqualsOrIff(out, BV(0, 1))
@@ -239,7 +243,7 @@ class Modules(object):
     def Orr(in_, out):
         # INVAR: (in = 0) -> (out = 0) & (in != 0) -> (out = 1)
         vars_ = [in_, out]
-        comment = ";; Orr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+        comment = "Orr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         true_res = Implies(EqualsOrIff(in_, BV(0,in_.symbol_type().width)), EqualsOrIff(out, BV(0,1)))
         false_res = Implies(Not(EqualsOrIff(in_, BV(0,in_.symbol_type().width))), EqualsOrIff(out, BV(1,1)))
@@ -252,7 +256,7 @@ class Modules(object):
     def Andr(in_, out):
         # INVAR: (in = 1) -> (out = 1) & (in != 1) -> (out = 0)
         vars_ = [in_, out]
-        comment = ";; Andr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+        comment = "Andr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         true_res = Implies(EqualsOrIff(in_, BV(1,in_.symbol_type().width)), EqualsOrIff(out, BV(1,1)))
         false_res = Implies(Not(EqualsOrIff(in_, BV(1,in_.symbol_type().width))), EqualsOrIff(out, BV(0,1)))
@@ -266,7 +270,7 @@ class Modules(object):
         # INVAR: (extract low high in) = out
         high -= 1
         vars_ = [in_,out, low, high]
-        comment = ";; Mux (in, out, low, high) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+        comment = "Mux (in, out, low, high) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 2)
         invar = EqualsOrIff(BVExtract(in_, low, high), out)
         ts = TS(set([in_, out]), TRUE(), TRUE(), invar)
@@ -450,6 +454,8 @@ class CoreIRParser(object):
 
             Logger.log(str(eq), 2)
 
-            hts.add_ts(TS(set([]), TRUE(), TRUE(), eq))
+            ts = TS(set([]), TRUE(), TRUE(), eq)
+            ts.comment = "Connection (%s, %s)"%(SEP.join(conn.first.selectpath), SEP.join(conn.second.selectpath))
+            hts.add_ts(ts)
 
         return hts
