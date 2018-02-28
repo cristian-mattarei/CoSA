@@ -12,6 +12,7 @@ from pysmt.shortcuts import Symbol, And, TRUE
 
 NEXT = "_N"
 AT = "_AT"
+ATP = "_ATP"
 SEP = "$"
 
 class HTS(object):
@@ -124,6 +125,10 @@ class TS(object):
     def get_timed(v, t):
         return Symbol("%s%s%s" % (v.symbol_name(), AT, str(t)), v.symbol_type())
 
+    @staticmethod
+    def get_ptimed(v, t):
+        return Symbol("%s%s%s" % (v.symbol_name(), ATP, str(t)), v.symbol_type())
+    
     @staticmethod
     def get_prefix(v, pref):
         return Symbol("%s%s" % (pref, v.symbol_name()), v.symbol_type())

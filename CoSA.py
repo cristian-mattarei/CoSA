@@ -17,7 +17,7 @@ from argparse import RawTextHelpFormatter
 from cosa.core.coreir_parser import CoreIRParser
 from cosa.analyzers.bmc import BMC
 from cosa.util.logger import Logger
-from cosa.core.printers import PrintersFactory, PrinterType, SMVHTSPrinter
+from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 
 class Config(object):
     parser = None
