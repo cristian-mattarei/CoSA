@@ -12,6 +12,8 @@ import coreir
 import sys
 import re
 
+from six.moves import cStringIO
+
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, \
@@ -21,10 +23,9 @@ from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 from pysmt.parsing import parse
 
-from core.transition_system import TS, HTS, SEP
-from util.utils import is_number
-from util.logger import Logger
-from six.moves import cStringIO
+from cosa.core.transition_system import TS, HTS, SEP
+from cosa.util.utils import is_number
+from cosa.util.logger import Logger
 
 SELF = "self"
 

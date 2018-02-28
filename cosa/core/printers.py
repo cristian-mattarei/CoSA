@@ -8,14 +8,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from six.moves import cStringIO
+
 from pysmt.printers import HRPrinter
 from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
-from core.transition_system import TS
-
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE
 
-from six.moves import cStringIO
+from cosa.core.transition_system import TS
 
 class NotRegisteredPrinterException(Exception):
     pass

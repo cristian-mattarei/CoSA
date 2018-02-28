@@ -8,14 +8,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL
-from core.transition_system import TS, HTS, SEP
-
+import re
 from six.moves import cStringIO
+
+from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
-from util.logger import Logger
-import re
+from cosa.util.logger import Logger
+from cosa.core.transition_system import TS, HTS, SEP
 
 NSEP = "."
 NL = "\n"
