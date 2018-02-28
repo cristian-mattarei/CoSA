@@ -23,17 +23,21 @@ NL = "\n"
 S1 = "sys1$"
 S2 = "sys2$"
 
+FWD = "_FWD"
+BWD = "_BWD"
+ZZ  = "_ZZ"
+
 class BMCConfig(object):
 
     incremental = True
-    bwd = False
+    strategy = None
     solver = None
     full_trace = False
     prefix = None
     
     def __init__(self):
         self.incremental = True
-        self.bwd = False
+        self.strategy = BWD
         self.solver = Solver(name="z3")
         self.full_trace = False
         self.prefix = None
@@ -80,7 +84,7 @@ class BMC(object):
 
         t = k_start
         while t < k_end:
-            to_t = t+1 if fwd else t
+            to_t = t+1 if fwd else t-1
             
             formula = And(formula, time_function(vars, assumption, t))
             formula = And(formula, time_function(vars, trans, t))
@@ -93,7 +97,49 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_trace(self, hts, model, length, bwd=False, diff_only=True):
+
+    def print_trace2(self, hts, model, length, bwd=False, diff_only=True):
+            trace = []
+            prevass = []
+
+            trace.append("---> INIT <---")
+
+            if self.config.full_trace:
+                varlist = list(hts.vars)
+            else:
+                varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
+
+            strvarlist = [(var.symbol_name(), var) for var in varlist]
+            strvarlist.sort()
+
+            timed_fun = TS.get_ptimed if bwd else TS.get_timed
+
+            for var in varlist:
+                varass = (var.symbol_name(), model.get_value(timed_fun(var, length if bwd else 0)))
+                if diff_only: prevass.append(varass)
+                trace.append("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]))
+
+            if diff_only: prevass = dict(prevass)
+
+            for t in range(length):
+                trace.append("\n---> STATE %s <---"%(t+1))
+
+                for var in strvarlist:
+                    varass = (var[1].symbol_name(), model.get_value(timed_fun(var[1], length - (t+1) if bwd else t+1)))
+                    if (not diff_only) or (prevass[varass[0]] != varass[1]):
+                        trace.append("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]))
+                        if diff_only: prevass[varass[0]] = varass[1]
+
+            trace = NL.join(trace)
+            if self.config.prefix is None:
+                Logger.log(trace, 0)
+            else:
+                BMC.TraceID += 1
+                trace_file = "%s-id_%s.txt"%(self.config.prefix, BMC.TraceID)
+                with open(trace_file, "w") as f:
+                    f.write(trace)
+    
+    def print_trace(self, hts, model, length, diff_only=True):
         trace = []
         prevass = []
             
@@ -107,10 +153,8 @@ class BMC(object):
         strvarlist = [(var.symbol_name(), var) for var in varlist]
         strvarlist.sort()
 
-        timed_fun = TS.get_ptimed if bwd else TS.get_timed
-        
         for var in varlist:
-            varass = (var.symbol_name(), model.get_value(timed_fun(var, length if bwd else 0)))
+            varass = (var.symbol_name(), model[TS.get_timed(var, 0)])
             if diff_only: prevass.append(varass)
             trace.append("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]))
 
@@ -120,7 +164,7 @@ class BMC(object):
             trace.append("\n---> STATE %s <---"%(t+1))
                      
             for var in strvarlist:
-                varass = (var[1].symbol_name(), model.get_value(timed_fun(var[1], length - (t+1) if bwd else t+1)))
+                varass = (var[1].symbol_name(), model[TS.get_timed(var[1], t+1)])
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
                     trace.append("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]))
                     if diff_only: prevass[varass[0]] = varass[1]
@@ -237,10 +281,16 @@ class BMC(object):
         return self.solve_fwd(hts, prop, k)
             
     def solve_inc(self, hts, prop, k):
-        if self.config.bwd:
-            return self.solve_inc_bwd(hts, prop, k)
+        if self.config.strategy == FWD:
+            return self.solve_inc_fwd(hts, prop, k)
         
-        return self.solve_inc_fwd(hts, prop, k)
+        if self.config.strategy == BWD:
+            return self.solve_inc_bwd(hts, prop, k)
+
+        if self.config.strategy == ZZ:
+            return self.solve_inc_zz(hts, prop, k)
+        
+        return None
 
     def solve_fwd(self, hts, prop, k, shortest=True):
 
@@ -256,15 +306,15 @@ class BMC(object):
 
             formula = And(init, invar)
             formula = self.at_time(hts.vars, formula, 0)
-            self.config.solver.add_assertion(formula)
             Logger.log("Add init and invar", 2)
+            self.__add_assertion(self.config.solver, formula)
 
             trans_t = self.unroll(trans, invar, t)
-            self.config.solver.add_assertion(trans_t)
+            self.__add_assertion(self.config.solver, trans_t)
             
             propt = Not(self.at_time(hts.vars, prop, t))
-            self.config.solver.add_assertion(propt)
             Logger.log("Add property time %d"%t, 2)
+            self.__add_assertion(self.config.solver, propt)
 
             res = self.config.solver.solve()
 
@@ -276,13 +326,6 @@ class BMC(object):
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
-
-            if Logger.level(3):
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(formula)
-                print(buf.getvalue())
-
                 
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
@@ -298,16 +341,16 @@ class BMC(object):
 
         formula = And(init, invar)
         formula = self.at_time(hts.vars, formula, 0)
-        self.config.solver.add_assertion(formula)
         Logger.log("Add init and invar", 2)
+        self.__add_assertion(self.config.solver, formula)
         
         t = 0 
         while (t < k+1):
             self.config.solver.push()
             
             propt = Not(self.at_time(hts.vars, prop, t))
-            self.config.solver.add_assertion(propt)
             Logger.log("Add property time %d"%t, 2)
+            self.__add_assertion(self.config.solver, propt)
 
             res = self.config.solver.solve()
 
@@ -323,15 +366,8 @@ class BMC(object):
             self.config.solver.pop()
             
             trans_t = self.unroll(trans, invar, t+1, t)
-            self.config.solver.add_assertion(trans_t)
+            self.__add_assertion(self.config.solver, trans_t)
 
-            if Logger.level(3):
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(formula)
-                print(buf.getvalue())
-
-                
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
                 
@@ -344,30 +380,18 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        formula = self.at_ptime(hts.vars, And(Not(prop), invar), -1)
-        self.config.solver.add_assertion(formula)
+        formula = self.at_ptime(hts.vars, Not(prop), -1)
         Logger.log("Add property time %d"%0, 2)
-
-        if Logger.level(3):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue()+"\n")
+        self.__add_assertion(self.config.solver, formula)
 
         t = 0 
         while (t < k+1):
             self.config.solver.push()
 
-            pinit = self.at_ptime(hts.vars, init, t-1)
-            self.config.solver.add_assertion(pinit)
+            pinit = self.at_ptime(hts.vars, And(init, invar), t-1)
             Logger.log("Add init at time %d"%t, 2)
+            self.__add_assertion(self.config.solver, pinit)
 
-            if Logger.level(3):
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(pinit)
-                print(buf.getvalue()+"\n")
-            
             res = self.config.solver.solve()
 
             if res:
@@ -382,25 +406,117 @@ class BMC(object):
             self.config.solver.pop()
             
             trans_t = self.unroll(trans, invar, t, t+1)
-            self.config.solver.add_assertion(trans_t)
-
-            if Logger.level(3):
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(trans_t)
-                print(buf.getvalue()+"\n")
+            self.__add_assertion(self.config.solver, trans_t)
             
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
                 
         return (-1, None)
-    
+
+    def __add_assertion(self, solver, formula):
+        solver.add_assertion(formula)
+        if Logger.level(3):
+            buf = cStringIO()
+            printer = SmtPrinter(buf)
+            printer.printer(formula)
+            print(buf.getvalue()+"\n")
+            
+    def solve_inc_zz(self, hts, prop, k):
+        self.config.solver.reset_assertions()
+
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+
+        initt = And(init, invar)
+        initt = self.at_time(hts.vars, initt, 0)
+        Logger.log("Add init at_0", 2)
+        self.__add_assertion(self.config.solver, initt)
+        
+        propt = self.at_ptime(hts.vars, Not(prop), -1)
+        Logger.log("Add property pat_%d"%0, 2)
+        self.__add_assertion(self.config.solver, propt)
+        
+        t = 0 
+        while (t < k+1):
+            self.config.solver.push()
+            even = (t % 2) == 0
+            th = int(t/2)
+
+            if even:
+                eq = And([EqualsOrIff(self.at_time(hts.vars, v, th), self.at_ptime(hts.vars, v, th-1)) for v in hts.vars])
+            else:
+                eq = And([EqualsOrIff(self.at_time(hts.vars, v, th+1), self.at_ptime(hts.vars, v, th-1)) for v in hts.vars])
+                
+            Logger.log("Add equivalence time %d"%t, 2)
+            self.__add_assertion(self.config.solver, eq)
+
+            res = self.config.solver.solve()
+
+            if res:
+                Logger.log("Counterexample found with k=%s"%(t), 1)
+                model = self.config.solver.get_model()
+                Logger.log("", 0, not(Logger.level(1)))
+                return (t, model)
+            else:
+                Logger.log("No counterexample found with k=%s"%(t), 1)
+                Logger.msg(".", 0, not(Logger.level(1)))
+
+            self.config.solver.pop()
+
+            if even: 
+                trans_t = self.unroll(trans, invar, th+1, th)
+            else:
+                trans_t = self.unroll(trans, invar, th, th+1)
+
+            self.__add_assertion(self.config.solver, trans_t)
+                
+            t += 1
+        Logger.log("", 0, not(Logger.level(1)))
+                
+        return (-1, None)
             
     def safety(self, prop, k):
         (t, model) = self.solve(self.hts, prop, k)
 
+        model = self.__remap_model(self.hts.vars, model, t)
+        
         if t > -1:
             Logger.log("Property is FALSE", 0)
-            self.print_trace(self.hts, model, t, self.config.bwd)
+            self.print_trace(self.hts, model, t)
         else:
             Logger.log("No counterexample found", 0)
+
+    def __remap_model(self, vars, model, k):
+        if self.config.strategy == BWD:
+            return self.__remap_model_bwd(vars, model, k)
+
+        if self.config.strategy == ZZ:
+            return self.__remap_model_zz(vars, model, k)
+
+        if self.config.strategy == FWD:
+            return self.__remap_model_fwd(vars, model, k)
+        
+        return None
+        
+    def __remap_model_fwd(self, vars, model, k):
+        return model
+
+    def __remap_model_bwd(self, vars, model, k):
+        retmodel = dict()
+        
+        for var in vars:
+            for t in range(k+1):
+                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+
+        return retmodel
+
+    def __remap_model_zz(self, vars, model, k):
+        retmodel = dict(model)
+
+        for var in vars:
+            for t in range(int(k/2)+1, k+1, 1):
+                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+                
+        return retmodel
+    
