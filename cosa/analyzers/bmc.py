@@ -37,7 +37,7 @@ class BMCConfig(object):
     
     def __init__(self):
         self.incremental = True
-        self.strategy = BWD
+        self.strategy = FWD
         self.solver = Solver(name="z3")
         self.full_trace = False
         self.prefix = None
@@ -97,48 +97,6 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-
-    def print_trace2(self, hts, model, length, bwd=False, diff_only=True):
-            trace = []
-            prevass = []
-
-            trace.append("---> INIT <---")
-
-            if self.config.full_trace:
-                varlist = list(hts.vars)
-            else:
-                varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
-
-            strvarlist = [(var.symbol_name(), var) for var in varlist]
-            strvarlist.sort()
-
-            timed_fun = TS.get_ptimed if bwd else TS.get_timed
-
-            for var in varlist:
-                varass = (var.symbol_name(), model.get_value(timed_fun(var, length if bwd else 0)))
-                if diff_only: prevass.append(varass)
-                trace.append("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]))
-
-            if diff_only: prevass = dict(prevass)
-
-            for t in range(length):
-                trace.append("\n---> STATE %s <---"%(t+1))
-
-                for var in strvarlist:
-                    varass = (var[1].symbol_name(), model.get_value(timed_fun(var[1], length - (t+1) if bwd else t+1)))
-                    if (not diff_only) or (prevass[varass[0]] != varass[1]):
-                        trace.append("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]))
-                        if diff_only: prevass[varass[0]] = varass[1]
-
-            trace = NL.join(trace)
-            if self.config.prefix is None:
-                Logger.log(trace, 0)
-            else:
-                BMC.TraceID += 1
-                trace_file = "%s-id_%s.txt"%(self.config.prefix, BMC.TraceID)
-                with open(trace_file, "w") as f:
-                    f.write(trace)
-    
     def print_trace(self, hts, model, length, diff_only=True):
         trace = []
         prevass = []
