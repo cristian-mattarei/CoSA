@@ -204,13 +204,13 @@ class BMC(object):
         if symbolic_init:
             htseq.add_ts(TS(set([]), eqstates, TRUE(), TRUE()))
 
-        (t, model) = self.solve(htseq, miter_out, "eq_S1_S2", k, inc)
+        (t, model) = self.solve(htseq, miter_out, k, inc)
             
         return (htseq, t, model)
                     
     def simulate(self, k):
         self.config.incremental = False
-        (t, model) = self.solve(self.hts, FALSE(), "FALSE", k, False)
+        (t, model) = self.solve(self.hts, FALSE(), k, False)
             
         if t > -1:
             self.print_trace(self.hts, model, t)
