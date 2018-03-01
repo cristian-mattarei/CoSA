@@ -37,7 +37,7 @@ class BMCConfig(object):
     
     def __init__(self):
         self.incremental = True
-        self.strategy = ZZ
+        self.strategy = FWD
         self.solver = Solver(name="z3")
         self.full_trace = False
         self.prefix = None
