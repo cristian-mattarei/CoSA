@@ -37,7 +37,7 @@ class BMCConfig(object):
     
     def __init__(self):
         self.incremental = True
-        self.strategy = FWD
+        self.strategy = ZZ
         self.solver = Solver(name="z3")
         self.full_trace = False
         self.prefix = None
@@ -104,13 +104,20 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_trace(self, hts, model, length, diff_only=True):
+    def print_trace(self, hts, model, length):
         trace = []
         prevass = []
+
+        full_trace = self.config.full_trace
+        diff_only = True
+        
+        if Logger.level(1):
+            diff_only = False
+            full_trace = True
             
         trace.append("---> INIT <---")
 
-        if self.config.full_trace:
+        if full_trace:
             varlist = list(hts.vars)
         else:
             varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
