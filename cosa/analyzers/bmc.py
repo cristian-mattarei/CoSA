@@ -232,6 +232,7 @@ class BMC(object):
 
         if inc:
             (t, model) = self.solve(htseq, miter_out, k)
+            model = self.__remap_model(htseq.vars, model, k)
         else:
             (t, model) = self.solve_fwd(htseq, miter_out, k, False)
 
@@ -239,7 +240,7 @@ class BMC(object):
                     
     def simulate(self, k):
         self.config.incremental = False
-        (t, model) = self.solve_fwd2(self.hts, FALSE(), k, False)
+        (t, model) = self.solve_fwd(self.hts, FALSE(), k, False)
             
         if t > -1:
             self.print_trace(self.hts, model, t)
