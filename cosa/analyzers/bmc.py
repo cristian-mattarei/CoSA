@@ -11,7 +11,7 @@
 import re
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL
+from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL, simplify
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.util.logger import Logger
@@ -49,9 +49,16 @@ class BMC(object):
 
     TraceID = 0
 
+    smtencoding = None
+
     def __init__(self, hts):
         self.hts = hts
         self.config = BMCConfig()
+
+        self.smtencoding = None
+
+    def store_smtencoding(self):
+        self.smtencoding = (set([]), [])
 
     def at_time(self, vars, trans, t):
         varmap_t  = [(v, TS.get_timed(v, t)) for v in vars]
@@ -260,7 +267,7 @@ class BMC(object):
         
         t = 0 if shortest else k
         while (t < k+1):
-            self.config.solver.reset_assertions()
+            self.__reset_assertions(self.config.solver)
 
             formula = And(init, invar)
             formula = self.at_time(hts.vars, formula, 0)
@@ -274,7 +281,7 @@ class BMC(object):
             Logger.log("Add property time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
-            res = self.config.solver.solve()
+            res = self.__solve(self.config.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -291,7 +298,7 @@ class BMC(object):
         return (-1, None)
     
     def solve_inc_fwd(self, hts, prop, k):
-        self.config.solver.reset_assertions()
+        self.__reset_assertions(self.config.solver)
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -304,13 +311,13 @@ class BMC(object):
         
         t = 0 
         while (t < k+1):
-            self.config.solver.push()
+            self.__push(self.config.solver)
             
             propt = Not(self.at_time(hts.vars, prop, t))
             Logger.log("Add property time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
-            res = self.config.solver.solve()
+            res = self.__solve(self.config.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -321,7 +328,7 @@ class BMC(object):
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self.config.solver.pop()
+            self.__pop(self.config.solver)
             
             trans_t = self.unroll(trans, invar, t+1, t)
             self.__add_assertion(self.config.solver, trans_t)
@@ -332,7 +339,7 @@ class BMC(object):
         return (-1, None)
     
     def solve_inc_bwd(self, hts, prop, k):
-        self.config.solver.reset_assertions()
+        self.__reset_assertions(self.config.solver)
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -344,13 +351,13 @@ class BMC(object):
 
         t = 0 
         while (t < k+1):
-            self.config.solver.push()
+            self.__push(self.config.solver)
 
             pinit = self.at_ptime(hts.vars, And(init, invar), t-1)
             Logger.log("Add init at time %d"%t, 2)
             self.__add_assertion(self.config.solver, pinit)
 
-            res = self.config.solver.solve()
+            res = self.__solve(self.config.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -361,7 +368,7 @@ class BMC(object):
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self.config.solver.pop()
+            self.__pop(self.config.solver)
             
             trans_t = self.unroll(trans, invar, t, t+1)
             self.__add_assertion(self.config.solver, trans_t)
@@ -370,17 +377,9 @@ class BMC(object):
         Logger.log("", 0, not(Logger.level(1)))
                 
         return (-1, None)
-
-    def __add_assertion(self, solver, formula):
-        solver.add_assertion(formula)
-        if Logger.level(3):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue()+"\n")
-            
+        
     def solve_inc_zz(self, hts, prop, k):
-        self.config.solver.reset_assertions()
+        self.__reset_assertions(self.config.solver)
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -397,7 +396,7 @@ class BMC(object):
         
         t = 0 
         while (t < k+1):
-            self.config.solver.push()
+            self.__push(self.config.solver)
             even = (t % 2) == 0
             th = int(t/2)
 
@@ -409,7 +408,7 @@ class BMC(object):
             Logger.log("Add equivalence time %d"%t, 2)
             self.__add_assertion(self.config.solver, eq)
 
-            res = self.config.solver.solve()
+            res = self.__solve(self.config.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -420,7 +419,7 @@ class BMC(object):
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self.config.solver.pop()
+            self.__pop(self.config.solver)
 
             if even: 
                 trans_t = self.unroll(trans, invar, th+1, th)
@@ -478,3 +477,61 @@ class BMC(object):
                 
         return retmodel
     
+    def __add_assertion(self, solver, formula):
+        solver.add_assertion(formula)
+        if Logger.level(3):
+            buf = cStringIO()
+            printer = SmtPrinter(buf)
+            printer.printer(simplify(formula))
+            print(buf.getvalue()+"\n")
+
+        if self.smtencoding is not None:
+            self.smtencoding = (self.smtencoding[0].union(formula.get_free_variables()), self.smtencoding[1])
+
+            buf = cStringIO()
+            printer = SmtPrinter(buf)
+            printer.printer(simplify(formula))
+            
+            self.smtencoding[1].append("(assert %s)"%buf.getvalue())
+
+    def __push(self, solver):
+        solver.push()
+
+        if self.smtencoding is not None:
+            self.smtencoding[1].append("(push 1)")
+        
+    def __pop(self, solver):
+        solver.pop()
+
+        if self.smtencoding is not None:
+            self.smtencoding[1].append("(pop 1)")
+
+    def __reset_assertions(self, solver):
+        solver.reset_assertions()
+
+        if self.smtencoding is not None:
+            self.smtencoding = (set([]), [])
+
+    def __solve(self, solver):
+        if self.smtencoding is not None:
+            self.smtencoding[1].append("(check-sat)")
+        
+        return solver.solve()
+            
+    def get_smtencoding(self):
+
+        ret = []
+        ret.append("(set-logic QF_BV)")
+
+        ret.append("")
+        ret.append(";; Variables declaration")
+        
+        for v in self.smtencoding[0]:
+            ret.append("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+        
+        ret.append("")
+        ret.append(";; Assertions definition")
+
+        ret += self.smtencoding[1]
+        ret = "\n".join(ret)
+        return ret

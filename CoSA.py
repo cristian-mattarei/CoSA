@@ -35,6 +35,7 @@ class Config(object):
     run_passes = False
     printer = None
     translate = None
+    smt2file = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -54,7 +55,7 @@ class Config(object):
         self.run_passes = False
         self.printer = PrintersFactory.get_default().get_name()
         self.translate = None
-
+        self.smt2file = None
 
 def parse_properties(config):
     (parser, strprops) = (config.parser, config.properties)
@@ -82,6 +83,9 @@ def run(config):
     printsmv = True
     
     bmc = BMC(hts)
+
+    if config.smt2file:
+        bmc.store_smtencoding()
 
     bmc.config.full_trace = config.full_trace
     bmc.config.prefix = config.prefix
@@ -114,6 +118,10 @@ def run(config):
         for (strprop, prop) in parse_properties(config):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             bmc.safety(prop, config.bmc_length)
+
+            if config.smt2file:
+                with open(config.smt2file, "w") as f:
+                    f.write(bmc.get_smtencoding())
 
     if config.equivalence:
         Logger.log("Equivalenche check with k=%s:"%(config.bmc_length), 0)
@@ -200,6 +208,10 @@ if __name__ == "__main__":
     parser.set_defaults(printer=config.printer)
     parser.add_argument('--printer', metavar='printer', type=str, nargs='?', 
                         help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
+
+    parser.set_defaults(smt2=None)
+    parser.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+                       help='generates the smtlib2 encoding for a BMC call')
     
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
@@ -221,6 +233,7 @@ if __name__ == "__main__":
     config.prefix = args.prefix
     config.run_passes = args.run_passes
     config.translate = args.translate
+    config.smt2file = args.smt2
     
     config.verbosity = args.verbosity
 
