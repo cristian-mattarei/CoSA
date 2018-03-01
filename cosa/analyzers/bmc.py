@@ -91,7 +91,7 @@ class BMC(object):
 
         t = k_start
         while t < k_end:
-            to_t = t+1 if fwd else t-1
+            to_t = t+1 if fwd else t
             
             formula = And(formula, time_function(vars, assumption, t))
             formula = And(formula, time_function(vars, trans, t))
@@ -345,7 +345,7 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        formula = self.at_ptime(hts.vars, Not(prop), -1)
+        formula = self.at_ptime(hts.vars, And(Not(prop), invar), -1)
         Logger.log("Add property time %d"%0, 2)
         self.__add_assertion(self.config.solver, formula)
 
@@ -353,7 +353,7 @@ class BMC(object):
         while (t < k+1):
             self.__push(self.config.solver)
 
-            pinit = self.at_ptime(hts.vars, And(init, invar), t-1)
+            pinit = self.at_ptime(hts.vars, init, t-1)
             Logger.log("Add init at time %d"%t, 2)
             self.__add_assertion(self.config.solver, pinit)
 
@@ -385,12 +385,11 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        initt = And(init, invar)
-        initt = self.at_time(hts.vars, initt, 0)
+        initt = self.at_time(hts.vars, And(init, invar), 0)
         Logger.log("Add init at_0", 2)
         self.__add_assertion(self.config.solver, initt)
         
-        propt = self.at_ptime(hts.vars, Not(prop), -1)
+        propt = self.at_ptime(hts.vars, And(Not(prop), invar), -1)
         Logger.log("Add property pat_%d"%0, 2)
         self.__add_assertion(self.config.solver, propt)
         
@@ -515,6 +514,7 @@ class BMC(object):
     def __solve(self, solver):
         if self.smtencoding is not None:
             self.smtencoding[1].append("(check-sat)")
+            self.smtencoding[1].append("")
         
         return solver.solve()
             
@@ -525,7 +525,7 @@ class BMC(object):
 
         ret.append("")
         ret.append(";; Variables declaration")
-        
+
         for v in self.smtencoding[0]:
             ret.append("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
         
