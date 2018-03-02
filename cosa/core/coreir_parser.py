@@ -17,7 +17,7 @@ from six.moves import cStringIO
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, \
-    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVAShr, BVULT, BVUGT, BVUGE
+    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
@@ -53,6 +53,17 @@ class Modules(object):
     @staticmethod
     def Not(in_,out):
         return Modules.Uop(BVNot,in_,out)
+
+    @staticmethod
+    def Wrap(in_, out):
+        # INVAR: (in = out)
+        vars_ = [in_,out]
+        comment = ("Wrap (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        Logger.log(comment, 2)
+        invar = EqualsOrIff(in_, out)
+        ts = TS(set(vars_), TRUE(), TRUE(), invar)
+        ts.comment = comment
+        return ts
     
     @staticmethod
     def Bop(op, in0, in1, out):
@@ -76,6 +87,10 @@ class Modules(object):
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
+
+    @staticmethod
+    def LShl(in0,in1,out):
+        return Modules.Bop(BVLShl,in0,in1,out)
     
     @staticmethod
     def LShr(in0,in1,out):
@@ -334,7 +349,10 @@ class CoreIRParser(object):
         mod_map.append(("zext", (Modules.Zext, [self.IN, self.OUT])))
         mod_map.append(("orr",  (Modules.Orr,  [self.IN, self.OUT])))
         mod_map.append(("andr", (Modules.Andr, [self.IN, self.OUT])))
+        mod_map.append(("wrap", (Modules.Wrap, [self.IN, self.OUT])))
         
+        mod_map.append(("shl",  (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("lshl", (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("lshr", (Modules.LShr, [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("ashr", (Modules.AShr, [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("add",  (Modules.Add,  [self.IN0, self.IN1, self.OUT])))
@@ -426,7 +444,7 @@ class CoreIRParser(object):
                 return [values_dic[x] for x in ports_list]
 
             ts = self.__mod_to_impl(inst_type, args)
-                
+
             if ts is not None:
                 hts.add_ts(ts)
             else:                

@@ -71,14 +71,16 @@ def parse_properties(config):
 
     
 def run(config):
-    parser = CoreIRParser(config.strfile)
+    parser = CoreIRParser(config.strfile, "rtlil")
     config.parser = parser
     
     if config.run_passes:
         Logger.log("Running passes:", 0)
         parser.run_passes()
     
+    Logger.msg("Parsing the input file...", 0)
     hts = parser.parse()
+    Logger.log("DONE", 0)
 
     printsmv = True
     
