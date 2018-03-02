@@ -404,6 +404,8 @@ class CoreIRParser(object):
         interface = list(top_module.type.items())
         modules = {}
 
+        not_defined_mods = []
+
         hts = HTS(top_module.name)
         
         for inst in top_def.instances:
@@ -447,8 +449,10 @@ class CoreIRParser(object):
 
             if ts is not None:
                 hts.add_ts(ts)
-            else:                
-                Logger.error("Module type \"%s\" is not defined"%(inst_type))
+            else:
+                if inst_type not in not_defined_mods:
+                    Logger.error("Module type \"%s\" is not defined"%(inst_type))
+                    not_defined_mods.append(inst_type)
                 
         for var in interface:
             varname = SELF+SEP+var[0]
