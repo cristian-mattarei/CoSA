@@ -1,0 +1,89 @@
+{"top":"global.DesignTop",
+"namespaces":{
+  "commonlib":{
+    
+  },
+  "global":{
+    "modules":{
+      "DesignTop":{
+        "type":["Record",[
+          ["in",["Record",[["arg_1",["Array",1,["Array",1,["Array",16,"BitIn"]]]]]]],
+          ["out",["Array",1,["Array",1,["Array",16,"Bit"]]]]
+        ]],
+        "instances":{
+          "add_305_309_310_PE":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","add"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"]}
+          },
+          "add_311_315_316_PE":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","add"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"]}
+          },
+          "const0__304":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "const5__308":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0005"]}
+          },
+          "const5__314":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0005"]}
+          },
+          "io16_out_0_0":{
+            "genref":"cgralib.IO",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"mode":["String","o"]}
+          },
+          "io16in_in_arg_1_0_0":{
+            "genref":"cgralib.IO",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"mode":["String","i"]}
+          },
+          "lb_p4_clamped_stencil_update_stream$reg_0_1":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"init":[["BitVector",16],"16'h0078"]}
+          },
+          "lb_p4_clamped_stencil_update_stream_wen_lut_bitPE":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","bit"], "width":["Int",16]},
+            "modargs":{"bit0_mode":["String","BYPASS"], "bit0_value":["Bool",false], "bit1_mode":["String","BYPASS"], "bit1_value":["Bool",false], "bit2_mode":["String","BYPASS"], "bit2_value":["Bool",false], "lut_value":[["BitVector",8],"8'h01"]}
+          },
+          "mul_307_308_309_PE":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","mul"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"]}
+          },
+          "mul_313_314_315_PE":{
+            "genref":"cgralib.PE",
+            "genargs":{"numbitports":["Int",3], "numdataports":["Int",2], "op_kind":["String","alu"], "width":["Int",16]},
+            "modargs":{"alu_op":["String","mul"], "data0_mode":["String","BYPASS"], "data0_value":[["BitVector",16],"16'h0000"], "data1_mode":["String","BYPASS"], "data1_value":[["BitVector",16],"16'h0000"]}
+          }
+        },
+        "connections":[
+          ["const0__304.out","add_305_309_310_PE.data.in.0"],
+          ["const5__308.out","mul_307_308_309_PE.data.in.1"],
+          ["const5__314.out","mul_313_314_315_PE.data.in.1"],
+          ["io16_out_0_0.in","add_311_315_316_PE.data.out"],
+          ["io16in_in_arg_1_0_0.out","lb_p4_clamped_stencil_update_stream$reg_0_1.in"],
+          ["io16in_in_arg_1_0_0.out","mul_313_314_315_PE.data.in.0"],
+          ["lb_p4_clamped_stencil_update_stream$reg_0_1.out","mul_307_308_309_PE.data.in.0"],
+          ["add_305_309_310_PE.data.out","add_311_315_316_PE.data.in.0"],
+          ["mul_307_308_309_PE.data.out","add_305_309_310_PE.data.in.1"],
+          ["mul_313_314_315_PE.data.out","add_311_315_316_PE.data.in.1"]
+        ]
+      }
+    }
+  },
+  "mantle":{
+    
+  }
+}
+}

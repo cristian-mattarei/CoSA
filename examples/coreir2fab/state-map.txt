@@ -1,0 +1,5 @@
+State Map File For 10x10 (Including IOs) Fabric and Design = ./mapped_conv_1_2.json
+
+IO io16_out_0_0: top$pe_0x15$test_pe$test_pe_comp$test_mult_add.res
+IO io16in_in_arg_1_0_0: top$pe_0xC$test_pe$test_pe_comp$test_mult_add.res
+STATE lb_p4_clamped_stencil_update_stream$reg_0_1: pe_0x30$test_pe$test_opt_reg_a$data_in_reg$reg0$reg0 MOD.SIG: test_opt_reg.data_in_reg
