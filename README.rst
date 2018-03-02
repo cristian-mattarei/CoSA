@@ -22,7 +22,7 @@ To start playing with the tool, you can run:
 
 1) ``python3 CoSA.py -i examples/counters.json --simulate -k 7`` (generates a system execution with depth 7)
 
-2) ``python3 CoSA.py -i examples/counters.json --safety -p "!(count0.a.out = 5_16)" -k 7`` (performs reachability model checking with property count0.a.out != 5 with a 16-bit Bitvector)
+2) ``python3 CoSA.py -i examples/counters.json --safety -p "!(count0.a.out = 5_16)" -k 7`` (performs reachability model checking with property count0.a.out != 5 as a 16-bit Bitvector)
 
 3) ``python3 CoSA.py -i examples/mul_2_pe/system_1.json --equivalence examples/mul_2_pe/system_2.json -k 2`` (performs equivalence checking between system_1 and system2)
 
