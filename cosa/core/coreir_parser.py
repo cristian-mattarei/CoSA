@@ -186,7 +186,15 @@ class Modules(object):
         clk0 = EqualsOrIff(clk, BV(0, 1))
         clk1 = EqualsOrIff(clk, BV(1, 1))
         init = clk0
-        trans = EqualsOrIff(clk0, TS.to_next(clk1))
+
+        if False:
+            trans = EqualsOrIff(clk0, TS.to_next(clk1))
+        else:
+            # Implementation that leverages on the boolean propagation
+            trans1 = Implies(clk0, TS.to_next(clk1))
+            trans2 = Implies(clk1, TS.to_next(clk0))
+            trans = And(trans1, trans2)
+        
         ts = TS(set([clk]), init, trans, TRUE())
         ts.comment = comment
         return ts
