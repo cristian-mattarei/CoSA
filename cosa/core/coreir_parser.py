@@ -317,9 +317,14 @@ class CoreIRParser(object):
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
                                  'cullgraph',\
+                                 'cullzexts',\
+                                 'removeconstduplicates',\
+                                 'packconnections',\
+                                 'clockifyinterface',
                                  'flattentypes',\
                                  'flatten',\
-                                 'verifyflattenedtypes'])
+                                 'deletedeadinstances'])
+
         
     def __init_attrnames(self):
         def add_name(name, varname=None):

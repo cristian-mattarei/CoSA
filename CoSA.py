@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2018 Cristian Mattarei
 #
 # Licensed under the modified BSD (3-clause BSD) License.
@@ -15,7 +17,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 
 from cosa.core.coreir_parser import CoreIRParser
-from cosa.analyzers.bmc import BMC
+from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 
@@ -36,6 +38,7 @@ class Config(object):
     printer = None
     translate = None
     smt2file = None
+    strategy = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -56,6 +59,7 @@ class Config(object):
         self.printer = PrintersFactory.get_default().get_name()
         self.translate = None
         self.smt2file = None
+        self.strategy = None
 
 def parse_properties(config):
     (parser, strprops) = (config.parser, config.properties)
@@ -71,7 +75,7 @@ def parse_properties(config):
 
     
 def run(config):
-    parser = CoreIRParser(config.strfile, "rtlil")
+    parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
     config.parser = parser
     
     if config.run_passes:
@@ -85,13 +89,14 @@ def run(config):
     printsmv = True
     
     bmc = BMC(hts)
-
+    
     if config.smt2file:
         bmc.store_smtencoding()
 
     bmc.config.full_trace = config.full_trace
     bmc.config.prefix = config.prefix
-
+    bmc.config.strategy = config.strategy
+    
     if Logger.level(1):
         stat = []
         stat.append("Statistics (System 1):")
@@ -126,7 +131,8 @@ def run(config):
                     f.write(bmc.get_smtencoding())
 
     if config.equivalence:
-        Logger.log("Equivalenche check with k=%s:"%(config.bmc_length), 0)
+        symb = " (symbolic init)" if config.symbolic_init else ""
+        Logger.log("Equivalenche check%s with k=%s:"%(symb, config.bmc_length), 0)
         parser2 = CoreIRParser(config.equivalence)
         
         if config.run_passes:
@@ -155,37 +161,36 @@ def run(config):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
-
+    
     config = Config()
-    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
     
     parser.set_defaults(input_file=None)
-    parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
-                        help='input file, CoreIR json format')
+    parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=True,
+                        help='input file, CoreIR json format.')
     
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
-                       help='simulate system using BMC')
+                       help='simulate system using BMC.')
 
     parser.set_defaults(safety=False)
     parser.add_argument('--safety', dest='safety', action='store_true',
-                       help='safety verification using BMC')
+                       help='safety verification using BMC.')
     
     parser.set_defaults(properties=None)
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
-                       help='comma separated list of invariant properties')
+                       help='comma separated list of invariant properties.')
     
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
-                       help='equivalence checking using BMC')
+                       help='equivalence checking using BMC.')
 
     parser.set_defaults(fsm_check=False)
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
-                       help='check if the state machine is deterministic')
+                       help='check if the state machine is deterministic.')
 
     parser.set_defaults(translate=None)
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
-                       help='translate input file')
+                       help='translate input file.')
 
     parser.set_defaults(bmc_length=config.bmc_length)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
@@ -205,24 +210,30 @@ if __name__ == "__main__":
 
     parser.set_defaults(prefix=None)
     parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
-                       help='write the counterexamples with specified location prefix')
+                       help='write the counterexamples with specified location prefix.')
 
+    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
+    
     parser.set_defaults(printer=config.printer)
     parser.add_argument('--printer', metavar='printer', type=str, nargs='?', 
                         help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
 
+    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in BMCConfig.get_strategies()]
+    defstrategy = BMCConfig.get_strategies()[0][0]
+    parser.set_defaults(strategy=defstrategy)
+    parser.add_argument('--strategy', metavar='strategy', type=str, nargs='?', 
+                        help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
+    
     parser.set_defaults(smt2=None)
     parser.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
-                       help='generates the smtlib2 encoding for a BMC call')
+                       help='generates the smtlib2 encoding for a BMC call.')
     
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
 
-
     args = parser.parse_args()
 
-    
     config.strfile = args.input_file
     config.simulate = args.simulate
     config.safety = args.safety
@@ -236,6 +247,7 @@ if __name__ == "__main__":
     config.run_passes = args.run_passes
     config.translate = args.translate
     config.smt2file = args.smt2
+    config.strategy = args.strategy
     
     config.verbosity = args.verbosity
 
@@ -250,6 +262,12 @@ if __name__ == "__main__":
         config.printer = args.printer
     else:
         Logger.error("Printer \"%s\" not found"%(args.printer))
+        ok = False
+
+    if args.strategy not in [s[0] for s in BMCConfig.get_strategies()]:
+        Logger.error("Strategy \"%s\" not found"%(args.strategy))
+        ok = False
+        
         
     if not(config.simulate or \
            (config.safety) or \

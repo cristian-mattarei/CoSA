@@ -23,9 +23,9 @@ NL = "\n"
 S1 = "sys1$"
 S2 = "sys2$"
 
-FWD = "_FWD"
-BWD = "_BWD"
-ZZ  = "_ZZ"
+FWD = "FWD"
+BWD = "BWD"
+ZZ  = "ZZ"
 
 class BMCConfig(object):
 
@@ -42,6 +42,17 @@ class BMCConfig(object):
         self.full_trace = False
         self.prefix = None
 
+        self.strategies = BMCConfig.get_strategies()
+
+    @staticmethod
+    def get_strategies():
+        strategies = []
+        strategies.append((FWD, "Forward reachability"))
+        strategies.append((BWD, "Backward reachability"))
+        strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
+
+        return strategies
+            
 class BMC(object):
 
     hts = None
