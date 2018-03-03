@@ -52,7 +52,6 @@ def read_log_file(log_filename, statemap_filename):
         if reg_ind in line:
             signame = line[line.find(reg_ind)+len(reg_ind):line.find(end_reg_ind)]
             signame = signame.replace("\\", "")
-            signame = signame.replace("$", "__DOLLAR__")
         elif dff_ind in line or adff_ind in line:
             ind = dff_ind if dff_ind in line else adff_ind
             dffname = line[line.find(ind)+len(ind):line.find(end_dff_ind)]
@@ -71,11 +70,21 @@ def read_log_file(log_filename, statemap_filename):
         elif s_m in line:
             mname = line[line.find(s_m)+len(s_m):line.find(":")]
             fabname = line[line.find(": ")+2:line.find(ms_m)]
-            modsig = line[line.find(ms_m)+len(ms_m):]
-            mod, sig = modsig.split(".")
-            procdffname = procdff_mapping[modsig]
+            mod_width_sig = line[line.find(ms_m)+len(ms_m):]
+            mod, width, sig = mod_width_sig.split(".")
+            # a little hacky
+            # not sure how to anticipate paramod name in general
+            paramodname = "$paramod{}DataWidth={}.{}".format(mod, width, sig)
+            modsig = "{}.{}".format(mod,sig)
+            # paramodname has priority
+            if paramodname in procdff_mapping:
+                procdffname = procdff_mapping[paramodname]
+            elif modsig in procdff_mapping:
+                procdffname = procdff_mapping[modsig]
+            else:
+                raise RuntimeError("Could not infer mapping from Yosys log.")
             fabname = fabname.replace(sig, procdffname)
-            name_mapping[mname] = fabname
+            name_mapping[mname] = fabname.strip()
 
     return name_mapping
 

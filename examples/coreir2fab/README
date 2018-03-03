@@ -3,16 +3,9 @@ The 16x16 files are consistent with eachother and the rest are 8x8.
 conv_1_2.json <-- Input file. This never changes
 mapped_conv_1_2.json <-- Input to pnr. Not needed if using the already produced bitstream and state-map
 
-16x16 files:
-fabric16x16.json
-fabric_yosys16x16.log
-conv_1_2_16x16.bsa
-state-map16x16.txt
-pnr16x16.log
-
 8x8 files:
-fabric.json
-fabric_yosys.log
-conv_1_2_.bsa
-state-map.txt
-pnr.log
+fabric8x8.json
+fabric_yosys8x8.log
+conv_1_2_8x8.bsa
+state-map8x8.txt
+pnr8x8.log
