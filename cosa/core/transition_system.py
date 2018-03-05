@@ -33,11 +33,11 @@ class HTS(object):
         self.inputs = set([])
         self.outputs = set([])
 
-    def add_ts(self, ts):
-        self.ts.append(ts)
+    # def add_ts(self, ts):
+    #     self.ts.append(ts)
 
-        self.vars = self.vars.union(ts.vars)
-        self.state_vars = self.state_vars.union(ts.state_vars)
+    #     self.vars = self.vars.union(ts.vars)
+    #     self.state_vars = self.state_vars.union(ts.state_vars)
 
     def add_sub(self, sub):
         self.sub.append(sub)
@@ -83,6 +83,14 @@ class HTS(object):
                 invar = And(invar, ts.invar)
 
         return invar
+
+    def __copy__(self):
+        cls = self.__class__
+        new_hts = cls.__new__(cls)
+        new_hts.__dict__.update(self.__dict__)
+        new_hts.tss = list(new_hts.tss)
+        new_hts.sub = list(new_hts.sub)
+        return new_hts
     
 class TS(object):
 

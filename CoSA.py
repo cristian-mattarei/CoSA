@@ -29,6 +29,7 @@ class Config(object):
     bmc_length = 10
     safety = None
     properties = None
+    assumptions = None
     equivalence = None
     symbolic_init = None
     fsm_check = False
@@ -50,6 +51,7 @@ class Config(object):
         self.bmc_length = 10
         self.safety = None
         self.properties = None
+        self.assumptions = None
         self.equivalence = None
         self.symbolic_init = False
         self.fsm_check = False
@@ -61,17 +63,17 @@ class Config(object):
         self.smt2file = None
         self.strategy = None
 
-def parse_properties(config):
-    (parser, strprops) = (config.parser, config.properties)
-    props = []
+def parse_formulae(config, strforms):
+    parser = config.parser
+    formulae = []
 
-    for strprop in strprops:
+    for strform in strforms:
         try:
-            props.append((strprop, parser.parse_formula(strprop)))
+            formulae.append((strform, parser.parse_formula(strform)))
         except Exception as e:
             Logger.error(str(e))
 
-    return props
+    return formulae
 
     
 def run(config):
@@ -114,7 +116,7 @@ def run(config):
 
         properties = None
         if config.properties:
-            properties = parse_properties(config)
+            properties = parse_formulae(config, config.properties)
         
         with open(config.translate, "w") as f:
             f.write(printer.print_hts(hts, properties))
@@ -124,9 +126,13 @@ def run(config):
         bmc.simulate(config.bmc_length)
 
     if config.safety:
-        for (strprop, prop) in parse_properties(config):
+        assumps = []
+        if config.assumptions is not None:
+            parsed_assumps = parse_formulae(config, config.assumptions)
+            assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
+        for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            bmc.safety(prop, config.bmc_length)
+            bmc.safety(prop, assumps, config.bmc_length)
 
     if config.equivalence:
         symb = " (symbolic init)" if config.symbolic_init else ""
@@ -177,6 +183,10 @@ if __name__ == "__main__":
     parser.set_defaults(properties=None)
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of invariant properties.')
+
+    parser.set_defaults(assumptions=None)
+    parser.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
+                       help='comma separated list of invariant assumptions.')
     
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
@@ -240,6 +250,7 @@ if __name__ == "__main__":
     config.simulate = args.simulate
     config.safety = args.safety
     config.properties = args.properties
+    config.assumptions = args.assumptions
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
     config.fsm_check = args.fsm_check
@@ -286,7 +297,10 @@ if __name__ == "__main__":
 
     if config.properties is not None:
         config.properties = [p.strip() for p in config.properties.split(",")]
-        
+
+    if config.assumptions is not None:
+        config.assumptions = [a.strip() for a in config.assumptions.split(",")]
+
     if not ok:
         parser.print_help()
         sys.exit(1)
