@@ -41,7 +41,7 @@ class BMCConfig(object):
         self.solver = Solver(name="z3")
         self.full_trace = False
         self.prefix = None
-
+    
         self.strategies = BMCConfig.get_strategies()
 
     @staticmethod
@@ -68,7 +68,7 @@ class BMC(object):
         self.config = BMCConfig()
 
         self.smtencoding = None
-
+        
         Logger.time = True
         self.total_time = 0.0
 
@@ -465,6 +465,9 @@ class BMC(object):
             Logger.log("No counterexample found", 0)
 
     def __remap_model(self, vars, model, k):
+        if model is None:
+            return model
+        
         if self.config.strategy == BWD:
             return self.__remap_model_bwd(vars, model, k)
 
@@ -537,15 +540,17 @@ class BMC(object):
             self.smtencoding[1].append("(check-sat)")
             self.smtencoding[1].append("")
 
+        if self.config.skip_solving:
+            return None
+            
         if Logger.level(1):
             timer = Logger.start_timer("Solve")
-            
+
         r = solver.solve()
         
         if Logger.level(1):
             self.total_time += Logger.stop_timer(timer)
             Logger.log("Total time: %.2f sec"%self.total_time, 1)
-            
             
         return r
             

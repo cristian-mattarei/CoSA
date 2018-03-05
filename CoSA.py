@@ -96,6 +96,7 @@ def run(config):
     bmc.config.full_trace = config.full_trace
     bmc.config.prefix = config.prefix
     bmc.config.strategy = config.strategy
+    bmc.config.skip_solving = config.skip_solving
     
     if Logger.level(1):
         stat = []
@@ -227,6 +228,10 @@ if __name__ == "__main__":
     parser.set_defaults(smt2=None)
     parser.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
                        help='generates the smtlib2 encoding for a BMC call.')
+
+    parser.set_defaults(skip_solving=False)
+    parser.add_argument('--skip-solving', dest='skip_solving', action='store_true',
+                       help='does not call the solver (used with --smt2 parameter).')
     
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
@@ -248,6 +253,7 @@ if __name__ == "__main__":
     config.translate = args.translate
     config.smt2file = args.smt2
     config.strategy = args.strategy
+    config.skip_solving = args.skip_solving
     
     config.verbosity = args.verbosity
 
@@ -257,7 +263,7 @@ if __name__ == "__main__":
     
     if len(sys.argv)==1:
         ok = False
-
+        
     if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
         config.printer = args.printer
     else:
