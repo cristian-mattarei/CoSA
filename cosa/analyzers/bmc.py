@@ -68,6 +68,8 @@ class BMC(object):
 
         self.smtencoding = None
 
+        Logger.time = True
+
     def store_smtencoding(self):
         self.smtencoding = (set([]), [])
 
@@ -534,8 +536,16 @@ class BMC(object):
         if self.smtencoding is not None:
             self.smtencoding[1].append("(check-sat)")
             self.smtencoding[1].append("")
+
+        if Logger.level(1):
+            timer = Logger.start_timer("Solve")
+            
+        r = solver.solve()
         
-        return solver.solve()
+        if Logger.level(1):
+            Logger.stop_timer(timer)
+            
+        return r
             
     def get_smtencoding(self):
 
