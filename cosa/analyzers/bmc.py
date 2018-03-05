@@ -91,7 +91,7 @@ class BMC(object):
 
         return trans.substitute(varmap)
     
-    def unroll(self, trans, invar, k_end, k_start=0, assumption=TRUE()):
+    def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
         formula = TRUE()
@@ -107,8 +107,6 @@ class BMC(object):
         t = k_start
         while t < k_end:
             to_t = t+1 if fwd else t
-            
-            formula = And(formula, time_function(vars, assumption, t))
             formula = And(formula, time_function(vars, trans, t))
             formula = And(formula, time_function(vars, invar, to_t))
             Logger.log("Add trans, k=%s"%t, 2)
