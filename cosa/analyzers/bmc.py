@@ -459,10 +459,7 @@ class BMC(object):
         hts = copy.copy(self.hts)
         if assumptions:
             Logger.msg("Adding %d assumptions..."%len(assumptions), 1)
-            and_assumps = TRUE()
-            for a in assumptions:
-                and_assumps = And(and_assumps, a)
-
+            and_assumps = And(assumptions)
             hts.add_ts(TS(get_free_variables(and_assumps), TRUE(), TRUE(), and_assumps))
 
         (t, model) = self.solve(hts, prop, k)
