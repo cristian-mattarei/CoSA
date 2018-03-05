@@ -268,6 +268,20 @@ class Modules(object):
         return ts
 
     @staticmethod
+    def Neq(in0, in1, out):
+        # INVAR: (((in0 != in1) -> (out = #b1)) & ((in0 = in1) -> (out = #b0)))
+        vars_ = [in0,in1,out]
+        comment = "Neq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
+        Logger.log(comment, 2)
+        eq = EqualsOrIff(in0, in1)
+        zero = EqualsOrIff(out, BV(0, 1))
+        one = EqualsOrIff(out, BV(1, 1))
+        invar = And(Implies(Not(eq), one), Implies(eq, zero))
+        ts = TS(set(vars_), TRUE(), TRUE(), invar)
+        ts.comment = comment
+        return ts
+
+    @staticmethod
     def Orr(in_, out):
         # INVAR: (in = 0) -> (out = 0) & (in != 0) -> (out = 1)
         vars_ = [in_, out]
@@ -375,6 +389,7 @@ class CoreIRParser(object):
         mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("neq",   (Modules.Neq,   [self.IN0, self.IN1, self.OUT])))
 
         mod_map.append(("ult",  (Modules.Ult,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("ule",  (Modules.Ule,  [self.IN0, self.IN1, self.OUT])))
