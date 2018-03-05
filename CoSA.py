@@ -87,16 +87,17 @@ def run(config):
     Logger.log("DONE", 0)
 
     printsmv = True
-    
-    bmc = BMC(hts)
-    
-    if config.smt2file:
-        bmc.store_smtencoding()
 
-    bmc.config.full_trace = config.full_trace
-    bmc.config.prefix = config.prefix
-    bmc.config.strategy = config.strategy
-    bmc.config.skip_solving = config.skip_solving
+    bmc_config = BMCConfig()
+    
+    bmc_config.smt2file = config.smt2file
+
+    bmc_config.full_trace = config.full_trace
+    bmc_config.prefix = config.prefix
+    bmc_config.strategy = config.strategy
+    bmc_config.skip_solving = config.skip_solving
+
+    bmc = BMC(hts, bmc_config)
     
     if Logger.level(1):
         stat = []
@@ -126,10 +127,6 @@ def run(config):
         for (strprop, prop) in parse_properties(config):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             bmc.safety(prop, config.bmc_length)
-
-            if config.smt2file:
-                with open(config.smt2file, "w") as f:
-                    f.write(bmc.get_smtencoding())
 
     if config.equivalence:
         symb = " (symbolic init)" if config.symbolic_init else ""
