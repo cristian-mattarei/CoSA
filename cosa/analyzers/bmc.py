@@ -61,6 +61,7 @@ class BMC(object):
     TraceID = 0
 
     smtencoding = None
+    total_time = 0.0
 
     def __init__(self, hts):
         self.hts = hts
@@ -69,6 +70,7 @@ class BMC(object):
         self.smtencoding = None
 
         Logger.time = True
+        self.total_time = 0.0
 
     def store_smtencoding(self):
         self.smtencoding = (set([]), [])
@@ -543,7 +545,9 @@ class BMC(object):
         r = solver.solve()
         
         if Logger.level(1):
-            Logger.stop_timer(timer)
+            self.total_time += Logger.stop_timer(timer)
+            Logger.log("Total time: %.2f sec"%self.total_time, 1)
+            
             
         return r
             
