@@ -11,11 +11,13 @@
 import re
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL, simplify
+from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL, simplify, get_free_variables
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS, SEP
+
+import copy
 
 NSEP = "."
 NL = "\n"
@@ -453,10 +455,19 @@ class BMC(object):
                 
         return (-1, None)
             
-    def safety(self, prop, k):
-        (t, model) = self.solve(self.hts, prop, k)
+    def safety(self, prop, assumptions, k):
+        hts = copy.copy(self.hts)
+        if assumptions:
+            Logger.msg("Adding %d assumptions..."%len(assumptions), 1)
+            and_assumps = TRUE()
+            for a in assumptions:
+                and_assumps = And(and_assumps, a)
 
-        model = self.__remap_model(self.hts.vars, model, t)
+            hts.add_ts(TS(get_free_variables(and_assumps), TRUE(), TRUE(), and_assumps))
+
+        (t, model) = self.solve(hts, prop, k)
+
+        model = self.__remap_model(hts.vars, model, t)
         
         if t > -1:
             Logger.log("Property is FALSE", 0)

@@ -20,8 +20,6 @@ from cosa.core.coreir_parser import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
-from pysmt.shortcuts import get_free_variables, And, TRUE
-from cosa.core.transition_system import TS
 
 class Config(object):
     parser = None
@@ -90,15 +88,6 @@ def run(config):
     hts = parser.parse()
     Logger.log("DONE", 0)
 
-    if config.assumptions is not None:
-        Logger.msg("Adding %d assumptions..."%len(config.assumptions), 1)
-        and_assumps = TRUE()
-        for (strassump, assump) in parse_formulae(config, config.assumptions):
-            Logger.msg("Adding assumptions %s to Transition System..."%strassump, 2)
-            and_assumps = And(and_assumps, assump)
-
-        hts.add_ts(TS(get_free_variables(and_assumps), TRUE(), TRUE(), and_assumps))
-
     printsmv = True
     
     bmc = BMC(hts)
@@ -135,9 +124,13 @@ def run(config):
         bmc.simulate(config.bmc_length)
 
     if config.safety:
+        assumps = []
+        if config.assumptions is not None:
+            parsed_assumps = parse_formulae(config, config.assumptions)
+            assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            bmc.safety(prop, config.bmc_length)
+            bmc.safety(prop, assumps, config.bmc_length)
 
             if config.smt2file:
                 with open(config.smt2file, "w") as f:
