@@ -36,6 +36,7 @@ class BMCConfig(object):
     solver = None
     full_trace = False
     prefix = None
+    smt2file = None
     
     def __init__(self):
         self.incremental = True
@@ -43,7 +44,8 @@ class BMCConfig(object):
         self.solver = Solver(name="z3")
         self.full_trace = False
         self.prefix = None
-
+        self.smt2file = None
+    
         self.strategies = BMCConfig.get_strategies()
 
     @staticmethod
@@ -62,20 +64,22 @@ class BMC(object):
 
     TraceID = 0
 
-    smtencoding = None
+    smtvars = None
     total_time = 0.0
 
-    def __init__(self, hts):
+    def __init__(self, hts, config):
         self.hts = hts
-        self.config = BMCConfig()
+        self.config = config
 
         self.smtencoding = None
-
+        
         Logger.time = True
         self.total_time = 0.0
 
-    def store_smtencoding(self):
-        self.smtencoding = (set([]), [])
+        if self.config.smt2file:
+            self.smtvars = set([])
+            with open(self.config.smt2file, "w") as f:
+                f.write("(set-logic QF_BV)\n")
 
     def at_time(self, vars, trans, t):
         varmap_t  = [(v, TS.get_timed(v, t)) for v in vars]
@@ -459,8 +463,8 @@ class BMC(object):
         hts = copy.copy(self.hts)
         if assumptions:
             Logger.msg("Adding %d assumptions..."%len(assumptions), 1)
-            and_assumps = And(assumptions)
-            hts.add_ts(TS(get_free_variables(and_assumps), TRUE(), TRUE(), and_assumps))
+            for assumption in assumptions:
+                hts.add_ts(TS(set([]), TRUE(), TRUE(), assumption))
 
         (t, model) = self.solve(hts, prop, k)
 
@@ -473,6 +477,9 @@ class BMC(object):
             Logger.log("No counterexample found", 0)
 
     def __remap_model(self, vars, model, k):
+        if model is None:
+            return model
+        
         if self.config.strategy == BWD:
             return self.__remap_model_bwd(vars, model, k)
 
@@ -504,6 +511,11 @@ class BMC(object):
                 retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
                 
         return retmodel
+
+    def __write_smt2_log(self, line):
+        if self.config.smt2file is not None:
+            with open(self.config.smt2file, "a") as f:
+                f.write(line+"\n")
     
     def __add_assertion(self, solver, formula):
         solver.add_assertion(formula)
@@ -513,64 +525,49 @@ class BMC(object):
             printer.printer(simplify(formula))
             print(buf.getvalue()+"\n")
 
-        if self.smtencoding is not None:
-            self.smtencoding = (self.smtencoding[0].union(formula.get_free_variables()), self.smtencoding[1])
+        if self.config.smt2file is not None:
+            for v in set(formula.get_free_variables()).difference(self.smtvars):
+                self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+
+            self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
             buf = cStringIO()
             printer = SmtPrinter(buf)
-            printer.printer(simplify(formula))
+            printer.printer(formula)
             
-            self.smtencoding[1].append("(assert %s)"%buf.getvalue())
-
+            self.__write_smt2_log("(assert %s)"%buf.getvalue())
+    
     def __push(self, solver):
         solver.push()
 
-        if self.smtencoding is not None:
-            self.smtencoding[1].append("(push 1)")
+        self.__write_smt2_log("(push 1)")
         
     def __pop(self, solver):
         solver.pop()
 
-        if self.smtencoding is not None:
-            self.smtencoding[1].append("(pop 1)")
+        self.__write_smt2_log("(pop 1)")
 
     def __reset_assertions(self, solver):
         solver.reset_assertions()
 
-        if self.smtencoding is not None:
-            self.smtencoding = (set([]), [])
+        if self.config.smt2file is not None:
+            with open(self.config.smt2file, "w") as f:
+                f.write("(set-logic QF_BV)\n")
 
     def __solve(self, solver):
-        if self.smtencoding is not None:
-            self.smtencoding[1].append("(check-sat)")
-            self.smtencoding[1].append("")
-
+        self.__write_smt2_log("(check-sat)")
+        self.__write_smt2_log("")
+        
+        if self.config.skip_solving:
+            return None
+            
         if Logger.level(1):
             timer = Logger.start_timer("Solve")
-            
+
         r = solver.solve()
         
         if Logger.level(1):
             self.total_time += Logger.stop_timer(timer)
             Logger.log("Total time: %.2f sec"%self.total_time, 1)
             
-            
         return r
-            
-    def get_smtencoding(self):
-
-        ret = []
-        ret.append("(set-logic QF_BV)")
-
-        ret.append("")
-        ret.append(";; Variables declaration")
-
-        for v in self.smtencoding[0]:
-            ret.append("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
-        
-        ret.append("")
-        ret.append(";; Assertions definition")
-
-        ret += self.smtencoding[1]
-        ret = "\n".join(ret)
-        return ret
