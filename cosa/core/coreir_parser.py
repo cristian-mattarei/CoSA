@@ -165,7 +165,10 @@ class Modules(object):
         comment = ("ZExt (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
         length = (out.symbol_type().width)-(in_.symbol_type().width)
-        invar = EqualsOrIff(BVZExt(in_, length), out)
+        if length == 0:
+            invar = EqualsOrIff(in_, out)
+        else:
+            invar = EqualsOrIff(BVZExt(in_, length), out)
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
@@ -189,6 +192,8 @@ class Modules(object):
         clk1 = EqualsOrIff(clk, BV(1, 1))
         init = clk0
 
+        invar = TRUE()
+        
         if False:
             trans = EqualsOrIff(clk0, TS.to_next(clk1))
         else:
@@ -198,9 +203,11 @@ class Modules(object):
             trans = And(trans1, trans2)
 
         if Modules.abstract_clock:
-            trans = EqualsOrIff(clk, BV(0, 1))
+            invar = clk0
+            init = TRUE()
+            trans = TRUE()
             
-        ts = TS(set([clk]), init, trans, TRUE())
+        ts = TS(set([clk]), init, trans, invar)
         ts.comment = comment
         return ts
 
@@ -216,30 +223,34 @@ class Modules(object):
         binitval = BV(initval, out.symbol_type().width)
         init = EqualsOrIff(out, binitval)
         if clr is not None:
-            bclr = EqualsOrIff(clr, BV(1, 1))
+            clr0 = EqualsOrIff(clr, BV(0, 1))
+            clr1 = EqualsOrIff(clr, BV(1, 1))
         else:
-            bclr = FALSE()
+            clr0 = TRUE()
+            clr1 = FALSE()
 
         if rst is not None:
-            brst = EqualsOrIff(rst, BV(1, 1))
+            rst0 = EqualsOrIff(rst, BV(0, 1))
+            rst1 = EqualsOrIff(rst, BV(1, 1))
         else:
-            brst = FALSE()
+            rst0 = TRUE()
+            rst1 = FALSE()
             
         clk0 = EqualsOrIff(clk, BV(0, 1))
         clk1 = EqualsOrIff(clk, BV(1, 1))
         
         zero = BV(0, out.symbol_type().width)
 
-        ri_clk = And(clk0, TS.to_next(clk1))
-        do_clk = And(clk1, TS.to_next(clk0))
-
         if Modules.abstract_clock:
             ri_clk = TRUE()
             do_clk = FALSE()
+        else:
+            ri_clk = And(clk0, TS.to_next(clk1))
+            do_clk = And(clk1, TS.to_next(clk0))
 
-        tr_clr = Implies(bclr, EqualsOrIff(TS.get_prime(out), zero))
-        tr_rst_nclr = Implies(And(brst, Not(bclr)), EqualsOrIff(TS.get_prime(out), binitval))
-        tr_nrst_nclr = Implies(And(Not(brst), Not(bclr)), EqualsOrIff(TS.get_prime(out), in_))
+        tr_clr = Implies(clr1, EqualsOrIff(TS.get_prime(out), zero))
+        tr_rst_nclr = Implies(And(rst1, clr0), EqualsOrIff(TS.get_prime(out), binitval))
+        tr_nrst_nclr = Implies(And(rst0, clr0), EqualsOrIff(TS.get_prime(out), in_))
         trans_ri = And(tr_clr, tr_rst_nclr, tr_nrst_nclr)
         trans_do = EqualsOrIff(out, TS.get_prime(out))
                 
@@ -322,6 +333,7 @@ class Modules(object):
         high -= 1
         vars_ = [in_,out, low, high]
         comment = "Mux (in, out, low, high) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+        print(in_.symbol_type().width, out.symbol_type().width)
         Logger.log(comment, 2)
         invar = EqualsOrIff(BVExtract(in_, low, high), out)
         ts = TS(set([in_, out]), TRUE(), TRUE(), invar)

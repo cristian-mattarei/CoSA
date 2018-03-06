@@ -11,8 +11,9 @@
 import re
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL, simplify, get_free_variables
+from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL, get_free_variables
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+from pysmt.rewritings import conjunctive_partition
 
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS, SEP
@@ -71,7 +72,7 @@ class BMC(object):
         self.hts = hts
         self.config = config
 
-        self.smtencoding = None
+        self.assert_property = False
         
         Logger.time = True
         self.total_time = 0.0
@@ -341,7 +342,7 @@ class BMC(object):
             self.__push(self.config.solver)
             
             propt = Not(self.at_time(hts.vars, prop, t))
-            Logger.log("Add property time %d"%t, 2)
+            Logger.log("Add not property at time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
             res = self.__solve(self.config.solver)
@@ -360,6 +361,11 @@ class BMC(object):
             trans_t = self.unroll(trans, invar, t+1, t)
             self.__add_assertion(self.config.solver, trans_t)
 
+            if self.assert_property:
+                prop_t = self.unroll(TRUE(), prop, t, t-1)
+                self.__add_assertion(self.config.solver, prop_t)
+                Logger.log("Add property at time %d"%t, 2)
+
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
                 
@@ -373,7 +379,7 @@ class BMC(object):
         invar = hts.single_invar()
 
         formula = self.at_ptime(hts.vars, And(Not(prop), invar), -1)
-        Logger.log("Add property time %d"%0, 2)
+        Logger.log("Add not property at time %d"%0, 2)
         self.__add_assertion(self.config.solver, formula)
 
         t = 0 
@@ -399,6 +405,11 @@ class BMC(object):
             
             trans_t = self.unroll(trans, invar, t, t+1)
             self.__add_assertion(self.config.solver, trans_t)
+
+            if self.assert_property and t > 0:
+                prop_t = self.unroll(TRUE(), prop, t-1, t)
+                self.__add_assertion(self.config.solver, prop_t)
+                Logger.log("Add property at time %d"%t, 2)
             
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
@@ -522,7 +533,7 @@ class BMC(object):
         if Logger.level(3):
             buf = cStringIO()
             printer = SmtPrinter(buf)
-            printer.printer(simplify(formula))
+            printer.printer(formula)
             print(buf.getvalue()+"\n")
 
         if self.config.smt2file is not None:
@@ -531,12 +542,19 @@ class BMC(object):
 
             self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            
-            self.__write_smt2_log("(assert %s)"%buf.getvalue())
-    
+            if formula.is_and():
+                for f in conjunctive_partition(formula):
+                    buf = cStringIO()
+                    printer = SmtPrinter(buf)
+                    printer.printer(f)
+                    self.__write_smt2_log("(assert %s)"%buf.getvalue())
+            else:
+                buf = cStringIO()
+                printer = SmtPrinter(buf)
+                printer.printer(formula)
+                self.__write_smt2_log("(assert %s)"%buf.getvalue())
+                    
+                    
     def __push(self, solver):
         solver.push()
 

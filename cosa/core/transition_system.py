@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Symbol, And, TRUE
+from pysmt.shortcuts import Symbol, And, TRUE, simplify
 
 NEXT = "_N"
 AT = "_AT"
@@ -66,7 +66,7 @@ class HTS(object):
             if ts.init is not None:
                 init = And(init, ts.init)
 
-        return init
+        return simplify(init)
 
     def single_trans(self):
         trans = TRUE()
@@ -74,7 +74,7 @@ class HTS(object):
             if ts.trans is not None:
                 trans = And(trans, ts.trans)
 
-        return trans
+        return simplify(trans)
 
     def single_invar(self):
         invar = TRUE()
@@ -82,7 +82,7 @@ class HTS(object):
             if ts.invar is not None:
                 invar = And(invar, ts.invar)
 
-        return invar
+        return simplify(invar)
 
     def __copy__(self):
         cls = self.__class__
