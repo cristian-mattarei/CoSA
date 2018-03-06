@@ -39,6 +39,8 @@ def BVVar(name, width):
 
 class Modules(object):
 
+    abstract_clock=False
+    
     @staticmethod
     def Uop(op, in_, out):
         # INVAR: (<op> in) = out)
@@ -194,7 +196,10 @@ class Modules(object):
             trans1 = Implies(clk0, TS.to_next(clk1))
             trans2 = Implies(clk1, TS.to_next(clk0))
             trans = And(trans1, trans2)
-        
+
+        if Modules.abstract_clock:
+            trans = EqualsOrIff(clk, BV(0, 1))
+            
         ts = TS(set([clk]), init, trans, TRUE())
         ts.comment = comment
         return ts
@@ -227,6 +232,10 @@ class Modules(object):
 
         ri_clk = And(clk0, TS.to_next(clk1))
         do_clk = And(clk1, TS.to_next(clk0))
+
+        if Modules.abstract_clock:
+            ri_clk = TRUE()
+            do_clk = FALSE()
 
         tr_clr = Implies(bclr, EqualsOrIff(TS.get_prime(out), zero))
         tr_rst_nclr = Implies(And(brst, Not(bclr)), EqualsOrIff(TS.get_prime(out), binitval))
@@ -425,9 +434,11 @@ class CoreIRParser(object):
 
         return parse(formula)
     
-    def parse(self):
+    def parse(self, abstract_clock=False):
         top_module = self.context.load_from_file(self.file)
 
+        Modules.abstract_clock = abstract_clock
+        
         top_def = top_module.definition
         interface = list(top_module.type.items())
         modules = {}

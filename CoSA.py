@@ -78,6 +78,7 @@ def parse_formulae(config, strforms):
     
 def run(config):
     parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
+    
     config.parser = parser
     
     if config.run_passes:
@@ -85,7 +86,7 @@ def run(config):
         parser.run_passes()
     
     Logger.msg("Parsing the input file...", 0)
-    hts = parser.parse()
+    hts = parser.parse(config.abstract_clock)
     Logger.log("DONE", 0)
 
     printsmv = True
@@ -143,7 +144,7 @@ def run(config):
             Logger.log("Running passes:", 0)
             parser2.run_passes()
         
-        hts2 = parser2.parse()
+        hts2 = parser2.parse(config.abstract_clock)
 
         if Logger.level(1):
             stat = []
@@ -200,6 +201,10 @@ if __name__ == "__main__":
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
 
+    parser.set_defaults(abstract_clock=False)
+    parser.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
+                       help='abstracts the clock behavior.')
+    
     parser.set_defaults(bmc_length=config.bmc_length)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
                         help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
@@ -262,6 +267,7 @@ if __name__ == "__main__":
     config.smt2file = args.smt2
     config.strategy = args.strategy
     config.skip_solving = args.skip_solving
+    config.abstract_clock = args.abstract_clock
     
     config.verbosity = args.verbosity
 
