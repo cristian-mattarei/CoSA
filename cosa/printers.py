@@ -13,7 +13,7 @@ from six.moves import cStringIO
 from pysmt.printers import HRPrinter
 from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
-from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE
+from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
 from cosa.core.transition_system import TS
 
@@ -129,7 +129,10 @@ class SMVHTSPrinter(HTSPrinter):
         
         if hts.vars: self.write("\nVAR\n")
         for var in hts.vars:
-            self.write("%s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
+            if var.symbol_type() == BOOL:
+                self.write("%s : boolean;\n"%(var.symbol_name()))
+            else:
+                self.write("%s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
 
         if hts.vars: self.write("\nDEFINE\n")
         for var in hts.vars:

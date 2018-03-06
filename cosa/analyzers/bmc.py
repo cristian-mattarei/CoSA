@@ -538,8 +538,11 @@ class BMC(object):
 
         if self.config.smt2file is not None:
             for v in set(formula.get_free_variables()).difference(self.smtvars):
-                self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
-
+                if v.symbol_type() == BOOL:
+                    self.__write_smt2_log("(declare-fun %s () Bool)" % (v.symbol_name()))
+                else:
+                    self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                    
             self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
             if formula.is_and():
