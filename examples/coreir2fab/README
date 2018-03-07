@@ -9,3 +9,9 @@ fabric_yosys8x8.log
 conv_1_2_8x8.bsa
 state-map8x8.txt
 pnr8x8.log
+
+16x16 files:
+fabric16x16.json
+fabric_yosys16x16.log
+conv_1_2_16x16.bsa
+state-map16x16.txt
