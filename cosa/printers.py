@@ -13,7 +13,7 @@ from six.moves import cStringIO
 from pysmt.printers import HRPrinter
 from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
-from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE
+from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
 from cosa.core.transition_system import TS
 
@@ -113,26 +113,41 @@ class SMVHTSPrinter(HTSPrinter):
                 self.write("\nINVARSPEC ")
                 self.printer(prop)
                 self.write(";\n")
-        
+
+        if hts.assumptions is not None:
+            self.write("\n-- ASSUMPTIONS\n")
+            for assmp in hts.assumptions:
+                self.write("INVAR ")
+                self.printer(assmp)
+                self.write(";\n")
+                
+        printed_vars = set([])
         for ts in hts.tss:
-            self.__print_single_hts(ts)
+            printed_vars = self.__print_single_hts(ts, printed_vars)
 
         return self.stream.getvalue()
             
-    def __print_single_hts(self, hts):
+    def __print_single_hts(self, hts, printed_vars):
 
         lenstr = len(hts.comment)+3
         
         self.write("\n%s\n"%("-"*lenstr))
         self.write("-- %s\n"%hts.comment)
         self.write("%s\n"%("-"*lenstr))
-        
-        if hts.vars: self.write("\nVAR\n")
-        for var in hts.vars:
-            self.write("%s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
 
-        if hts.vars: self.write("\nDEFINE\n")
-        for var in hts.vars:
+        locvars = [v for v in hts.vars if v not in printed_vars]
+
+        printed_vars = printed_vars.union(hts.vars)
+        
+        if locvars: self.write("\nVAR\n")
+        for var in locvars:
+            if var.symbol_type() == BOOL:
+                self.write("%s : boolean;\n"%(var.symbol_name()))
+            else:
+                self.write("%s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
+
+        if locvars: self.write("\nDEFINE\n")
+        for var in locvars:
             self.write("%s := next(%s);\n"%(TS.get_prime(var).symbol_name(), var.symbol_name()))
 
         sections = [(simplify(hts.init),"INIT"), (simplify(hts.invar),"INVAR"), (simplify(hts.trans),"TRANS")]
@@ -145,6 +160,8 @@ class SMVHTSPrinter(HTSPrinter):
 
 
         self.write("\n%s\n"%("-"*lenstr))
+
+        return printed_vars
         
     
 class SMVPrinter(HRPrinter):
@@ -159,3 +176,12 @@ class SMVPrinter(HRPrinter):
 
     def walk_bv_constant(self, formula):
         self.write("0ud%d_%d" % (formula.bv_width(), formula.constant_value()))
+
+    def walk_bv_zext(self, formula):
+        self.write("extend ")
+        self.write("( ")
+        yield formula.arg(0)
+        self.write(", %d)" % formula.bv_extend_step())
+
+    def walk_bv_ult(self, formula): return self.walk_nary(formula, " < ")
+        

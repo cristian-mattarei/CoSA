@@ -470,16 +470,10 @@ class BMC(object):
                 
         return (-1, None)
             
-    def safety(self, prop, assumptions, k):
-        hts = copy.copy(self.hts)
-        if assumptions:
-            Logger.msg("Adding %d assumptions..."%len(assumptions), 1)
-            for assumption in assumptions:
-                hts.add_ts(TS(set([]), TRUE(), TRUE(), assumption))
+    def safety(self, prop, k):
+        (t, model) = self.solve(self.hts, prop, k)
 
-        (t, model) = self.solve(hts, prop, k)
-
-        model = self.__remap_model(hts.vars, model, t)
+        model = self.__remap_model(self.hts.vars, model, t)
         
         if t > -1:
             Logger.log("Property is FALSE", 0)
@@ -538,8 +532,12 @@ class BMC(object):
 
         if self.config.smt2file is not None:
             for v in set(formula.get_free_variables()).difference(self.smtvars):
-                self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                if v.symbol_type() == BOOL:
+                    self.__write_smt2_log("(declare-fun %s () Bool)" % (v.symbol_name()))
+                else:
+                    self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
 
+            self.__write_smt2_log("")
             self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
             if formula.is_and():
