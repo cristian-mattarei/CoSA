@@ -473,7 +473,7 @@ class BMC(object):
     def safety(self, prop, assumptions, k):
         hts = copy.copy(self.hts)
         if assumptions:
-            Logger.msg("Adding %d assumptions..."%len(assumptions), 1)
+            Logger.log("Adding %d assumptions..."%len(assumptions), 1)
             for assumption in assumptions:
                 hts.add_ts(TS(set([]), TRUE(), TRUE(), assumption))
 

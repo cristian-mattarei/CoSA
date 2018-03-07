@@ -43,6 +43,11 @@ def BVVar(name, width):
 class Modules(object):
 
     abstract_clock=False
+
+    @staticmethod
+    def BoolToBv(var):
+        bvvar = BVVAR(var.symbol_name()+"__BV__", 1)
+        return (bvvar, (Implies(var, EqualsOrIff(bvvar, BV(1,1))), Implies(Not(var), EqualsOrIff(bvvar, BV(0,1))) ))
     
     @staticmethod
     def Uop(bvop, bop, in_, out):
@@ -398,8 +403,8 @@ class Modules(object):
         eq = EqualsOrIff(in0, in1)
 
         if out.symbol_type() == BOOL:
-            out0 = FALSE()
-            out1 = TRUE()
+            out0 = Not(out)
+            out1 = out
         else:
             out0 = EqualsOrIff(out, BV(0, 1))
             out1 = EqualsOrIff(out, BV(1, 1))
@@ -418,13 +423,13 @@ class Modules(object):
         eq = EqualsOrIff(in0, in1)
 
         if out.symbol_type() == BOOL:
-            out0 = FALSE()
-            out1 = TRUE()
+            out0 = Not(out)
+            out1 = out
         else:
             out0 = EqualsOrIff(out, BV(0, 1))
             out1 = EqualsOrIff(out, BV(1, 1))
 
-        invar = And(Implies(eq, out0), Implies(Not(eq), out1))
+        invar = And(Implies(Not(eq), out1), Implies(eq, out0))
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
@@ -440,12 +445,12 @@ class Modules(object):
             invar = EqualsOrIff(in_, out)
         else:
             
-            if out.symbol_type() != BOOL:
+            if out.symbol_type() == BOOL:
+                out0 = Not(out)
+                out1 = out
+            else:
                 out0 = EqualsOrIff(out, BV(0,1))
                 out1 = EqualsOrIff(out, BV(1,1))
-            else:
-                out0 = FALSE()
-                out1 = TRUE()
             
             true_res = Implies(EqualsOrIff(in_, BV(0,in_.symbol_type().width)), out0)
             false_res = Implies(Not(EqualsOrIff(in_, BV(0,in_.symbol_type().width))), out1)
@@ -475,7 +480,6 @@ class Modules(object):
         high -= 1
         vars_ = [in_,out, low, high]
         comment = "Mux (in, out, low, high) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
-        print(in_.symbol_type().width, out.symbol_type().width)
         Logger.log(comment, 2)
         invar = EqualsOrIff(BVExtract(in_, low, high), out)
         ts = TS(set([in_, out]), TRUE(), TRUE(), invar)
