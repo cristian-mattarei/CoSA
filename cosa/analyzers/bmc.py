@@ -542,7 +542,8 @@ class BMC(object):
                     self.__write_smt2_log("(declare-fun %s () Bool)" % (v.symbol_name()))
                 else:
                     self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
-                    
+
+            self.__write_smt2_log("")
             self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
             if formula.is_and():

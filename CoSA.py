@@ -13,6 +13,7 @@
 import sys
 import coreir
 import argparse
+import os
 
 from argparse import RawTextHelpFormatter
 
@@ -40,6 +41,7 @@ class Config(object):
     translate = None
     smt2file = None
     strategy = None
+    boolean = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -62,6 +64,7 @@ class Config(object):
         self.translate = None
         self.smt2file = None
         self.strategy = None
+        self.boolean = False
 
 def parse_formulae(config, strforms):
     parser = config.parser
@@ -78,6 +81,7 @@ def parse_formulae(config, strforms):
     
 def run(config):
     parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
+    parser.boolean = config.boolean
     
     config.parser = parser
     
@@ -213,6 +217,10 @@ if __name__ == "__main__":
     parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
                        help='symbolic inititial state for equivalence checking. (Default is \"%s\")'%config.symbolic_init)
 
+    parser.set_defaults(boolean=config.boolean)
+    parser.add_argument('--boolean', dest='boolean', action='store_true',
+                        help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
+    
     parser.set_defaults(run_passes=config.run_passes)
     parser.add_argument('--run-passes', dest='run_passes', action='store_true',
                         help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
@@ -268,6 +276,7 @@ if __name__ == "__main__":
     config.strategy = args.strategy
     config.skip_solving = args.skip_solving
     config.abstract_clock = args.abstract_clock
+    config.boolean = args.boolean
     
     config.verbosity = args.verbosity
 
@@ -302,10 +311,18 @@ if __name__ == "__main__":
         ok = False
 
     if config.properties is not None:
-        config.properties = [p.strip() for p in config.properties.split(",")]
+        if os.path.isfile(config.properties):
+            with open(config.properties) as f:
+                config.properties = [p.strip() for p in f.read().strip().split("\n")]
+        else:
+            config.properties = [p.strip() for p in config.properties.split(",")]
 
     if config.assumptions is not None:
-        config.assumptions = [a.strip() for a in config.assumptions.split(",")]
+        if os.path.isfile(config.assumptions):
+            with open(config.assumptions) as f:
+                config.assumptions = [a.strip() for a in f.read().strip().split("\n")]
+        else:
+            config.assumptions = [a.strip() for a in config.assumptions.split(",")]
 
     if not ok:
         parser.print_help()

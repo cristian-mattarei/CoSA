@@ -374,6 +374,7 @@ class Modules(object):
         vars_ = [in0,in1,sel,out]
         comment = "Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
+        
         if sel.symbol_type() == BOOL:
             sel0 = Not(sel)
             sel1 = sel
@@ -485,7 +486,7 @@ class CoreIRParser(object):
     context = None
 
     attrnames = None
-    booleans = False
+    boolean = False
 
     def __init__(self, file, *libs):
         self.context = coreir.Context()
@@ -496,7 +497,7 @@ class CoreIRParser(object):
 
         self.__init_attrnames()
 
-        self.booleans = False
+        self.boolean = False
 
 
     def run_passes(self):
@@ -516,7 +517,7 @@ class CoreIRParser(object):
         if width <= 0 or not isinstance(width, int):
             raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
 
-        if self.booleans and (width == 1):
+        if self.boolean and (width == 1):
             return Symbol(name, BOOL)
 
         return Symbol(name, _BVType(width))
