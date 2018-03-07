@@ -96,7 +96,13 @@ def run(config):
     printsmv = True
 
     bmc_config = BMCConfig()
-    
+
+    if config.assumptions is not None:
+        Logger.log("Adding %d assumptions..."%len(config.assumptions), 1)
+        parsed_assumps = parse_formulae(config, config.assumptions)
+        assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
+        hts.assumptions = assumps
+
     bmc_config.smt2file = config.smt2file
 
     bmc_config.full_trace = config.full_trace
@@ -131,13 +137,9 @@ def run(config):
         bmc.simulate(config.bmc_length)
 
     if config.safety:
-        assumps = []
-        if config.assumptions is not None:
-            parsed_assumps = parse_formulae(config, config.assumptions)
-            assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            bmc.safety(prop, assumps, config.bmc_length)
+            bmc.safety(prop, config.bmc_length)
 
     if config.equivalence:
         symb = " (symbolic init)" if config.symbolic_init else ""

@@ -23,6 +23,7 @@ class HTS(object):
     inputs = None
     outputs = None
     state_vars = None
+    assumptions = None
     
     def __init__(self, name):
         self.tss = []
@@ -32,12 +33,7 @@ class HTS(object):
         self.name = name
         self.inputs = set([])
         self.outputs = set([])
-
-    # def add_ts(self, ts):
-    #     self.ts.append(ts)
-
-    #     self.vars = self.vars.union(ts.vars)
-    #     self.state_vars = self.state_vars.union(ts.state_vars)
+        self.assumptions = None
 
     def add_sub(self, sub):
         self.sub.append(sub)
@@ -53,6 +49,12 @@ class HTS(object):
         self.vars = set(self.vars.union(ts.vars))
         self.state_vars = set(self.state_vars.union(ts.state_vars))
 
+    def add_assumption(self, assumption):
+        if self.assumptions is None:
+            self.assumptions = []
+
+        self.assumptions.append(assumption)
+        
     def is_input(self, var):
         return var in self.inputs
         
@@ -81,6 +83,10 @@ class HTS(object):
         for ts in self.tss:
             if ts.invar is not None:
                 invar = And(invar, ts.invar)
+
+        if self.assumptions is not None:
+            invar = And(self.assumptions)
+            print(And(self.assumptions))
 
         return simplify(invar)
 

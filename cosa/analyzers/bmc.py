@@ -470,16 +470,10 @@ class BMC(object):
                 
         return (-1, None)
             
-    def safety(self, prop, assumptions, k):
-        hts = copy.copy(self.hts)
-        if assumptions:
-            Logger.log("Adding %d assumptions..."%len(assumptions), 1)
-            for assumption in assumptions:
-                hts.add_ts(TS(set([]), TRUE(), TRUE(), assumption))
+    def safety(self, prop, k):
+        (t, model) = self.solve(self.hts, prop, k)
 
-        (t, model) = self.solve(hts, prop, k)
-
-        model = self.__remap_model(hts.vars, model, t)
+        model = self.__remap_model(self.hts.vars, model, t)
         
         if t > -1:
             Logger.log("Property is FALSE", 0)

@@ -678,21 +678,28 @@ class CoreIRParser(object):
             first = SEP.join(conn.first.selectpath)
             second = SEP.join(conn.second.selectpath)
 
+            firstvar = None
+            secondvar = None
+            
             if is_number(conn.first.selectpath[-1]):
                 first = varmap[SEP.join(conn.first.selectpath[:-1])]
+                firstvar = first
                 sel = int(conn.first.selectpath[-1])
                 if first.symbol_type() != BOOL:
                     first = BVExtract(first, sel, sel)
             else:
                 first = varmap[SEP.join(conn.first.selectpath)]
+                firstvar = first
 
             if is_number(conn.second.selectpath[-1]):
                 second = varmap[SEP.join(conn.second.selectpath[:-1])]
+                secondvar = second
                 sel = int(conn.second.selectpath[-1])
                 if second.symbol_type() != BOOL:
                     second = BVExtract(second, sel, sel)
             else:
                 second = varmap[SEP.join(conn.second.selectpath)]
+                secondvar = second
 
             if (first.get_type() != BOOL) and (second.get_type() == BOOL):
                 second = Ite(second, BV(1,1), BV(0,1))
@@ -704,7 +711,7 @@ class CoreIRParser(object):
 
             Logger.log(str(eq), 2)
 
-            ts = TS(set([]), TRUE(), TRUE(), eq)
+            ts = TS(set([firstvar, secondvar]), TRUE(), TRUE(), eq)
             ts.comment = "Connection (%s, %s)"%(SEP.join(conn.first.selectpath), SEP.join(conn.second.selectpath))
             hts.add_ts(ts)
 
