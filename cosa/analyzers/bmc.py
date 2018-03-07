@@ -124,12 +124,11 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_trace(self, hts, model, length):
+    def print_trace(self, hts, model, length, diff_only=True):
         trace = []
         prevass = []
 
         full_trace = self.config.full_trace
-        diff_only = True
         
         if Logger.level(1):
             diff_only = False
@@ -175,7 +174,7 @@ class BMC(object):
             
         if t > -1:
             Logger.log("Systems are NOT equivalent", 0)
-            self.print_trace(htseq, model, t)
+            self.print_trace(htseq, model, t, False)
         else:
             Logger.log("Systems are equivalent with k=%s"%k, 0)
             
@@ -185,7 +184,7 @@ class BMC(object):
             
         if t > -1:
             Logger.log("FSM is NOT deterministic", 0)            
-            self.print_trace(htseq, model, t)
+            self.print_trace(htseq, model, t, False)
         else:
             Logger.log("FSM is deterministic", 0)
             
