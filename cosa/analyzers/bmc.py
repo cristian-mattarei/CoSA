@@ -302,7 +302,7 @@ class BMC(object):
             Logger.log("Add init and invar", 2)
             self.__add_assertion(self.config.solver, formula)
 
-            trans_t = self.unroll(trans, invar, t)
+            trans_t = simplify(self.unroll(trans, invar, t))
             self.__add_assertion(self.config.solver, trans_t)
             
             propt = Not(self.at_time(hts.vars, prop, t))

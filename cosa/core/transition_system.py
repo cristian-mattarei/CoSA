@@ -85,8 +85,7 @@ class HTS(object):
                 invar = And(invar, ts.invar)
 
         if self.assumptions is not None:
-            invar = And(self.assumptions)
-            print(And(self.assumptions))
+            invar = And(invar, And(self.assumptions))
 
         return simplify(invar)
 
