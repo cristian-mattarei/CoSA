@@ -16,7 +16,7 @@ from six.moves import cStringIO
 
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
-    And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, \
+    And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE
 
 from pysmt.typing import BOOL, _BVType
@@ -31,23 +31,15 @@ SELF = "self"
 
 KEYWORDS = ["not"]
 
-def BVVar(name, width):
-    if width <= 0 or not isinstance(width, int):
-        raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
-
-    if width == 1:
-        return Symbol(name, BOOL)
+def B2BV(var):
+    return Ite(var, BV(1,1), BV(0,1))
     
-    return Symbol(name, _BVType(width))
+def BV2B(var):
+    return EqualsOrIff(var, BV(1,1))
 
 class Modules(object):
 
     abstract_clock=False
-
-    @staticmethod
-    def BoolToBv(var):
-        bvvar = BVVAR(var.symbol_name()+"__BV__", 1)
-        return (bvvar, (Implies(var, EqualsOrIff(bvvar, BV(1,1))), Implies(Not(var), EqualsOrIff(bvvar, BV(0,1))) ))
     
     @staticmethod
     def Uop(bvop, bop, in_, out):
@@ -63,9 +55,9 @@ class Modules(object):
 
         if bop == None:
             if in_B:
-                in_ = Ite(in_, BV(1,1), BV(0,1))
+                in_ = B2BV(in_)
             if outB:
-                out = Ite(out, BV(1,1), BV(0,1))
+                out = B2BV(out)
             invar = EqualsOrIff(bvop(in_), out)
         else:
             if bools == 2:
@@ -74,9 +66,9 @@ class Modules(object):
                 invar = EqualsOrIff(bvop(in_), out)
             else:
                 if not in_B:
-                    invar = EqualsOrIff(bop(EqualsOrIff(in_, BV(1,1))), out)
+                    invar = EqualsOrIff(bop(BV2B(in_)), out)
                 if not outB:
-                    invar = EqualsOrIff(bop(in_), EqualsOrIff(out, BV(1,1)))
+                    invar = EqualsOrIff(bop(in_), BV2B(out))
                 
                 
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
@@ -110,7 +102,7 @@ class Modules(object):
         outB = out.symbol_type() == BOOL
 
         bools = (1 if in0B else 0) + (1 if in1B else 0) + (1 if outB else 0)
-        
+
         if bop == None:
             if in0B:
                 in0 = Ite(in0, BV(1,1), BV(0,1))
@@ -128,18 +120,18 @@ class Modules(object):
                 invar = EqualsOrIff(bvop(in0,in1), out)
             elif bools == 1:
                 if in0B:
-                    invar = And(Implies(in0, EqualsOrIff(bvop(BV(1,1),in1), out)), Implies(Not(in0), EqualsOrIff(bvop(BV(0,1),in1), out)))
+                    invar = EqualsOrIff(bvop(B2BV(in0),in1), out)
                 if in1B:
-                    invar = And(Implies(in1, EqualsOrIff(bvop(BV(1,1),in0), out)), Implies(Not(in1), EqualsOrIff(bvop(BV(0,1),in0), out)))
+                    invar = EqualsOrIff(bvop(in0,B2BV(in1)), out)
                 if outB:
-                    invar = EqualsOrIff(EqualsOrIff(bvop(in0, in1), BV(1,1)), out)
+                    invar = EqualsOrIff(BV2B(bvop(in0,in1)), out)
             else:
                 if not in0B:
-                    invar = EqualsOrIff(bop(EqualsOrIff(in0, BV(1,1)), in1), out)
+                    invar = EqualsOrIff(bop(BV2B(in0),in1), out)
                 if not in1B:
-                    invar = EqualsOrIff(bop(in0, EqualsOrIff(in1, BV(1,1))), out)
+                    invar = EqualsOrIff(bop(in0,BV2B(in1)), out)
                 if not outB:
-                    invar = EqualsOrIff(bop(in0, in1), EqualsOrIff(out, BV(1,1)))
+                    invar = EqualsOrIff(B2BV(bop(in0, in1)), out)
                 
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
@@ -184,11 +176,11 @@ class Modules(object):
 
     @staticmethod
     def Xor(in0,in1,out):
-        return Modules.Bop(BVXor,None,in0,in1,out)
+        return Modules.Bop(BVXor,Xor,in0,in1,out)
     
     @staticmethod
     def Or(in0,in1,out):
-        return Modules.Bop(BVOr,None,in0,in1,out)
+        return Modules.Bop(BVOr,Or,in0,in1,out)
     
     @staticmethod
     def Sub(in0,in1,out):
@@ -241,14 +233,14 @@ class Modules(object):
             invar = EqualsOrIff(in_, out)
 
         if (in_.symbol_type() != BOOL) and (out.symbol_type() == BOOL):
-            invar = EqualsOrIff(EqualsOrIff(in_, BV(1,1)), out)
+            invar = EqualsOrIff(BV2B(in_), out)
 
         if (in_.symbol_type() == BOOL) and (out.symbol_type() != BOOL):
             length = (out.symbol_type().width)-1
             if length == 0:
-                invar = EqualsOrIff(in_, EqualsOrIff(out, BV(1,1)))
+                invar = EqualsOrIff(in_, BV2B(out))
             else:
-                invar = EqualsOrIff(BVZExt(Ite(in_, BV(1,1), BV(0,1)), length), out)
+                invar = EqualsOrIff(BVZExt(B2BV(in_), length), out)
 
         if (in_.symbol_type() != BOOL) and (out.symbol_type() != BOOL):
             length = (out.symbol_type().width)-(in_.symbol_type().width)
@@ -493,6 +485,7 @@ class CoreIRParser(object):
     context = None
 
     attrnames = None
+    booleans = False
 
     def __init__(self, file, *libs):
         self.context = coreir.Context()
@@ -502,6 +495,9 @@ class CoreIRParser(object):
         self.file = file
 
         self.__init_attrnames()
+
+        self.booleans = False
+
 
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
@@ -513,6 +509,17 @@ class CoreIRParser(object):
                                  'flattentypes',\
                                  'flatten',\
                                  'deletedeadinstances'])
+
+
+
+    def BVVar(self, name, width):
+        if width <= 0 or not isinstance(width, int):
+            raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
+
+        if self.booleans and (width == 1):
+            return Symbol(name, BOOL)
+
+        return Symbol(name, _BVType(width))
 
         
     def __init_attrnames(self):
@@ -617,7 +624,7 @@ class CoreIRParser(object):
 
             for x in self.attrnames:
                 if x in inst_intr:
-                    values_dic[x] = BVVar(modname+x, inst_intr[x].size)
+                    values_dic[x] = self.BVVar(modname+x, inst_intr[x].size)
                 else:
                     values_dic[x] = None
 
@@ -653,7 +660,7 @@ class CoreIRParser(object):
                 
         for var in interface:
             varname = SELF+SEP+var[0]
-            bvvar = BVVar(varname, var[1].size)
+            bvvar = self.BVVar(varname, var[1].size)
             hts.add_var(bvvar)
             if(var[1].is_input()):
                 hts.inputs.add(bvvar)
