@@ -124,7 +124,7 @@ class BMC(object):
     def remap_name(self, name):
         return name.replace(SEP, NSEP)
 
-    def print_trace(self, hts, model, length, diff_only=True):
+    def print_trace(self, hts, model, length, xvars=None, diff_only=True):
         trace = []
         prevass = []
 
@@ -140,6 +140,8 @@ class BMC(object):
             varlist = list(hts.vars)
         else:
             varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
+            if xvars is not None:
+                varlist = list(set(varlist).union(set(xvars)))
 
         strvarlist = [(var.symbol_name(), var) for var in varlist]
         strvarlist.sort()
@@ -174,7 +176,7 @@ class BMC(object):
             
         if t > -1:
             Logger.log("Systems are NOT equivalent", 0)
-            self.print_trace(htseq, model, t, False)
+            self.print_trace(htseq, model, t, None, False)
         else:
             Logger.log("Systems are equivalent with k=%s"%k, 0)
             
@@ -184,7 +186,7 @@ class BMC(object):
             
         if t > -1:
             Logger.log("FSM is NOT deterministic", 0)            
-            self.print_trace(htseq, model, t, False)
+            self.print_trace(htseq, model, t, None, False)
         else:
             Logger.log("FSM is deterministic", 0)
             
@@ -476,7 +478,7 @@ class BMC(object):
         
         if t > -1:
             Logger.log("Property is FALSE", 0)
-            self.print_trace(self.hts, model, t)
+            self.print_trace(self.hts, model, t, prop.get_free_variables())
         else:
             Logger.log("No counterexample found", 0)
 
