@@ -1,0 +1,25 @@
+F0000015 FFFFFFFF
+F1000015 FFFFFFFF
+FF000015 000000F0
+# data[(5, 0)] : alu_op = input
+00080015 00000C00
+# data[(11, 10)] : @ tile (2, 2) connect wire 3 (pe_out_res) to out_BUS16_S1_T0
+F1000028 FFFFFFFF
+FF000028 000000FF
+# data[(5, 0)] : alu_op = output
+00020028 00000005
+# data[(3, 0)] : @ tile (3, 2) connect wire 5 (out_BUS16_S2_T0) to data0
+00080028 00100800
+# data[(11, 10)] : @ tile (3, 2) connect wire 2 (in_BUS16_S3_T0) to out_BUS16_S1_T0
+# data[(21, 20)] : @ tile (3, 2) connect wire 1 (in_BUS16_S1_T0) to out_BUS16_S2_T0
+F1000036 00000002
+# data[(15, 0)] : init `data1` reg with const `2`
+FF000036 0002000B
+# data[(4, 0)] : alu_op = mul
+# data[(17, 16)] : data0: REG_BYPASS
+# data[(19, 18)] : data1: REG_CONST
+00020036 00000005
+# data[(3, 0)] : @ tile (4, 2) connect wire 5 (out_BUS16_S2_T0) to data0
+00080036 C0200000
+# data[(21, 20)] : @ tile (4, 2) connect wire 2 (in_BUS16_S3_T0) to out_BUS16_S2_T0
+# data[(31, 30)] : @ tile (4, 2) connect wire 3 (pe_out_res) to out_BUS16_S3_T0

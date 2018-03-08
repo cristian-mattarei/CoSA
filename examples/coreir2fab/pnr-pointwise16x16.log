@@ -1,0 +1,32 @@
+Loading design: ./test/designs/pointwise.json
+Loading fabric: ./cgra_info.sixteen
+Placing design... success!
+Routing design... Solving in Monosat...
+success!
+Successfully placed and routed in 0 iterations
+Loading configuration engine with placement and route info
+
+
+placement info:
+module: io16_out @ {'row': 3, 'col': 2, 'layer': 'Combined'})
+inputs: mul_347_348_349_PE
+outputs: 
+
+module: io16in_in_0 @ {'row': 2, 'col': 2, 'layer': 'Combined'})
+inputs: 
+outputs: mul_347_348_349_PE
+
+module: mul_347_348_349_PE @ {'row': 4, 'col': 2, 'layer': 'Data'})
+inputs: io16in_in_0, const2__348
+outputs: io16_out
+
+
+Routing info:
+io16in_in_0 -> mul_347_348_349_PE:
+SetList({('io16in_in_0_pe_out_res', '(2, 2)PE_i_b16[pe_out_res]', '(2, 2)S_o_b16[0]', '(3, 2)S_o_b16[0]', '(4, 2)W_o_b16[0]', '(4, 2)PE_o_b16[data0]', 'mul_347_348_349_PE_data0')})
+mul_347_348_349_PE -> io16_out:
+SetList({('mul_347_348_349_PE_pe_out_res', '(4, 2)PE_i_b16[pe_out_res]', '(4, 2)N_o_b16[0]', '(3, 2)W_o_b16[0]', '(3, 2)PE_o_b16[data0]', 'io16_out_data0')})
+Writing bitsream to: pointwise.bsa
+Writing state mapping to: state-map-pointwise.txt
+Warning: Using IO Hack for state mapping -- inferring io16_out is IO by name
+Warning: Using IO Hack for state mapping -- inferring io16in_in_0 is IO by name
