@@ -1,0 +1,15 @@
+det_data_integ.json should be deterministic
+
+The Verilog was verified by JG as deterministic.
+
+In the original counterexample trace, one of the registers did not have equal initial states
+because JG relies on the reset signal to set initial state and does not handle the notation:
+
+reg Q = INIT
+
+That's fixed now and the determinism property passes.
+
+The register that influences data_out_vld (and produced the counterexample trace) is the following
+in the coreir version:
+
+ff_en$__DOLLAR__procdff__DOLLAR__266$reg0
