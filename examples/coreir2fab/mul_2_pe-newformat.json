@@ -3802,7 +3802,7 @@
           "sbwideDOLLARprocdffDOLLAR1231reg0":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",64]},
-            "modargs":{"init":[["BitVector",64],"64'h0000110000000000"]}
+            "modargs":{"init":[["BitVector",64],"64'h0000000000000c00"]}
           },
           "sbwideDOLLARprocmuxDOLLAR867CMP0op0":{
             "genref":"coreir.eq",
@@ -4201,12 +4201,12 @@
           "testpeDOLLARprocdffDOLLAR1150reg0":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
-            "modargs":{"init":[["BitVector",16],"16'h1011"]}
+            "modargs":{"init":[["BitVector",16],"16'h000b"]}
           },
           "testpeDOLLARprocdffDOLLAR1151reg0":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
-            "modargs":{"init":[["BitVector",16],"16'h0010"]}
+            "modargs":{"init":[["BitVector",16],"16'h0002"]}
           },
           "testpeDOLLARprocmuxDOLLAR435mux0":{
             "genref":"coreir.mux",
@@ -4296,7 +4296,7 @@
           "testpetestoptregbDOLLARprocdffDOLLAR1147reg0":{
             "genref":"coreir.reg",
             "genargs":{"width":["Int",16]},
-            "modargs":{"init":[["BitVector",16],"16'h0010"]}
+            "modargs":{"init":[["BitVector",16],"16'h0002"]}
           },
           "testpetestoptregbDOLLARprocmuxDOLLAR426mux0":{
             "genref":"coreir.mux",
