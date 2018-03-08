@@ -28,6 +28,7 @@ from cosa.util.utils import is_number
 from cosa.util.logger import Logger
 
 SELF = "self"
+INIT = "init"
 
 KEYWORDS = ["not"]
 
@@ -255,14 +256,17 @@ class Modules(object):
     
     @staticmethod
     def Const(out, value):
-        if out.symbol_type() == BOOL:
-            const = TRUE() if value == 1 else FALSE()
-        else:
-            const = BV(value, out.symbol_type().width)
-        formula = EqualsOrIff(out, const)
-        comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(const) + ")"
+        invar = TRUE()
+        if value is not None:
+            if out.symbol_type() == BOOL:
+                const = TRUE() if value == 1 else FALSE()
+            else:
+                const = BV(value, out.symbol_type().width)
+            invar = EqualsOrIff(out, const)
+            
+        comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(value) + ")"
         Logger.log(comment, 2)
-        ts = TS(set([out]), TRUE(), TRUE(), formula)
+        ts = TS(set([out]), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
 
@@ -310,14 +314,29 @@ class Modules(object):
         comment = "Reg (in, clk, clr, rst, out) = (%s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 2)
 
+        init = TRUE()
+        trans = TRUE()
+        
+        initvar = None
+        initname = SEP.join(out.symbol_name().split(SEP)[:-1])+SEP+INIT
+        
         if out.symbol_type() == BOOL:
             out0 = FALSE()
-            binitval = FALSE() if initval == 0 else TRUE()
+            initvar = Symbol(initname, BOOL)
         else:
             out0 = BV(0, out.symbol_type().width)
-            binitval = BV(initval, out.symbol_type().width)
-        
-        init = EqualsOrIff(out, binitval)
+            initvar = Symbol(initname, _BVType(out.symbol_type().width))
+
+        trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
+        init = EqualsOrIff(out, initvar)
+            
+        if initval is not None:
+            if out.symbol_type() == BOOL:
+                binitval = FALSE() if initval == 0 else TRUE()
+            else:
+                binitval = BV(initval, out.symbol_type().width)
+
+            init = And(init, EqualsOrIff(initvar, binitval))
         
         if clr is not None:
             if clr.symbol_type() == BOOL:
@@ -356,14 +375,14 @@ class Modules(object):
             do_clk = And(clk1, TS.to_next(clk0))
 
         tr_clr = Implies(clr1, EqualsOrIff(TS.get_prime(out), out0))
-        tr_rst_nclr = Implies(And(rst1, clr0), EqualsOrIff(TS.get_prime(out), binitval))
+        tr_rst_nclr = Implies(And(rst1, clr0), EqualsOrIff(TS.get_prime(out), initvar))
         tr_nrst_nclr = Implies(And(rst0, clr0), EqualsOrIff(TS.get_prime(out), in_))
         trans_ri = And(tr_clr, tr_rst_nclr, tr_nrst_nclr)
         trans_do = EqualsOrIff(out, TS.get_prime(out))
                 
-        trans = And(Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
+        trans = And(trans, Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
         trans = simplify(trans)
-        ts = TS(set([v for v in vars_ if v is not None]), init, trans, TRUE())
+        ts = TS(set([initvar]+[v for v in vars_ if v is not None]), init, trans, TRUE())
         ts.state_vars = set([out])
         ts.comment = comment
         return ts
