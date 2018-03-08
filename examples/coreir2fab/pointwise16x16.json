@@ -3,15 +3,15 @@
   "global":{
     "modules":{
       "DesignTop":{
-        "type":["Record",{
-          "in":["Record",{"arg_1":["Array",1,["Array",1,["Array",16,"BitIn"]]]}],
-          "out":["Array",1,["Array",1,["Array",16,"Bit"]]]
-        }],
+        "type":["Record",[
+          ["in",["Record",[["arg_1",["Array",1,["Array",1,["Array",16,"BitIn"]]]]]]],
+          ["out",["Array",1,["Array",1,["Array",16,"Bit"]]]]
+        ]],
         "instances":{
           "const2__348":{
             "genref":"coreir.const",
             "genargs":{"width":["Int",16]},
-            "modargs":{"value":[["BitVector",16],2]}
+            "modargs":{"value":[["BitVector",16],"16'h0002"]}
           },
           "mul_347_348_349":{
             "genref":"coreir.mul",
