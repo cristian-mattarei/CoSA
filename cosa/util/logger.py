@@ -33,7 +33,12 @@ class Logger(object):
     def error(msg):
         sys.stderr.write("ERROR: "+msg+"\n")
         sys.stderr.flush()
-            
+
+    @staticmethod        
+    def warning(msg):
+        sys.stderr.write("WARNING: "+msg+"\n")
+        sys.stderr.flush()
+        
     @staticmethod        
     def level(level):
         return Logger.verbosity > level
