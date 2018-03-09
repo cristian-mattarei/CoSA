@@ -17,13 +17,14 @@ from pysmt.rewritings import conjunctive_partition
 
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS
+from cosa.core.coreir_parser import SEP
 
 import copy
 
 NL = "\n"
 
-S1 = "sys1$"
-S2 = "sys2$"
+S1 = "sys1"+SEP
+S2 = "sys2"+SEP
 
 FWD = "FWD"
 BWD = "BWD"
@@ -190,12 +191,12 @@ class BMC(object):
     def combined_system(self, hts2, k, symbolic_init, inc=True):
         htseq = HTS("eq")
 
-        map1 = dict([(v, TS.get_prefix(v, S1)) for v in self.hts.vars])
-        map2 = dict([(v, TS.get_prefix(v, S2)) for v in hts2.vars])
+        map1 = dict([(v, TS.get_prefix(v, S1)) for v in self.hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S1)) for v in self.hts.vars])
+        map2 = dict([(v, TS.get_prefix(v, S2)) for v in self.hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S2)) for v in self.hts.vars])
 
         ts1_init = TRUE()
         ts2_init = TRUE()
-        
+
         if not symbolic_init:
             ts1_init = self.hts.single_init().substitute(map1)
             ts2_init = hts2.single_init().substitute(map2)
@@ -215,14 +216,14 @@ class BMC(object):
         htseq.add_ts(ts1)
         htseq.add_ts(ts2)
 
-        inputs = self.hts.inputs.union(hts2.inputs)
-        outputs = self.hts.outputs.union(hts2.outputs)
+        inputs = self.hts.inputs.intersection(hts2.inputs)
+        outputs = self.hts.outputs.intersection(hts2.outputs)
 
         htseq.inputs = set([TS.get_prefix(v, S1) for v in self.hts.inputs]).union(set([TS.get_prefix(v, S2) for v in hts2.inputs]))
         htseq.outputs = set([TS.get_prefix(v, S1) for v in self.hts.outputs]).union(set([TS.get_prefix(v, S2) for v in hts2.outputs]))
         
         if symbolic_init:
-            states = self.hts.state_vars.union(hts2.state_vars)
+            states = self.hts.state_vars.intersection(hts2.state_vars)
         else:
             states = []
             

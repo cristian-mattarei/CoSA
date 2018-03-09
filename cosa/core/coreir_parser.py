@@ -33,7 +33,6 @@ INIT = "init"
 KEYWORDS = ["not"]
 
 SEP = "."
-NSEP = "."
 CSEP = "$"
 
 def B2BV(var):
