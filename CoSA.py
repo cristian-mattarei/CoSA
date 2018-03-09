@@ -302,7 +302,6 @@ if __name__ == "__main__":
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
         ok = False
         
-        
     if not(config.simulate or \
            (config.safety) or \
            (config.equivalence is not None) or\

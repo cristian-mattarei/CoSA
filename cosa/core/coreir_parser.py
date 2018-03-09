@@ -624,6 +624,7 @@ class CoreIRParser(object):
         return parse(formula)
     
     def parse(self, abstract_clock=False):
+        Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(self.file)
 
         Modules.abstract_clock = abstract_clock
@@ -635,8 +636,17 @@ class CoreIRParser(object):
         not_defined_mods = []
 
         hts = HTS(top_module.name)
+
+        Logger.msg("Starting encoding... ", 1)
+
+        totalinst = len(top_def.instances)
+        count = 0
         
         for inst in top_def.instances:
+            count += 1
+            if count % 1000 == 0:
+                Logger.msg("..converted %.2f%%"%(float(count*100)/float(totalinst)), 1)
+            
             ts = None
             
             inst_name = inst.selectpath
@@ -704,6 +714,9 @@ class CoreIRParser(object):
                 ret += el.split(CSEP)
 
             return ret
+
+        def dict_select(dic, el):
+            return dic[el] if el in dic else None
         
         for conn in top_def.connections:
 
@@ -717,30 +730,46 @@ class CoreIRParser(object):
             secondvar = None
             
             if is_number(first_selectpath[-1]):
-                first = varmap[SEP.join(first_selectpath[:-1])]
-                firstvar = first
-                sel = int(first_selectpath[-1])
-                if first.symbol_type() != BOOL:
-                    first = BVExtract(first, sel, sel)
+                firstname = SEP.join(first_selectpath[:-1])
             else:
-                first = varmap[SEP.join(first_selectpath)]
-                firstvar = first
-
+                firstname = SEP.join(first_selectpath)
+                
             if is_number(second_selectpath[-1]):
-                second = varmap[SEP.join(second_selectpath[:-1])]
-                secondvar = second
-                sel = int(second_selectpath[-1])
-                if second.symbol_type() != BOOL:
-                    second = BVExtract(second, sel, sel)
+                secondname = SEP.join(second_selectpath[:-1])
             else:
-                second = varmap[SEP.join(second_selectpath)]
-                secondvar = second
+                secondname = SEP.join(second_selectpath)
 
+            first = dict_select(varmap, firstname)
+            second = dict_select(varmap, secondname)
+                
+            if (first is None) and (second is not None):
+                Logger.error("Symbol \"%s\" is not defined"%firstname)
+                first = Symbol(firstname, second.symbol_type())
+            else:
+                if (is_number(first_selectpath[-1])) and (first.symbol_type() != BOOL):
+                    sel = int(first_selectpath[-1])
+                    first = BVExtract(first, sel, sel)
+
+
+            if (first is not None) and (second is None):
+                Logger.error("Symbol \"%s\" is not defined"%secondname)
+                second = Symbol(secondname, first.symbol_type())
+            else:
+                if (is_number(second_selectpath[-1])) and (second.symbol_type() != BOOL):
+                        sel = int(second_selectpath[-1])
+                        second = BVExtract(second, sel, sel)
+
+            assert((first is not None) and (second is not None))
+                
+            firstvar = first
+            secondvar = second
+                
             if (first.get_type() != BOOL) and (second.get_type() == BOOL):
                 second = Ite(second, BV(1,1), BV(0,1))
 
             if (first.get_type() == BOOL) and (second.get_type() != BOOL):
                 first = Ite(first, BV(1,1), BV(0,1))
+
                 
             eq = EqualsOrIff(first, second)
 
