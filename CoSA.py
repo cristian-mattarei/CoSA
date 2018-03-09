@@ -89,7 +89,7 @@ def run(config):
         Logger.log("Running passes:", 0)
         parser.run_passes()
     
-    Logger.msg("Parsing the input file...", 0)
+    Logger.msg("Parsing file \"%s\"... "%(config.strfile), 0)
     hts = parser.parse(config.abstract_clock)
     Logger.log("DONE", 0)
 
@@ -98,7 +98,7 @@ def run(config):
     bmc_config = BMCConfig()
 
     if config.assumptions is not None:
-        Logger.log("Adding %d assumptions..."%len(config.assumptions), 1)
+        Logger.log("Adding %d assumptions... "%len(config.assumptions), 1)
         parsed_assumps = parse_formulae(config, config.assumptions)
         assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
         hts.assumptions = assumps
@@ -142,15 +142,18 @@ def run(config):
             bmc.safety(prop, config.bmc_length)
 
     if config.equivalence:
-        symb = " (symbolic init)" if config.symbolic_init else ""
-        Logger.log("Equivalenche check%s with k=%s:"%(symb, config.bmc_length), 0)
         parser2 = CoreIRParser(config.equivalence)
         
         if config.run_passes:
             Logger.log("Running passes:", 0)
             parser2.run_passes()
         
+        Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
         hts2 = parser2.parse(config.abstract_clock)
+        Logger.log("DONE", 0)
+
+        symb = " (symbolic init)" if config.symbolic_init else ""
+        Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
 
         if Logger.level(1):
             stat = []
