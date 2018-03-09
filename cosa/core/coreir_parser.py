@@ -23,7 +23,7 @@ from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 from pysmt.parsing import parse
 
-from cosa.core.transition_system import TS, HTS, SEP
+from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
 from cosa.util.logger import Logger
 
@@ -31,6 +31,10 @@ SELF = "self"
 INIT = "init"
 
 KEYWORDS = ["not"]
+
+SEP = "."
+NSEP = "."
+CSEP = "$"
 
 def B2BV(var):
     return Ite(var, BV(1,1), BV(0,1))
@@ -506,7 +510,7 @@ class CoreIRParser(object):
 
     attrnames = None
     boolean = False
-
+    
     def __init__(self, file, *libs):
         self.context = coreir.Context()
         for lib in libs:
@@ -517,7 +521,6 @@ class CoreIRParser(object):
         self.__init_attrnames()
 
         self.boolean = False
-
 
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
@@ -536,6 +539,8 @@ class CoreIRParser(object):
         if width <= 0 or not isinstance(width, int):
             raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
 
+        name = name.replace(CSEP, SEP)
+        
         if self.boolean and (width == 1):
             return Symbol(name, BOOL)
 
@@ -546,6 +551,7 @@ class CoreIRParser(object):
         def add_name(name, varname=None):
             if varname is None:
                 varname = name
+            
             setattr(self, name.upper(), varname)
             return varname
         
@@ -610,9 +616,8 @@ class CoreIRParser(object):
         return ts
 
     def parse_formula(self, strformula):
-        formula = strformula.replace(".","$").replace("\\","")
-
-        for lit in re.findall("([a-zA-Z][a-zA-Z_$0-9]*)+", formula):
+        formula = strformula.replace("\\","")
+        for lit in re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula):
             if lit in KEYWORDS:
                 continue
             formula = formula.replace(lit, "\'%s\'"%lit)
@@ -675,7 +680,8 @@ class CoreIRParser(object):
                 hts.add_ts(ts)
             else:
                 if inst_type not in not_defined_mods:
-                    Logger.error("Module type \"%s\" is not defined"%(inst_type))
+                    intface = ", ".join(["%s"%(v) for v in values_dic if values_dic[v] is not None])
+                    Logger.error("Module type \"%s\" with interface \"%s\" is not defined"%(inst_type, intface))
                     not_defined_mods.append(inst_type)
                 
         for var in interface:
@@ -693,31 +699,42 @@ class CoreIRParser(object):
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 
+        def split_paths(path):
+            ret = []
+            for el in path:
+                ret += el.split(CSEP)
+
+            return ret
+        
         for conn in top_def.connections:
-            first = SEP.join(conn.first.selectpath)
-            second = SEP.join(conn.second.selectpath)
+
+            first_selectpath = split_paths(conn.first.selectpath)
+            second_selectpath = split_paths(conn.second.selectpath)
+            
+            first = SEP.join(first_selectpath)
+            second = SEP.join(second_selectpath)
 
             firstvar = None
             secondvar = None
             
-            if is_number(conn.first.selectpath[-1]):
-                first = varmap[SEP.join(conn.first.selectpath[:-1])]
+            if is_number(first_selectpath[-1]):
+                first = varmap[SEP.join(first_selectpath[:-1])]
                 firstvar = first
-                sel = int(conn.first.selectpath[-1])
+                sel = int(first_selectpath[-1])
                 if first.symbol_type() != BOOL:
                     first = BVExtract(first, sel, sel)
             else:
-                first = varmap[SEP.join(conn.first.selectpath)]
+                first = varmap[SEP.join(first_selectpath)]
                 firstvar = first
 
-            if is_number(conn.second.selectpath[-1]):
-                second = varmap[SEP.join(conn.second.selectpath[:-1])]
+            if is_number(second_selectpath[-1]):
+                second = varmap[SEP.join(second_selectpath[:-1])]
                 secondvar = second
-                sel = int(conn.second.selectpath[-1])
+                sel = int(second_selectpath[-1])
                 if second.symbol_type() != BOOL:
                     second = BVExtract(second, sel, sel)
             else:
-                second = varmap[SEP.join(conn.second.selectpath)]
+                second = varmap[SEP.join(second_selectpath)]
                 secondvar = second
 
             if (first.get_type() != BOOL) and (second.get_type() == BOOL):
@@ -731,7 +748,7 @@ class CoreIRParser(object):
             Logger.log(str(eq), 2)
 
             ts = TS(set([firstvar, secondvar]), TRUE(), TRUE(), eq)
-            ts.comment = "Connection (%s, %s)"%(SEP.join(conn.first.selectpath), SEP.join(conn.second.selectpath))
+            ts.comment = "Connection (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
             hts.add_ts(ts)
 
         return hts

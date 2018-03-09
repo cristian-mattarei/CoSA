@@ -13,7 +13,6 @@ from pysmt.shortcuts import Symbol, And, TRUE, simplify
 NEXT = "_N"
 AT = "_AT"
 ATP = "_ATP"
-SEP = "$"
 
 class HTS(object):
 

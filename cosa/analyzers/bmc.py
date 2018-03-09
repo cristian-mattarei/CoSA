@@ -16,11 +16,10 @@ from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition
 
 from cosa.util.logger import Logger
-from cosa.core.transition_system import TS, HTS, SEP
+from cosa.core.transition_system import TS, HTS
 
 import copy
 
-NSEP = "."
 NL = "\n"
 
 S1 = "sys1$"
@@ -121,9 +120,6 @@ class BMC(object):
 
         return formula
     
-    def remap_name(self, name):
-        return name.replace(SEP, NSEP)
-
     def print_trace(self, hts, model, length, xvars=None, diff_only=True):
         trace = []
         prevass = []
@@ -149,7 +145,7 @@ class BMC(object):
         for var in varlist:
             varass = (var.symbol_name(), model[TS.get_timed(var, 0)])
             if diff_only: prevass.append(varass)
-            trace.append("  I: %s = %s"%(self.remap_name(varass[0]), varass[1]))
+            trace.append("  I: %s = %s"%(varass[0], varass[1]))
 
         if diff_only: prevass = dict(prevass)
             
@@ -159,7 +155,7 @@ class BMC(object):
             for var in strvarlist:
                 varass = (var[1].symbol_name(), model[TS.get_timed(var[1], t+1)])
                 if (not diff_only) or (prevass[varass[0]] != varass[1]):
-                    trace.append("  S%s: %s = %s"%(t+1, self.remap_name(varass[0]), varass[1]))
+                    trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
                     if diff_only: prevass[varass[0]] = varass[1]
 
         trace = NL.join(trace)
