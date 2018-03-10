@@ -742,6 +742,9 @@ class CoreIRParser(object):
             first = dict_select(varmap, firstname)
             second = dict_select(varmap, secondname)
                 
+            firstvar = first
+            secondvar = second
+            
             if (first is None) and (second is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
                 first = Symbol(firstname, second.symbol_type())
@@ -760,9 +763,6 @@ class CoreIRParser(object):
                         second = BVExtract(second, sel, sel)
 
             assert((first is not None) and (second is not None))
-                
-            firstvar = first
-            secondvar = second
                 
             if (first.get_type() != BOOL) and (second.get_type() == BOOL):
                 second = Ite(second, BV(1,1), BV(0,1))
