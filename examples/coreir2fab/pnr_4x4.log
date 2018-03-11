@@ -1,0 +1,62 @@
+Loading design: new_mapped_conv_1_2.json
+Loading fabric: ./cgra_info.txt
+Placing design... success!
+Routing design... Solving in Monosat...
+success!
+Successfully placed and routed in 0 iterations
+Loading configuration engine with placement and route info
+
+
+placement info:
+module: __HACK__io16in_in_arg_1_0_0 @ {'col': 2, 'row': 2, 'layer': 'Combined'})
+inputs: 
+outputs: io16in_in_arg_1_0_0
+
+module: add_305_309_310_PE @ {'col': 3, 'row': 5, 'layer': 'Data'})
+inputs: mul_307_308_309_PE, const0__304
+outputs: add_311_315_316_PE
+
+module: add_311_315_316_PE @ {'col': 2, 'row': 4, 'layer': 'Data'})
+inputs: add_305_309_310_PE, mul_313_314_315_PE
+outputs: io16_out_0_0
+
+module: io16_out_0_0 @ {'col': 2, 'row': 3, 'layer': 'Combined'})
+inputs: add_311_315_316_PE
+outputs: 
+
+module: io16in_in_arg_1_0_0 @ {'col': 3, 'row': 3, 'layer': 'Combined'})
+inputs: __HACK__io16in_in_arg_1_0_0, __HACK__io_const_0
+outputs: mul_313_314_315_PE, mul_307_308_309_PE
+
+module: lb_p4_clamped_stencil_update_stream_wen_lut_bitPE @ {'col': 3, 'row': 2, 'layer': 'Bit'})
+inputs: 
+outputs: 
+
+module: mul_307_308_309_PE @ {'col': 4, 'row': 5, 'layer': 'Data'})
+inputs: const5__308, io16in_in_arg_1_0_0
+outputs: add_305_309_310_PE
+
+module: mul_313_314_315_PE @ {'col': 4, 'row': 4, 'layer': 'Data'})
+inputs: const5__314, io16in_in_arg_1_0_0
+outputs: add_311_315_316_PE
+
+
+Routing info:
+add_311_315_316_PE -> io16_out_0_0:
+SetList({('add_311_315_316_PE_pe_out_res', '(4, 2)PE_i_b16[pe_out_res]', '(4, 2)N_o_b16[0]', '(3, 2)W_o_b16[0]', '(3, 2)PE_o_b16[data0]', 'io16_out_0_0_data0')})
+__HACK__io16in_in_arg_1_0_0 -> io16in_in_arg_1_0_0:
+SetList({('__HACK__io16in_in_arg_1_0_0_pe_out_res', '(2, 2)PE_i_b16[pe_out_res]', '(2, 2)S_o_b16[0]', '(3, 2)E_o_b16[0]', '(3, 3)PE_o_b16[data0]', 'io16in_in_arg_1_0_0_data0')})
+io16in_in_arg_1_0_0 -> mul_313_314_315_PE:
+SetList({('io16in_in_arg_1_0_0_pe_out_res', '(3, 3)PE_i_b16[pe_out_res]', '(3, 3)S_o_b16[0]', '(4, 3)E_o_b16[0]', '(4, 4)PE_o_b16[data0]', 'mul_313_314_315_PE_data0')})
+add_305_309_310_PE -> add_311_315_316_PE:
+SetList({('add_305_309_310_PE_pe_out_res', '(5, 3)PE_i_b16[pe_out_res]', '(5, 3)W_o_b16[0]', '(5, 2)N_o_b16[0]', '(4, 2)W_o_b16[0]', '(4, 2)PE_o_b16[data0]', 'add_311_315_316_PE_data0')})
+mul_307_308_309_PE -> add_305_309_310_PE:
+SetList({('mul_307_308_309_PE_pe_out_res', '(5, 4)PE_i_b16[pe_out_res]', '(5, 4)W_o_b16[0]', '(5, 3)S_o_b16[0]', '(5, 3)PE_o_b16[data1]', 'add_305_309_310_PE_data1')})
+mul_313_314_315_PE -> add_311_315_316_PE:
+SetList({('mul_313_314_315_PE_pe_out_res', '(4, 4)PE_i_b16[pe_out_res]', '(4, 4)W_o_b16[0]', '(4, 3)W_o_b16[0]', '(4, 2)S_o_b16[0]', '(4, 2)PE_o_b16[data1]', 'add_311_315_316_PE_data1')})
+io16in_in_arg_1_0_0 -> mul_307_308_309_PE:
+SetList({('io16in_in_arg_1_0_0_pe_out_res', '(3, 3)PE_i_b16[pe_out_res]', '(3, 3)W_o_b16[0]', '(3, 2)S_o_b16[0]', '(4, 2)E_o_b16[0]', '(4, 3)S_o_b16[0]', '(5, 3)E_o_b16[0]', '(5, 4)PE_o_b16[data0]', 'mul_307_308_309_PE_data0')})
+Writing bitsream to: conv_1_2_4x4.bsa
+Writing state mapping to: state-map-4x4.txt
+Warning: Using IO Hack for state mapping -- inferring io16_out_0_0 is IO by name
+Warning: Using IO Hack for state mapping -- inferring io16in_in_arg_1_0_0 is IO by name
