@@ -476,8 +476,10 @@ class BMC(object):
         if t > -1:
             Logger.log("Property is FALSE", 0)
             self.print_trace(self.hts, model, t, prop.get_free_variables())
+            return False
         else:
             Logger.log("No counterexample found", 0)
+            return True
 
     def __remap_model(self, vars, model, k):
         if model is None:

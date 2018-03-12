@@ -137,9 +137,12 @@ def run(config):
         bmc.simulate(config.bmc_length)
 
     if config.safety:
+        count = 0
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            bmc.safety(prop, config.bmc_length)
+            if not bmc.safety(prop, config.bmc_length) and config.prefix:
+                count += 1
+                Logger.log("Counterexample stored in \"%s-id_%s.txt\""%(config.prefix, count), 0)
 
     if config.equivalence:
         parser2 = CoreIRParser(config.equivalence)
