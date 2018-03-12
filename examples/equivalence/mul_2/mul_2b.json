@@ -1,0 +1,41 @@
+{"top":"global.mul2",
+"namespaces":{
+  "global":{
+    "modules":{
+      "mul2":{
+        "type":["Record",[
+            ["in_BUS16_S2_T0",["Array",16,"BitIn"]],
+            ["out_BUS16_S1_T0",["Array",16,"Bit"]]
+        ]],
+        "instances":{
+          "mul":{
+            "genref":"coreir.mul",
+            "genargs":{"width":["Int",16]}
+          },
+          "a_out":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "add_ext":{
+            "genref":"coreir.zext",
+            "genargs":{"width_in":["Int",1], "width_out":["Int",16]}
+          },            
+          "constant":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0002"]}
+          }
+        },
+        "connections":[
+            ["mul.in0","self.in_BUS16_S2_T0"],
+            ["mul.in1","constant.out"],
+            ["add_ext.in.0","self.in_BUS16_S2_T0.6"],
+            ["a_out.in0","mul.out"],
+            ["a_out.in1","add_ext.out"],
+            ["self.out_BUS16_S1_T0","a_out.out"]
+        ]
+      }
+    }
+  }
+}
+}
