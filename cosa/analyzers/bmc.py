@@ -143,8 +143,8 @@ class BMC(object):
         strvarlist = [(var.symbol_name(), var) for var in varlist]
         strvarlist.sort()
 
-        for var in varlist:
-            varass = (var.symbol_name(), model[TS.get_timed(var, 0)])
+        for var in strvarlist:
+            varass = (var[1].symbol_name(), model[TS.get_timed(var[1], 0)])
             if diff_only: prevass.append(varass)
             trace.append("  I: %s = %s"%(varass[0], varass[1]))
 
