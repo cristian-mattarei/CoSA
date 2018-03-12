@@ -811,7 +811,7 @@ class CoreIRParser(object):
             Logger.log(str(EqualsOrIff(first, second)), 2)
 
         ts = TS(eq_vars, TRUE(), TRUE(), eq_formula)
-#        ts.comment = "Connection (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
+        ts.comment = "Connections" # (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
         hts.add_ts(ts)
 
         return hts
