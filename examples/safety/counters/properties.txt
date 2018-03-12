@@ -1,0 +1,5 @@
+!(self.out0 = 10_16)
+!(self.out1 = 10_16)
+(self.out0 = self.out1)
+!(self.out0 = 30_16)
+!(self.out1 = 30_16)
