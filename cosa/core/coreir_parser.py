@@ -616,7 +616,7 @@ class CoreIRParser(object):
 
     def parse_formula(self, strformula):
         formula = strformula.replace("\\","")
-        for lit in re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula):
+        for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
             if lit in KEYWORDS:
                 continue
             formula = formula.replace(lit, "\'%s\'"%lit)
@@ -839,7 +839,7 @@ class CoreIRParser(object):
         for conn in dict_conns:
             (first,second) = conn
             indxs = dict_conns[conn]
-            if (len(indxs) == (max(indxs)-min(indxs))+1):
+            if (len(set(indxs)) == (max(indxs)-min(indxs))+1):
                 new_conns.append(((first, min(indxs), max(indxs)),(second,min(indxs), max(indxs))))
             else:
                 for idx in indxs:
