@@ -101,16 +101,12 @@ class BMC(object):
     def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
-        formula = TRUE()
-
         vars = [v for v in And(trans, invar).get_free_variables() if not TS.is_prime(v)]
-
         fwd = k_start <= k_end
-        
         time_function = self.at_time if fwd else self.at_ptime
-
         (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
 
+        formula = TRUE()        
         t = k_start
         while t < k_end:
             to_t = t+1 if fwd else t

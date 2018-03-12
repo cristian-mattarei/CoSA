@@ -717,6 +717,9 @@ class CoreIRParser(object):
 
         def dict_select(dic, el):
             return dic[el] if el in dic else None
+
+        eq_conns = []
+        eq_vars = set([])
         
         for conn in top_def.connections:
 
@@ -739,44 +742,109 @@ class CoreIRParser(object):
             else:
                 secondname = SEP.join(second_selectpath)
 
-            first = dict_select(varmap, firstname)
-            second = dict_select(varmap, secondname)
+            first = (dict_select(varmap, firstname), None)
+            second = (dict_select(varmap, secondname), None)
                 
-            firstvar = first
-            secondvar = second
+            firstvar = first[0]
+            secondvar = second[0]
             
-            if (first is None) and (second is not None):
+            if (firstvar is None) and (secondvar is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
-                first = Symbol(firstname, second.symbol_type())
+                first = (Symbol(firstname, secondvar.symbol_type()), None)
             else:
-                if (is_number(first_selectpath[-1])) and (first.symbol_type() != BOOL):
+                if (is_number(first_selectpath[-1])) and (firstvar.symbol_type() != BOOL):
                     sel = int(first_selectpath[-1])
-                    first = BVExtract(first, sel, sel)
+                    first = (firstvar, sel) #BVExtract(first, sel, sel)
 
-
-            if (first is not None) and (second is None):
+            if (firstvar is not None) and (secondvar is None):
                 Logger.error("Symbol \"%s\" is not defined"%secondname)
-                second = Symbol(secondname, first.symbol_type())
+                second = (Symbol(secondname, firstvar.symbol_type()), None)
             else:
-                if (is_number(second_selectpath[-1])) and (second.symbol_type() != BOOL):
-                        sel = int(second_selectpath[-1])
-                        second = BVExtract(second, sel, sel)
+                if (is_number(second_selectpath[-1])) and (secondvar.symbol_type() != BOOL):
+                    sel = int(second_selectpath[-1])
+                    second = (secondvar, sel) #BVExtract(second, sel, sel)
 
-            assert((first is not None) and (second is not None))
+            assert((firstvar is not None) and (secondvar is not None))
+
+            eq_conns.append((first, second))
+
+            eq_vars.add(firstvar)
+            eq_vars.add(secondvar)
+
+
+        conns_len = len(eq_conns)
+        eq_conns = self.pack_connections(eq_conns)
+
+        if len(eq_conns) < conns_len:
+            Logger.log("Packed %d connections"%(conns_len - len(eq_conns)), 1)
+            
+        
+        eq_formula = TRUE()
+        
+        for eq_conn in eq_conns:
+
+            (fst, snd) = eq_conn
+            if fst[1] is None:
+                first = fst[0]
+            else:
+                if len(fst) > 2:
+                    first = BVExtract(fst[0], fst[1], fst[2])
+                else:
+                    first = BVExtract(fst[0], fst[1], fst[1])
+
+            if snd[1] is None:
+                second = snd[0]
+            else:
+                if len(snd) > 2:
+                    second = BVExtract(snd[0], snd[1], snd[2])
+                else:
+                    second = BVExtract(snd[0], snd[1], snd[1])
                 
             if (first.get_type() != BOOL) and (second.get_type() == BOOL):
                 second = Ite(second, BV(1,1), BV(0,1))
 
             if (first.get_type() == BOOL) and (second.get_type() != BOOL):
                 first = Ite(first, BV(1,1), BV(0,1))
+            
+            eq_formula = And(eq_formula, EqualsOrIff(first, second))
 
-                
-            eq = EqualsOrIff(first, second)
+            Logger.log(str(EqualsOrIff(first, second)), 2)
 
-            Logger.log(str(eq), 2)
-
-            ts = TS(set([firstvar, secondvar]), TRUE(), TRUE(), eq)
-            ts.comment = "Connection (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
-            hts.add_ts(ts)
+        ts = TS(eq_vars, TRUE(), TRUE(), eq_formula)
+#        ts.comment = "Connection (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
+        hts.add_ts(ts)
 
         return hts
+
+
+
+    def pack_connections(self, connections):
+
+        new_conns = []
+
+        dict_conns = {}
+
+        for conn in connections:
+            (first, second) = (conn[0][0], conn[1][0])
+            (sel1, sel2) = (conn[0][1], conn[1][1])
+
+            if (sel1 != sel2) or (sel1 is None) or (sel2 is None):
+                new_conns.append(conn)
+                continue
+
+            if (first, second) not in dict_conns:
+                dict_conns[(first, second)] = []
+            
+            dict_conns[(first, second)].append(sel1)
+
+
+        for conn in dict_conns:
+            (first,second) = conn
+            indxs = dict_conns[conn]
+            if (len(indxs) == (max(indxs)-min(indxs))+1):
+                new_conns.append(((first, min(indxs), max(indxs)),(second,min(indxs), max(indxs))))
+            else:
+                for idx in indxs:
+                    new_conns.append(((first, idx),(second,idx)))
+
+        return new_conns

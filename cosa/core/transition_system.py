@@ -67,7 +67,7 @@ class HTS(object):
             if ts.init is not None:
                 init = And(init, ts.init)
 
-        return simplify(init)
+        return init
 
     def single_trans(self):
         trans = TRUE()
@@ -75,7 +75,7 @@ class HTS(object):
             if ts.trans is not None:
                 trans = And(trans, ts.trans)
 
-        return simplify(trans)
+        return trans
 
     def single_invar(self):
         invar = TRUE()
@@ -86,7 +86,7 @@ class HTS(object):
         if self.assumptions is not None:
             invar = And(invar, And(self.assumptions))
 
-        return simplify(invar)
+        return invar
 
     def __copy__(self):
         cls = self.__class__
