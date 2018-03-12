@@ -30,7 +30,7 @@ from cosa.util.logger import Logger
 SELF = "self"
 INIT = "init"
 
-KEYWORDS = ["not"]
+KEYWORDS = ["not","False","True"]
 
 SEP = "."
 CSEP = "$"
