@@ -21,6 +21,7 @@ from cosa.core.coreir_parser import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
+from pysmt.shortcuts import TRUE
 
 class Config(object):
     parser = None
@@ -133,8 +134,19 @@ def run(config):
             f.write(printer.print_hts(hts, properties))
         
     if config.simulate:
-        Logger.log("Simulation with k=%s:"%(config.bmc_length), 0)
-        bmc.simulate(config.bmc_length)
+        count = 0
+        if config.properties is None:
+            props = [("True", TRUE())]
+        else:
+            props = parse_formulae(config, config.properties)
+        for (strprop, prop) in props:
+            Logger.log("Simulation for property \"%s\":"%(strprop), 0)
+            if bmc.simulate(prop, config.bmc_length) and config.prefix:
+                count += 1
+                Logger.log("Execution stored in \"%s-id_%s.txt\""%(config.prefix, count), 0)
+        
+        # Logger.log("Simulation with k=%s:"%(config.bmc_length), 0)
+        # bmc.simulate(config.bmc_length)
 
     if config.safety:
         count = 0

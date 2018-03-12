@@ -817,11 +817,9 @@ class CoreIRParser(object):
         return hts
 
 
-
     def pack_connections(self, connections):
 
         new_conns = []
-
         dict_conns = {}
 
         for conn in connections:

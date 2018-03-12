@@ -251,15 +251,24 @@ class BMC(object):
             (t, model) = self.solve_fwd(htseq, miter_out, k, False)
 
         return (htseq, t, model)
-                    
-    def simulate(self, k):
-        self.config.incremental = False
-        (t, model) = self.solve_fwd(self.hts, FALSE(), k, False)
-            
+
+
+    def simulate(self, prop, k):
+        if prop == TRUE():
+            self.config.incremental = False
+            (t, model) = self.solve_fwd(self.hts, Not(prop), k, False)
+        else:
+            (t, model) = self.solve(self.hts, Not(prop), k)
+
+        model = self.__remap_model(self.hts.vars, model, t)
+        
         if t > -1:
-            self.print_trace(self.hts, model, t)
+            Logger.log("Execution found", 0)
+            self.print_trace(self.hts, model, t, prop.get_free_variables())
+            return True
         else:
             Logger.log("Deadlock wit k=%s"%k, 0)
+            return False
 
     def solve(self, hts, prop, k):
         if self.config.incremental:
