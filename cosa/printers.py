@@ -126,7 +126,10 @@ class SMVHTSPrinter(HTSPrinter):
             printed_vars = self.__print_single_hts(ts, printed_vars)
 
         return self.stream.getvalue()
-            
+
+    def names(self, name):
+        return "\"%s\""%name
+    
     def __print_single_hts(self, hts, printed_vars):
 
         lenstr = len(hts.comment)+3
@@ -141,14 +144,15 @@ class SMVHTSPrinter(HTSPrinter):
         
         if locvars: self.write("\nVAR\n")
         for var in locvars:
+            sname = self.names(var.symbol_name())
             if var.symbol_type() == BOOL:
-                self.write("%s : boolean;\n"%(var.symbol_name()))
+                self.write("%s : boolean;\n"%(sname))
             else:
-                self.write("%s : word[%s];\n"%(var.symbol_name(), var.symbol_type().width))
+                self.write("%s : word[%s];\n"%(sname, var.symbol_type().width))
 
         if locvars: self.write("\nDEFINE\n")
         for var in locvars:
-            self.write("%s := next(%s);\n"%(TS.get_prime(var).symbol_name(), var.symbol_name()))
+            self.write("%s := next(%s);\n"%(self.names(TS.get_prime(var).symbol_name()), self.names(var.symbol_name())))
 
         sections = [(simplify(hts.init),"INIT"), (simplify(hts.invar),"INVAR"), (simplify(hts.trans),"TRANS")]
             
@@ -184,4 +188,7 @@ class SMVPrinter(HRPrinter):
         self.write(", %d)" % formula.bv_extend_step())
 
     def walk_bv_ult(self, formula): return self.walk_nary(formula, " < ")
-        
+
+    def walk_symbol(self, formula):
+        self.write("\"%s\""%formula.symbol_name())
+    

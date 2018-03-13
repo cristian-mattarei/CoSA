@@ -73,7 +73,8 @@ def parse_formulae(config, strforms):
 
     for strform in strforms:
         try:
-            formulae.append((strform, parser.parse_formula(strform)))
+            if ("#" not in strform) and (strform != ""):
+                formulae.append((strform, parser.parse_formula(strform)))
         except Exception as e:
             Logger.error(str(e))
 
@@ -145,9 +146,6 @@ def run(config):
                 count += 1
                 Logger.log("Execution stored in \"%s-id_%s.txt\""%(config.prefix, count), 0)
         
-        # Logger.log("Simulation with k=%s:"%(config.bmc_length), 0)
-        # bmc.simulate(config.bmc_length)
-
     if config.safety:
         count = 0
         for (strprop, prop) in parse_formulae(config, config.properties):
