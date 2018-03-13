@@ -11,7 +11,7 @@
 import re
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Iff, Symbol, BOOL, get_free_variables
+from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition
 
@@ -237,12 +237,13 @@ class BMC(object):
             eqstates = And(eqstates, EqualsOrIff(TS.get_prefix(svar, S1), TS.get_prefix(svar, S2)))
             
         miter_out = Symbol("eq_S1_S2", BOOL)
-        eqoutputs = Iff(miter_out, eqoutputs)
-
-        htseq.add_ts(TS(set([miter_out]), TRUE(), TRUE(), And(eqinputs, eqoutputs)))
-
+        
         if symbolic_init:
-            htseq.add_ts(TS(set([]), eqstates, TRUE(), TRUE()))
+            eqmiteroutputs = Iff(miter_out, Implies(eqstates, eqoutputs))
+        else:
+            eqmiteroutputs = Iff(miter_out, eqoutputs)
+
+        htseq.add_ts(TS(set([miter_out]), TRUE(), TRUE(), And(eqinputs, eqmiteroutputs)))
 
         if inc:
             (t, model) = self.solve(htseq, miter_out, k)

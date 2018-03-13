@@ -31,6 +31,10 @@ SELF = "self"
 INIT = "init"
 
 KEYWORDS = ["not","False","True"]
+OPERATORS = [("<","u<"), \
+             (">","u>"), \
+             (">=","u>="), \
+             ("<=","u<=")]
 
 SEP = "."
 CSEP = "$"
@@ -620,7 +624,8 @@ class CoreIRParser(object):
             if lit in KEYWORDS:
                 continue
             formula = formula.replace(lit, "\'%s\'"%lit)
-
+        for op in OPERATORS:
+            formula = formula.replace(op[0], op[1])
         return parse(formula)
     
     def parse(self, abstract_clock=False):
