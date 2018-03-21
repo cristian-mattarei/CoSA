@@ -17,7 +17,7 @@ from six.moves import cStringIO
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE
+    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
@@ -120,6 +120,7 @@ class Modules(object):
                 out = Ite(out, BV(1,1), BV(0,1))
 
             invar = EqualsOrIff(bvop(in0,in1), out)
+            
         else:
 
             if bools == 3:
@@ -204,7 +205,7 @@ class Modules(object):
     
     @staticmethod
     def Ule(in0,in1,out):
-        return Modules.Bop(BVUle,None,in0,in1,out)
+        return Modules.BopBool(BVULE,in0,in1,out)
     
     @staticmethod
     def Ugt(in0,in1,out):
@@ -565,6 +566,7 @@ class CoreIRParser(object):
         self.attrnames.append(add_name("clk"))
         self.attrnames.append(add_name("clr"))
         self.attrnames.append(add_name("rst"))
+        self.attrnames.append(add_name("arst"))
         self.attrnames.append(add_name("in"))
         self.attrnames.append(add_name("sel"))
         self.attrnames.append(add_name("value"))
@@ -606,6 +608,7 @@ class CoreIRParser(object):
         mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
         mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
         mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
+        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.ARST, self.OUT, self.INIT])))
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         
@@ -757,7 +760,7 @@ class CoreIRParser(object):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
                 first = (Symbol(firstname, secondvar.symbol_type()), None)
             else:
-                if (is_number(first_selectpath[-1])) and (firstvar.symbol_type() != BOOL):
+                if (is_number(first_selectpath[-1])) and (firstvar.symbol_type() != BOOL) and (firstvar.symbol_type().width > 1):
                     sel = int(first_selectpath[-1])
                     first = (firstvar, sel) #BVExtract(first, sel, sel)
 
@@ -765,7 +768,7 @@ class CoreIRParser(object):
                 Logger.error("Symbol \"%s\" is not defined"%secondname)
                 second = (Symbol(secondname, firstvar.symbol_type()), None)
             else:
-                if (is_number(second_selectpath[-1])) and (secondvar.symbol_type() != BOOL):
+                if (is_number(second_selectpath[-1])) and (secondvar.symbol_type() != BOOL) and (secondvar.symbol_type().width > 1):
                     sel = int(second_selectpath[-1])
                     second = (secondvar, sel) #BVExtract(second, sel, sel)
 
@@ -789,6 +792,7 @@ class CoreIRParser(object):
         for eq_conn in eq_conns:
 
             (fst, snd) = eq_conn
+            
             if fst[1] is None:
                 first = fst[0]
             else:

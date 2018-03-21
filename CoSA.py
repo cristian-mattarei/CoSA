@@ -144,7 +144,7 @@ def run(config):
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
             if bmc.simulate(prop, config.bmc_length) and config.prefix:
                 count += 1
-                Logger.log("Execution stored in \"%s-id_%s.txt\""%(config.prefix, count), 0)
+                Logger.log("Execution stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
         
     if config.safety:
         count = 0
@@ -152,7 +152,7 @@ def run(config):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             if not bmc.safety(prop, config.bmc_length) and config.prefix:
                 count += 1
-                Logger.log("Counterexample stored in \"%s-id_%s.txt\""%(config.prefix, count), 0)
+                Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
 
     if config.equivalence:
         parser2 = CoreIRParser(config.equivalence)

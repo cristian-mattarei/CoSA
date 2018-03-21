@@ -16,6 +16,12 @@ from pysmt.utils import quote
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
 from cosa.core.transition_system import TS
+from cosa.core.coreir_parser import SEP
+
+import datetime
+
+
+NL = "\n"
 
 class NotRegisteredPrinterException(Exception):
     pass
@@ -31,7 +37,7 @@ class PrinterType(object):
     TRANSSYS = 20
     
     ####################
-
+    
 class PrintersFactory(object):
     printers = []
     default_printer = None
@@ -191,4 +197,117 @@ class SMVPrinter(HRPrinter):
 
     def walk_symbol(self, formula):
         self.write("\"%s\""%formula.symbol_name())
+    
+
+class TracePrinter(object):
+
+    def __init__(self):
+        pass
+        
+    def print_trace(self, hts, model, length):
+        pass
+
+    def get_file_ext(self):
+        pass
+
+class TextTracePrinter(TracePrinter):
+
+    def __init__(self):
+        self.extra_vars = None
+        self.diff_only = True
+        self.full_trace = False
+
+    def get_file_ext(self):
+        return ".txt"
+        
+    def print_trace(self, hts, model, length):
+        trace = []
+        prevass = []
+        
+        trace.append("---> INIT <---")
+
+        if self.full_trace:
+            varlist = list(hts.vars)
+        else:
+            varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
+            if self.extra_vars is not None:
+                varlist = list(set(varlist).union(set(self.extra_vars)))
+
+        strvarlist = [(var.symbol_name(), var) for var in varlist]
+        strvarlist.sort()
+
+        for var in strvarlist:
+            varass = (var[1].symbol_name(), model[TS.get_timed(var[1], 0)])
+            if self.diff_only: prevass.append(varass)
+            trace.append("  I: %s = %s"%(varass[0], varass[1]))
+
+        if self.diff_only: prevass = dict(prevass)
+            
+        for t in range(length):
+            trace.append("\n---> STATE %s <---"%(t+1))
+                     
+            for var in strvarlist:
+                varass = (var[1].symbol_name(), model[TS.get_timed(var[1], t+1)])
+                if (not self.diff_only) or (prevass[varass[0]] != varass[1]):
+                    trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
+                    if self.diff_only: prevass[varass[0]] = varass[1]
+
+        trace = NL.join(trace)
+        return trace
+            
+class VCDTracePrinter(TracePrinter):
+    
+    def __init__(self):
+        pass
+        
+    def get_file_ext(self):
+        return ".vcd"
+        
+    def print_trace(self, hts, model, length):
+        varlist = list(hts.vars)
+
+        ret = []
+
+        ret.append("$date")
+        ret.append(datetime.datetime.now().strftime('%A %Y/%m/%d %H:%M:%S'))
+        ret.append("$end")
+        ret.append("$version")
+        ret.append("CoSA")
+        ret.append("$end")
+        ret.append("$timescale")
+        ret.append("1 fs")
+        ret.append("$end")
+
+        idvar = -1
+        for var in varlist:
+            if var.symbol_type() == BOOL:
+                size = 1
+            else:
+                size = var.symbol_type().width
+            idvar += 1
+            varname = var.symbol_name()
+            varname = varname.replace(SEP, "_")
+            ret.append("$var reg %d v%s %s[%d:0] $end"%(size, idvar, varname, size-1))
+
+        ret.append("$upscope $end")
+        ret.append("$upscope $end")
+        ret.append("$enddefinitions $end")
+
+        for t in range(length+1):
+            ret.append("#%d"%t)
+            for var in varlist:
+                val = model[TS.get_timed(var, t)]
+                varass = (var.symbol_name(), val)
+                if var.symbol_type() == BOOL:
+                    width = 1
+                else:
+                    width = var.symbol_type().width
+                    
+                bitval = "{0:b}".format(int(varass[1].constant_value()))
+                bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
+
+                ret.append("b%s v%s"%(bitval, varlist.index(var)))
+            
+        return NL.join(ret)
+            
     

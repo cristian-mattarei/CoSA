@@ -19,6 +19,8 @@ from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS
 from cosa.core.coreir_parser import SEP
 
+from cosa.printers import TextTracePrinter, VCDTracePrinter
+
 import copy
 
 NL = "\n"
@@ -116,7 +118,7 @@ class BMC(object):
             t += 1
 
         return formula
-    
+
     def print_trace(self, hts, model, length, xvars=None, diff_only=True):
         trace = []
         prevass = []
@@ -126,41 +128,21 @@ class BMC(object):
         if Logger.level(1):
             diff_only = False
             full_trace = True
-            
-        trace.append("---> INIT <---")
-
-        if full_trace:
-            varlist = list(hts.vars)
-        else:
-            varlist = list(hts.inputs.union(hts.outputs).union(hts.state_vars))
-            if xvars is not None:
-                varlist = list(set(varlist).union(set(xvars)))
-
-        strvarlist = [(var.symbol_name(), var) for var in varlist]
-        strvarlist.sort()
-
-        for var in strvarlist:
-            varass = (var[1].symbol_name(), model[TS.get_timed(var[1], 0)])
-            if diff_only: prevass.append(varass)
-            trace.append("  I: %s = %s"%(varass[0], varass[1]))
-
-        if diff_only: prevass = dict(prevass)
-            
-        for t in range(length):
-            trace.append("\n---> STATE %s <---"%(t+1))
-                     
-            for var in strvarlist:
-                varass = (var[1].symbol_name(), model[TS.get_timed(var[1], t+1)])
-                if (not diff_only) or (prevass[varass[0]] != varass[1]):
-                    trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
-                    if diff_only: prevass[varass[0]] = varass[1]
-
-        trace = NL.join(trace)
+        
         if self.config.prefix is None:
+            printer = TextTracePrinter()
+            printer.extra_vars = xvars
+            printer.diff_only = diff_only
+            printer.full_trace = full_trace
+            trace = printer.print_trace(hts, model, length)
+            
             Logger.log(trace, 0)
         else:
+            printer = VCDTracePrinter()
+            trace = printer.print_trace(hts, model, length)
+            
             BMC.TraceID += 1
-            trace_file = "%s-id_%s.txt"%(self.config.prefix, BMC.TraceID)
+            trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, printer.get_file_ext())
             with open(trace_file, "w") as f:
                 f.write(trace)
 
