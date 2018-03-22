@@ -21,6 +21,7 @@ from cosa.core.coreir_parser import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
+from cosa.encoders import ExplicitTSParser
 from pysmt.shortcuts import TRUE
 
 class Config(object):
@@ -43,6 +44,7 @@ class Config(object):
     smt2file = None
     strategy = None
     boolean = None
+    synchonous = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -66,6 +68,7 @@ class Config(object):
         self.smt2file = None
         self.strategy = None
         self.boolean = False
+        self.synchonous = None
 
 def parse_formulae(config, strforms):
     parser = config.parser
@@ -86,6 +89,11 @@ def run(config):
     parser.boolean = config.boolean
     
     config.parser = parser
+
+    if config.synchonous:
+        with open(config.synchonous, "r") as f:
+            etsparser = ExplicitTSParser()
+            etsparser.parse(f.read())
     
     if config.run_passes:
         Logger.log("Running passes:", 0)
@@ -219,6 +227,10 @@ if __name__ == "__main__":
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
 
+    parser.set_defaults(synchonous=None)
+    parser.add_argument('--synchonous', metavar='<input file>', type=str, required=False,
+                       help='additional state machine to add in synchonous product.')
+    
     parser.set_defaults(translate=None)
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
@@ -295,6 +307,7 @@ if __name__ == "__main__":
     config.skip_solving = args.skip_solving
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
+    config.synchonous = args.synchonous
     
     config.verbosity = args.verbosity
 

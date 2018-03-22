@@ -151,3 +151,11 @@ class TS(object):
         return formula.substitute(varmap)
 
     
+class ETS(object):
+
+    init = None
+    states = None
+    transitions = None
+
+    def __init__(self):
+        pass
