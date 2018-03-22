@@ -1,0 +1,28 @@
+# INIT
+I: self.reset = 1_1
+
+# STATES
+
+S1: self.config_addr = F1000036
+S1: self.config_data = 00000002
+
+S2: self.config_addr = F1000036
+S2: self.config_data = 0002000B
+
+S3: self.config_addr = 00020036
+S3: self.config_data = 00000005
+
+S4: self.config_addr = 00080036
+S4: self.config_data = C0200000
+
+S5: True
+
+# TRANSITIONS
+
+I -> S1
+S1 -> S2
+S2 -> S3
+S3 -> S4
+S4 -> S5
+S5 -> S5
+
