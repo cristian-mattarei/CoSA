@@ -44,7 +44,7 @@ class Config(object):
     smt2file = None
     strategy = None
     boolean = None
-    synchonous = None
+    synchronous = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -68,7 +68,7 @@ class Config(object):
         self.smt2file = None
         self.strategy = None
         self.boolean = False
-        self.synchonous = None
+        self.synchronous = None
 
 def parse_formulae(config, strforms):
     parser = config.parser
@@ -98,8 +98,8 @@ def run(config):
     hts = parser.parse(config.abstract_clock)
     Logger.log("DONE", 0)
 
-    if config.synchonous:
-        with open(config.synchonous, "r") as f:
+    if config.synchronous:
+        with open(config.synchronous, "r") as f:
             etsparser = ExplicitTSParser()
             ats = etsparser.parse(f.read())
             hts.add_ts(ats)
@@ -228,9 +228,9 @@ if __name__ == "__main__":
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
 
-    parser.set_defaults(synchonous=None)
-    parser.add_argument('--synchonous', metavar='<input file>', type=str, required=False,
-                       help='additional state machine to add in synchonous product.')
+    parser.set_defaults(synchronous=None)
+    parser.add_argument('--synchronous', metavar='<input file>', type=str, required=False,
+                       help='additional state machine to add in synchronous product.')
     
     parser.set_defaults(translate=None)
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     config.skip_solving = args.skip_solving
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
-    config.synchonous = args.synchonous
+    config.synchronous = args.synchronous
     
     config.verbosity = args.verbosity
 
