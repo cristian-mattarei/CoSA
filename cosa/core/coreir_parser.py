@@ -336,7 +336,7 @@ class Modules(object):
             else:
                 binitval = BV(initval, out.symbol_type().width)
 
-            initvar = binitval #init = And(init, EqualsOrIff(initvar, binitval))
+            initvar = binitval
         else:
             if out.symbol_type() == BOOL:
                 initvar = Symbol(initname, BOOL)
