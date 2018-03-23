@@ -113,7 +113,7 @@ class TS(object):
         self.trans = trans
         self.invar = invar
 
-        self.comment = None
+        self.comment = ""
 
     def __repr__(self):
         return "V: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.init), str(self.trans), str(self.invar))
