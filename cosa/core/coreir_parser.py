@@ -313,39 +313,42 @@ class Modules(object):
         return ts
 
     @staticmethod
-    def Reg(in_, clk, clr, rst, out, initval):
+    def Reg(in_, clk, clr, rst, arst, out, initval):
         # INIT: out = initval
-        # TRANS: ((!clk & clk') -> (((clr) -> (out' = 0)) & ((rst & !clr) -> (out' = initval)) & ((!rst & !clr) -> (out' = in)))) & 
-        #        (!(!clk & clk') -> (out' = out)))
+        # TRANS: ((!clk & clk') -> (((clr) -> (out' = 0)) & (((rst or arst) & !clr) -> (out' = initval)) & ((!(rst or arst) & !clr) -> (out' = in)))) & 
+        #        (!(!clk & clk') -> (!arst -> (out' = out)) & (arst -> (out' = initval))))
+        # INVAR: True
         # trans gives priority to clr signal over rst
-        vars_ = [in_,clk,clr,rst,out]
-        comment = "Reg (in, clk, clr, rst, out) = (%s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+        vars_ = [in_,clk,clr,rst,arst,out]
+        comment = "Reg (in, clk, clr, rst, arst, out) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 2)
 
         init = TRUE()
         trans = TRUE()
-        
+        invar = TRUE()
+            
         initvar = None
         initname = SEP.join(out.symbol_name().split(SEP)[:-1])+SEP+INIT
-        
-        if out.symbol_type() == BOOL:
-            out0 = FALSE()
-            initvar = Symbol(initname, BOOL)
-        else:
-            out0 = BV(0, out.symbol_type().width)
-            initvar = Symbol(initname, _BVType(out.symbol_type().width))
 
-        trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
-        init = EqualsOrIff(out, initvar)
-            
         if initval is not None:
             if out.symbol_type() == BOOL:
                 binitval = FALSE() if initval == 0 else TRUE()
             else:
                 binitval = BV(initval, out.symbol_type().width)
 
-            init = And(init, EqualsOrIff(initvar, binitval))
-        
+            initvar = binitval #init = And(init, EqualsOrIff(initvar, binitval))
+        else:
+            if out.symbol_type() == BOOL:
+                initvar = Symbol(initname, BOOL)
+            else:
+                initvar = Symbol(initname, _BVType(out.symbol_type().width))
+
+            trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
+            
+            vars_.append(initvar)
+
+        init = And(init, EqualsOrIff(out, initvar))
+            
         if clr is not None:
             if clr.symbol_type() == BOOL:
                 clr0 = Not(clr)
@@ -368,6 +371,17 @@ class Modules(object):
             rst0 = TRUE()
             rst1 = FALSE()
 
+        if arst is not None:
+            if arst.symbol_type() == BOOL:
+                arst0 = Not(arst)
+                arst1 = arst
+            else:
+                arst0 = EqualsOrIff(arst, BV(0, 1))
+                arst1 = EqualsOrIff(arst, BV(1, 1))
+        else:
+            arst0 = TRUE()
+            arst1 = FALSE()
+
         if clk.symbol_type() == BOOL:
             clk0 = Not(clk)
             clk1 = clk
@@ -382,15 +396,26 @@ class Modules(object):
             ri_clk = And(clk0, TS.to_next(clk1))
             do_clk = And(clk1, TS.to_next(clk0))
 
+        rst0 = And(rst0, arst0)
+        rst1 = Or(rst1, arst1)
+
+        if out.symbol_type() == BOOL:
+            out0 = FALSE()
+        else:
+            out0 = BV(0, out.symbol_type().width)
+                
         tr_clr = Implies(clr1, EqualsOrIff(TS.get_prime(out), out0))
         tr_rst_nclr = Implies(And(rst1, clr0), EqualsOrIff(TS.get_prime(out), initvar))
         tr_nrst_nclr = Implies(And(rst0, clr0), EqualsOrIff(TS.get_prime(out), in_))
         trans_ri = And(tr_clr, tr_rst_nclr, tr_nrst_nclr)
-        trans_do = EqualsOrIff(out, TS.get_prime(out))
+
+        tr_do_arst = Implies(arst1, EqualsOrIff(initvar, TS.get_prime(out)))
+        tr_do_narst = Implies(arst0, EqualsOrIff(out, TS.get_prime(out)))
+        trans_do = And(tr_do_arst, tr_do_narst)
                 
         trans = And(trans, Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
         trans = simplify(trans)
-        ts = TS(set([initvar]+[v for v in vars_ if v is not None]), init, trans, TRUE())
+        ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([out])
         ts.comment = comment
         return ts
@@ -606,9 +631,9 @@ class CoreIRParser(object):
         mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
         
         mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
-        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
-        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
-        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.ARST, self.OUT, self.INIT])))
+        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT])))
+        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT])))
+        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT])))
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         
@@ -711,7 +736,7 @@ class CoreIRParser(object):
                 hts.outputs.add(bvvar)
 
             # Adding clock behavior
-            if (self.CLK in var[0].lower()) and (var[1].is_input()):
+            if var[0].lower() == self.CLK:
                 hts.add_ts(Modules.Clock(bvvar))
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
