@@ -20,7 +20,7 @@ S2: self.config_data = 00000002
 S2: self.reset = 0_1
 S2: conf_done = 0_1
 
-S2a: self.config_addr = F1000036
+S2a: self.config_addr = FF000036
 S2a: self.config_data = 0002000B
 S2a: self.reset = 0_1
 S2a: conf_done = 0_1
