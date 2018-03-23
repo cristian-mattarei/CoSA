@@ -150,12 +150,3 @@ class TS(object):
         varmap = dict([(v,TS.get_prime(v)) for v in formula.get_free_variables()])
         return formula.substitute(varmap)
 
-    
-class ETS(object):
-
-    init = None
-    states = None
-    transitions = None
-
-    def __init__(self):
-        pass

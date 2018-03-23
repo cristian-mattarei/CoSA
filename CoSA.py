@@ -90,11 +90,6 @@ def run(config):
     
     config.parser = parser
 
-    if config.synchonous:
-        with open(config.synchonous, "r") as f:
-            etsparser = ExplicitTSParser()
-            etsparser.parse(f.read())
-    
     if config.run_passes:
         Logger.log("Running passes:", 0)
         parser.run_passes()
@@ -103,6 +98,12 @@ def run(config):
     hts = parser.parse(config.abstract_clock)
     Logger.log("DONE", 0)
 
+    if config.synchonous:
+        with open(config.synchonous, "r") as f:
+            etsparser = ExplicitTSParser()
+            ats = etsparser.parse(f.read())
+            hts.add_ts(ats)
+    
     printsmv = True
 
     bmc_config = BMCConfig()
