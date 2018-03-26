@@ -701,7 +701,8 @@ class CoreIRParser(object):
                     if type(xval) == bool:
                         xval = 1 if xval else 0
                     else:
-                        xval = xval.val
+                        if type(xval) != int:
+                            xval = xval.val
 
                     values_dic[x] = xval
 

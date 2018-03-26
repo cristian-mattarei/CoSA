@@ -84,40 +84,46 @@ class BMC(object):
             with open(self.config.smt2file, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
-    def at_time(self, vars, trans, t):
-        varmap_t  = [(v, TS.get_timed(v, t)) for v in vars]
-        varmap_tp = [(TS.get_prime(v), TS.get_timed(v, t+1)) for v in vars]
+    def __init_at_time(self, vars, maxtime):
+        self.varmapf_t = {}
+        self.varmapb_t = {}
+        for t in range(maxtime+2):
+            varmapf_t  = [(v, TS.get_timed(v, t)) for v in vars]
+            varmapf_tp = [(TS.get_prime(v), TS.get_timed(v, t+1)) for v in vars]
+            varmapf = dict(varmapf_t + varmapf_tp)
+            self.varmapf_t[t] = varmapf
 
-        varmap = dict(varmap_t + varmap_tp)
+            varmapb_t  = [(v, TS.get_ptimed(v, t+1)) for v in vars]
+            varmapb_tp = [(TS.get_prime(v), TS.get_ptimed(v, t)) for v in vars]
+            varmapb = dict(varmapb_t + varmapb_tp)
 
-        return trans.substitute(varmap)
+            self.varmapb_t[t] = varmapb
+            
 
-    def at_ptime(self, vars, trans, t):
-        varmap_t  = [(v, TS.get_ptimed(v, t+1)) for v in vars]
-        varmap_tp = [(TS.get_prime(v), TS.get_ptimed(v, t)) for v in vars]
+    def at_time(self, vars, formula, t):
+        return formula.substitute(self.varmapf_t[t])
 
-        varmap = dict(varmap_t + varmap_tp)
-
-        return trans.substitute(varmap)
+    def at_ptime(self, vars, formula, t):
+        return formula.substitute(self.varmapb_t[t])
     
     def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
-        vars = [v for v in And(trans, invar).get_free_variables() if not TS.is_prime(v)]
+#        vars = [v for v in And(trans, invar).get_free_variables() if not TS.is_prime(v)]
         fwd = k_start <= k_end
         time_function = self.at_time if fwd else self.at_ptime
         (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
 
-        formula = TRUE()        
+        formula = []
         t = k_start
         while t < k_end:
             to_t = t+1 if fwd else t
-            formula = And(formula, time_function(vars, trans, t))
-            formula = And(formula, time_function(vars, invar, to_t))
+            formula.append(time_function(self.hts.vars, trans, t))
+            formula.append(time_function(self.hts.vars, invar, to_t))
             Logger.log("Add trans, k=%s"%t, 2)
             t += 1
 
-        return formula
+        return And(formula)
 
     def print_trace(self, hts, model, length, xvars=None, diff_only=True):
         trace = []
@@ -237,6 +243,8 @@ class BMC(object):
 
 
     def simulate(self, prop, k):
+        self.__init_at_time(self.hts.vars, k)
+        
         if prop == TRUE():
             self.config.incremental = False
             (t, model) = self.solve_fwd(self.hts, Not(prop), k, False)
@@ -457,6 +465,7 @@ class BMC(object):
         return (-1, None)
             
     def safety(self, prop, k):
+        self.__init_at_time(self.hts.vars, k)
         (t, model) = self.solve(self.hts, prop, k)
 
         model = self.__remap_model(self.hts.vars, model, t)
