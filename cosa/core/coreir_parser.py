@@ -313,12 +313,19 @@ class Modules(object):
         return ts
 
     @staticmethod
-    def Reg(in_, clk, clr, rst, arst, out, initval):
+    def Reg(in_, clk, clr, rst, arst, out, initval, clk_posedge, arst_posedge):
         # INIT: out = initval
-        # TRANS: ((!clk & clk') -> (((clr) -> (out' = 0)) & (((rst or arst) & !clr) -> (out' = initval)) & ((!(rst or arst) & !clr) -> (out' = in)))) & 
-        #        (!(!clk & clk') -> (!arst -> (out' = out)) & (arst -> (out' = initval))))
+        
+        # inr = Ite(clr, 0, Ite(rst, initval, in))
+        # do_arst = Ite(arst_posedge, (!arst & arst'), (arst & !arst'))
+        # do_clk = Ite(clk_posedge, (!clk & clk'), (clk & !clk'))
+        # act_trans = (out' = inr)
+        # pas_trans = (out' = out)
+        
+        # TRANS: (!do_arst -> ((do_clk -> act_trans) & (!do_clk -> pas_trans))) & (do_arst -> (out' = initval))
         # INVAR: True
         # trans gives priority to clr signal over rst
+
         vars_ = [in_,clk,clr,rst,arst,out]
         comment = "Reg (in, clk, clr, rst, arst, out) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 2)
@@ -348,6 +355,20 @@ class Modules(object):
             vars_.append(initvar)
 
         init = And(init, EqualsOrIff(out, initvar))
+
+        if arst_posedge is not None:
+            arst_posedge0 = False if arst_posedge else True
+            arst_posedge1 = True if arst_posedge else False
+        else:
+            arst_posedge0 = False
+            arst_posedge1 = True
+
+        if clk_posedge is not None:
+            clk_posedge0 = False if clk_posedge else True
+            clk_posedge1 = True if clk_posedge else False
+        else:
+            clk_posedge0 = False
+            clk_posedge1 = True
             
         if clr is not None:
             if clr.symbol_type() == BOOL:
@@ -396,24 +417,20 @@ class Modules(object):
             ri_clk = And(clk0, TS.to_next(clk1))
             do_clk = And(clk1, TS.to_next(clk0))
 
-        rst0 = And(rst0, arst0)
-        rst1 = Or(rst1, arst1)
-
         if out.symbol_type() == BOOL:
             out0 = FALSE()
         else:
             out0 = BV(0, out.symbol_type().width)
-                
-        tr_clr = Implies(clr1, EqualsOrIff(TS.get_prime(out), out0))
-        tr_rst_nclr = Implies(And(rst1, clr0), EqualsOrIff(TS.get_prime(out), initvar))
-        tr_nrst_nclr = Implies(And(rst0, clr0), EqualsOrIff(TS.get_prime(out), in_))
-        trans_ri = And(tr_clr, tr_rst_nclr, tr_nrst_nclr)
 
-        tr_do_arst = Implies(arst1, EqualsOrIff(initvar, TS.get_prime(out)))
-        tr_do_narst = Implies(arst0, EqualsOrIff(out, TS.get_prime(out)))
-        trans_do = And(tr_do_arst, tr_do_narst)
-                
-        trans = And(trans, Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
+        inr = Ite(clr1, out0, Ite(rst1, initvar, in_))
+        do_arst = And(arst0, TS.to_next(arst1)) if arst_posedge1 else And(arst1, TS.to_next(arst0))
+        do_clk = And(clk0, TS.to_next(clk1)) if clk_posedge1 else And(clk1, TS.to_next(clk0))
+        act_trans = EqualsOrIff(TS.get_prime(out), inr)
+        pas_trans = EqualsOrIff(TS.get_prime(out), out)
+        
+        trans = And(Implies(Not(do_arst), And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))), \
+                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar)))
+        
         trans = simplify(trans)
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([out])
@@ -539,6 +556,7 @@ class CoreIRParser(object):
 
     attrnames = None
     boolean = False
+    pack_connections = False
     
     def __init__(self, file, *libs):
         self.context = coreir.Context()
@@ -550,6 +568,7 @@ class CoreIRParser(object):
         self.__init_attrnames()
 
         self.boolean = False
+        self.pack_connections = True
 
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
@@ -592,6 +611,8 @@ class CoreIRParser(object):
         self.attrnames.append(add_name("clr"))
         self.attrnames.append(add_name("rst"))
         self.attrnames.append(add_name("arst"))
+        self.attrnames.append(add_name("clk_posedge"))
+        self.attrnames.append(add_name("arst_posedge"))
         self.attrnames.append(add_name("in"))
         self.attrnames.append(add_name("sel"))
         self.attrnames.append(add_name("value"))
@@ -619,7 +640,7 @@ class CoreIRParser(object):
         mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("neq",   (Modules.Neq,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("neq",  (Modules.Neq,  [self.IN0, self.IN1, self.OUT])))
 
         mod_map.append(("ult",  (Modules.Ult,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("ule",  (Modules.Ule,  [self.IN0, self.IN1, self.OUT])))
@@ -629,11 +650,11 @@ class CoreIRParser(object):
         mod_map.append(("sle",  (Modules.Sle,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
-        
+
         mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
-        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT])))
-        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT])))
-        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT])))
+        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         
@@ -807,8 +828,9 @@ class CoreIRParser(object):
 
 
         conns_len = len(eq_conns)
-        
-        eq_conns = self.__pack_connections(eq_conns)
+
+        if self.pack_connections:
+            eq_conns = self.__pack_connections(eq_conns)
 
         if len(eq_conns) < conns_len:
             Logger.log("Packed %d connections"%(conns_len - len(eq_conns)), 1)
