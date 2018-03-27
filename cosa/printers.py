@@ -237,7 +237,7 @@ class TextTracePrinter(TracePrinter):
         strvarlist.sort()
 
         for var in strvarlist:
-            varass = (var[1].symbol_name(), model[TS.get_timed(var[1], 0)])
+            varass = (var[0], model[TS.get_timed(var[1], 0)])
             if self.diff_only: prevass.append(varass)
             trace.append("  I: %s = %s"%(varass[0], varass[1]))
 
@@ -247,7 +247,7 @@ class TextTracePrinter(TracePrinter):
             trace.append("\n---> STATE %s <---"%(t+1))
                      
             for var in strvarlist:
-                varass = (var[1].symbol_name(), model[TS.get_timed(var[1], t+1)])
+                varass = (var[0], model[TS.get_timed(var[1], t+1)])
                 if (not self.diff_only) or (prevass[varass[0]] != varass[1]):
                     trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
                     if self.diff_only: prevass[varass[0]] = varass[1]
@@ -264,8 +264,7 @@ class VCDTracePrinter(TracePrinter):
         return ".vcd"
         
     def print_trace(self, hts, model, length):
-        varlist = list(hts.vars)
-
+        varlist = [(v, v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
         ret = []
 
         ret.append("$date")
@@ -278,36 +277,30 @@ class VCDTracePrinter(TracePrinter):
         ret.append("1 fs")
         ret.append("$end")
 
-        idvar = -1
-        for var in varlist:
-            if var.symbol_type() == BOOL:
-                size = 1
-            else:
-                size = var.symbol_type().width
-            idvar += 1
-            varname = var.symbol_name()
+        idvar = 0
+        for el in varlist:
+            (var, varname, width) = el
             varname = varname.replace(SEP, "_")
-            ret.append("$var reg %d v%s %s[%d:0] $end"%(size, idvar, varname, size-1))
-
+            ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname, width-1))
+            idvar += 1
+            
         ret.append("$upscope $end")
         ret.append("$upscope $end")
         ret.append("$enddefinitions $end")
-
+        
         for t in range(length+1):
             ret.append("#%d"%t)
-            for var in varlist:
+            idvar = 0
+            for el in varlist:
+                (var, varname, width) = el
                 val = model[TS.get_timed(var, t)]
-                varass = (var.symbol_name(), val)
-                if var.symbol_type() == BOOL:
-                    width = 1
-                else:
-                    width = var.symbol_type().width
-                    
+                varass = (varname, val)
                 bitval = "{0:b}".format(int(varass[1].constant_value()))
                 bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
 
-                ret.append("b%s v%s"%(bitval, varlist.index(var)))
-            
+                ret.append("b%s v%s"%(bitval, idvar))
+                idvar += 1
+                
         return NL.join(ret)
             
     
