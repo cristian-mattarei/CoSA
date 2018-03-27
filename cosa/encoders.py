@@ -69,7 +69,7 @@ class ExplicitTSParser(object):
     def __init_parser(self):
 
         varname = Word(alphas+nums+T_US+T_DOT)(P_VARNAME)
-        sname = Word(alphas+nums+T_I+T_S)(P_SNAME)
+        sname = Word(alphas+nums+T_I+T_S+T_US)(P_SNAME)
         boolvalue = Literal(T_TRUE) | Literal(T_FALSE)
         
         ivalue = Word(nums)

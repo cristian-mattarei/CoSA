@@ -23,6 +23,10 @@ class HTS(object):
     outputs = None
     state_vars = None
     assumptions = None
+
+    init = None
+    trans = None
+    invar = None
     
     def __init__(self, name):
         self.tss = []
@@ -34,6 +38,10 @@ class HTS(object):
         self.outputs = set([])
         self.assumptions = None
 
+        self.init = None
+        self.trans = None
+        self.invar = None
+        
     def add_sub(self, sub):
         self.sub.append(sub)
 
@@ -62,31 +70,34 @@ class HTS(object):
             ts.remove_invar()
 
     def single_init(self):
-        init = TRUE()
-        for ts in self.tss:
-            if ts.init is not None:
-                init = And(init, ts.init)
+        if not self.init:
+            self.init = TRUE()
+            for ts in self.tss:
+                if ts.init is not None:
+                    self.init = And(self.init, ts.init)
 
-        return init
+        return self.init
 
     def single_trans(self):
-        trans = TRUE()
-        for ts in self.tss:
-            if ts.trans is not None:
-                trans = And(trans, ts.trans)
+        if not self.trans:
+            self.trans = TRUE()
+            for ts in self.tss:
+                if ts.trans is not None:
+                    self.trans = And(self.trans, ts.trans)
 
-        return trans
+        return self.trans
 
     def single_invar(self):
-        invar = TRUE()
-        for ts in self.tss:
-            if ts.invar is not None:
-                invar = And(invar, ts.invar)
+        if not self.invar:
+            self.invar = TRUE()
+            for ts in self.tss:
+                if ts.invar is not None:
+                    self.invar = And(self.invar, ts.invar)
 
-        if self.assumptions is not None:
-            invar = And(invar, And(self.assumptions))
+            if self.assumptions is not None:
+                self.invar = And(self.invar, And(self.assumptions))
 
-        return invar
+        return self.invar
 
     def __copy__(self):
         cls = self.__class__

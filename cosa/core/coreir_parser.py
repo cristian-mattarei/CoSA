@@ -807,7 +807,8 @@ class CoreIRParser(object):
 
 
         conns_len = len(eq_conns)
-        eq_conns = self.pack_connections(eq_conns)
+        
+        eq_conns = self.__pack_connections(eq_conns)
 
         if len(eq_conns) < conns_len:
             Logger.log("Packed %d connections"%(conns_len - len(eq_conns)), 1)
@@ -852,7 +853,7 @@ class CoreIRParser(object):
         return hts
 
 
-    def pack_connections(self, connections):
+    def __pack_connections(self, connections):
 
         new_conns = []
         dict_conns = {}
@@ -861,23 +862,49 @@ class CoreIRParser(object):
             (first, second) = (conn[0][0], conn[1][0])
             (sel1, sel2) = (conn[0][1], conn[1][1])
 
-            if (sel1 != sel2) or (sel1 is None) or (sel2 is None):
-                new_conns.append(conn)
-                continue
-
             if (first, second) not in dict_conns:
                 dict_conns[(first, second)] = []
             
-            dict_conns[(first, second)].append(sel1)
+            dict_conns[(first, second)].append((sel1, sel2))
 
 
         for conn in dict_conns:
             (first,second) = conn
-            indxs = dict_conns[conn]
-            if (len(set(indxs)) == (max(indxs)-min(indxs))+1):
-                new_conns.append(((first, min(indxs), max(indxs)),(second,min(indxs), max(indxs))))
+            conns = self.__analyze_connections(dict_conns[conn])
+
+            if conns is None:
+                for single_conn in dict_conns[conn]:
+                    new_conns.append(((first, single_conn[0]),(second, single_conn[1])))
             else:
-                for idx in indxs:
-                    new_conns.append(((first, idx),(second,idx)))
+                ((min_1, max_1), (min_2, max_2)) = conns
+                new_conns.append(((first, min_1, max_1),(second, min_2, max_2)))
 
         return new_conns
+
+
+    def __analyze_connections(self, indexes):
+        indexes.sort()
+        inds_1 = [i[0] for i in indexes if i[0] is not None]
+        inds_2 = [i[1] for i in indexes if i[1] is not None]
+
+        if (len(inds_1) > 0) and (len(inds_2) > 0):
+            min_1 = min(inds_1)
+            max_1 = max(inds_1)
+
+            min_2 = min(inds_2)
+            max_2 = max(inds_2)
+            
+            # Exact set e.g., [0,1,2,3] = [0,1,2,3]
+            if inds_1 == inds_2:
+                return ((min_1, max_1), (min_2, max_2))
+
+            d_min = (min_1 - min_2) if min_1 > min_2 else (min_2 - min_1)
+            d_max = (max_1 - max_2) if max_1 > max_2 else (max_2 - max_1)
+
+            # Transposed set e.g., [0,1,2,3] = [5,6,7,8]
+            if (min_1 == inds_1[0]) and (min_2 == inds_2[0]) and (max_1 == inds_1[-1]) and (max_2 == inds_2[-1]) \
+               and (d_min == d_max) and (len(inds_1) == len(inds_2)):
+                return ((min_1, max_1), (min_2, max_2))
+            
+        return None
+    

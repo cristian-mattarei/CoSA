@@ -44,7 +44,7 @@ class BMCConfig(object):
     def __init__(self):
         self.incremental = True
         self.strategy = FWD
-        self.solver = Solver(name="z3")
+        self.solver = Solver(name="msat")
         self.full_trace = False
         self.prefix = None
         self.smt2file = None
@@ -93,23 +93,21 @@ class BMC(object):
             varmapf = dict(varmapf_t + varmapf_tp)
             self.varmapf_t[t] = varmapf
 
-            varmapb_t  = [(v, TS.get_ptimed(v, t+1)) for v in vars]
-            varmapb_tp = [(TS.get_prime(v), TS.get_ptimed(v, t)) for v in vars]
+            varmapb_t  = [(v, TS.get_ptimed(v, t)) for v in vars]
+            varmapb_tp = [(TS.get_prime(v), TS.get_ptimed(v, t-1)) for v in vars]
             varmapb = dict(varmapb_t + varmapb_tp)
 
-            self.varmapb_t[t] = varmapb
+            self.varmapb_t[t-1] = varmapb
             
-
-    def at_time(self, vars, formula, t):
+    def at_time(self, formula, t):
         return formula.substitute(self.varmapf_t[t])
 
-    def at_ptime(self, vars, formula, t):
+    def at_ptime(self, formula, t):
         return formula.substitute(self.varmapb_t[t])
     
     def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
-#        vars = [v for v in And(trans, invar).get_free_variables() if not TS.is_prime(v)]
         fwd = k_start <= k_end
         time_function = self.at_time if fwd else self.at_ptime
         (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
@@ -118,8 +116,8 @@ class BMC(object):
         t = k_start
         while t < k_end:
             to_t = t+1 if fwd else t
-            formula.append(time_function(self.hts.vars, trans, t))
-            formula.append(time_function(self.hts.vars, invar, to_t))
+            formula.append(time_function(trans, t))
+            formula.append(time_function(invar, to_t))
             Logger.log("Add trans, k=%s"%t, 2)
             t += 1
 
@@ -154,7 +152,9 @@ class BMC(object):
 
     def equivalence(self, hts2, k, symbolic_init):
         (htseq, t, model) = self.combined_system(hts2, k, symbolic_init, True)
-            
+
+        self.__init_at_time(htseq.vars, k)
+        
         if t > -1:
             Logger.log("Systems are NOT equivalent", 0)
             self.print_trace(htseq, model, t, None, False)
@@ -164,7 +164,9 @@ class BMC(object):
 
     def fsm_check(self):
         (htseq, t, model) = self.combined_system(self.hts, 1, True, False)
-            
+
+        self.__init_at_time(htseq.vars, k)
+        
         if t > -1:
             Logger.log("FSM is NOT deterministic", 0)            
             self.print_trace(htseq, model, t, None, False)
@@ -292,14 +294,14 @@ class BMC(object):
             self.__reset_assertions(self.config.solver)
 
             formula = And(init, invar)
-            formula = self.at_time(hts.vars, formula, 0)
+            formula = self.at_time(formula, 0)
             Logger.log("Add init and invar", 2)
             self.__add_assertion(self.config.solver, formula)
 
             trans_t = self.unroll(trans, invar, t)
             self.__add_assertion(self.config.solver, trans_t)
             
-            propt = Not(self.at_time(hts.vars, prop, t))
+            propt = Not(self.at_time(prop, t))
             Logger.log("Add property time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
@@ -327,7 +329,7 @@ class BMC(object):
         invar = hts.single_invar()
 
         formula = And(init, invar)
-        formula = self.at_time(hts.vars, formula, 0)
+        formula = self.at_time(formula, 0)
         Logger.log("Add init and invar", 2)
         self.__add_assertion(self.config.solver, formula)
         
@@ -335,7 +337,7 @@ class BMC(object):
         while (t < k+1):
             self.__push(self.config.solver)
             
-            propt = Not(self.at_time(hts.vars, prop, t))
+            propt = Not(self.at_time(prop, t))
             Logger.log("Add not property at time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
@@ -372,7 +374,7 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        formula = self.at_ptime(hts.vars, And(Not(prop), invar), -1)
+        formula = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add not property at time %d"%0, 2)
         self.__add_assertion(self.config.solver, formula)
 
@@ -380,7 +382,7 @@ class BMC(object):
         while (t < k+1):
             self.__push(self.config.solver)
 
-            pinit = self.at_ptime(hts.vars, init, t-1)
+            pinit = self.at_ptime(init, t-1)
             Logger.log("Add init at time %d"%t, 2)
             self.__add_assertion(self.config.solver, pinit)
 
@@ -417,11 +419,11 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        initt = self.at_time(hts.vars, And(init, invar), 0)
+        initt = self.at_time(And(init, invar), 0)
         Logger.log("Add init at_0", 2)
         self.__add_assertion(self.config.solver, initt)
         
-        propt = self.at_ptime(hts.vars, And(Not(prop), invar), -1)
+        propt = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add property pat_%d"%0, 2)
         self.__add_assertion(self.config.solver, propt)
         
@@ -432,9 +434,9 @@ class BMC(object):
             th = int(t/2)
 
             if even:
-                eq = And([EqualsOrIff(self.at_time(hts.vars, v, th), self.at_ptime(hts.vars, v, th-1)) for v in hts.vars])
+                eq = And([EqualsOrIff(self.at_time(v, th), self.at_ptime(v, th-1)) for v in hts.vars])
             else:
-                eq = And([EqualsOrIff(self.at_time(hts.vars, v, th+1), self.at_ptime(hts.vars, v, th-1)) for v in hts.vars])
+                eq = And([EqualsOrIff(self.at_time(v, th+1), self.at_ptime(v, th-1)) for v in hts.vars])
                 
             Logger.log("Add equivalence time %d"%t, 2)
             self.__add_assertion(self.config.solver, eq)

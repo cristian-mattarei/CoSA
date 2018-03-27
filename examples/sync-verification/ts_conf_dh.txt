@@ -1,0 +1,155 @@
+# INIT
+I: self.config_addr = 00000000
+I: self.config_data = 00000000
+I: self.tile_id = 0015
+I: self.reset = 1_1
+I: conf_done = 0_1
+# STATES
+S0_p: self.config_addr = FF000015
+S0_p: self.config_data = 0002000B
+S0_p: self.tile_id = 0015
+S0_p: self.reset = 0_1
+S0_p: conf_done = 0_1
+
+S1_p: self.config_addr = F1000015
+S1_p: self.config_data = 00000002
+S1_p: self.tile_id = 0015
+S1_p: self.reset = 0_1
+S1_p: conf_done = 0_1
+
+S2_p: self.config_addr = 00020015
+S2_p: self.config_data = 00000000
+S2_p: self.tile_id = 0015
+S2_p: self.reset = 0_1
+S2_p: conf_done = 0_1
+
+S3_p: self.config_addr = 00030015
+S3_p: self.config_data = 00000005
+S3_p: self.tile_id = 0015
+S3_p: self.reset = 0_1
+S3_p: conf_done = 0_1
+
+S4_p: self.config_addr = 00080015
+S4_p: self.config_data = 00000003
+S4_p: self.tile_id = 0015
+S4_p: self.reset = 0_1
+S4_p: conf_done = 0_1
+
+S5_p: self.config_addr = 00080016
+S5_p: self.config_data = 00000001
+S5_p: self.tile_id = 0015
+S5_p: self.reset = 0_1
+S5_p: conf_done = 0_1
+
+S6_p: self.config_addr = 00080017
+S6_p: self.config_data = 00000001
+S6_p: self.tile_id = 0015
+S6_p: self.reset = 0_1
+S6_p: conf_done = 0_1
+
+S7_p: self.config_addr = 00020018
+S7_p: self.config_data = 00000001
+S7_p: self.tile_id = 0015
+S7_p: self.reset = 0_1
+S7_p: conf_done = 0_1
+
+S8_p: self.config_addr = 00080019
+S8_p: self.config_data = 00000001
+S8_p: self.tile_id = 0015
+S8_p: self.reset = 0_1
+S8_p: conf_done = 0_1
+
+S9_p: self.config_addr = 0008001A
+S9_p: self.config_data = 00000001
+S9_p: self.tile_id = 0015
+S9_p: self.reset = 0_1
+S9_p: conf_done = 0_1
+
+S10_p: self.config_addr = 0008001B
+S10_p: self.config_data = 00000001
+S10_p: self.tile_id = 0015
+S10_p: self.reset = 0_1
+S10_p: conf_done = 0_1
+
+S11_p: self.config_addr = 0002001C
+S11_p: self.config_data = 00000001
+S11_p: self.tile_id = 0015
+S11_p: self.reset = 0_1
+S11_p: conf_done = 0_1
+
+S12_p: self.config_addr = 0008001D
+S12_p: self.config_data = 00000001
+S12_p: self.tile_id = 0015
+S12_p: self.reset = 0_1
+S12_p: conf_done = 0_1
+
+S13_p: self.config_addr = 0008001E
+S13_p: self.config_data = 00000001
+S13_p: self.tile_id = 0015
+S13_p: self.reset = 0_1
+S13_p: conf_done = 0_1
+
+S14_p: self.config_addr = 0008001F
+S14_p: self.config_data = 00000001
+S14_p: self.tile_id = 0015
+S14_p: self.reset = 0_1
+S14_p: conf_done = 0_1
+
+S15_p: self.config_addr = 00020020
+S15_p: self.config_data = 00000001
+S15_p: self.tile_id = 0015
+S15_p: self.reset = 0_1
+S15_p: conf_done = 0_1
+
+S16_p: self.config_addr = 00080021
+S16_p: self.config_data = 00000001
+S16_p: self.tile_id = 0015
+S16_p: self.reset = 0_1
+S16_p: conf_done = 0_1
+
+S17_p: self.config_addr = 00080022
+S17_p: self.config_data = 00000001
+S17_p: self.tile_id = 0015
+S17_p: self.reset = 0_1
+S17_p: conf_done = 0_1
+
+S18_p: self.config_addr = 00080023
+S18_p: self.config_data = 00000001
+S18_p: self.tile_id = 0015
+S18_p: self.reset = 0_1
+S18_p: conf_done = 0_1
+
+S19_p: self.config_addr = 00020024
+S19_p: self.config_data = 00000001
+S19_p: self.tile_id = 0015
+S19_p: self.reset = 0_1
+S19_p: conf_done = 0_1
+
+S20_p: self.config_addr = 00000000
+S20_p: self.config_data = 00000000
+S20_p: self.tile_id = 0015
+S20_p: self.reset = 0_1
+S20_p: conf_done = 1_1
+# TRANSITIONS
+I -> S0_p
+S0_p -> S1_p
+S1_p -> S2_p
+S2_p -> S3_p
+S3_p -> S4_p
+S4_p -> S5_p
+S5_p -> S6_p
+S6_p -> S7_p
+S7_p -> S8_p
+S8_p -> S9_p
+S9_p -> S10_p
+S10_p -> S11_p
+S11_p -> S12_p
+S12_p -> S13_p
+S13_p -> S14_p
+S14_p -> S15_p
+S15_p -> S16_p
+S16_p -> S17_p
+S17_p -> S18_p
+S18_p -> S19_p
+S19_p -> S20_p
+S20_p -> S20_p
