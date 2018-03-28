@@ -1,7 +1,7 @@
 
 import sys
 
-abstract_clock = True
+abstract_clock = False
 
 with open(sys.argv[1], "r") as f:
     out = []
@@ -14,7 +14,7 @@ with open(sys.argv[1], "r") as f:
     out.append("I: self.reset = 1_1")
     out.append("I: conf_done = 0_1")
 
-    out.append("# STATES")
+    out.append("\n# STATES")
     stateid = 0
 
     trans.append("I -> S%s_p"%stateid)
@@ -53,7 +53,7 @@ with open(sys.argv[1], "r") as f:
 
     trans.append("S%s_p -> S%s_p"%(stateid, stateid))
     
-    out.append("# TRANSITIONS")
+    out.append("\n# TRANSITIONS")
     out.append("\n".join(trans))
 
     print("\n".join(out))

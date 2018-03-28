@@ -11,9 +11,10 @@
 import re
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables
+from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition
+from pysmt.walkers.identitydag import IdentityDagWalker
 
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS
@@ -40,6 +41,7 @@ class BMCConfig(object):
     full_trace = False
     prefix = None
     smt2file = None
+    simplify = False
     
     def __init__(self):
         self.incremental = True
@@ -48,6 +50,7 @@ class BMCConfig(object):
         self.full_trace = False
         self.prefix = None
         self.smt2file = None
+        self.simplify = False
     
         self.strategies = BMCConfig.get_strategies()
 
@@ -84,26 +87,36 @@ class BMC(object):
             with open(self.config.smt2file, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
+
+        self.subwalker = SubstituteWalker(invalidate_memoization=True)
+
     def __init_at_time(self, vars, maxtime):
         self.varmapf_t = {}
         self.varmapb_t = {}
         for t in range(maxtime+2):
-            varmapf_t  = [(v, TS.get_timed(v, t)) for v in vars]
-            varmapf_tp = [(TS.get_prime(v), TS.get_timed(v, t+1)) for v in vars]
-            varmapf = dict(varmapf_t + varmapf_tp)
-            self.varmapf_t[t] = varmapf
-
-            varmapb_t  = [(v, TS.get_ptimed(v, t)) for v in vars]
-            varmapb_tp = [(TS.get_prime(v), TS.get_ptimed(v, t-1)) for v in vars]
-            varmapb = dict(varmapb_t + varmapb_tp)
-
-            self.varmapb_t[t-1] = varmapb
+            varmapf = []
+            varmapb = []
             
+            for v in vars:
+                sname = v.symbol_name()
+                psname = TS.get_prime(v).symbol_name()
+                
+                varmapf.append((sname, TS.get_timed(v, t).symbol_name()))
+                varmapf.append((psname, TS.get_timed(v, t+1).symbol_name()))
+
+                varmapb.append((sname, TS.get_ptimed(v, t).symbol_name()))
+                varmapb.append((psname, TS.get_ptimed(v, t-1).symbol_name()))
+
+            self.varmapf_t[t] = dict(varmapf)
+            self.varmapb_t[t-1] = dict(varmapb)
+        
     def at_time(self, formula, t):
-        return formula.substitute(self.varmapf_t[t])
+        self.subwalker.set_substitute_map(self.varmapf_t[t])
+        return self.subwalker.walk(formula)
 
     def at_ptime(self, formula, t):
-        return formula.substitute(self.varmapb_t[t])
+        self.subwalker.set_substitute_map(self.varmapf_t[t])
+        return self.subwalker.walk(formula)
     
     def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
@@ -120,7 +133,7 @@ class BMC(object):
             formula.append(time_function(invar, to_t))
             Logger.log("Add trans, k=%s"%t, 2)
             t += 1
-
+                    
         return And(formula)
 
     def print_trace(self, hts, model, length, xvars=None, diff_only=True):
@@ -142,8 +155,14 @@ class BMC(object):
             
             Logger.log(trace, 0)
         else:
+            if Logger.level(1):
+                timer = Logger.start_timer("Trace generation")
+
             printer = VCDTracePrinter()
             trace = printer.print_trace(hts, model, length)
+
+            if Logger.level(1):
+                Logger.stop_timer(timer)
             
             BMC.TraceID += 1
             trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, printer.get_file_ext())
@@ -263,15 +282,15 @@ class BMC(object):
             Logger.log("Deadlock wit k=%s"%k, 0)
             return False
 
-    def solve(self, hts, prop, k):
+    def solve(self, hts, prop, k, k_min=0):
         if self.config.incremental:
-            return self.solve_inc(hts, prop, k)
+            return self.solve_inc(hts, prop, k, k_min)
 
         return self.solve_fwd(hts, prop, k)
             
-    def solve_inc(self, hts, prop, k):
+    def solve_inc(self, hts, prop, k, k_min):
         if self.config.strategy == FWD:
-            return self.solve_inc_fwd(hts, prop, k)
+            return self.solve_inc_fwd(hts, prop, k, k_min)
         
         if self.config.strategy == BWD:
             return self.solve_inc_bwd(hts, prop, k)
@@ -301,7 +320,7 @@ class BMC(object):
             trans_t = self.unroll(trans, invar, t)
             self.__add_assertion(self.config.solver, trans_t)
             
-            propt = Not(self.at_time(prop, t))
+            propt = self.at_time(Not(prop), t)
             Logger.log("Add property time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
@@ -321,42 +340,59 @@ class BMC(object):
                 
         return (-1, None)
     
-    def solve_inc_fwd(self, hts, prop, k):
+    def solve_inc_fwd(self, hts, prop, k, k_min):
         self.__reset_assertions(self.config.solver)
 
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        if self.config.simplify:
+            if Logger.level(1):
+                timer = Logger.start_timer("Simplify")
+
+            init = simplify(init)
+            trans = simplify(trans)
+            invar = simplify(invar)
+
+            if Logger.level(1):
+                Logger.stop_timer(timer)
+
+        propt = FALSE()
         formula = And(init, invar)
         formula = self.at_time(formula, 0)
         Logger.log("Add init and invar", 2)
         self.__add_assertion(self.config.solver, formula)
-        
+
         t = 0 
         while (t < k+1):
             self.__push(self.config.solver)
-            
-            propt = Not(self.at_time(prop, t))
+
+            if k_min > 0:
+                propt = Or(propt, self.at_time(Not(prop), t))
+            else:
+                propt = self.at_time(Not(prop), t)
+                
             Logger.log("Add not property at time %d"%t, 2)
             self.__add_assertion(self.config.solver, propt)
 
-            res = self.__solve(self.config.solver)
+            if t >= k_min:
+                res = self.__solve(self.config.solver)
 
-            if res:
-                Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.config.solver.get_model()
-                Logger.log("", 0, not(Logger.level(1)))
-                return (t, model)
-            else:
-                Logger.log("No counterexample found with k=%s"%(t), 1)
-                Logger.msg(".", 0, not(Logger.level(1)))
+                if res:
+                    Logger.log("Counterexample found with k=%s"%(t), 1)
+                    model = self.config.solver.get_model()
+                    Logger.log("", 0, not(Logger.level(1)))
+                    return (t, model)
+                else:
+                    Logger.log("No counterexample found with k=%s"%(t), 1)
+                    Logger.msg(".", 0, not(Logger.level(1)))
 
             self.__pop(self.config.solver)
-            
+
             trans_t = self.unroll(trans, invar, t+1, t)
             self.__add_assertion(self.config.solver, trans_t)
-
+            
             if self.assert_property:
                 prop_t = self.unroll(TRUE(), prop, t, t-1)
                 self.__add_assertion(self.config.solver, prop_t)
@@ -466,9 +502,9 @@ class BMC(object):
                 
         return (-1, None)
             
-    def safety(self, prop, k):
+    def safety(self, prop, k, k_min):
         self.__init_at_time(self.hts.vars, k)
-        (t, model) = self.solve(self.hts, prop, k)
+        (t, model) = self.solve(self.hts, prop, k, k_min)
 
         model = self.__remap_model(self.hts.vars, model, t)
         
@@ -522,7 +558,9 @@ class BMC(object):
                 f.write(line+"\n")
     
     def __add_assertion(self, solver, formula):
-        solver.add_assertion(formula)
+        if not self.config.skip_solving:
+            solver.add_assertion(formula)
+            
         if Logger.level(3):
             buf = cStringIO()
             printer = SmtPrinter(buf)
@@ -553,17 +591,20 @@ class BMC(object):
                     
                     
     def __push(self, solver):
-        solver.push()
+        if not self.config.skip_solving:
+            solver.push()
 
         self.__write_smt2_log("(push 1)")
         
     def __pop(self, solver):
-        solver.pop()
+        if not self.config.skip_solving:
+            solver.pop()
 
         self.__write_smt2_log("(pop 1)")
 
     def __reset_assertions(self, solver):
-        solver.reset_assertions()
+        if not self.config.skip_solving:
+            solver.reset_assertions()
 
         if self.config.smt2file is not None:
             with open(self.config.smt2file, "w") as f:
@@ -586,3 +627,20 @@ class BMC(object):
             Logger.log("Total time: %.2f sec"%self.total_time, 1)
             
         return r
+
+class SubstituteWalker(IdentityDagWalker):
+
+    def set_substitute_function(self, function):
+        self.substitute_function = function
+    
+    def set_substitute_map(self, smap):
+        self.mapsymbols = smap
+    
+    def walk_symbol(self, formula, args, **kwargs):
+        if formula.symbol_name() in self.mapsymbols:
+            return self.mgr.Symbol(self.mapsymbols[formula.symbol_name()],
+                                   formula.symbol_type())
+        else:
+            return self.mgr.Symbol(formula.symbol_name(),
+                                   formula.symbol_type())
+

@@ -30,6 +30,7 @@ class Config(object):
     verbosity = 1
     simulate = False
     bmc_length = 10
+    bmc_length_min = 0
     safety = None
     properties = None
     assumptions = None
@@ -54,6 +55,7 @@ class Config(object):
         self.verbosity = 1
         self.simulate = False
         self.bmc_length = 10
+        self.bmc_length_min = 0
         self.safety = None
         self.properties = None
         self.assumptions = None
@@ -159,7 +161,7 @@ def run(config):
         count = 0
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            if not bmc.safety(prop, config.bmc_length) and config.prefix:
+            if not bmc.safety(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1
                 Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
 
@@ -243,6 +245,10 @@ if __name__ == "__main__":
     parser.set_defaults(bmc_length=config.bmc_length)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
                         help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
+
+    parser.set_defaults(bmc_length_min=config.bmc_length_min)
+    parser.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
+                        help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
     
     parser.set_defaults(symbolic_init=config.symbolic_init)
     parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
@@ -299,6 +305,7 @@ if __name__ == "__main__":
     config.symbolic_init = args.symbolic_init
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
+    config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
     config.prefix = args.prefix
     config.run_passes = args.run_passes

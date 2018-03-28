@@ -267,6 +267,8 @@ class VCDTracePrinter(TracePrinter):
         varlist = [(v, v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
         ret = []
 
+        modeldic = dict(model)
+        
         ret.append("$date")
         ret.append(datetime.datetime.now().strftime('%A %Y/%m/%d %H:%M:%S'))
         ret.append("$end")
@@ -274,7 +276,7 @@ class VCDTracePrinter(TracePrinter):
         ret.append("CoSA")
         ret.append("$end")
         ret.append("$timescale")
-        ret.append("1 fs")
+        ret.append("1 ns")
         ret.append("$end")
 
         idvar = 0
@@ -293,9 +295,18 @@ class VCDTracePrinter(TracePrinter):
             idvar = 0
             for el in varlist:
                 (var, varname, width) = el
-                val = model[TS.get_timed(var, t)]
-                varass = (varname, val)
-                bitval = "{0:b}".format(int(varass[1].constant_value()))
+                tvar = TS.get_timed(var, t)
+                if tvar in modeldic:
+                    val = modeldic[tvar].constant_value()
+                    
+                else: # Value is don't care, thus setting it to 0
+                    val = 0
+                    if var.symbol_type() == BOOL:
+                        width = 1
+                    else:
+                        width = var.symbol_type().width
+                        
+                bitval = "{0:b}".format(int(val))
                 bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
 
                 ret.append("b%s v%s"%(bitval, idvar))
