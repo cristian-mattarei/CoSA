@@ -268,6 +268,7 @@ class VCDTracePrinter(TracePrinter):
         ret = []
 
         modeldic = dict(model)
+        modeldic = dict([(v.symbol_name(), modeldic[v].constant_value()) for v in modeldic])
         
         ret.append("$date")
         ret.append(datetime.datetime.now().strftime('%A %Y/%m/%d %H:%M:%S'))
@@ -295,10 +296,9 @@ class VCDTracePrinter(TracePrinter):
             idvar = 0
             for el in varlist:
                 (var, varname, width) = el
-                tvar = TS.get_timed(var, t)
+                tvar = TS.get_timed_name(varname, t)
                 if tvar in modeldic:
-                    val = modeldic[tvar].constant_value()
-                    
+                    val = modeldic[tvar]
                 else: # Value is don't care, thus setting it to 0
                     val = 0
                     if var.symbol_type() == BOOL:

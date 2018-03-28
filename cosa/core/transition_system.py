@@ -137,20 +137,32 @@ class TS(object):
         self.invar = None
 
     @staticmethod
-    def get_prime(v):
-        return Symbol(("%s"+NEXT) % v.symbol_name(), v.symbol_type())
-
-    @staticmethod
     def is_prime(v):
         return v.symbol_name()[-len(NEXT):] == NEXT
 
     @staticmethod
+    def get_prime(v):
+        return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
+    
+    @staticmethod
     def get_timed(v, t):
-        return Symbol("%s%s%s" % (v.symbol_name(), AT, str(t)), v.symbol_type())
+        return Symbol(TS.get_timed_name(v.symbol_name(), t), v.symbol_type())
 
     @staticmethod
     def get_ptimed(v, t):
-        return Symbol("%s%s%s" % (v.symbol_name(), ATP, str(t)), v.symbol_type())
+        return Symbol(TS.get_ptimed_name(v.symbol_name(), t), v.symbol_type())
+
+    @staticmethod
+    def get_prime_name(name):
+        return ("%s"+NEXT) % name
+    
+    @staticmethod
+    def get_timed_name(name, t):
+        return "%s%s%s" % (name, AT, str(t))
+
+    @staticmethod
+    def get_ptimed_name(name, t):
+        return "%s%s%s" % (name, ATP, str(t))
     
     @staticmethod
     def get_prefix(v, pref):

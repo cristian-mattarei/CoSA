@@ -93,19 +93,25 @@ class BMC(object):
     def __init_at_time(self, vars, maxtime):
         self.varmapf_t = {}
         self.varmapb_t = {}
+
+        timed = TS.get_timed_name
+        ptimed = TS.get_ptimed_name
+        prime = TS.get_prime_name
+
+        varsstr = [v.symbol_name() for v in vars]
+        
         for t in range(maxtime+2):
             varmapf = []
             varmapb = []
             
-            for v in vars:
-                sname = v.symbol_name()
-                psname = TS.get_prime(v).symbol_name()
+            for sname in varsstr:
+                psname = prime(sname)
                 
-                varmapf.append((sname, TS.get_timed(v, t).symbol_name()))
-                varmapf.append((psname, TS.get_timed(v, t+1).symbol_name()))
+                varmapf.append((sname, timed(sname, t)))
+                varmapf.append((psname, timed(sname, t+1)))
 
-                varmapb.append((sname, TS.get_ptimed(v, t).symbol_name()))
-                varmapb.append((psname, TS.get_ptimed(v, t-1).symbol_name()))
+                varmapb.append((sname, ptimed(sname, t)))
+                varmapb.append((psname, ptimed(sname, t-1)))
 
             self.varmapf_t[t] = dict(varmapf)
             self.varmapb_t[t-1] = dict(varmapb)
@@ -377,6 +383,8 @@ class BMC(object):
             self.__add_assertion(self.config.solver, propt)
 
             if t >= k_min:
+                Logger.log("Solving for k=%s"%(t), 1)
+
                 res = self.__solve(self.config.solver)
 
                 if res:
@@ -387,7 +395,9 @@ class BMC(object):
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
-
+            else:
+                Logger.log("Skipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
+                    
             self.__pop(self.config.solver)
 
             trans_t = self.unroll(trans, invar, t+1, t)
@@ -397,7 +407,7 @@ class BMC(object):
                 prop_t = self.unroll(TRUE(), prop, t, t-1)
                 self.__add_assertion(self.config.solver, prop_t)
                 Logger.log("Add property at time %d"%t, 2)
-
+                
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
                 
