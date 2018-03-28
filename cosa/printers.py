@@ -265,6 +265,7 @@ class VCDTracePrinter(TracePrinter):
         
     def print_trace(self, hts, model, length):
         ret = []
+        
         ret.append("$date")
         ret.append(datetime.datetime.now().strftime('%A %Y/%m/%d %H:%M:%S'))
         ret.append("$end")
@@ -275,7 +276,7 @@ class VCDTracePrinter(TracePrinter):
         ret.append("1 ns")
         ret.append("$end")
 
-        varlist = [(v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
+        varlist = [(v, v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
         
         idvar = 0
         for el in varlist:
@@ -290,12 +291,13 @@ class VCDTracePrinter(TracePrinter):
 
         modeldic = dict(model)
         modeldic = dict([(v.symbol_name(), modeldic[v].constant_value()) for v in modeldic])
-                
+        
         for t in range(length+1):
             ret.append("#%d"%t)
             idvar = 0
             for el in varlist:
-                (varname, width) = el
+                (var, varname, width) = el
+                tname = TS.get_timed_name(varname, t)
                 val = modeldic[tname] if tname in modeldic else 0
                 bitval = "{0:b}".format(int(val))
                 bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
