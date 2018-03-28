@@ -115,7 +115,7 @@ class BMC(object):
         return self.subwalker.walk(formula)
 
     def at_ptime(self, formula, t):
-        self.subwalker.set_substitute_map(self.varmapf_t[t])
+        self.subwalker.set_substitute_map(self.varmapb_t[t])
         return self.subwalker.walk(formula)
     
     def unroll(self, trans, invar, k_end, k_start=0):
