@@ -354,6 +354,7 @@ class BMC(object):
         invar = hts.single_invar()
 
         if self.config.simplify:
+            Logger.log("Simplifying the Transition System", 1)
             if Logger.level(1):
                 timer = Logger.start_timer("Simplify")
 
@@ -397,6 +398,7 @@ class BMC(object):
                     Logger.msg(".", 0, not(Logger.level(1)))
             else:
                 Logger.log("Skipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
+                Logger.msg(".", 0, not(Logger.level(1)))
                     
             self.__pop(self.config.solver)
 

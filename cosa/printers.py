@@ -264,12 +264,7 @@ class VCDTracePrinter(TracePrinter):
         return ".vcd"
         
     def print_trace(self, hts, model, length):
-        varlist = [(v, v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
         ret = []
-
-        modeldic = dict(model)
-        modeldic = dict([(v.symbol_name(), modeldic[v].constant_value()) for v in modeldic])
-        
         ret.append("$date")
         ret.append(datetime.datetime.now().strftime('%A %Y/%m/%d %H:%M:%S'))
         ret.append("$end")
@@ -280,6 +275,8 @@ class VCDTracePrinter(TracePrinter):
         ret.append("1 ns")
         ret.append("$end")
 
+        varlist = [(v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
+        
         idvar = 0
         for el in varlist:
             (var, varname, width) = el
@@ -290,22 +287,16 @@ class VCDTracePrinter(TracePrinter):
         ret.append("$upscope $end")
         ret.append("$upscope $end")
         ret.append("$enddefinitions $end")
-        
+
+        modeldic = dict(model)
+        modeldic = dict([(v.symbol_name(), modeldic[v].constant_value()) for v in modeldic])
+                
         for t in range(length+1):
             ret.append("#%d"%t)
             idvar = 0
             for el in varlist:
-                (var, varname, width) = el
-                tvar = TS.get_timed_name(varname, t)
-                if tvar in modeldic:
-                    val = modeldic[tvar]
-                else: # Value is don't care, thus setting it to 0
-                    val = 0
-                    if var.symbol_type() == BOOL:
-                        width = 1
-                    else:
-                        width = var.symbol_type().width
-                        
+                (varname, width) = el
+                val = modeldic[tname] if tname in modeldic else 0
                 bitval = "{0:b}".format(int(val))
                 bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
 
