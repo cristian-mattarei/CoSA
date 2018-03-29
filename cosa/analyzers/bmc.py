@@ -42,6 +42,7 @@ class BMCConfig(object):
     prefix = None
     smt2file = None
     simplify = False
+    map_function = None
     
     def __init__(self):
         self.incremental = True
@@ -51,6 +52,7 @@ class BMCConfig(object):
         self.prefix = None
         self.smt2file = None
         self.simplify = False
+        self.map_function = None
     
         self.strategies = BMCConfig.get_strategies()
 
@@ -142,7 +144,7 @@ class BMC(object):
                     
         return And(formula)
 
-    def print_trace(self, hts, model, length, xvars=None, diff_only=True):
+    def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None):
         trace = []
         prevass = []
 
@@ -157,7 +159,7 @@ class BMC(object):
             printer.extra_vars = xvars
             printer.diff_only = diff_only
             printer.full_trace = full_trace
-            trace = printer.print_trace(hts, model, length)
+            trace = printer.print_trace(hts, model, length, map_function)
             
             Logger.log(trace, 0)
         else:
@@ -165,7 +167,7 @@ class BMC(object):
                 timer = Logger.start_timer("Trace generation")
 
             printer = VCDTracePrinter()
-            trace = printer.print_trace(hts, model, length)
+            trace = printer.print_trace(hts, model, length, map_function)
 
             if Logger.level(1):
                 Logger.stop_timer(timer)
@@ -182,7 +184,7 @@ class BMC(object):
         
         if t > -1:
             Logger.log("Systems are NOT equivalent", 0)
-            self.print_trace(htseq, model, t, None, False)
+            self.print_trace(htseq, model, t, None, False, map_function=self.config.map_function)
         else:
             Logger.log("Systems are equivalent with k=%s"%k, 0)
             
@@ -194,7 +196,7 @@ class BMC(object):
         
         if t > -1:
             Logger.log("FSM is NOT deterministic", 0)            
-            self.print_trace(htseq, model, t, None, False)
+            self.print_trace(htseq, model, t, None, False, map_function=self.config.map_function)
         else:
             Logger.log("FSM is deterministic", 0)
             
@@ -282,7 +284,7 @@ class BMC(object):
         
         if t > -1:
             Logger.log("Execution found", 0)
-            self.print_trace(self.hts, model, t, prop.get_free_variables())
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return True
         else:
             Logger.log("Deadlock wit k=%s"%k, 0)
@@ -522,7 +524,7 @@ class BMC(object):
         
         if t > -1:
             Logger.log("Property is FALSE", 0)
-            self.print_trace(self.hts, model, t, prop.get_free_variables())
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return False
         else:
             Logger.log("No counterexample found", 0)

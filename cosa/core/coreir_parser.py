@@ -335,7 +335,8 @@ class Modules(object):
         invar = TRUE()
             
         initvar = None
-        initname = SEP.join(out.symbol_name().split(SEP)[:-1])+SEP+INIT
+        basename = SEP.join(out.symbol_name().split(SEP)[:-1]) if SEP in out.symbol_name() else out.symbol_name()
+        initname = basename+SEP+INIT
 
         if initval is not None:
             if out.symbol_type() == BOOL:
@@ -557,6 +558,10 @@ class CoreIRParser(object):
     attrnames = None
     boolean = False
     pack_connections = False
+    anonimize_names = False
+    map_an2or = None
+    map_or2an = None
+    idvars = 0
     
     def __init__(self, file, *libs):
         self.context = coreir.Context()
@@ -569,7 +574,10 @@ class CoreIRParser(object):
 
         self.boolean = False
         self.pack_connections = True
-
+        self.map_an2or = {}
+        self.map_or2an = {}
+        self.anonimize_names = False
+        
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
                                  'cullgraph',\
@@ -582,13 +590,37 @@ class CoreIRParser(object):
                                  'deletedeadinstances'])
 
 
+    def __new_var_name(self):
+        CoreIRParser.idvars += 1
+        return "v%s"%CoreIRParser.idvars
 
+    def remap_an2or(self, name):
+        if not self.anonimize_names:
+            return name
+        if name in self.map_an2or:
+            return self.map_an2or[name]
+        return name
+
+    def remap_or2an(self, name):
+        if not self.anonimize_names:
+            return name
+        if name in self.map_or2an:
+            return self.map_or2an[name]
+        return name
+    
     def BVVar(self, name, width):
         if width <= 0 or not isinstance(width, int):
             raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
 
-        name = name.replace(CSEP, SEP)
-        
+        orname = name.replace(CSEP, SEP)
+
+        if not self.anonimize_names:
+            name = orname
+        else:
+            name = self.__new_var_name()
+            self.map_an2or[name] = orname
+            self.map_or2an[orname] = name
+
         if self.boolean and (width == 1):
             return Symbol(name, BOOL)
 
@@ -672,7 +704,7 @@ class CoreIRParser(object):
         for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
             if lit in KEYWORDS:
                 continue
-            formula = formula.replace(lit, "\'%s\'"%lit)
+            formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
         for op in OPERATORS:
             formula = formula.replace(op[0], op[1])
         return parse(formula)
@@ -797,15 +829,15 @@ class CoreIRParser(object):
             else:
                 secondname = SEP.join(second_selectpath)
 
-            first = (dict_select(varmap, firstname), None)
-            second = (dict_select(varmap, secondname), None)
+            first = (dict_select(varmap, self.remap_or2an(firstname)), None)
+            second = (dict_select(varmap, self.remap_or2an(secondname)), None)
                 
             firstvar = first[0]
             secondvar = second[0]
             
             if (firstvar is None) and (secondvar is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
-                first = (Symbol(firstname, secondvar.symbol_type()), None)
+                first = (Symbol(self.remap_or2an(firstname), secondvar.symbol_type()), None)
             else:
                 if (is_number(first_selectpath[-1])) and (firstvar.symbol_type() != BOOL) and (firstvar.symbol_type().width > 1):
                     sel = int(first_selectpath[-1])
@@ -813,7 +845,7 @@ class CoreIRParser(object):
 
             if (firstvar is not None) and (secondvar is None):
                 Logger.error("Symbol \"%s\" is not defined"%secondname)
-                second = (Symbol(secondname, firstvar.symbol_type()), None)
+                second = (Symbol(self.remap_or2an(secondname), firstvar.symbol_type()), None)
             else:
                 if (is_number(second_selectpath[-1])) and (secondvar.symbol_type() != BOOL) and (secondvar.symbol_type().width > 1):
                     sel = int(second_selectpath[-1])

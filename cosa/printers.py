@@ -204,7 +204,7 @@ class TracePrinter(object):
     def __init__(self):
         pass
         
-    def print_trace(self, hts, model, length):
+    def print_trace(self, hts, model, length, map_function=None):
         pass
 
     def get_file_ext(self):
@@ -220,7 +220,7 @@ class TextTracePrinter(TracePrinter):
     def get_file_ext(self):
         return ".txt"
         
-    def print_trace(self, hts, model, length):
+    def print_trace(self, hts, model, length, map_function=None):
         trace = []
         prevass = []
         
@@ -233,7 +233,7 @@ class TextTracePrinter(TracePrinter):
             if self.extra_vars is not None:
                 varlist = list(set(varlist).union(set(self.extra_vars)))
 
-        strvarlist = [(var.symbol_name(), var) for var in varlist]
+        strvarlist = [(map_function(var.symbol_name()), var) for var in varlist]
         strvarlist.sort()
 
         for var in strvarlist:
@@ -263,7 +263,7 @@ class VCDTracePrinter(TracePrinter):
     def get_file_ext(self):
         return ".vcd"
         
-    def print_trace(self, hts, model, length):
+    def print_trace(self, hts, model, length, map_function=None):
         ret = []
         
         ret.append("$date")
@@ -276,11 +276,11 @@ class VCDTracePrinter(TracePrinter):
         ret.append("1 ns")
         ret.append("$end")
 
-        varlist = [(v, v.symbol_name(), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
+        varlist = [(map_function(v.symbol_name()), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
         
         idvar = 0
         for el in varlist:
-            (var, varname, width) = el
+            (varname, width) = el
             varname = varname.replace(SEP, "_")
             ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname, width-1))
             idvar += 1
@@ -296,7 +296,7 @@ class VCDTracePrinter(TracePrinter):
             ret.append("#%d"%t)
             idvar = 0
             for el in varlist:
-                (var, varname, width) = el
+                (varname, width) = el
                 tname = TS.get_timed_name(varname, t)
                 val = modeldic[tname] if tname in modeldic else 0
                 bitval = "{0:b}".format(int(val))

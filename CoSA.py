@@ -122,6 +122,7 @@ def run(config):
     bmc_config.prefix = config.prefix
     bmc_config.strategy = config.strategy
     bmc_config.skip_solving = config.skip_solving
+    bmc_config.map_function = parser.remap_an2or
 
     bmc = BMC(hts, bmc_config)
     
