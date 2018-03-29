@@ -46,6 +46,9 @@ class Config(object):
     strategy = None
     boolean = None
     synchronous = None
+    abstract_clock = False
+    skip_solving = False
+    solver_name = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -68,9 +71,13 @@ class Config(object):
         self.printer = PrintersFactory.get_default().get_name()
         self.translate = None
         self.smt2file = None
-        self.strategy = None
+        self.strategy = BMCConfig.get_strategies()[0][0]
         self.boolean = False
         self.synchronous = None
+        self.abstract_clock = False
+        self.skip_solving = False
+        self.solver_name = "msat"
+
 
 def parse_formulae(config, strforms):
     parser = config.parser
@@ -91,6 +98,7 @@ def run(config):
     parser.boolean = config.boolean
     
     config.parser = parser
+    Logger.verbosity = config.verbosity
 
     if config.run_passes:
         Logger.log("Running passes:", 0)
@@ -123,6 +131,7 @@ def run(config):
     bmc_config.strategy = config.strategy
     bmc_config.skip_solving = config.skip_solving
     bmc_config.map_function = parser.remap_an2or
+    bmc_config.solver_name = config.solver_name
 
     bmc = BMC(hts, bmc_config)
     
@@ -160,11 +169,17 @@ def run(config):
         
     if config.safety:
         count = 0
+        list_status = []
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             if not bmc.safety(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1
                 Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
+                list_status.append(False)
+            else:
+                list_status.append(True)
+                
+        return list_status
 
     if config.equivalence:
         parser2 = CoreIRParser(config.equivalence)
@@ -317,11 +332,8 @@ if __name__ == "__main__":
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
     config.synchronous = args.synchronous
-    
     config.verbosity = args.verbosity
 
-    Logger.verbosity = config.verbosity
-    
     ok = True
     
     if len(sys.argv)==1:
@@ -367,5 +379,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(1)
         
-    
-    sys.exit(run(config))
+    run(config)
