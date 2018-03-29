@@ -1,9 +1,10 @@
-(posedge_arst = 0_1) | (reg0.out = 0_16)
-(negedge_arst = 0_1) | (reg1.out = 0_16)
-(posedge_arst = 0_1) | (reg2.out = 0_16)
-(negedge_arst = 0_1) | (reg3.out = 0_16)
+((self.clk = 0_1) & next(self.clk = 1_1)) & (!((self.arst = 0_1) & next(self.arst = 1_1))) -> (reg0.in = next(reg0.out))
+((self.clk = 0_1) & next(self.clk = 1_1)) & (!((self.arst = 1_1) & next(self.arst = 0_1))) -> (reg1.in = next(reg1.out))
+((self.clk = 1_1) & next(self.clk = 0_1)) & (!((self.arst = 0_1) & next(self.arst = 1_1))) -> (reg2.in = next(reg2.out))
+((self.clk = 1_1) & next(self.clk = 0_1)) & (!((self.arst = 1_1) & next(self.arst = 0_1))) -> (reg0.in = next(reg3.out))
 
-!((posedge_clk = 1_1) & (posedge_arst = 0_1)) | !(reg0.out = 0_16)
-!((posedge_clk = 1_1) & (negedge_arst = 0_1)) | !(reg1.out = 0_16)
-!((negedge_clk = 1_1) & (posedge_arst = 0_1)) | !(reg2.out = 0_16)
-!((negedge_clk = 1_1) & (negedge_arst = 0_1)) | !(reg3.out = 0_16)
+((self.arst = 0_1) & next(self.arst = 1_1)) -> (0_16 = next(reg0.out))
+((self.arst = 1_1) & next(self.arst = 0_1)) -> (0_16 = next(reg1.out))
+((self.arst = 0_1) & next(self.arst = 1_1)) -> (0_16 = next(reg2.out))
+((self.arst = 1_1) & next(self.arst = 0_1)) -> (0_16 = next(reg3.out))
+
