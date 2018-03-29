@@ -21,7 +21,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
-from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter
+from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
 
 from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
@@ -48,11 +48,15 @@ def BV2B(var):
 class ExtLexer(HRLexer):
     def __init__(self, env=None):
         HRLexer.__init__(self, env=env)
+        self.rules.insert(0, Rule(r"(!=)", InfixOpAdapter(self.NEquals, 60), False))
         self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 50), False))
         self.compile()
 
     def Next(self, x):
         return TS.to_next(x)
+
+    def NEquals(self, l, r):
+        return self.mgr.Not(self.mgr.Equals(l, r))
     
 def HRParser(env=None):
     return PrattParser(ExtLexer, env=env)
