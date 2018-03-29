@@ -427,7 +427,7 @@ class Modules(object):
         do_arst = And(TS.to_next(arst1), arst0) if arst_posedge1 else And(TS.to_next(arst0), arst1)
         ndo_arst = Not(do_arst)
         do_clk = And(TS.to_next(clk1), clk0) if clk_posedge1 else And(TS.to_next(clk0), clk1)
-        ndo_clk = And(TS.to_next(clk0), clk1) if clk_posedge1 else And(TS.to_next(clk1), clk0)
+        ndo_clk = Not(do_clk)
         act_trans = EqualsOrIff(inr, TS.get_prime(out))
         pas_trans = EqualsOrIff(out, TS.get_prime(out))
         
