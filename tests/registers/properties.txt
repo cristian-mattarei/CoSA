@@ -1,0 +1,9 @@
+(posedge_arst = 0_1) | (reg0.out = 0_16)
+(negedge_arst = 0_1) | (reg1.out = 0_16)
+(posedge_arst = 0_1) | (reg2.out = 0_16)
+(negedge_arst = 0_1) | (reg3.out = 0_16)
+
+!((posedge_clk = 1_1) & (posedge_arst = 0_1)) | !(reg0.out = 0_16)
+!((posedge_clk = 1_1) & (negedge_arst = 0_1)) | !(reg1.out = 0_16)
+!((negedge_clk = 1_1) & (posedge_arst = 0_1)) | !(reg2.out = 0_16)
+!((negedge_clk = 1_1) & (negedge_arst = 0_1)) | !(reg3.out = 0_16)
