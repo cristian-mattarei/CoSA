@@ -21,7 +21,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
-from pysmt.parsing import parse
+from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter
 
 from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
@@ -30,11 +30,11 @@ from cosa.util.logger import Logger
 SELF = "self"
 INIT = "init"
 
-KEYWORDS = ["not","False","True"]
-OPERATORS = [("<","u<"), \
-             (">","u>"), \
-             (">=","u>="), \
-             ("<=","u<=")]
+KEYWORDS = ["not","False","True","next"]
+OPERATORS = [(" < "," u< "), \
+             (" > "," u> "), \
+             (" >= "," u>= "), \
+             (" <= "," u<= ")]
 
 SEP = "."
 CSEP = "$"
@@ -44,6 +44,21 @@ def B2BV(var):
     
 def BV2B(var):
     return EqualsOrIff(var, BV(1,1))
+
+class ExtLexer(HRLexer):
+    def __init__(self, env=None):
+        HRLexer.__init__(self, env=env)
+        self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 50), False))
+        self.compile()
+
+    def Next(self, x):
+        return TS.to_next(x)
+    
+def HRParser(env=None):
+    return PrattParser(ExtLexer, env=env)
+
+def parse_string(string):
+    return HRParser().parse(string)
 
 class Modules(object):
 
@@ -712,7 +727,8 @@ class CoreIRParser(object):
             formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
         for op in OPERATORS:
             formula = formula.replace(op[0], op[1])
-        return parse(formula)
+
+        return parse_string(formula)
     
     def parse(self, abstract_clock=False):
         Logger.msg("Reading CoreIR system... ", 1)
@@ -966,4 +982,6 @@ class CoreIRParser(object):
                 return ((min_1, max_1), (min_2, max_2))
             
         return None
+    
+
     

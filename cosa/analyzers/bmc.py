@@ -373,12 +373,20 @@ class BMC(object):
         Logger.log("Add init and invar", 2)
         self.__add_assertion(self.config.solver, formula)
 
+        next_prop = TS.has_next(prop)
+        if next_prop:
+            if k < 1:
+                Logger.error("Invariant checking with next variables requires at least k=1")
+            k_min = 1
+        
         t = 0 
         while (t < k+1):
             self.__push(self.config.solver)
 
             if k_min > 0:
-                propt = Or(propt, self.at_time(Not(prop), t))
+                t_prop = t-1 if next_prop else t
+                if (not next_prop) or (next_prop and t>0):
+                    propt = Or(propt, self.at_time(Not(prop), t_prop))
             else:
                 propt = self.at_time(Not(prop), t)
                 
@@ -420,6 +428,9 @@ class BMC(object):
     def solve_inc_bwd(self, hts, prop, k):
         self.__reset_assertions(self.config.solver)
 
+        if TS.has_next(prop):
+            Logger.error("Invariant checking with next variables only supports FWD strategy")
+        
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
@@ -464,6 +475,9 @@ class BMC(object):
         
     def solve_inc_zz(self, hts, prop, k):
         self.__reset_assertions(self.config.solver)
+        
+        if TS.has_next(prop):
+            Logger.error("Invariant checking with next variables only supports FWD strategy")
 
         init = hts.single_init()
         trans = hts.single_trans()

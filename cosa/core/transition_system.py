@@ -173,3 +173,11 @@ class TS(object):
         varmap = dict([(v,TS.get_prime(v)) for v in formula.get_free_variables()])
         return formula.substitute(varmap)
 
+    @staticmethod
+    def has_next(formula):
+        varlist = formula.get_free_variables()
+        for v in varlist:
+            if TS.is_prime(v):
+                return True
+        return False
+    
