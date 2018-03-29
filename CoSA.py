@@ -21,6 +21,7 @@ from cosa.core.coreir_parser import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
+from cosa.encoders import ExplicitTSParser
 from pysmt.shortcuts import TRUE
 
 class Config(object):
@@ -29,6 +30,7 @@ class Config(object):
     verbosity = 1
     simulate = False
     bmc_length = 10
+    bmc_length_min = 0
     safety = None
     properties = None
     assumptions = None
@@ -43,6 +45,7 @@ class Config(object):
     smt2file = None
     strategy = None
     boolean = None
+    synchronous = None
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -52,6 +55,7 @@ class Config(object):
         self.verbosity = 1
         self.simulate = False
         self.bmc_length = 10
+        self.bmc_length_min = 0
         self.safety = None
         self.properties = None
         self.assumptions = None
@@ -66,6 +70,7 @@ class Config(object):
         self.smt2file = None
         self.strategy = None
         self.boolean = False
+        self.synchronous = None
 
 def parse_formulae(config, strforms):
     parser = config.parser
@@ -86,7 +91,7 @@ def run(config):
     parser.boolean = config.boolean
     
     config.parser = parser
-    
+
     if config.run_passes:
         Logger.log("Running passes:", 0)
         parser.run_passes()
@@ -95,6 +100,12 @@ def run(config):
     hts = parser.parse(config.abstract_clock)
     Logger.log("DONE", 0)
 
+    if config.synchronous:
+        with open(config.synchronous, "r") as f:
+            etsparser = ExplicitTSParser()
+            ats = etsparser.parse(f.read())
+            hts.add_ts(ats)
+    
     printsmv = True
 
     bmc_config = BMCConfig()
@@ -111,6 +122,7 @@ def run(config):
     bmc_config.prefix = config.prefix
     bmc_config.strategy = config.strategy
     bmc_config.skip_solving = config.skip_solving
+    bmc_config.map_function = parser.remap_an2or
 
     bmc = BMC(hts, bmc_config)
     
@@ -150,7 +162,7 @@ def run(config):
         count = 0
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            if not bmc.safety(prop, config.bmc_length) and config.prefix:
+            if not bmc.safety(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1
                 Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
 
@@ -219,6 +231,10 @@ if __name__ == "__main__":
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
 
+    parser.set_defaults(synchronous=None)
+    parser.add_argument('--synchronous', metavar='<input file>', type=str, required=False,
+                       help='additional state machine to add in synchronous product.')
+    
     parser.set_defaults(translate=None)
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
@@ -230,6 +246,10 @@ if __name__ == "__main__":
     parser.set_defaults(bmc_length=config.bmc_length)
     parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
                         help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
+
+    parser.set_defaults(bmc_length_min=config.bmc_length_min)
+    parser.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
+                        help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
     
     parser.set_defaults(symbolic_init=config.symbolic_init)
     parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
@@ -286,6 +306,7 @@ if __name__ == "__main__":
     config.symbolic_init = args.symbolic_init
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
+    config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
     config.prefix = args.prefix
     config.run_passes = args.run_passes
@@ -295,6 +316,7 @@ if __name__ == "__main__":
     config.skip_solving = args.skip_solving
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
+    config.synchronous = args.synchronous
     
     config.verbosity = args.verbosity
 

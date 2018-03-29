@@ -21,7 +21,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
-from pysmt.parsing import parse
+from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter
 
 from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
@@ -30,11 +30,11 @@ from cosa.util.logger import Logger
 SELF = "self"
 INIT = "init"
 
-KEYWORDS = ["not","False","True"]
-OPERATORS = [("<","u<"), \
-             (">","u>"), \
-             (">=","u>="), \
-             ("<=","u<=")]
+KEYWORDS = ["not","False","True","next"]
+OPERATORS = [(" < "," u< "), \
+             (" > "," u> "), \
+             (" >= "," u>= "), \
+             (" <= "," u<= ")]
 
 SEP = "."
 CSEP = "$"
@@ -44,6 +44,21 @@ def B2BV(var):
     
 def BV2B(var):
     return EqualsOrIff(var, BV(1,1))
+
+class ExtLexer(HRLexer):
+    def __init__(self, env=None):
+        HRLexer.__init__(self, env=env)
+        self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 50), False))
+        self.compile()
+
+    def Next(self, x):
+        return TS.to_next(x)
+    
+def HRParser(env=None):
+    return PrattParser(ExtLexer, env=env)
+
+def parse_string(string):
+    return HRParser().parse(string)
 
 class Modules(object):
 
@@ -313,39 +328,64 @@ class Modules(object):
         return ts
 
     @staticmethod
-    def Reg(in_, clk, clr, rst, out, initval):
+    def Reg(in_, clk, clr, rst, arst, out, initval, clk_posedge, arst_posedge):
         # INIT: out = initval
-        # TRANS: ((!clk & clk') -> (((clr) -> (out' = 0)) & ((rst & !clr) -> (out' = initval)) & ((!rst & !clr) -> (out' = in)))) & 
-        #        (!(!clk & clk') -> (out' = out)))
+        
+        # inr = Ite(clr, 0, Ite(rst, initval, in))
+        # do_arst = Ite(arst_posedge, (!arst & arst'), (arst & !arst'))
+        # do_clk = Ite(clk_posedge, (!clk & clk'), (clk & !clk'))
+        # act_trans = (out' = inr)
+        # pas_trans = (out' = out)
+        
+        # TRANS: (!do_arst -> ((do_clk -> act_trans) & (!do_clk -> pas_trans))) & (do_arst -> (out' = initval))
+        # INVAR: True
         # trans gives priority to clr signal over rst
-        vars_ = [in_,clk,clr,rst,out]
-        comment = "Reg (in, clk, clr, rst, out) = (%s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+
+        vars_ = [in_,clk,clr,rst,arst,out]
+        comment = "Reg (in, clk, clr, rst, arst, out) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 2)
 
         init = TRUE()
         trans = TRUE()
-        
-        initvar = None
-        initname = SEP.join(out.symbol_name().split(SEP)[:-1])+SEP+INIT
-        
-        if out.symbol_type() == BOOL:
-            out0 = FALSE()
-            initvar = Symbol(initname, BOOL)
-        else:
-            out0 = BV(0, out.symbol_type().width)
-            initvar = Symbol(initname, _BVType(out.symbol_type().width))
-
-        trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
-        init = EqualsOrIff(out, initvar)
+        invar = TRUE()
             
+        initvar = None
+        basename = SEP.join(out.symbol_name().split(SEP)[:-1]) if SEP in out.symbol_name() else out.symbol_name()
+        initname = basename+SEP+INIT
+
         if initval is not None:
             if out.symbol_type() == BOOL:
                 binitval = FALSE() if initval == 0 else TRUE()
             else:
                 binitval = BV(initval, out.symbol_type().width)
 
-            init = And(init, EqualsOrIff(initvar, binitval))
-        
+            initvar = binitval
+        else:
+            if out.symbol_type() == BOOL:
+                initvar = Symbol(initname, BOOL)
+            else:
+                initvar = Symbol(initname, _BVType(out.symbol_type().width))
+
+            trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
+            
+            vars_.append(initvar)
+
+        init = And(init, EqualsOrIff(out, initvar))
+
+        if arst_posedge is not None:
+            arst_posedge0 = False if arst_posedge else True
+            arst_posedge1 = True if arst_posedge else False
+        else:
+            arst_posedge0 = False
+            arst_posedge1 = True
+
+        if clk_posedge is not None:
+            clk_posedge0 = False if clk_posedge else True
+            clk_posedge1 = True if clk_posedge else False
+        else:
+            clk_posedge0 = False
+            clk_posedge1 = True
+            
         if clr is not None:
             if clr.symbol_type() == BOOL:
                 clr0 = Not(clr)
@@ -368,6 +408,17 @@ class Modules(object):
             rst0 = TRUE()
             rst1 = FALSE()
 
+        if arst is not None:
+            if arst.symbol_type() == BOOL:
+                arst0 = Not(arst)
+                arst1 = arst
+            else:
+                arst0 = EqualsOrIff(arst, BV(0, 1))
+                arst1 = EqualsOrIff(arst, BV(1, 1))
+        else:
+            arst0 = TRUE()
+            arst1 = FALSE()
+
         if clk.symbol_type() == BOOL:
             clk0 = Not(clk)
             clk1 = clk
@@ -382,15 +433,24 @@ class Modules(object):
             ri_clk = And(clk0, TS.to_next(clk1))
             do_clk = And(clk1, TS.to_next(clk0))
 
-        tr_clr = Implies(clr1, EqualsOrIff(TS.get_prime(out), out0))
-        tr_rst_nclr = Implies(And(rst1, clr0), EqualsOrIff(TS.get_prime(out), initvar))
-        tr_nrst_nclr = Implies(And(rst0, clr0), EqualsOrIff(TS.get_prime(out), in_))
-        trans_ri = And(tr_clr, tr_rst_nclr, tr_nrst_nclr)
-        trans_do = EqualsOrIff(out, TS.get_prime(out))
-                
-        trans = And(trans, Implies(ri_clk, trans_ri), Implies(do_clk, trans_do))
+        if out.symbol_type() == BOOL:
+            out0 = FALSE()
+        else:
+            out0 = BV(0, out.symbol_type().width)
+
+        inr = Ite(clr1, out0, Ite(rst1, initvar, in_))
+        do_arst = And(TS.to_next(arst1), arst0) if arst_posedge1 else And(TS.to_next(arst0), arst1)
+        ndo_arst = Not(do_arst)
+        do_clk = And(TS.to_next(clk1), clk0) if clk_posedge1 else And(TS.to_next(clk0), clk1)
+        ndo_clk = Not(do_clk)
+        act_trans = EqualsOrIff(inr, TS.get_prime(out))
+        pas_trans = EqualsOrIff(out, TS.get_prime(out))
+        
+        trans = And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
+                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar)))
+        
         trans = simplify(trans)
-        ts = TS(set([initvar]+[v for v in vars_ if v is not None]), init, trans, TRUE())
+        ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([out])
         ts.comment = comment
         return ts
@@ -514,6 +574,11 @@ class CoreIRParser(object):
 
     attrnames = None
     boolean = False
+    pack_connections = False
+    anonimize_names = False
+    map_an2or = None
+    map_or2an = None
+    idvars = 0
     
     def __init__(self, file, *libs):
         self.context = coreir.Context()
@@ -525,7 +590,11 @@ class CoreIRParser(object):
         self.__init_attrnames()
 
         self.boolean = False
-
+        self.pack_connections = True
+        self.map_an2or = {}
+        self.map_or2an = {}
+        self.anonimize_names = False
+        
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
                                  'cullgraph',\
@@ -538,13 +607,37 @@ class CoreIRParser(object):
                                  'deletedeadinstances'])
 
 
+    def __new_var_name(self):
+        CoreIRParser.idvars += 1
+        return "v%s"%CoreIRParser.idvars
 
+    def remap_an2or(self, name):
+        if not self.anonimize_names:
+            return name
+        if name in self.map_an2or:
+            return self.map_an2or[name]
+        return name
+
+    def remap_or2an(self, name):
+        if not self.anonimize_names:
+            return name
+        if name in self.map_or2an:
+            return self.map_or2an[name]
+        return name
+    
     def BVVar(self, name, width):
         if width <= 0 or not isinstance(width, int):
             raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
 
-        name = name.replace(CSEP, SEP)
-        
+        orname = name.replace(CSEP, SEP)
+
+        if not self.anonimize_names:
+            name = orname
+        else:
+            name = self.__new_var_name()
+            self.map_an2or[name] = orname
+            self.map_or2an[orname] = name
+
         if self.boolean and (width == 1):
             return Symbol(name, BOOL)
 
@@ -567,6 +660,8 @@ class CoreIRParser(object):
         self.attrnames.append(add_name("clr"))
         self.attrnames.append(add_name("rst"))
         self.attrnames.append(add_name("arst"))
+        self.attrnames.append(add_name("clk_posedge"))
+        self.attrnames.append(add_name("arst_posedge"))
         self.attrnames.append(add_name("in"))
         self.attrnames.append(add_name("sel"))
         self.attrnames.append(add_name("value"))
@@ -594,7 +689,7 @@ class CoreIRParser(object):
         mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("neq",   (Modules.Neq,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("neq",  (Modules.Neq,  [self.IN0, self.IN1, self.OUT])))
 
         mod_map.append(("ult",  (Modules.Ult,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("ule",  (Modules.Ule,  [self.IN0, self.IN1, self.OUT])))
@@ -604,11 +699,11 @@ class CoreIRParser(object):
         mod_map.append(("sle",  (Modules.Sle,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
-        
+
         mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
-        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
-        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.OUT, self.INIT])))
-        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.ARST, self.OUT, self.INIT])))
+        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         
@@ -619,6 +714,9 @@ class CoreIRParser(object):
         if inst_type in mod_map:
             ts = mod_map[inst_type][0](*args(mod_map[inst_type][1]))
 
+        if ((args([self.CLK_POSEDGE])[0] == 0) or (args([self.ARST_POSEDGE])[0] == 0)) and Modules.abstract_clock:
+            Logger.warning("Unsound clock abstraction: registers with negedge behavior")
+            
         return ts
 
     def parse_formula(self, strformula):
@@ -626,10 +724,11 @@ class CoreIRParser(object):
         for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
             if lit in KEYWORDS:
                 continue
-            formula = formula.replace(lit, "\'%s\'"%lit)
+            formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
         for op in OPERATORS:
             formula = formula.replace(op[0], op[1])
-        return parse(formula)
+
+        return parse_string(formula)
     
     def parse(self, abstract_clock=False):
         Logger.msg("Reading CoreIR system... ", 1)
@@ -676,7 +775,8 @@ class CoreIRParser(object):
                     if type(xval) == bool:
                         xval = 1 if xval else 0
                     else:
-                        xval = xval.val
+                        if type(xval) != int:
+                            xval = xval.val
 
                     values_dic[x] = xval
 
@@ -711,7 +811,7 @@ class CoreIRParser(object):
                 hts.outputs.add(bvvar)
 
             # Adding clock behavior
-            if var[0].lower() == self.CLK:
+            if (self.CLK in var[0].lower()) and (var[1].is_input()):
                 hts.add_ts(Modules.Clock(bvvar))
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
@@ -750,15 +850,15 @@ class CoreIRParser(object):
             else:
                 secondname = SEP.join(second_selectpath)
 
-            first = (dict_select(varmap, firstname), None)
-            second = (dict_select(varmap, secondname), None)
+            first = (dict_select(varmap, self.remap_or2an(firstname)), None)
+            second = (dict_select(varmap, self.remap_or2an(secondname)), None)
                 
             firstvar = first[0]
             secondvar = second[0]
             
             if (firstvar is None) and (secondvar is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
-                first = (Symbol(firstname, secondvar.symbol_type()), None)
+                first = (Symbol(self.remap_or2an(firstname), secondvar.symbol_type()), None)
             else:
                 if (is_number(first_selectpath[-1])) and (firstvar.symbol_type() != BOOL) and (firstvar.symbol_type().width > 1):
                     sel = int(first_selectpath[-1])
@@ -766,7 +866,7 @@ class CoreIRParser(object):
 
             if (firstvar is not None) and (secondvar is None):
                 Logger.error("Symbol \"%s\" is not defined"%secondname)
-                second = (Symbol(secondname, firstvar.symbol_type()), None)
+                second = (Symbol(self.remap_or2an(secondname), firstvar.symbol_type()), None)
             else:
                 if (is_number(second_selectpath[-1])) and (secondvar.symbol_type() != BOOL) and (secondvar.symbol_type().width > 1):
                     sel = int(second_selectpath[-1])
@@ -781,7 +881,9 @@ class CoreIRParser(object):
 
 
         conns_len = len(eq_conns)
-        eq_conns = self.pack_connections(eq_conns)
+
+        if self.pack_connections:
+            eq_conns = self.__pack_connections(eq_conns)
 
         if len(eq_conns) < conns_len:
             Logger.log("Packed %d connections"%(conns_len - len(eq_conns)), 1)
@@ -826,7 +928,7 @@ class CoreIRParser(object):
         return hts
 
 
-    def pack_connections(self, connections):
+    def __pack_connections(self, connections):
 
         new_conns = []
         dict_conns = {}
@@ -835,23 +937,51 @@ class CoreIRParser(object):
             (first, second) = (conn[0][0], conn[1][0])
             (sel1, sel2) = (conn[0][1], conn[1][1])
 
-            if (sel1 != sel2) or (sel1 is None) or (sel2 is None):
-                new_conns.append(conn)
-                continue
-
             if (first, second) not in dict_conns:
                 dict_conns[(first, second)] = []
             
-            dict_conns[(first, second)].append(sel1)
+            dict_conns[(first, second)].append((sel1, sel2))
 
 
         for conn in dict_conns:
             (first,second) = conn
-            indxs = dict_conns[conn]
-            if (len(set(indxs)) == (max(indxs)-min(indxs))+1):
-                new_conns.append(((first, min(indxs), max(indxs)),(second,min(indxs), max(indxs))))
+            conns = self.__analyze_connections(dict_conns[conn])
+
+            if conns is None:
+                for single_conn in dict_conns[conn]:
+                    new_conns.append(((first, single_conn[0]),(second, single_conn[1])))
             else:
-                for idx in indxs:
-                    new_conns.append(((first, idx),(second,idx)))
+                ((min_1, max_1), (min_2, max_2)) = conns
+                new_conns.append(((first, min_1, max_1),(second, min_2, max_2)))
 
         return new_conns
+
+
+    def __analyze_connections(self, indexes):
+        indexes.sort()
+        inds_1 = [i[0] for i in indexes if i[0] is not None]
+        inds_2 = [i[1] for i in indexes if i[1] is not None]
+
+        if (len(inds_1) > 0) and (len(inds_2) > 0):
+            min_1 = min(inds_1)
+            max_1 = max(inds_1)
+
+            min_2 = min(inds_2)
+            max_2 = max(inds_2)
+            
+            # Exact set e.g., [0,1,2,3] = [0,1,2,3]
+            if inds_1 == inds_2:
+                return ((min_1, max_1), (min_2, max_2))
+
+            d_min = (min_1 - min_2) if min_1 > min_2 else (min_2 - min_1)
+            d_max = (max_1 - max_2) if max_1 > max_2 else (max_2 - max_1)
+
+            # Transposed set e.g., [0,1,2,3] = [5,6,7,8]
+            if (min_1 == inds_1[0]) and (min_2 == inds_2[0]) and (max_1 == inds_1[-1]) and (max_2 == inds_2[-1]) \
+               and (d_min == d_max) and (len(inds_1) == len(inds_2)):
+                return ((min_1, max_1), (min_2, max_2))
+            
+        return None
+    
+
+    

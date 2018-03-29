@@ -1,0 +1,7 @@
+# (conf_done = 0_1) | (self.clk_in = 0_1) | (!(self.in_BUS16_S3_T0 = 5_16) | (self.out_BUS16_S3_T0 = 10_16))
+
+
+(conf_done = 0_1) | (!((self.in_BUS16_S2_T0 = 5_16) & (self.in_BUS16_S0_T0 = 5_16) & (self.in_BUS16_S0_T1 = 5_16) & (self.in_BUS16_S0_T2 = 5_16) & (self.in_BUS16_S0_T3 = 5_16) & (self.in_BUS16_S0_T4 = 5_16) & (self.in_BUS16_S1_T0 = 5_16) & (self.in_BUS16_S1_T1 = 5_16) & (self.in_BUS16_S1_T2 = 5_16) & (self.in_BUS16_S1_T3 = 5_16) & (self.in_BUS16_S1_T4 = 5_16) & (self.in_BUS16_S2_T0 = 5_16) & (self.in_BUS16_S2_T1 = 5_16) & (self.in_BUS16_S2_T2 = 5_16) & (self.in_BUS16_S2_T3 = 5_16) & (self.in_BUS16_S2_T4 = 5_16) & (self.in_BUS16_S3_T0 = 5_16) & (self.in_BUS16_S3_T1 = 5_16) & (self.in_BUS16_S3_T2 = 5_16) & (self.in_BUS16_S3_T3 = 5_16) & (self.in_BUS16_S3_T4 = 5_16)) | (self.out_BUS16_S3_T4 = 10_16))
+
+
+#!((reset_done = 1_1)) | (sb_1b.__DOLLAR__procdff__DOLLAR__2634.reg0.out = 1099511627775_64)

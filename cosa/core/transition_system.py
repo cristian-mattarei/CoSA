@@ -23,6 +23,10 @@ class HTS(object):
     outputs = None
     state_vars = None
     assumptions = None
+
+    init = None
+    trans = None
+    invar = None
     
     def __init__(self, name):
         self.tss = []
@@ -34,6 +38,10 @@ class HTS(object):
         self.outputs = set([])
         self.assumptions = None
 
+        self.init = None
+        self.trans = None
+        self.invar = None
+        
     def add_sub(self, sub):
         self.sub.append(sub)
 
@@ -62,31 +70,34 @@ class HTS(object):
             ts.remove_invar()
 
     def single_init(self):
-        init = TRUE()
-        for ts in self.tss:
-            if ts.init is not None:
-                init = And(init, ts.init)
+        if not self.init:
+            self.init = TRUE()
+            for ts in self.tss:
+                if ts.init is not None:
+                    self.init = And(self.init, ts.init)
 
-        return init
+        return self.init
 
     def single_trans(self):
-        trans = TRUE()
-        for ts in self.tss:
-            if ts.trans is not None:
-                trans = And(trans, ts.trans)
+        if not self.trans:
+            self.trans = TRUE()
+            for ts in self.tss:
+                if ts.trans is not None:
+                    self.trans = And(self.trans, ts.trans)
 
-        return trans
+        return self.trans
 
     def single_invar(self):
-        invar = TRUE()
-        for ts in self.tss:
-            if ts.invar is not None:
-                invar = And(invar, ts.invar)
+        if not self.invar:
+            self.invar = TRUE()
+            for ts in self.tss:
+                if ts.invar is not None:
+                    self.invar = And(self.invar, ts.invar)
 
-        if self.assumptions is not None:
-            invar = And(invar, And(self.assumptions))
+            if self.assumptions is not None:
+                self.invar = And(self.invar, And(self.assumptions))
 
-        return invar
+        return self.invar
 
     def __copy__(self):
         cls = self.__class__
@@ -113,7 +124,7 @@ class TS(object):
         self.trans = trans
         self.invar = invar
 
-        self.comment = None
+        self.comment = ""
 
     def __repr__(self):
         return "V: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.init), str(self.trans), str(self.invar))
@@ -126,20 +137,32 @@ class TS(object):
         self.invar = None
 
     @staticmethod
-    def get_prime(v):
-        return Symbol(("%s"+NEXT) % v.symbol_name(), v.symbol_type())
-
-    @staticmethod
     def is_prime(v):
         return v.symbol_name()[-len(NEXT):] == NEXT
 
     @staticmethod
+    def get_prime(v):
+        return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
+    
+    @staticmethod
     def get_timed(v, t):
-        return Symbol("%s%s%s" % (v.symbol_name(), AT, str(t)), v.symbol_type())
+        return Symbol(TS.get_timed_name(v.symbol_name(), t), v.symbol_type())
 
     @staticmethod
     def get_ptimed(v, t):
-        return Symbol("%s%s%s" % (v.symbol_name(), ATP, str(t)), v.symbol_type())
+        return Symbol(TS.get_ptimed_name(v.symbol_name(), t), v.symbol_type())
+
+    @staticmethod
+    def get_prime_name(name):
+        return ("%s"+NEXT) % name
+    
+    @staticmethod
+    def get_timed_name(name, t):
+        return "%s%s%s" % (name, AT, str(t))
+
+    @staticmethod
+    def get_ptimed_name(name, t):
+        return "%s%s%s" % (name, ATP, str(t))
     
     @staticmethod
     def get_prefix(v, pref):
@@ -150,4 +173,11 @@ class TS(object):
         varmap = dict([(v,TS.get_prime(v)) for v in formula.get_free_variables()])
         return formula.substitute(varmap)
 
+    @staticmethod
+    def has_next(formula):
+        varlist = formula.get_free_variables()
+        for v in varlist:
+            if TS.is_prime(v):
+                return True
+        return False
     
