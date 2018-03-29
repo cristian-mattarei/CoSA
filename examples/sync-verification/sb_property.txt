@@ -1,0 +1,1 @@
+(conf_done = 0_1) | (self.in_BUS16_S3_T0 = self.out_BUS16_S2_T0)
