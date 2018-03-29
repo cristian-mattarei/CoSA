@@ -424,12 +424,14 @@ class Modules(object):
             out0 = BV(0, out.symbol_type().width)
 
         inr = Ite(clr1, out0, Ite(rst1, initvar, in_))
-        do_arst = And(arst0, TS.to_next(arst1)) if arst_posedge1 else And(arst1, TS.to_next(arst0))
-        do_clk = And(clk0, TS.to_next(clk1)) if clk_posedge1 else And(clk1, TS.to_next(clk0))
-        act_trans = EqualsOrIff(TS.get_prime(out), inr)
-        pas_trans = EqualsOrIff(TS.get_prime(out), out)
+        do_arst = And(TS.to_next(arst1), arst0) if arst_posedge1 else And(TS.to_next(arst0), arst1)
+        ndo_arst = Not(do_arst)
+        do_clk = And(TS.to_next(clk1), clk0) if clk_posedge1 else And(TS.to_next(clk0), clk1)
+        ndo_clk = And(TS.to_next(clk0), clk1) if clk_posedge1 else And(TS.to_next(clk1), clk0)
+        act_trans = EqualsOrIff(inr, TS.get_prime(out))
+        pas_trans = EqualsOrIff(out, TS.get_prime(out))
         
-        trans = And(Implies(Not(do_arst), And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))), \
+        trans = And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
                     Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar)))
         
         trans = simplify(trans)
