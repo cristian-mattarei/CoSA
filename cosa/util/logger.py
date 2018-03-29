@@ -16,6 +16,8 @@ class Logger(object):
     id_timer = 0
     timers = []
     time = False
+    single_warnings = True
+    prev_warnings = None
     
     @staticmethod        
     def msg(msg, level, condition=True, max_level=10):
@@ -36,11 +38,21 @@ class Logger(object):
     def error(msg):
         sys.stderr.write("ERROR: "+msg+"\n")
         sys.stderr.flush()
+        sys.exit(1)
 
     @staticmethod        
     def warning(msg):
-        sys.stderr.write("WARNING: "+msg+"\n")
-        sys.stderr.flush()
+        if Logger.single_warnings:
+            if Logger.prev_warnings is None:
+                Logger.prev_warnings = []
+
+            if msg not in Logger.prev_warnings:
+                sys.stderr.write("WARNING: "+msg+"\n")
+                sys.stderr.flush()
+                Logger.prev_warnings.append(msg)
+        else:
+            sys.stderr.write("WARNING: "+msg+"\n")
+            sys.stderr.flush()
         
     @staticmethod        
     def level(level):

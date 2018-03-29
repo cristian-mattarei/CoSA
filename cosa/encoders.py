@@ -13,6 +13,7 @@ from pysmt.shortcuts import TRUE, And, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, _BVType
 
 from cosa.core.transition_system import TS
+from cosa.util.logger import Logger
 
 import math
 
@@ -102,6 +103,7 @@ class ExplicitTSParser(object):
         trans = TRUE()
 
         states = {}
+        assigns = set([])
         
         for line in lines:
             if line.comment:
@@ -123,6 +125,12 @@ class ExplicitTSParser(object):
                     (value, width) = self.__get_bv_value(line.state.value)
                     ivar = Symbol(line.state.varname, _BVType(width))
                     state = EqualsOrIff(ivar, BV(value, width))
+
+                    assval = (sname, line.state.varname)
+                    if assval not in assigns:
+                        assigns.add(assval)
+                    else:
+                        Logger.error("Double assignment for variable \"%s\" at state \"%s\""%(line.state.varname, sname))
                     
                 if sname not in states:
                     states[sname] = TRUE()

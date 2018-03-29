@@ -699,6 +699,9 @@ class CoreIRParser(object):
         if inst_type in mod_map:
             ts = mod_map[inst_type][0](*args(mod_map[inst_type][1]))
 
+        if ((args([self.CLK_POSEDGE])[0] == 0) or (args([self.ARST_POSEDGE])[0] == 0)) and Modules.abstract_clock:
+            Logger.warning("Unsound clock abstraction: registers with negedge behavior")
+            
         return ts
 
     def parse_formula(self, strformula):
