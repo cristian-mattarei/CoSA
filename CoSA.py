@@ -18,6 +18,7 @@ import os
 from argparse import RawTextHelpFormatter
 
 from cosa.analyzers.bmc import BMC, BMCConfig
+from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
@@ -32,6 +33,7 @@ class Config(object):
     bmc_length = 10
     bmc_length_min = 0
     safety = None
+    liveness = None
     properties = None
     assumptions = None
     equivalence = None
@@ -60,6 +62,7 @@ class Config(object):
         self.bmc_length = 10
         self.bmc_length_min = 0
         self.safety = None
+        self.liveness = None
         self.properties = None
         self.assumptions = None
         self.equivalence = None
@@ -133,8 +136,11 @@ def run(config):
     bmc_config.map_function = parser.remap_an2or
     bmc_config.solver_name = config.solver_name
 
-    bmc = BMC(hts, bmc_config)
-    
+    if config.liveness:
+        bmc_liveness = BMCLiveness(hts, bmc_config)
+    else:
+        bmc = BMC(hts, bmc_config)
+
     if Logger.level(1):
         stat = []
         stat.append("Statistics (System 1):")
@@ -181,6 +187,20 @@ def run(config):
                 
         return list_status
 
+    if config.liveness:
+        count = 0
+        list_status = []
+        for (strprop, prop) in parse_formulae(config, config.properties):
+            Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
+            if not bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
+                count += 1
+                Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
+                list_status.append(False)
+            else:
+                list_status.append(True)
+                
+        return list_status
+    
     if config.equivalence:
         parser2 = CoreIRParser(config.equivalence)
         
@@ -229,6 +249,10 @@ if __name__ == "__main__":
     parser.set_defaults(safety=False)
     parser.add_argument('--safety', dest='safety', action='store_true',
                        help='safety verification using BMC.')
+
+    parser.set_defaults(liveness=False)
+    parser.add_argument('--liveness', dest='liveness', action='store_true',
+                       help='liveness verification using BMC.')
     
     parser.set_defaults(properties=None)
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
@@ -315,6 +339,7 @@ if __name__ == "__main__":
     config.strfile = args.input_file
     config.simulate = args.simulate
     config.safety = args.safety
+    config.liveness = args.liveness
     config.properties = args.properties
     config.assumptions = args.assumptions
     config.equivalence = args.equivalence
@@ -351,6 +376,7 @@ if __name__ == "__main__":
         
     if not(config.simulate or \
            (config.safety) or \
+           (config.liveness) or \
            (config.equivalence is not None) or\
            (config.translate is not None) or\
            (config.fsm_check)):
@@ -361,6 +387,10 @@ if __name__ == "__main__":
         Logger.error("Safety verification requires at least a property")
         ok = False
 
+    if config.liveness and (config.properties is None):
+        Logger.error("Liveness verification requires at least a property")
+        ok = False
+        
     if config.properties is not None:
         if os.path.isfile(config.properties):
             with open(config.properties) as f:

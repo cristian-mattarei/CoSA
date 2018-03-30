@@ -95,7 +95,7 @@ class BMC(object):
                 
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
-    def __init_at_time(self, vars, maxtime):
+    def _init_at_time(self, vars, maxtime):
         self.varmapf_t = {}
         self.varmapb_t = {}
 
@@ -183,7 +183,7 @@ class BMC(object):
     def equivalence(self, hts2, k, symbolic_init):
         (htseq, t, model) = self.combined_system(hts2, k, symbolic_init, True)
 
-        self.__init_at_time(htseq.vars, k)
+        self._init_at_time(htseq.vars, k)
         
         if t > -1:
             Logger.log("Systems are NOT equivalent", 0)
@@ -195,7 +195,7 @@ class BMC(object):
     def fsm_check(self):
         (htseq, t, model) = self.combined_system(self.hts, 1, True, False)
 
-        self.__init_at_time(htseq.vars, k)
+        self._init_at_time(htseq.vars, k)
         
         if t > -1:
             Logger.log("FSM is NOT deterministic", 0)            
@@ -267,7 +267,7 @@ class BMC(object):
 
         if inc:
             (t, model) = self.solve(htseq, miter_out, k)
-            model = self.__remap_model(htseq.vars, model, k)
+            model = self._remap_model(htseq.vars, model, k)
         else:
             (t, model) = self.solve_fwd(htseq, miter_out, k, False)
 
@@ -275,7 +275,7 @@ class BMC(object):
 
 
     def simulate(self, prop, k):
-        self.__init_at_time(self.hts.vars, k)
+        self._init_at_time(self.hts.vars, k)
         
         if prop == TRUE():
             self.config.incremental = False
@@ -283,7 +283,7 @@ class BMC(object):
         else:
             (t, model) = self.solve(self.hts, Not(prop), k)
 
-        model = self.__remap_model(self.hts.vars, model, t)
+        model = self._remap_model(self.hts.vars, model, t)
         
         if t > -1:
             Logger.log("Execution found", 0)
@@ -323,21 +323,21 @@ class BMC(object):
         
         t = 0 if shortest else k
         while (t < k+1):
-            self.__reset_assertions(self.solver)
+            self._reset_assertions(self.solver)
 
             formula = And(init, invar)
             formula = self.at_time(formula, 0)
             Logger.log("Add init and invar", 2)
-            self.__add_assertion(self.solver, formula)
+            self._add_assertion(self.solver, formula)
 
             trans_t = self.unroll(trans, invar, t)
-            self.__add_assertion(self.solver, trans_t)
+            self._add_assertion(self.solver, trans_t)
             
             propt = self.at_time(Not(prop), t)
             Logger.log("Add property time %d"%t, 2)
-            self.__add_assertion(self.solver, propt)
+            self._add_assertion(self.solver, propt)
 
-            res = self.__solve(self.solver)
+            res = self._solve(self.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -355,7 +355,7 @@ class BMC(object):
         return (-1, None)
     
     def solve_inc_fwd(self, hts, prop, k, k_min):
-        self.__reset_assertions(self.solver)
+        self._reset_assertions(self.solver)
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -377,7 +377,7 @@ class BMC(object):
         formula = And(init, invar)
         formula = self.at_time(formula, 0)
         Logger.log("Add init and invar", 2)
-        self.__add_assertion(self.solver, formula)
+        self._add_assertion(self.solver, formula)
 
         next_prop = TS.has_next(prop)
         if next_prop:
@@ -387,7 +387,7 @@ class BMC(object):
         
         t = 0 
         while (t < k+1):
-            self.__push(self.solver)
+            self._push(self.solver)
 
             if k_min > 0:
                 t_prop = t-1 if next_prop else t
@@ -397,12 +397,12 @@ class BMC(object):
                 propt = self.at_time(Not(prop), t)
                 
             Logger.log("Add not property at time %d"%t, 2)
-            self.__add_assertion(self.solver, propt)
+            self._add_assertion(self.solver, propt)
 
             if t >= k_min:
                 Logger.log("Solving for k=%s"%(t), 1)
 
-                res = self.__solve(self.solver)
+                res = self._solve(self.solver)
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -416,14 +416,14 @@ class BMC(object):
                 Logger.log("Skipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
                     
-            self.__pop(self.solver)
+            self._pop(self.solver)
 
             trans_t = self.unroll(trans, invar, t+1, t)
-            self.__add_assertion(self.solver, trans_t)
+            self._add_assertion(self.solver, trans_t)
             
             if self.assert_property:
                 prop_t = self.unroll(TRUE(), prop, t, t-1)
-                self.__add_assertion(self.solver, prop_t)
+                self._add_assertion(self.solver, prop_t)
                 Logger.log("Add property at time %d"%t, 2)
                 
             t += 1
@@ -432,7 +432,7 @@ class BMC(object):
         return (-1, None)
     
     def solve_inc_bwd(self, hts, prop, k):
-        self.__reset_assertions(self.solver)
+        self._reset_assertions(self.solver)
 
         if TS.has_next(prop):
             Logger.error("Invariant checking with next variables only supports FWD strategy")
@@ -443,17 +443,17 @@ class BMC(object):
 
         formula = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add not property at time %d"%0, 2)
-        self.__add_assertion(self.solver, formula)
+        self._add_assertion(self.solver, formula)
 
         t = 0 
         while (t < k+1):
-            self.__push(self.solver)
+            self._push(self.solver)
 
             pinit = self.at_ptime(init, t-1)
             Logger.log("Add init at time %d"%t, 2)
-            self.__add_assertion(self.solver, pinit)
+            self._add_assertion(self.solver, pinit)
 
-            res = self.__solve(self.solver)
+            res = self._solve(self.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -464,14 +464,14 @@ class BMC(object):
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self.__pop(self.solver)
+            self._pop(self.solver)
             
             trans_t = self.unroll(trans, invar, t, t+1)
-            self.__add_assertion(self.solver, trans_t)
+            self._add_assertion(self.solver, trans_t)
 
             if self.assert_property and t > 0:
                 prop_t = self.unroll(TRUE(), prop, t-1, t)
-                self.__add_assertion(self.solver, prop_t)
+                self._add_assertion(self.solver, prop_t)
                 Logger.log("Add property at time %d"%t, 2)
             
             t += 1
@@ -480,7 +480,7 @@ class BMC(object):
         return (-1, None)
         
     def solve_inc_zz(self, hts, prop, k):
-        self.__reset_assertions(self.solver)
+        self._reset_assertions(self.solver)
         
         if TS.has_next(prop):
             Logger.error("Invariant checking with next variables only supports FWD strategy")
@@ -491,15 +491,15 @@ class BMC(object):
 
         initt = self.at_time(And(init, invar), 0)
         Logger.log("Add init at_0", 2)
-        self.__add_assertion(self.solver, initt)
+        self._add_assertion(self.solver, initt)
         
         propt = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add property pat_%d"%0, 2)
-        self.__add_assertion(self.solver, propt)
+        self._add_assertion(self.solver, propt)
         
         t = 0 
         while (t < k+1):
-            self.__push(self.solver)
+            self._push(self.solver)
             even = (t % 2) == 0
             th = int(t/2)
 
@@ -509,9 +509,9 @@ class BMC(object):
                 eq = And([EqualsOrIff(self.at_time(v, th+1), self.at_ptime(v, th-1)) for v in hts.vars])
                 
             Logger.log("Add equivalence time %d"%t, 2)
-            self.__add_assertion(self.solver, eq)
+            self._add_assertion(self.solver, eq)
 
-            res = self.__solve(self.solver)
+            res = self._solve(self.solver)
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
@@ -522,14 +522,14 @@ class BMC(object):
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self.__pop(self.solver)
+            self._pop(self.solver)
 
             if even: 
                 trans_t = self.unroll(trans, invar, th+1, th)
             else:
                 trans_t = self.unroll(trans, invar, th, th+1)
 
-            self.__add_assertion(self.solver, trans_t)
+            self._add_assertion(self.solver, trans_t)
                 
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
@@ -537,10 +537,10 @@ class BMC(object):
         return (-1, None)
             
     def safety(self, prop, k, k_min):
-        self.__init_at_time(self.hts.vars, k)
+        self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve(self.hts, prop, k, k_min)
 
-        model = self.__remap_model(self.hts.vars, model, t)
+        model = self._remap_model(self.hts.vars, model, t)
         
         if t > -1:
             Logger.log("Property is FALSE", 0)
@@ -550,26 +550,26 @@ class BMC(object):
             Logger.log("No counterexample found", 0)
             return True
 
-    def __remap_model(self, vars, model, k):
+    def _remap_model(self, vars, model, k):
         if model is None:
             return model
         
         if self.config.strategy == BWD:
-            return self.__remap_model_bwd(vars, model, k)
+            return self._remap_model_bwd(vars, model, k)
 
         if self.config.strategy == ZZ:
-            return self.__remap_model_zz(vars, model, k)
+            return self._remap_model_zz(vars, model, k)
 
         if self.config.strategy == FWD:
-            return self.__remap_model_fwd(vars, model, k)
+            return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
         return None
         
-    def __remap_model_fwd(self, vars, model, k):
+    def _remap_model_fwd(self, vars, model, k):
         return model
 
-    def __remap_model_bwd(self, vars, model, k):
+    def _remap_model_bwd(self, vars, model, k):
         retmodel = dict()
         
         for var in vars:
@@ -578,7 +578,7 @@ class BMC(object):
 
         return retmodel
 
-    def __remap_model_zz(self, vars, model, k):
+    def _remap_model_zz(self, vars, model, k):
         retmodel = dict(model)
 
         for var in vars:
@@ -587,12 +587,12 @@ class BMC(object):
                 
         return retmodel
 
-    def __write_smt2_log(self, line):
+    def _write_smt2_log(self, line):
         if self.config.smt2file is not None:
             with open(self.config.smt2file, "a") as f:
                 f.write(line+"\n")
     
-    def __add_assertion(self, solver, formula):
+    def _add_assertion(self, solver, formula):
         if not self.config.skip_solving:
             solver.add_assertion(formula)
             
@@ -605,11 +605,11 @@ class BMC(object):
         if self.config.smt2file is not None:
             for v in set(formula.get_free_variables()).difference(self.smtvars):
                 if v.symbol_type() == BOOL:
-                    self.__write_smt2_log("(declare-fun %s () Bool)" % (v.symbol_name()))
+                    self._write_smt2_log("(declare-fun %s () Bool)" % (v.symbol_name()))
                 else:
-                    self.__write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                    self._write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
 
-            self.__write_smt2_log("")
+            self._write_smt2_log("")
             self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
             if formula.is_and():
@@ -617,27 +617,27 @@ class BMC(object):
                     buf = cStringIO()
                     printer = SmtPrinter(buf)
                     printer.printer(f)
-                    self.__write_smt2_log("(assert %s)"%buf.getvalue())
+                    self._write_smt2_log("(assert %s)"%buf.getvalue())
             else:
                 buf = cStringIO()
                 printer = SmtPrinter(buf)
                 printer.printer(formula)
-                self.__write_smt2_log("(assert %s)"%buf.getvalue())
+                self._write_smt2_log("(assert %s)"%buf.getvalue())
                     
                     
-    def __push(self, solver):
+    def _push(self, solver):
         if not self.config.skip_solving:
             solver.push()
 
-        self.__write_smt2_log("(push 1)")
+        self._write_smt2_log("(push 1)")
         
-    def __pop(self, solver):
+    def _pop(self, solver):
         if not self.config.skip_solving:
             solver.pop()
 
-        self.__write_smt2_log("(pop 1)")
+        self._write_smt2_log("(pop 1)")
 
-    def __reset_assertions(self, solver):
+    def _reset_assertions(self, solver):
         if not self.config.skip_solving:
             solver.reset_assertions()
 
@@ -645,9 +645,9 @@ class BMC(object):
             with open(self.config.smt2file, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
-    def __solve(self, solver):
-        self.__write_smt2_log("(check-sat)")
-        self.__write_smt2_log("")
+    def _solve(self, solver):
+        self._write_smt2_log("(check-sat)")
+        self._write_smt2_log("")
         
         if self.config.skip_solving:
             return None

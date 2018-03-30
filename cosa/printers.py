@@ -220,7 +220,7 @@ class TextTracePrinter(TracePrinter):
     def get_file_ext(self):
         return ".txt"
         
-    def print_trace(self, hts, model, length, map_function=None):
+    def print_trace(self, hts, model, length, map_function=None, find_loop=False):
         trace = []
         prevass = []
         
@@ -252,6 +252,19 @@ class TextTracePrinter(TracePrinter):
                     trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
                     if self.diff_only: prevass[varass[0]] = varass[1]
 
+        if find_loop:
+            last_state = [(var[0], model[TS.get_timed(var[1], length)]) for var in strvarlist]
+            last_state.sort()
+            loop_id = 0
+            for i in range(length):
+                state_i = [(var[0], model[TS.get_timed(var[1], i)]) for var in strvarlist]
+                state_i.sort()
+                if state_i == last_state:
+                    loop_id = i
+                    break
+            trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
+                
+                    
         trace = NL.join(trace)
         return trace
             
