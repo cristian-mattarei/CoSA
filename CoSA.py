@@ -17,11 +17,11 @@ import os
 
 from argparse import RawTextHelpFormatter
 
-from cosa.core.coreir_parser import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
-from cosa.encoders import ExplicitTSParser
+from cosa.encoders.explicit_transition_system import ExplicitTSParser
+from cosa.encoders.coreir import CoreIRParser
 from pysmt.shortcuts import TRUE
 
 class Config(object):

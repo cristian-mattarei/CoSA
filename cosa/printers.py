@@ -16,7 +16,7 @@ from pysmt.utils import quote
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
 from cosa.core.transition_system import TS
-from cosa.core.coreir_parser import SEP
+from cosa.encoders.coreir import SEP
 
 import datetime
 

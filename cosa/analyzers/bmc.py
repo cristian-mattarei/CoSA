@@ -18,7 +18,7 @@ from pysmt.walkers.identitydag import IdentityDagWalker
 
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS
-from cosa.core.coreir_parser import SEP
+from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter
 
@@ -48,7 +48,7 @@ class BMCConfig(object):
     def __init__(self):
         self.incremental = True
         self.strategy = FWD
-        self.solver_name = "msat"
+        self.solver_name = "z3"
         self.full_trace = False
         self.prefix = None
         self.smt2file = None
