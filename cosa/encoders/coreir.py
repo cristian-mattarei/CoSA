@@ -431,11 +431,9 @@ class Modules(object):
             clk1 = EqualsOrIff(clk, BV(1, 1))
 
         if Modules.abstract_clock:
-            ri_clk = TRUE()
-            do_clk = FALSE()
+            do_clk = TRUE()
         else:
-            ri_clk = And(clk0, TS.to_next(clk1))
-            do_clk = And(clk1, TS.to_next(clk0))
+            do_clk = And(TS.to_next(clk1), clk0) if clk_posedge1 else And(TS.to_next(clk0), clk1)
 
         if out.symbol_type() == BOOL:
             out0 = FALSE()
@@ -445,7 +443,6 @@ class Modules(object):
         inr = Ite(clr1, out0, Ite(rst1, initvar, in_))
         do_arst = And(TS.to_next(arst1), arst0) if arst_posedge1 else And(TS.to_next(arst0), arst1)
         ndo_arst = Not(do_arst)
-        do_clk = And(TS.to_next(clk1), clk0) if clk_posedge1 else And(TS.to_next(clk0), clk1)
         ndo_clk = Not(do_clk)
         act_trans = EqualsOrIff(inr, TS.get_prime(out))
         pas_trans = EqualsOrIff(out, TS.get_prime(out))
