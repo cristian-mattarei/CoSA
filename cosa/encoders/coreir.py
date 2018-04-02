@@ -547,12 +547,14 @@ class Modules(object):
 
     @staticmethod
     def Andr(in_, out):
-        # INVAR: (in = 1) -> (out = 1) & (in != 1) -> (out = 0)
+        # INVAR: (in = 2**width - 1) -> (out = 1) & (in != 2**width - 1) -> (out = 0)
         vars_ = [in_, out]
         comment = "Andr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 2)
-        true_res = Implies(EqualsOrIff(in_, BV(1,in_.symbol_type().width)), EqualsOrIff(out, BV(1,1)))
-        false_res = Implies(Not(EqualsOrIff(in_, BV(1,in_.symbol_type().width))), EqualsOrIff(out, BV(0,1)))
+        width = in_.symbol_type().width
+        eq_all_ones = EqualsOrIff(in_, BV(2**width - 1,width))
+        true_res = Implies(eq_all_ones, EqualsOrIff(out, BV(1,1)))
+        false_res = Implies(Not(eq_all_ones), EqualsOrIff(out, BV(0,1)))
         invar = And(true_res, false_res)
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment

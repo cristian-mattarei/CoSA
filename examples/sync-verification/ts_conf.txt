@@ -1,11 +1,24 @@
 # INIT
-I: self.reset = 1_1
+I: self.reset = 0_1
 I: conf_done = 0_1
 I: self.config_addr = 00000000
 I: self.config_data = 00000000
 I: self.tile_id = 0036
 
 # STATES
+
+S0: self.config_addr = 00000000
+S0: self.tile_id = 0036
+S0: self.config_data = 00000000
+S0: self.reset = 0_1
+S0: conf_done = 0_1
+
+S0a: self.config_addr = 00000000
+S0a: self.tile_id = 0036
+S0a: self.config_data = 00000000
+S0a: self.reset = 1_1
+S0a: conf_done = 0_1
+
 S1: self.config_addr = 00000000
 S1: self.tile_id = 0036
 S1: self.config_data = 00000000
@@ -67,7 +80,9 @@ S5a: self.reset = 0_1
 S5a: conf_done = 1_1
 
 # TRANSITIONS
-I -> S1
+I -> S0
+S0 -> S0a
+S0a -> S1
 S1 -> S1a
 S1a -> S2
 S2 -> S2a
