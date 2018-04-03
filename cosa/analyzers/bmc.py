@@ -13,7 +13,7 @@ from six.moves import cStringIO
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.rewritings import conjunctive_partition
+from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 from pysmt.walkers.identitydag import IdentityDagWalker
 
 from cosa.util.logger import Logger
@@ -45,6 +45,7 @@ class BMCConfig(object):
     map_function = None
     solver_name = None
     vcd_trace = None
+    prove = None
     
     def __init__(self):
         self.incremental = True
@@ -56,6 +57,7 @@ class BMCConfig(object):
         self.simplify = False
         self.map_function = None
         self.vcd_trace = False
+        self.prove = False
     
         self.strategies = BMCConfig.get_strategies()
 
@@ -92,8 +94,10 @@ class BMC(object):
             with open(self.config.smt2file, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
-
-        self.solver = Solver(name=config.solver_name)
+        self.solver = (Solver(name=config.solver_name), "")
+        
+        if config.prove:
+            self.solver_2 = (Solver(name=config.solver_name), "ind")
                 
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
@@ -149,6 +153,22 @@ class BMC(object):
                     
         return And(formula)
 
+    def simple_path(self, vars_, k_end, k_start=0):
+        Logger.log("Simple path from %s to %s"%(k_start, k_end), 2)
+
+        if k_end == k_start:
+            return TRUE()
+
+        def not_eq_states(vars1, vars2):
+            eqvars = [Not(EqualsOrIff(v, vars2[vars1.index(v)])) for v in vars1]
+            return Or(eqvars)
+        
+        formula = []
+        for t in range(k_start, k_end, 1):
+            formula.append(not_eq_states([TS.get_timed(v, k_end) for v in vars_], [TS.get_timed(v, t) for v in vars_]))
+
+        return And(formula)
+    
     def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None):
         trace = []
         prevass = []
@@ -366,6 +386,9 @@ class BMC(object):
     def solve_inc_fwd(self, hts, prop, k, k_min):
         self._reset_assertions(self.solver)
 
+        if self.config.prove:
+            self._reset_assertions(self.solver_2)
+
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
@@ -415,7 +438,7 @@ class BMC(object):
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self.solver.get_model()
+                    model = self.solver[0].get_model()
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:
@@ -429,7 +452,27 @@ class BMC(object):
 
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
-            
+
+            if self.config.prove:
+                self._add_assertion(self.solver_2, trans_t)
+                self._add_assertion(self.solver_2, trans_t)
+                self._add_assertion(self.solver_2, self.simple_path(self.hts.vars, t))
+
+                self._push(self.solver_2)
+                self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
+                
+                res = self._solve(self.solver_2)
+
+                if res:
+                    Logger.log("Induction failed with k=%s"%(t), 1)
+                else:
+                    Logger.log("Induction hold with k=%s"%(t), 1)
+                    Logger.log("", 0, not(Logger.level(1)))
+                    return (t, True)
+                
+                self._pop(self.solver_2)
+                self._add_assertion(self.solver_2, self.at_time(prop, t))
+                
             if self.assert_property:
                 prop_t = self.unroll(TRUE(), prop, t, t-1)
                 self._add_assertion(self.solver, prop_t)
@@ -466,7 +509,7 @@ class BMC(object):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.get_model()
+                model = self.solver[0].get_model()
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -524,7 +567,7 @@ class BMC(object):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.get_model()
+                model = self.solver[0].get_model()
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -549,10 +592,12 @@ class BMC(object):
         self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve(self.hts, prop, k, k_min)
 
-        model = self._remap_model(self.hts.vars, model, t)
-        
-        if t > -1:
+        if model == True:
+            Logger.log("Property is TRUE", 0)        
+            return True
+        elif t > -1:
             Logger.log("Property is FALSE", 0)
+            model = self._remap_model(self.hts.vars, model, t)
             self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return False
         else:
@@ -596,14 +641,17 @@ class BMC(object):
                 
         return retmodel
 
-    def _write_smt2_log(self, line):
+    def _write_smt2_log(self, prefix, line):
         if self.config.smt2file is not None:
-            with open(self.config.smt2file, "a") as f:
+            splitname = self.config.smt2file.split(".")
+            sep = "-" if prefix != "" else ""
+            filename = "%s%s%s.%s"%(".".join(splitname[:-1]), sep, prefix, splitname[-1])
+            with open(filename, "a") as f:
                 f.write(line+"\n")
     
     def _add_assertion(self, solver, formula):
         if not self.config.skip_solving:
-            solver.add_assertion(formula)
+            solver[0].add_assertion(formula)
             
         if Logger.level(3):
             buf = cStringIO()
@@ -614,11 +662,11 @@ class BMC(object):
         if self.config.smt2file is not None:
             for v in set(formula.get_free_variables()).difference(self.smtvars):
                 if v.symbol_type() == BOOL:
-                    self._write_smt2_log("(declare-fun %s () Bool)" % (v.symbol_name()))
+                    self._write_smt2_log(solver[1], "(declare-fun %s () Bool)" % (v.symbol_name()))
                 else:
-                    self._write_smt2_log("(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                    self._write_smt2_log(solver[1], "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
 
-            self._write_smt2_log("")
+            self._write_smt2_log(solver[1], "")
             self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
 
             if formula.is_and():
@@ -626,37 +674,37 @@ class BMC(object):
                     buf = cStringIO()
                     printer = SmtPrinter(buf)
                     printer.printer(f)
-                    self._write_smt2_log("(assert %s)"%buf.getvalue())
+                    self._write_smt2_log(solver[1], "(assert %s)"%buf.getvalue())
             else:
                 buf = cStringIO()
                 printer = SmtPrinter(buf)
                 printer.printer(formula)
-                self._write_smt2_log("(assert %s)"%buf.getvalue())
+                self._write_smt2_log(solver[1], "(assert %s)"%buf.getvalue())
                     
                     
     def _push(self, solver):
         if not self.config.skip_solving:
-            solver.push()
+            solver[0].push()
 
-        self._write_smt2_log("(push 1)")
+        self._write_smt2_log(solver[1], "(push 1)")
         
     def _pop(self, solver):
         if not self.config.skip_solving:
-            solver.pop()
+            solver[0].pop()
 
-        self._write_smt2_log("(pop 1)")
+        self._write_smt2_log(solver[1], "(pop 1)")
 
     def _reset_assertions(self, solver):
         if not self.config.skip_solving:
-            solver.reset_assertions()
+            solver[0].reset_assertions()
 
         if self.config.smt2file is not None:
             with open(self.config.smt2file, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
     def _solve(self, solver):
-        self._write_smt2_log("(check-sat)")
-        self._write_smt2_log("")
+        self._write_smt2_log(solver[1], "(check-sat)")
+        self._write_smt2_log(solver[1], "")
         
         if self.config.skip_solving:
             return None
@@ -664,7 +712,7 @@ class BMC(object):
         if Logger.level(1):
             timer = Logger.start_timer("Solve")
 
-        r = solver.solve()
+        r = solver[0].solve()
         
         if Logger.level(1):
             self.total_time += Logger.stop_timer(timer)

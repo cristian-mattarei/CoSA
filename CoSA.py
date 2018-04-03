@@ -52,6 +52,7 @@ class Config(object):
     skip_solving = False
     solver_name = None
     vcd = False
+    prove = False
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -82,6 +83,7 @@ class Config(object):
         self.skip_solving = False
         self.solver_name = "msat"
         self.vcd = False
+        self.prove = False
 
 
 def parse_formulae(config, strforms):
@@ -138,6 +140,7 @@ def run(config):
     bmc_config.map_function = parser.remap_an2or
     bmc_config.solver_name = config.solver_name
     bmc_config.vcd_trace = config.vcd
+    bmc_config.prove = config.prove
 
     if config.liveness:
         bmc_liveness = BMCLiveness(hts, bmc_config)
@@ -270,6 +273,10 @@ if __name__ == "__main__":
     parser.set_defaults(assumptions=None)
     parser.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='comma separated list of invariant assumptions.')
+
+    parser.set_defaults(prove=False)
+    parser.add_argument('--prove', dest='prove', action='store_true',
+                       help='use k-indution to prove the satisfiability of the property.')
     
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
@@ -372,6 +379,7 @@ if __name__ == "__main__":
     config.synchronous = args.synchronous
     config.verbosity = args.verbosity
     config.vcd = args.vcd
+    config.prove = args.prove
 
     ok = True
     
