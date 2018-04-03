@@ -210,6 +210,16 @@ class TracePrinter(object):
     def get_file_ext(self):
         pass
 
+    def dec_to_bin(self, val, width):
+        bitval = "{0:b}".format(int(val))
+        bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
+        return bitval
+
+    def dec_to_hex(self, val, width):
+        hexval = str(hex(val))[2:]
+        hexval = "%s%s"%("0"*(width-len(hexval)), hexval)
+        return hexval.upper()
+
 class TextTracePrinter(TracePrinter):
 
     def __init__(self):
@@ -223,6 +233,8 @@ class TextTracePrinter(TracePrinter):
     def print_trace(self, hts, model, length, map_function=None, find_loop=False):
         trace = []
         prevass = []
+
+        hex_values = False
         
         trace.append("---> INIT <---")
 
@@ -238,6 +250,8 @@ class TextTracePrinter(TracePrinter):
 
         for var in strvarlist:
             varass = (var[0], model[TS.get_timed(var[1], 0)])
+            if hex_values:
+                varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
             if self.diff_only: prevass.append(varass)
             trace.append("  I: %s = %s"%(varass[0], varass[1]))
 
@@ -248,6 +262,8 @@ class TextTracePrinter(TracePrinter):
                      
             for var in strvarlist:
                 varass = (var[0], model[TS.get_timed(var[1], t+1)])
+                if hex_values:
+                    varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
                 if (not self.diff_only) or (prevass[varass[0]] != varass[1]):
                     trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
                     if self.diff_only: prevass[varass[0]] = varass[1]
@@ -312,10 +328,7 @@ class VCDTracePrinter(TracePrinter):
                 (varname, width) = el
                 tname = TS.get_timed_name(varname, t)
                 val = modeldic[tname] if tname in modeldic else 0
-                bitval = "{0:b}".format(int(val))
-                bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
-
-                ret.append("b%s v%s"%(bitval, idvar))
+                ret.append("b%s v%s"%(self.dec_to_bin(val, width), idvar))
                 idvar += 1
                 
         return NL.join(ret)
