@@ -9,7 +9,7 @@
 # limitations under the License.
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
-from pysmt.shortcuts import TRUE, And, Symbol, BV, EqualsOrIff, Implies
+from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, _BVType
 
 from cosa.core.transition_system import TS
@@ -21,6 +21,7 @@ T_NL = "\n"
 
 T_EQ = "="
 T_US = "_"
+T_MIN = "-"
 T_DOT = "."
 T_I = "I"
 T_CL = ":"
@@ -69,7 +70,7 @@ class ExplicitTSParser(object):
         
     def __init_parser(self):
 
-        varname = Word(alphas+nums+T_US+T_DOT)(P_VARNAME)
+        varname = Word(alphas+nums+T_US+T_MIN+T_DOT)(P_VARNAME)
         sname = Word(alphas+nums+T_I+T_S+T_US)(P_SNAME)
         boolvalue = Literal(T_TRUE) | Literal(T_FALSE)
         
@@ -101,6 +102,7 @@ class ExplicitTSParser(object):
     def generate_STS(self, lines):
         init = TRUE()
         trans = TRUE()
+        invar = TRUE()
 
         states = {}
         assigns = set([])
@@ -137,25 +139,40 @@ class ExplicitTSParser(object):
 
                 states[sname] = And(states[sname], state)
                 
-
         stateid_width = math.ceil(math.log(len(states))/math.log(2))
         stateid_var = Symbol(STATE_ID, _BVType(stateid_width))
 
-        count = 0
-        for state in states:
-            states[state] = And(EqualsOrIff(stateid_var, BV(count, stateid_width)), states[state])
-            if state == T_I:
-                init = And(init, EqualsOrIff(stateid_var, BV(count, stateid_width)))
-            count += 1
+        init = And(init, EqualsOrIff(stateid_var, BV(0, stateid_width)))
+        invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(0, stateid_width)), states[T_I]))
+        states[T_I] = EqualsOrIff(stateid_var, BV(0, stateid_width))
         
+        count = 1
+        for state in states:
+            if state == T_I:
+                continue
+            invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(count, stateid_width)), states[state]))
+            states[state] = EqualsOrIff(stateid_var, BV(count, stateid_width))
+            count += 1
+
+        transdic = {}
+
         for line in lines:
             if line.comment:
                 continue
                 
             if line.trans:
-                trans = And(trans, Implies(states[line.trans.start], TS.to_next(states[line.trans.end])))
+                if states[line.trans.start] not in transdic:
+                    transdic[states[line.trans.start]] = []
+                transdic[states[line.trans.start]].append(states[line.trans.end])
 
-        ts = TS(set([v for v in trans.get_free_variables() if not TS.is_prime(v)]), init, trans, TRUE())
+        for transition in transdic:
+            (start, end) = (transition, transdic[transition])
+            trans = And(trans, Implies(start, TS.to_next(Or(end))))
+
+        vars_ = [v for v in trans.get_free_variables() if not TS.is_prime(v)]
+        vars_ += init.get_free_variables()
+        vars_ += invar.get_free_variables()
+        ts = TS(set(vars_), init, trans, invar)
         ts.comment = "Additional system"
 
         return ts

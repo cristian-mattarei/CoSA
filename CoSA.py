@@ -51,6 +51,7 @@ class Config(object):
     abstract_clock = False
     skip_solving = False
     solver_name = None
+    vcd = False
     
     def __init__(self):
         PrintersFactory.init_printers()
@@ -80,6 +81,7 @@ class Config(object):
         self.abstract_clock = False
         self.skip_solving = False
         self.solver_name = "msat"
+        self.vcd = False
 
 
 def parse_formulae(config, strforms):
@@ -135,6 +137,7 @@ def run(config):
     bmc_config.skip_solving = config.skip_solving
     bmc_config.map_function = parser.remap_an2or
     bmc_config.solver_name = config.solver_name
+    bmc_config.vcd_trace = config.vcd
 
     if config.liveness:
         bmc_liveness = BMCLiveness(hts, bmc_config)
@@ -150,6 +153,12 @@ def run(config):
         stat.append("  Outputs:\t%s"%(len(hts.outputs)))
         print("\n".join(stat))
 
+    def trace_printed(msg, count):
+        vcd_msg = ""
+        if config.vcd:
+            vcd_msg = " and in \"%s-id_%s.vcd\""%(config.prefix, count)
+        Logger.log("%s stored in \"%s-id_%s.txt\"%s"%(msg, config.prefix, count, vcd_msg), 0)
+        
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
         printer = PrintersFactory.printer_by_name(config.printer)
@@ -171,7 +180,7 @@ def run(config):
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
             if bmc.simulate(prop, config.bmc_length) and config.prefix:
                 count += 1
-                Logger.log("Execution stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
+                trace_printed("Execution", count)
         
     if config.safety:
         count = 0
@@ -180,7 +189,7 @@ def run(config):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             if not bmc.safety(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1
-                Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
+                trace_printed("Counterexample", count)
                 list_status.append(False)
             else:
                 list_status.append(True)
@@ -194,7 +203,7 @@ def run(config):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
             if not bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1
-                Logger.log("Counterexample stored in \"%s-id_%s.vcd\""%(config.prefix, count), 0)
+                trace_printed("Counterexample", count)
                 list_status.append(False)
             else:
                 list_status.append(True)
@@ -306,6 +315,10 @@ if __name__ == "__main__":
     parser.add_argument('--full-trace', dest='full_trace', action='store_true',
                        help="show all variables in the counterexamples. (Default is \"%s\")"%config.full_trace)
 
+    parser.set_defaults(vcd=False)
+    parser.add_argument('--vcd', dest='vcd', action='store_true',
+                       help='generate traces also in vcd format.')
+    
     parser.set_defaults(prefix=None)
     parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
                        help='write the counterexamples with specified location prefix.')
@@ -358,6 +371,7 @@ if __name__ == "__main__":
     config.boolean = args.boolean
     config.synchronous = args.synchronous
     config.verbosity = args.verbosity
+    config.vcd = args.vcd
 
     ok = True
     

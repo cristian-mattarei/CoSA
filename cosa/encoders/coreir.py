@@ -371,7 +371,6 @@ class Modules(object):
                 initvar = Symbol(initname, _BVType(out.symbol_type().width))
 
             trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
-            
             vars_.append(initvar)
 
         init = And(init, EqualsOrIff(out, initvar))
@@ -447,8 +446,8 @@ class Modules(object):
         act_trans = EqualsOrIff(inr, TS.get_prime(out))
         pas_trans = EqualsOrIff(out, TS.get_prime(out))
         
-        trans = And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
-                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar)))
+        trans = And(trans, And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
+                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar))))
         
         trans = simplify(trans)
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)

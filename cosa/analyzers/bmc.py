@@ -44,6 +44,7 @@ class BMCConfig(object):
     simplify = False
     map_function = None
     solver_name = None
+    vcd_trace = None
     
     def __init__(self):
         self.incremental = True
@@ -54,6 +55,7 @@ class BMCConfig(object):
         self.smt2file = None
         self.simplify = False
         self.map_function = None
+        self.vcd_trace = False
     
         self.strategies = BMCConfig.get_strategies()
 
@@ -156,29 +158,36 @@ class BMC(object):
         if Logger.level(1):
             diff_only = False
             full_trace = True
+
+
+        # Human Readable Format
+        hr_printer = TextTracePrinter()
+        hr_printer.extra_vars = xvars
+        hr_printer.diff_only = diff_only
+        hr_printer.full_trace = full_trace
+        hr_trace = hr_printer.print_trace(hts, model, length, map_function)
+
+        # VCD format
+        if self.config.vcd_trace:
+            vcd_printer = VCDTracePrinter()
+            vcd_trace = vcd_printer.print_trace(hts, model, length, map_function)
         
+        BMC.TraceID += 1
         if self.config.prefix is None:
-            printer = TextTracePrinter()
-            printer.extra_vars = xvars
-            printer.diff_only = diff_only
-            printer.full_trace = full_trace
-            trace = printer.print_trace(hts, model, length, map_function)
-            
-            Logger.log(trace, 0)
+            Logger.log(hr_trace, 0)
+
+            if self.config.vcd_trace:
+                vcd_trace_file = "%s-id_%s%s"%("trace", BMC.TraceID, vcd_printer.get_file_ext())
+                with open(vcd_trace_file, "w") as f:
+                    f.write(vcd_trace)
         else:
-            if Logger.level(1):
-                timer = Logger.start_timer("Trace generation")
-
-            printer = VCDTracePrinter()
-            trace = printer.print_trace(hts, model, length, map_function)
-
-            if Logger.level(1):
-                Logger.stop_timer(timer)
-            
-            BMC.TraceID += 1
-            trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, printer.get_file_ext())
-            with open(trace_file, "w") as f:
-                f.write(trace)
+            hr_trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, hr_printer.get_file_ext())
+            with open(hr_trace_file, "w") as f:
+                f.write(hr_trace)
+            if self.config.vcd_trace:
+                vcd_trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, vcd_printer.get_file_ext())
+                with open(vcd_trace_file, "w") as f:
+                    f.write(vcd_trace)
 
     def equivalence(self, hts2, k, symbolic_init):
         (htseq, t, model) = self.combined_system(hts2, k, symbolic_init, True)
@@ -309,6 +318,7 @@ class BMC(object):
         if self.config.strategy == ZZ:
             return self.solve_inc_zz(hts, prop, k)
 
+        print(self.config.strategy)
         Logger.error("Invalid configuration strategy")
         
         return None
@@ -351,7 +361,6 @@ class BMC(object):
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
 
-        Logger.error("Invalid configuration strategy")        
         return (-1, None)
     
     def solve_inc_fwd(self, hts, prop, k, k_min):
