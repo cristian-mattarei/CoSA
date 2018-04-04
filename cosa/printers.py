@@ -23,6 +23,9 @@ import datetime
 
 NL = "\n"
 
+# Variables starting with HIDDEN are not printed
+HIDDEN = "_-_"
+
 class NotRegisteredPrinterException(Exception):
     pass
 
@@ -97,7 +100,7 @@ class HTSPrinter(object):
 
     def get_desc(self):
         return self.description
-    
+
 class SMVHTSPrinter(HTSPrinter):
     name = "SMV"
     description = "\tSMV format"
@@ -220,6 +223,9 @@ class TracePrinter(object):
         hexval = "%s%s"%("0"*(width-len(hexval)), hexval)
         return hexval.upper()
 
+    def is_hidden(self, name):
+        return name[:len(HIDDEN)] == HIDDEN
+        
 class TextTracePrinter(TracePrinter):
 
     def __init__(self):
@@ -245,7 +251,7 @@ class TextTracePrinter(TracePrinter):
             if self.extra_vars is not None:
                 varlist = list(set(varlist).union(set(self.extra_vars)))
 
-        strvarlist = [(map_function(var.symbol_name()), var) for var in varlist]
+        strvarlist = [(map_function(var.symbol_name()), var) for var in varlist if not self.is_hidden(var.symbol_name())]
         strvarlist.sort()
 
         for var in strvarlist:
@@ -305,7 +311,7 @@ class VCDTracePrinter(TracePrinter):
         ret.append("1 ns")
         ret.append("$end")
 
-        varlist = [(map_function(v.symbol_name()), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars)]
+        varlist = [(map_function(v.symbol_name()), 1 if v.symbol_type() == BOOL else v.symbol_type().width) for v in list(hts.vars) if not self.is_hidden(v.symbol_name())]
         
         idvar = 0
         for el in varlist:

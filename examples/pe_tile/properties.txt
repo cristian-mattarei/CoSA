@@ -1,1 +1,2 @@
 (conf_done = 1_1) -> ((2_16 * self.in_BUS16_S3_T0) = self.out_BUS16_S3_T0)
+#!((conf_done = 1_1) & ((2_16 * self.in_BUS16_S3_T0) = self.out_BUS16_S3_T0))
