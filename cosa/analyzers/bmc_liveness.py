@@ -51,7 +51,7 @@ class BMCLiveness(BMC):
             with open(self.config.smt2file, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
-        self.solver = Solver(name=config.solver_name)
+        self.solver = (Solver(name=config.solver_name), "")
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
         
         # BMC.__init__(self, hts, config)
@@ -119,7 +119,7 @@ class BMCLiveness(BMC):
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self.solver.get_model()
+                    model = self.solver[0].get_model()
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:
