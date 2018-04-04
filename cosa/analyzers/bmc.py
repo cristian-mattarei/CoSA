@@ -401,14 +401,10 @@ class BMC(object):
         self._add_assertion(self.solver, check_1)
         res = self._solve(self.solver)
 
-        prefix = None
-        if self.config.prefix is not None:
-            prefix = self.config.prefix+"_ind"
-        
         if res:
             if Logger.level(1):
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 1)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function, prefix=prefix)
+                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function)
                 Logger.log("", 1)
                 if hr_trace or vcd_trace:
                     vcd_msg = ""
@@ -431,7 +427,7 @@ class BMC(object):
         if res:
             if Logger.level(1):
                 Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 1)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function, prefix=prefix)
+                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function)
                 if hr_trace or vcd_trace:
                     vcd_msg = ""
                     if vcd_trace:
