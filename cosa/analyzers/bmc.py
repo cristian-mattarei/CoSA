@@ -169,10 +169,13 @@ class BMC(object):
 
         return And(formula)
     
-    def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None, write_to_file=True):
+    def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None, prefix=None, write_to_file=True):
         trace = []
         prevass = []
 
+        if prefix is None:
+            prefix = self.config.prefix
+        
         if Logger.level(1):
             diff_only = False
             full_trace = True
@@ -193,7 +196,7 @@ class BMC(object):
         hr_trace_file = None
             
         BMC.TraceID += 1
-        if (self.config.prefix is None) or (not write_to_file):
+        if (prefix is None) or (not write_to_file):
             Logger.log(hr_trace, 0)
 
             if self.config.vcd_trace:
@@ -201,11 +204,11 @@ class BMC(object):
                 with open(vcd_trace_file, "w") as f:
                     f.write(vcd_trace)
         else:
-            hr_trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, hr_printer.get_file_ext())
+            hr_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, hr_printer.get_file_ext())
             with open(hr_trace_file, "w") as f:
                 f.write(hr_trace)
             if self.config.vcd_trace:
-                vcd_trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, vcd_printer.get_file_ext())
+                vcd_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, vcd_printer.get_file_ext())
                 with open(vcd_trace_file, "w") as f:
                     f.write(vcd_trace)
 
@@ -398,12 +401,17 @@ class BMC(object):
         self._add_assertion(self.solver, check_1)
         res = self._solve(self.solver)
 
+        prefix = None
+        if self.config.prefix is not None:
+            prefix = self.config.prefix+"_ind"
+        
         if res:
             if Logger.level(1):
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 1)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function)
+                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function, prefix=prefix)
                 Logger.log("", 1)
                 if hr_trace or vcd_trace:
+                    vcd_msg = ""
                     if vcd_trace:
                         vcd_msg = " and in \"%s\""%(vcd_trace)
                     Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 1)
@@ -423,8 +431,9 @@ class BMC(object):
         if res:
             if Logger.level(1):
                 Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 1)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function)
+                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function, prefix=prefix)
                 if hr_trace or vcd_trace:
+                    vcd_msg = ""
                     if vcd_trace:
                         vcd_msg = " and in \"%s\""%(vcd_trace)
                     Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 1)
