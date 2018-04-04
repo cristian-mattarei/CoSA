@@ -530,7 +530,7 @@ class BMC(object):
                 if res:
                     Logger.log("Induction failed with k=%s"%(t), 1)
                 else:
-                    Logger.log("Induction hold with k=%s"%(t), 1)
+                    Logger.log("Induction holds with k=%s"%(t), 1)
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, True)
                 
