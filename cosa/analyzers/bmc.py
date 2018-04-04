@@ -526,7 +526,7 @@ class BMC(object):
             self._add_assertion(self.solver, propt)
 
             if t >= k_min:
-                Logger.log("Solving for k=%s"%(t), 1)
+                Logger.log("\nSolving for k=%s"%(t), 1)
 
                 res = self._solve(self.solver)
 
@@ -539,7 +539,7 @@ class BMC(object):
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
             else:
-                Logger.log("Skipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
+                Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
                     
             self._pop(self.solver)
