@@ -391,24 +391,37 @@ class BMC(object):
         trans = And(trans, invar, TS.to_next(invar))
 
         check_1 = Not(Implies(init, lemma))
+        check_1 = self.at_time(check_1, 0)
         self._add_assertion(self.solver, check_1)
         res = self._solve(self.solver)
 
         if res:
+            if Logger.level(1):
+                Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 1)
+                Logger.log("Counterexample:", 1)
+                self.print_trace(hts, self.solver[0].get_model(), 1, check_2.get_free_variables(), map_function=self.config.map_function)
+                Logger.log("", 1)
             return False
+        else:
+            Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 1)
 
         self._reset_assertions(self.solver)
         
         check_2 = And(trans, lemma, Not(TS.to_next(lemma)))
-        # for el in conjunctive_partition(check_2):
-        #     print(el)
+        check_2 = self.at_time(check_2, 0)
         self._add_assertion(self.solver, check_2)
         res = self._solve(self.solver)
 
         if res:
-            print(self.solver[0].get_model())
+            if Logger.level(1):
+                Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 1)
+                Logger.log("Counterexample:", 1)
+                self.print_trace(hts, self.solver[0].get_model(), 1, check_2.get_free_variables(), map_function=self.config.map_function)
+                Logger.log("", 1)
             return False
-
+        else:
+            Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 1)
+            
         return True
 
     def _check_lemmas(self, prop, lemmas):
@@ -662,7 +675,7 @@ class BMC(object):
         elif t > -1:
             Logger.log("Property is FALSE", 0)
             model = self._remap_model(self.hts.vars, model, t)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, diff_only=False)
             return False
         else:
             Logger.log("No counterexample found", 0)
