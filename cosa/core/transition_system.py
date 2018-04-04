@@ -70,7 +70,7 @@ class HTS(object):
             ts.remove_invar()
 
     def single_init(self):
-        if not self.init:
+        if self.init is None:
             self.init = TRUE()
             for ts in self.tss:
                 if ts.init is not None:
@@ -79,7 +79,7 @@ class HTS(object):
         return self.init
 
     def single_trans(self):
-        if not self.trans:
+        if self.trans is None:
             self.trans = TRUE()
             for ts in self.tss:
                 if ts.trans is not None:
@@ -88,7 +88,7 @@ class HTS(object):
         return self.trans
 
     def single_invar(self):
-        if not self.invar:
+        if self.invar is None:
             self.invar = TRUE()
             for ts in self.tss:
                 if ts.invar is not None:

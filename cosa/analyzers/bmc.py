@@ -322,15 +322,15 @@ class BMC(object):
             Logger.log("Deadlock wit k=%s"%k, 0)
             return False
 
-    def solve(self, hts, prop, k, k_min=0):
+    def solve(self, hts, prop, k, k_min=0, lemmas=None):
         if self.config.incremental:
-            return self.solve_inc(hts, prop, k, k_min)
+            return self.solve_inc(hts, prop, k, k_min, lemmas)
 
         return self.solve_fwd(hts, prop, k)
             
-    def solve_inc(self, hts, prop, k, k_min):
+    def solve_inc(self, hts, prop, k, k_min, lemmas=None):
         if self.config.strategy == FWD:
-            return self.solve_inc_fwd(hts, prop, k, k_min)
+            return self.solve_inc_fwd(hts, prop, k, k_min, lemmas)
         
         if self.config.strategy == BWD:
             return self.solve_inc_bwd(hts, prop, k)
@@ -338,7 +338,6 @@ class BMC(object):
         if self.config.strategy == ZZ:
             return self.solve_inc_zz(hts, prop, k)
 
-        print(self.config.strategy)
         Logger.error("Invalid configuration strategy")
         
         return None
@@ -371,7 +370,7 @@ class BMC(object):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.get_model()
+                model = self.solver[0].get_model()
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -382,8 +381,73 @@ class BMC(object):
         Logger.log("", 0, not(Logger.level(1)))
 
         return (-1, None)
+
+    def _check_lemma(self, hts, lemma):
+        self._reset_assertions(self.solver)
+
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+        trans = And(trans, invar, TS.to_next(invar))
+
+        check_1 = Not(Implies(init, lemma))
+        self._add_assertion(self.solver, check_1)
+        res = self._solve(self.solver)
+
+        if res:
+            return False
+
+        self._reset_assertions(self.solver)
+        
+        check_2 = And(trans, lemma, Not(TS.to_next(lemma)))
+        # for el in conjunctive_partition(check_2):
+        #     print(el)
+        self._add_assertion(self.solver, check_2)
+        res = self._solve(self.solver)
+
+        if res:
+            print(self.solver[0].get_model())
+            return False
+
+        return True
+
+    def _check_lemmas(self, prop, lemmas):
+        self._reset_assertions(self.solver)
+
+        check_1 = Not(Implies(And(lemmas), prop))
+        self._add_assertion(self.solver, check_1)
+        res = self._solve(self.solver)
+
+        if res:
+            return False
+        
+        return True
     
-    def solve_inc_fwd(self, hts, prop, k, k_min):
+    def add_lemmas(self, hts, prop, lemmas):
+        holding_lemmas = []
+        for lemma in lemmas:
+            if self._check_lemma(hts, lemma):
+                holding_lemmas.append(lemma)
+                Logger.log("Lemma \"%s\" holds"%(lemma), 2)
+
+                if self._check_lemmas(prop, holding_lemmas):
+                    return (hts, True)
+            else:
+                Logger.log("Lemma \"%s\" does not hold"%(lemma), 2)
+
+
+        hts.add_ts(TS(set([]), TRUE(), TRUE(), And(holding_lemmas)))
+        
+        return (hts, False)
+    
+    def solve_inc_fwd(self, hts, prop, k, k_min, lemmas=None):
+        if lemmas is not None:
+            (hts, res) = self.add_lemmas(hts, prop, lemmas)
+            if res:
+                Logger.log("Lemmas hold", 1)
+                Logger.log("", 0, not(Logger.level(1)))
+                return (0, True)
+            
         self._reset_assertions(self.solver)
 
         if self.config.prove:
@@ -588,9 +652,9 @@ class BMC(object):
                 
         return (-1, None)
             
-    def safety(self, prop, k, k_min):
+    def safety(self, prop, k, k_min, lemmas=None):
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve(self.hts, prop, k, k_min)
+        (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
 
         if model == True:
             Logger.log("Property is TRUE", 0)        

@@ -35,6 +35,7 @@ class Config(object):
     safety = None
     liveness = None
     properties = None
+    lemmas = None
     assumptions = None
     equivalence = None
     symbolic_init = None
@@ -66,6 +67,7 @@ class Config(object):
         self.safety = None
         self.liveness = None
         self.properties = None
+        self.lemmas = None
         self.assumptions = None
         self.equivalence = None
         self.symbolic_init = False
@@ -127,10 +129,15 @@ def run(config):
 
     if config.assumptions is not None:
         Logger.log("Adding %d assumptions... "%len(config.assumptions), 1)
-        parsed_assumps = parse_formulae(config, config.assumptions)
         assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
         hts.assumptions = assumps
 
+    lemmas = None
+    if config.lemmas is not None:
+        Logger.log("Adding %d lemmas... "%len(config.lemmas), 1)
+        lemmas = [t[1] for t in parse_formulae(config, config.lemmas)]
+        
+        
     bmc_config.smt2file = config.smt2file
 
     bmc_config.full_trace = config.full_trace
@@ -190,7 +197,7 @@ def run(config):
         list_status = []
         for (strprop, prop) in parse_formulae(config, config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            if not bmc.safety(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
+            if not bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas) and config.prefix:
                 count += 1
                 trace_printed("Counterexample", count)
                 list_status.append(False)
@@ -270,6 +277,10 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of invariant properties.')
 
+    parser.set_defaults(lemmas=None)
+    parser.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
+                       help='comma separated list of lemmas.')
+    
     parser.set_defaults(assumptions=None)
     parser.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='comma separated list of invariant assumptions.')
@@ -361,6 +372,7 @@ if __name__ == "__main__":
     config.safety = args.safety
     config.liveness = args.liveness
     config.properties = args.properties
+    config.lemmas = args.lemmas
     config.assumptions = args.assumptions
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
@@ -409,23 +421,24 @@ if __name__ == "__main__":
         Logger.error("Safety verification requires at least a property")
         ok = False
 
+    if config.safety and (config.properties is None):
+        Logger.error("Safety verification requires at least a property")
+        ok = False
+        
     if config.liveness and (config.properties is None):
         Logger.error("Liveness verification requires at least a property")
         ok = False
-        
-    if config.properties is not None:
-        if os.path.isfile(config.properties):
-            with open(config.properties) as f:
-                config.properties = [p.strip() for p in f.read().strip().split("\n")]
-        else:
-            config.properties = [p.strip() for p in config.properties.split(",")]
 
-    if config.assumptions is not None:
-        if os.path.isfile(config.assumptions):
-            with open(config.assumptions) as f:
-                config.assumptions = [a.strip() for a in f.read().strip().split("\n")]
-        else:
-            config.assumptions = [a.strip() for a in config.assumptions.split(",")]
+    parsing_defs = [config.properties, config.lemmas, config.assumptions]
+    for i in range(len(parsing_defs)):
+        if parsing_defs[i] is not None:
+            if os.path.isfile(parsing_defs[i]):
+                with open(parsing_defs[i]) as f:
+                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
+            else:
+                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+
+    [config.properties, config.lemmas, config.assumptions] = parsing_defs                
 
     if not ok:
         parser.print_help()
