@@ -457,7 +457,7 @@ class BMC(object):
         if lemmas is not None:
             (hts, res) = self.add_lemmas(hts, prop, lemmas)
             if res:
-                Logger.log("Lemmas hold", 1)
+                Logger.log("Lemmas imply the property", 1)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (0, True)
             
