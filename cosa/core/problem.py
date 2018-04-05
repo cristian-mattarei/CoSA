@@ -40,4 +40,5 @@ class EquivalenceMCProblem(MCProblem):
     config = None
     comp_model = None
 
-
+class SimulationMCProblem(MCProblem):
+    config = None
