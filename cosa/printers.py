@@ -330,8 +330,15 @@ class VCDTracePrinter(TracePrinter):
         idvar = 0
         for el in varlist:
             (varname, width) = el
-            varname = varname.replace(SEP, "_")
-            ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname, width-1))
+            varname = varname.split(SEP)
+            for scope in varname[:-1]:
+                ret.append("$scope module %s $end"%scope)
+                
+            ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname[-1], width-1))
+
+            for scope in range(len(varname)-1):
+                ret.append("$upscope $end")
+            
             idvar += 1
             
         ret.append("$upscope $end")

@@ -175,6 +175,8 @@ class BMC(object):
 
         if prefix is None:
             prefix = self.config.prefix
+
+        full_trace = self.config.full_trace
         
         if Logger.level(1):
             diff_only = False
