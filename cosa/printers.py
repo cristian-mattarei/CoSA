@@ -196,6 +196,20 @@ class SMVPrinter(HRPrinter):
         yield formula.arg(0)
         self.write(", %d)" % formula.bv_extend_step())
 
+    def walk_bv_extract(self, formula):
+        yield formula.arg(0)
+        self.write("[%d:%d]" % (formula.bv_extract_end(),
+                                formula.bv_extract_start()))
+
+    def walk_bv_ashr(self, formula):
+        self.write("(unsigned(signed(")
+        args = formula.args()
+        for s in args[:-1]:
+            yield s
+            self.write(") >> ")
+        yield args[-1]
+        self.write("))")
+        
     def walk_bv_ult(self, formula): return self.walk_nary(formula, " < ")
 
     def walk_symbol(self, formula):
