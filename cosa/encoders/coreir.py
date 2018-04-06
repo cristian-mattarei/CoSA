@@ -10,7 +10,6 @@
 
 import coreir
 import sys
-import re
 
 from six.moves import cStringIO
 
@@ -21,7 +20,6 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
-from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
 
 from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
@@ -29,12 +27,6 @@ from cosa.util.logger import Logger
 
 SELF = "self"
 INIT = "init"
-
-KEYWORDS = ["not","False","True","next"]
-OPERATORS = [(" < "," u< "), \
-             (" > "," u> "), \
-             (" >= "," u>= "), \
-             (" <= "," u<= ")]
 
 SEP = "."
 CSEP = "$"
@@ -44,25 +36,6 @@ def B2BV(var):
     
 def BV2B(var):
     return EqualsOrIff(var, BV(1,1))
-
-class ExtLexer(HRLexer):
-    def __init__(self, env=None):
-        HRLexer.__init__(self, env=env)
-        self.rules.insert(0, Rule(r"(!=)", InfixOpAdapter(self.NEquals, 60), False))
-        self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 50), False))
-        self.compile()
-
-    def Next(self, x):
-        return TS.to_next(x)
-
-    def NEquals(self, l, r):
-        return self.mgr.Not(self.mgr.Equals(l, r))
-    
-def HRParser(env=None):
-    return PrattParser(ExtLexer, env=env)
-
-def parse_string(string):
-    return HRParser().parse(string)
 
 class Modules(object):
 
@@ -720,17 +693,6 @@ class CoreIRParser(object):
             Logger.warning("Unsound clock abstraction: registers with negedge behavior")
             
         return ts
-
-    def parse_formula(self, strformula):
-        formula = strformula.replace("\\","")
-        for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
-            if lit in KEYWORDS:
-                continue
-            formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
-        for op in OPERATORS:
-            formula = formula.replace(op[0], op[1])
-
-        return parse_string(formula)
     
     def parse(self, abstract_clock=False):
         Logger.msg("Reading CoreIR system... ", 1)

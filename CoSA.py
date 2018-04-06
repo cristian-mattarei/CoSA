@@ -23,6 +23,7 @@ from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.coreir import CoreIRParser
+from cosa.encoders.formulae import StringParser
 from pysmt.shortcuts import TRUE
 
 class Config(object):
@@ -87,21 +88,6 @@ class Config(object):
         self.vcd = False
         self.prove = False
 
-
-def parse_formulae(config, strforms):
-    parser = config.parser
-    formulae = []
-
-    for strform in strforms:
-        try:
-            if ("#" not in strform) and (strform != ""):
-                formulae.append((strform, parser.parse_formula(strform)))
-        except Exception as e:
-            Logger.error(str(e))
-
-    return formulae
-
-    
 def run(config):
     parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
     parser.boolean = config.boolean
@@ -127,15 +113,18 @@ def run(config):
 
     bmc_config = BMCConfig()
 
+    sparser = StringParser()
+    sparser.remap_or2an = parser.remap_or2an
+    
     if config.assumptions is not None:
         Logger.log("Adding %d assumptions... "%len(config.assumptions), 1)
-        assumps = [t[1] for t in parse_formulae(config, config.assumptions)]
+        assumps = [t[1] for t in sparser.parse_formulae(config.assumptions)]
         hts.assumptions = assumps
 
     lemmas = None
     if config.lemmas is not None:
         Logger.log("Adding %d lemmas... "%len(config.lemmas), 1)
-        lemmas = [t[1] for t in parse_formulae(config, config.lemmas)]
+        lemmas = [t[1] for t in sparser.parse_formulae(config.lemmas)]
         
         
     bmc_config.smt2file = config.smt2file
@@ -175,7 +164,7 @@ def run(config):
 
         properties = None
         if config.properties:
-            properties = parse_formulae(config, config.properties)
+            properties = sparser.parse_formulae(config.properties)
         
         with open(config.translate, "w") as f:
             f.write(printer.print_hts(hts, properties))
@@ -185,7 +174,7 @@ def run(config):
         if config.properties is None:
             props = [("True", TRUE())]
         else:
-            props = parse_formulae(config, config.properties)
+            props = sparser.parse_formulae(config.properties)
         for (strprop, prop) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
             if bmc.simulate(prop, config.bmc_length) and config.prefix:
@@ -195,7 +184,7 @@ def run(config):
     if config.safety:
         count = 0
         list_status = []
-        for (strprop, prop) in parse_formulae(config, config.properties):
+        for (strprop, prop) in sparser.parse_formulae(config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             if not bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas) and config.prefix:
                 count += 1
@@ -209,7 +198,7 @@ def run(config):
     if config.liveness:
         count = 0
         list_status = []
-        for (strprop, prop) in parse_formulae(config, config.properties):
+        for (strprop, prop) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
             if not bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1
