@@ -72,11 +72,6 @@ class StringParser(object):
                 nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
                 prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
                 formulae.append((strform, formula, (nextvars, prevvars)))
-            # try:
-            #     if ("#" not in strform) and (strform != ""):
-            #         formulae.append((strform, self.parse_formula(strform)))
-            # except Exception as e:
-            #     Logger.error(str(e))
 
         return formulae
 

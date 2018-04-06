@@ -130,17 +130,6 @@ class BMC(object):
 
             self.varmapf_t[t] = dict(varmapf)
             self.varmapb_t[t-1] = dict(varmapb)
-
-    # def _update_trans_prev(self, prop):
-    #     prev_vars = [v for v in prop.get_free_variables() if TS.is_prev(v)]
-    #     trans = TRUE()
-    #     if len(prev_vars) == 0:
-    #         return trans
-
-    #     for v in prev_vars:
-    #         trans = And(trans, EqualsOrIff(v, TS.get_ref_var(v)))
-
-    #     return trans
             
     def at_time(self, formula, t):
         self.subwalker.set_substitute_map(self.varmapf_t[t])
@@ -415,17 +404,19 @@ class BMC(object):
         invar = hts.single_invar()
         trans = And(trans, invar, TS.to_next(invar))
 
-        # trans = And(trans, self._update_trans_prev(prop))
-
         check_1 = Not(Implies(init, lemma))
         check_1 = self.at_time(check_1, 0)
         self._add_assertion(self.solver, check_1)
         res = self._solve(self.solver)
 
+        prefix = None
+        if self.config.prefix is not None:
+            prefix = self.config.prefix+"-ind"
+        
         if res:
             if Logger.level(1):
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 1)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function)
+                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, prefix=prefix, map_function=self.config.map_function)
                 Logger.log("", 1)
                 if hr_trace or vcd_trace:
                     vcd_msg = ""
@@ -448,7 +439,7 @@ class BMC(object):
         if res:
             if Logger.level(1):
                 Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 1)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, xvars=None, map_function=self.config.map_function)
+                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver[0].get_model(), 1, prefix=prefix, map_function=self.config.map_function)
                 if hr_trace or vcd_trace:
                     vcd_msg = ""
                     if vcd_trace:
@@ -507,8 +498,6 @@ class BMC(object):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
-
-        # trans = And(trans, self._update_trans_prev(prop))
 
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
@@ -609,8 +598,6 @@ class BMC(object):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
-
-        # trans = And(trans, self._update_trans_prev(prop))
         
         formula = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add not property at time %d"%0, 2)
@@ -659,8 +646,6 @@ class BMC(object):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
-
-        # trans = And(trans, self._update_trans_prev(prop))
         
         initt = self.at_time(And(init, invar), 0)
         Logger.log("Add init at_0", 2)

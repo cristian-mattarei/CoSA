@@ -125,8 +125,8 @@ def run(config):
     if config.lemmas is not None:
         Logger.log("Adding %d lemmas... "%len(config.lemmas), 1)
         parsed_formulae = sparser.parse_formulae(config.lemmas)
-        if set([t[2] for t in parsed_formulae]) != {(False, False)}:
-            Logger.error("Lemmas do not support temporal operators")
+        if list(set([t[2] for t in parsed_formulae]))[0][0] != False:
+            Logger.error("Lemmas do not support \"next\" operators")
         lemmas = [t[1] for t in parsed_formulae]
         
         
@@ -357,6 +357,10 @@ if __name__ == "__main__":
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
 
+    parser.set_defaults(debug=False)
+    parser.add_argument('--debug', dest='debug', action='store_true',
+                       help='enables debug mode.')
+    
     args = parser.parse_args()
 
     config.strfile = args.input_file
@@ -435,5 +439,13 @@ if __name__ == "__main__":
     if not ok:
         parser.print_help()
         sys.exit(1)
+
+    if args.debug:
+        run(config)
+    else:
+        try:
+            run(config)
+        except Exception as e:
+            Logger.error(str(e))
         
-    run(config)
+    
