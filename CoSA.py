@@ -124,7 +124,10 @@ def run(config):
     lemmas = None
     if config.lemmas is not None:
         Logger.log("Adding %d lemmas... "%len(config.lemmas), 1)
-        lemmas = [t[1] for t in sparser.parse_formulae(config.lemmas)]
+        parsed_formulae = sparser.parse_formulae(config.lemmas)
+        if set([t[2] for t in parsed_formulae]) != {(False, False)}:
+            Logger.error("Lemmas do not support temporal operators")
+        lemmas = [t[1] for t in parsed_formulae]
         
         
     bmc_config.smt2file = config.smt2file
@@ -175,7 +178,7 @@ def run(config):
             props = [("True", TRUE())]
         else:
             props = sparser.parse_formulae(config.properties)
-        for (strprop, prop) in props:
+        for (strprop, prop, types) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
             if bmc.simulate(prop, config.bmc_length) and config.prefix:
                 count += 1
@@ -184,7 +187,7 @@ def run(config):
     if config.safety:
         count = 0
         list_status = []
-        for (strprop, prop) in sparser.parse_formulae(config.properties):
+        for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             if not bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas) and config.prefix:
                 count += 1
@@ -198,7 +201,7 @@ def run(config):
     if config.liveness:
         count = 0
         list_status = []
-        for (strprop, prop) in sparser.parse_formulae(config.properties):
+        for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
             if not bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
                 count += 1

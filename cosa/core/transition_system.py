@@ -142,6 +142,18 @@ class TS(object):
         return v.symbol_name()[-len(NEXT):] == NEXT
 
     @staticmethod
+    def is_prev(v):
+        return v.symbol_name()[-len(PREV):] == PREV
+
+    @staticmethod
+    def get_ref_var(v):
+        if TS.is_prime(v):
+            return Symbol(v.symbol_name()[:-len(NEXT)], v.symbol_type())
+        if TS.is_prev(v):
+            return Symbol(v.symbol_name()[:-len(PREV)], v.symbol_type())
+        return v
+        
+    @staticmethod
     def get_prime(v):
         return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
 

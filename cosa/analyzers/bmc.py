@@ -130,7 +130,18 @@ class BMC(object):
 
             self.varmapf_t[t] = dict(varmapf)
             self.varmapb_t[t-1] = dict(varmapb)
-        
+
+    # def _update_trans_prev(self, prop):
+    #     prev_vars = [v for v in prop.get_free_variables() if TS.is_prev(v)]
+    #     trans = TRUE()
+    #     if len(prev_vars) == 0:
+    #         return trans
+
+    #     for v in prev_vars:
+    #         trans = And(trans, EqualsOrIff(v, TS.get_ref_var(v)))
+
+    #     return trans
+            
     def at_time(self, formula, t):
         self.subwalker.set_substitute_map(self.varmapf_t[t])
         return self.subwalker.walk(formula)
@@ -360,6 +371,8 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        # trans = And(trans, self._update_trans_prev(prop))
+
         t_start = 0 if shortest else k
         
         t = 0 if shortest else k
@@ -401,6 +414,8 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
         trans = And(trans, invar, TS.to_next(invar))
+
+        # trans = And(trans, self._update_trans_prev(prop))
 
         check_1 = Not(Implies(init, lemma))
         check_1 = self.at_time(check_1, 0)
@@ -492,6 +507,8 @@ class BMC(object):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
+
+        # trans = And(trans, self._update_trans_prev(prop))
 
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
@@ -593,6 +610,8 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        # trans = And(trans, self._update_trans_prev(prop))
+        
         formula = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add not property at time %d"%0, 2)
         self._add_assertion(self.solver, formula)
@@ -641,6 +660,8 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        # trans = And(trans, self._update_trans_prev(prop))
+        
         initt = self.at_time(And(init, invar), 0)
         Logger.log("Add init at_0", 2)
         self._add_assertion(self.solver, initt)

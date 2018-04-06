@@ -67,7 +67,11 @@ class StringParser(object):
 
         for strform in strforms:
             if ("#" not in strform) and (strform != ""):
-                formulae.append((strform, self.parse_formula(strform)))
+                formula = self.parse_formula(strform)
+                formula_fv = formula.get_free_variables()
+                nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
+                prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
+                formulae.append((strform, formula, (nextvars, prevvars)))
             # try:
             #     if ("#" not in strform) and (strform != ""):
             #         formulae.append((strform, self.parse_formula(strform)))
