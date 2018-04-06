@@ -79,6 +79,7 @@ class BMC(object):
 
     smtvars = None
     total_time = 0.0
+    tracefile = None
 
     def __init__(self, hts, config):
         self.hts = hts
@@ -89,10 +90,7 @@ class BMC(object):
         Logger.time = True
         self.total_time = 0.0
 
-        if self.config.smt2file:
-            self.smtvars = set([])
-            with open(self.config.smt2file, "w") as f:
-                f.write("(set-logic QF_BV)\n")
+        self._reset_smt2_tracefile()
 
         self.solver = (Solver(name=config.solver_name), "")
         
@@ -101,6 +99,19 @@ class BMC(object):
                 
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
+    def _set_smt2_tracefile(self, tracefile):
+        if self.tracefile is not None:
+            self.tracefile = tracefile
+            self.smtvars = set([])
+
+    def _reset_smt2_tracefile(self):
+        if self.config.smt2file is not None:
+            self.tracefile = self.config.smt2file
+            self.smtvars = set([])
+        else:
+            self.tracefile = None
+            self.smtvars = None
+            
     def _init_at_time(self, vars, maxtime, prop=None):
         self.varmapf_t = {}
         self.varmapb_t = {}
@@ -406,7 +417,7 @@ class BMC(object):
 
         check_1 = Not(Implies(init, lemma))
         check_1 = self.at_time(check_1, 0)
-        self._add_assertion(self.solver, check_1)
+        self._add_assertion(self.solver, check_1, comment="Init check")
         res = self._solve(self.solver)
 
         prefix = None
@@ -433,7 +444,7 @@ class BMC(object):
         
         check_2 = And(trans, lemma, Not(TS.to_next(lemma)))
         check_2 = self.at_time(check_2, 0)
-        self._add_assertion(self.solver, check_2)
+        self._add_assertion(self.solver, check_2, comment="Trans check")
         res = self._solve(self.solver)
 
         if res:
@@ -450,7 +461,7 @@ class BMC(object):
             return False
         else:
             Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 1)
-            
+
         return True
 
     def _check_lemmas(self, prop, lemmas):
@@ -466,6 +477,10 @@ class BMC(object):
         return True
     
     def add_lemmas(self, hts, prop, lemmas):
+        if self.tracefile:
+            self._set_smt2_tracefile("%s-ind.%s"%(".".join(self.tracefile.split(".")[:-1]), self.tracefile.split(".")[-1]))
+        self._reset_assertions(self.solver)
+
         holding_lemmas = []
         for lemma in lemmas:
             if self._check_lemma(hts, lemma):
@@ -479,6 +494,8 @@ class BMC(object):
 
 
         hts.add_ts(TS(set([]), TRUE(), TRUE(), And(holding_lemmas)))
+
+        self._reset_smt2_tracefile()
         
         return (hts, False)
     
@@ -748,14 +765,14 @@ class BMC(object):
         return retmodel
 
     def _write_smt2_log(self, prefix, line):
-        if self.config.smt2file is not None:
-            splitname = self.config.smt2file.split(".")
+        if self.tracefile is not None:
+            splitname = self.tracefile.split(".")
             sep = "-" if prefix != "" else ""
             filename = "%s%s%s.%s"%(".".join(splitname[:-1]), sep, prefix, splitname[-1])
             with open(filename, "a") as f:
                 f.write(line+"\n")
     
-    def _add_assertion(self, solver, formula):
+    def _add_assertion(self, solver, formula, comment=None):
         if not self.config.skip_solving:
             solver[0].add_assertion(formula)
             
@@ -765,15 +782,20 @@ class BMC(object):
             printer.printer(formula)
             print(buf.getvalue()+"\n")
 
-        if self.config.smt2file is not None:
-            for v in set(formula.get_free_variables()).difference(self.smtvars):
+        if self.tracefile is not None:
+            if comment:
+                self._write_smt2_log(solver[1], ";; %s"%comment)
+
+            formula_fv = set(formula.get_free_variables())
+                
+            for v in formula_fv.difference(self.smtvars):
                 if v.symbol_type() == BOOL:
                     self._write_smt2_log(solver[1], "(declare-fun %s () Bool)" % (v.symbol_name()))
                 else:
                     self._write_smt2_log(solver[1], "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
 
             self._write_smt2_log(solver[1], "")
-            self.smtvars = set(formula.get_free_variables()).union(self.smtvars)
+            self.smtvars = formula_fv.union(self.smtvars)
 
             if formula.is_and():
                 for f in conjunctive_partition(formula):
@@ -804,8 +826,9 @@ class BMC(object):
         if not self.config.skip_solving:
             solver[0].reset_assertions()
 
-        if self.config.smt2file is not None:
-            with open(self.config.smt2file, "w") as f:
+        if self.tracefile is not None:
+            self.smtvars = set([])
+            with open(self.tracefile, "w") as f:
                 f.write("(set-logic QF_BV)\n")
 
     def _solve(self, solver):

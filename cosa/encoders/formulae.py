@@ -24,8 +24,8 @@ class ExtLexer(HRLexer):
     def __init__(self, env=None):
         HRLexer.__init__(self, env=env)
         self.rules.insert(0, Rule(r"(!=)", InfixOpAdapter(self.NEquals, 60), False))
-        self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 50), False))
-        self.rules.insert(0, Rule(r"(prev)", UnaryOpAdapter(self.Prev, 50), False))
+        self.rules.insert(0, Rule(r"(prev)", UnaryOpAdapter(self.Prev, 100), False))
+        self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 100), False))
         self.compile()
 
     def Next(self, x):
@@ -59,7 +59,6 @@ class StringParser(object):
             formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
         for op in OPERATORS:
             formula = formula.replace(op[0], op[1])
-
         return self.parse_string(formula)
 
     def parse_formulae(self, strforms):
