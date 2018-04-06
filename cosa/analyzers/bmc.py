@@ -101,13 +101,14 @@ class BMC(object):
                 
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
-    def _init_at_time(self, vars, maxtime):
+    def _init_at_time(self, vars, maxtime, prop=None):
         self.varmapf_t = {}
         self.varmapb_t = {}
 
         timed = TS.get_timed_name
         ptimed = TS.get_ptimed_name
         prime = TS.get_prime_name
+        prev = TS.get_prev_name
 
         varsstr = [v.symbol_name() for v in vars]
         
@@ -117,12 +118,15 @@ class BMC(object):
             
             for sname in varsstr:
                 psname = prime(sname)
+                rsname = prev(sname)
                 
                 varmapf.append((sname, timed(sname, t)))
                 varmapf.append((psname, timed(sname, t+1)))
+                varmapf.append((rsname, timed(sname, t-1)))
 
                 varmapb.append((sname, ptimed(sname, t)))
                 varmapb.append((psname, ptimed(sname, t-1)))
+                varmapb.append((rsname, ptimed(sname, t+1)))
 
             self.varmapf_t[t] = dict(varmapf)
             self.varmapb_t[t-1] = dict(varmapb)
@@ -312,7 +316,7 @@ class BMC(object):
 
 
     def simulate(self, prop, k):
-        self._init_at_time(self.hts.vars, k)
+        self._init_at_time(self.hts.vars, k, prop)
         
         if prop == TRUE():
             self.config.incremental = False
@@ -685,7 +689,7 @@ class BMC(object):
         return (-1, None)
             
     def safety(self, prop, k, k_min, lemmas=None):
-        self._init_at_time(self.hts.vars, k)
+        self._init_at_time(self.hts.vars, k, prop)
         (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
 
         if model == True:

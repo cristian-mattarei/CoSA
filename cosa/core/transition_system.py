@@ -11,6 +11,7 @@
 from pysmt.shortcuts import Symbol, And, TRUE, simplify
 
 NEXT = "_N"
+PREV = "_P"
 AT = "_AT"
 ATP = "_ATP"
 
@@ -143,6 +144,10 @@ class TS(object):
     @staticmethod
     def get_prime(v):
         return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
+
+    @staticmethod
+    def get_prev(v):
+        return Symbol(TS.get_prev_name(v.symbol_name()), v.symbol_type())
     
     @staticmethod
     def get_timed(v, t):
@@ -155,14 +160,18 @@ class TS(object):
     @staticmethod
     def get_prime_name(name):
         return ("%s"+NEXT) % name
+
+    @staticmethod
+    def get_prev_name(name):
+        return ("%s"+PREV) % name
     
     @staticmethod
     def get_timed_name(name, t):
-        return "%s%s%s" % (name, AT, str(t))
+        return "%s%s%s" % (name, AT, str(t if t > 0 else 0))
 
     @staticmethod
     def get_ptimed_name(name, t):
-        return "%s%s%s" % (name, ATP, str(t))
+        return "%s%s%s" % (name, ATP, str(t if t > 0 else 0))
     
     @staticmethod
     def get_prefix(v, pref):
@@ -173,6 +182,11 @@ class TS(object):
         varmap = dict([(v,TS.get_prime(v)) for v in formula.get_free_variables()])
         return formula.substitute(varmap)
 
+    @staticmethod
+    def to_prev(formula):
+        varmap = dict([(v,TS.get_prev(v)) for v in formula.get_free_variables()])
+        return formula.substitute(varmap)
+    
     @staticmethod
     def has_next(formula):
         varlist = formula.get_free_variables()

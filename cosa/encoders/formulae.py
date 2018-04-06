@@ -12,8 +12,9 @@ import re
 
 from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
 from cosa.util.logger import Logger
+from cosa.core.transition_system import TS
 
-KEYWORDS = ["not","False","True","next"]
+KEYWORDS = ["not","False","True","next","prev"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \
@@ -24,11 +25,15 @@ class ExtLexer(HRLexer):
         HRLexer.__init__(self, env=env)
         self.rules.insert(0, Rule(r"(!=)", InfixOpAdapter(self.NEquals, 60), False))
         self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 50), False))
+        self.rules.insert(0, Rule(r"(prev)", UnaryOpAdapter(self.Prev, 50), False))
         self.compile()
 
     def Next(self, x):
         return TS.to_next(x)
 
+    def Prev(self, x):
+        return TS.to_prev(x)
+    
     def NEquals(self, l, r):
         return self.mgr.Not(self.mgr.Equals(l, r))
     
@@ -61,11 +66,13 @@ class StringParser(object):
         formulae = []
 
         for strform in strforms:
-            try:
-                if ("#" not in strform) and (strform != ""):
-                    formulae.append((strform, self.parse_formula(strform)))
-            except Exception as e:
-                Logger.error(str(e))
+            if ("#" not in strform) and (strform != ""):
+                formulae.append((strform, self.parse_formula(strform)))
+            # try:
+            #     if ("#" not in strform) and (strform != ""):
+            #         formulae.append((strform, self.parse_formula(strform)))
+            # except Exception as e:
+            #     Logger.error(str(e))
 
         return formulae
 
