@@ -63,7 +63,7 @@ class StringParser(object):
         for strform in strforms:
             try:
                 if ("#" not in strform) and (strform != ""):
-                    formulae.append((strform, parse_formula(strform)))
+                    formulae.append((strform, self.parse_formula(strform)))
             except Exception as e:
                 Logger.error(str(e))
 
