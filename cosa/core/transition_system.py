@@ -191,19 +191,19 @@ class TS(object):
     
     @staticmethod
     def to_next(formula):
-        formula_fv = formula.get_free_variables()
-        c2n = [(v,TS.get_prime(v)) for v in formula_fv]
-        p2c = [(TS.get_prev(v),v) for v in formula_fv]
-        varmap = dict(c2n+p2c)
-        return formula.substitute(varmap)
+        varmap = []
+        for v in formula.get_free_variables():
+            varmap.append((v,TS.get_prime(v)))
+            varmap.append((TS.get_prev(v),v))
+        return formula.substitute(dict(varmap))
 
     @staticmethod
     def to_prev(formula):
-        formula_fv = formula.get_free_variables()
-        c2p = [(v,TS.get_prev(v)) for v in formula_fv]
-        n2c = [(TS.get_prime(v),v) for v in formula_fv]
-        varmap = dict(c2p+n2c)
-        return formula.substitute(varmap)
+        varmap = []
+        for v in formula.get_free_variables():
+            varmap.append((v,TS.get_prev(v)))
+            varmap.append((TS.get_prime(v),v))
+        return formula.substitute(dict(varmap))
     
     @staticmethod
     def has_next(formula):
