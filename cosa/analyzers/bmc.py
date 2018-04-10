@@ -198,6 +198,9 @@ class BMC(object):
             prefix = self.config.prefix
 
         full_trace = self.config.full_trace
+
+        if write_to_file:
+            diff_only = False
         
         if Logger.level(1):
             diff_only = False
@@ -727,7 +730,7 @@ class BMC(object):
         elif t > -1:
             Logger.log("Property is FALSE", 0)
             model = self._remap_model(self.hts.vars, model, t)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, diff_only=False)
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return False
         else:
             Logger.log("No counterexample found", 0)
