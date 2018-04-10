@@ -10055,11 +10055,8 @@
           ["read","Bit"],
           ["reset_in","BitIn"],
           ["reset_out","Bit"],
+          ["sys_clk_activated","Bit"],
           ["tck","BitIn"],
-          ["tdi","BitIn"],
-          ["tdo","Bit"],
-          ["tms","BitIn"],
-          ["trst_n","BitIn"],
           ["write","Bit"]
         ]],
         "instances":{
@@ -14347,7 +14344,7 @@
           "_d_auto_d_verific_cc1048import_netlist_d_779":{
             "genref":"rtlil.adff",
             "genargs":{"ARST_POLARITY":["Bool",true], "CLK_POLARITY":["Bool",true], "WIDTH":["Int",32]},
-            "modargs":{"init":[["BitVector",32],"32'h00000003"]}
+            "modargs":{"init":[["BitVector",32],"32'h00000002"]}
           },
           "_d_auto_d_verific_cc1048import_netlist_d_780":{
             "genref":"rtlil.adff",
@@ -15476,6 +15473,7 @@
           ["self.read","_d_auto_d_verific_cc1048import_netlist_d_786.Q.0"],
           ["self.reset_in","_d_auto_d_verific_cc1048import_netlist_d_682.A.0"],
           ["self.reset_out","_d_auto_d_verific_cc1048import_netlist_d_682.Y.0"],
+          ["self.sys_clk_activated","_d_auto_d_verific_cc1048import_netlist_d_696.Q.0"],
           ["self.tck","_d_auto_d_verific_cc1048import_netlist_d_673.A.0"],
           ["self.write","_d_auto_d_verific_cc1048import_netlist_d_787.Q.0"],
           ["_d_auto_d_pmuxtree_cc100execute_d_1078.A.0","_d_auto_d_verific_cc1048import_netlist_d_732.Y.0"],
