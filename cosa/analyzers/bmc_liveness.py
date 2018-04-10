@@ -171,42 +171,8 @@ class BMCLiveness(BMC):
         
         if t > -1:
             Logger.log("Property is FALSE", 0)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, find_loops=True)
             return False
         else:
             Logger.log("No counterexample found", 0)
             return True
-
-    def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None):
-        trace = []
-        prevass = []
-
-        full_trace = self.config.full_trace
-        
-        if Logger.level(1):
-            diff_only = False
-            full_trace = True
-        
-        if self.config.prefix is None:
-            printer = TextTracePrinter()
-            printer.extra_vars = xvars
-            printer.diff_only = diff_only
-            printer.full_trace = full_trace
-            trace = printer.print_trace(hts, model, length, map_function, True)
-            
-            Logger.log(trace, 0)
-        else:
-            if Logger.level(1):
-                timer = Logger.start_timer("Trace generation")
-
-            printer = VCDTracePrinter()
-            trace = printer.print_trace(hts, model, length, map_function)
-
-            if Logger.level(1):
-                Logger.stop_timer(timer)
-            
-            BMC.TraceID += 1
-            trace_file = "%s-id_%s%s"%(self.config.prefix, BMC.TraceID, printer.get_file_ext())
-            with open(trace_file, "w") as f:
-                f.write(trace)
-        

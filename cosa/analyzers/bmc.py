@@ -184,7 +184,13 @@ class BMC(object):
 
         return And(formula)
     
-    def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None, prefix=None, write_to_file=True):
+    def print_trace(self, hts, model, length, \
+                    xvars=None, \
+                    diff_only=True, \
+                    map_function=None, \
+                    prefix=None, \
+                    write_to_file=True, \
+                    find_loops=False):
         trace = []
         prevass = []
 
@@ -202,7 +208,7 @@ class BMC(object):
         hr_printer.extra_vars = xvars
         hr_printer.diff_only = diff_only
         hr_printer.full_trace = full_trace
-        hr_trace = hr_printer.print_trace(hts, model, length, map_function)
+        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loops)
 
         # VCD format
         if self.config.vcd_trace:
