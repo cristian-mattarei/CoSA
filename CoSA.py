@@ -175,7 +175,7 @@ def run(config):
     if config.simulate:
         count = 0
         if config.properties is None:
-            props = [("True", TRUE())]
+            props = [("True", TRUE(), None)]
         else:
             props = sparser.parse_formulae(config.properties)
         for (strprop, prop, types) in props:
