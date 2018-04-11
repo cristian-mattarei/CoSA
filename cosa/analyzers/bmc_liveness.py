@@ -136,7 +136,7 @@ class BMCLiveness(BMC):
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self.solver[0].get_model()
+                    model = self.solver.solver.get_model()
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:
