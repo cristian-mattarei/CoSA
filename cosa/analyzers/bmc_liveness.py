@@ -9,24 +9,26 @@
 # limitations under the License.
 
 import re
+import math
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify
+from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify, BVAdd, BVUGE
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition
 from pysmt.walkers.identitydag import IdentityDagWalker
+from pysmt.typing import BOOL, _BVType
 
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
-from cosa.printers import TextTracePrinter, VCDTracePrinter
+from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
 from cosa.analyzers.bmc import BMC, BMCConfig, SubstituteWalker, FWD
 
-import copy
-
 NL = "\n"
-            
+
+KLIVE_COUNT = HIDDEN+"k_live_count"+HIDDEN
+
 class BMCLiveness(BMC):
 
     hts = None
@@ -38,23 +40,7 @@ class BMCLiveness(BMC):
     total_time = 0.0
 
     def __init__(self, hts, config):
-        self.hts = hts
-        self.config = config
-
-        self.assert_property = False
-        
-        Logger.time = True
-        self.total_time = 0.0
-
-        if self.config.smt2file:
-            self.smtvars = set([])
-            with open(self.config.smt2file, "w") as f:
-                f.write("(set-logic QF_BV)\n")
-
-        self.solver = (Solver(name=config.solver_name), "")
-        self.subwalker = SubstituteWalker(invalidate_memoization=True)
-        
-        # BMC.__init__(self, hts, config)
+        BMC.__init__(self, hts, config)
 
     def solve_liveness(self, hts, prop, k, k_min=0):
         if self.config.incremental:
@@ -69,9 +55,32 @@ class BMCLiveness(BMC):
         Logger.error("Invalid configuration strategy")
         
         return None
+
+    def _compile_counter(self, prop, k):
+        counter_width = math.ceil(math.log(k)/math.log(2))
+        counter_var = Symbol(KLIVE_COUNT, _BVType(counter_width))
+        one = BV(1, counter_width)
         
+        init = EqualsOrIff(counter_var, BV(0, counter_width))
+        count1 = Implies(Not(prop), EqualsOrIff(TS.get_prime(counter_var), BVAdd(counter_var, one)))
+        count0 = Implies(prop, EqualsOrIff(TS.get_prime(counter_var), counter_var))
+        trans = And(count0, count1)
+
+        return (counter_var, init, trans)
+
+    def _klive_property(self, counter_var, t):
+        klive_prop = BVUGE(counter_var, BV(t, counter_var.symbol_type().width))
+        return self.at_time(klive_prop, t)
+    
     def solve_liveness_inc_fwd(self, hts, prop, k, k_min):
         self._reset_assertions(self.solver)
+
+        if self.config.prove:
+            self._reset_assertions(self.solver_2)
+
+            (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
+
+            self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -138,7 +147,26 @@ class BMCLiveness(BMC):
                 propt = self.at_time(Not(prop), t)
                 
             self._add_assertion(self.solver, propt)
+
+            if self.config.prove:
+                
+                if t > 0:
+                    self._add_assertion(self.solver_2, self.at_time(counter_trans, t))
+                    self._add_assertion(self.solver_2, self.at_time(trans_t, t))
+
+                    klive_prop_t = self._klive_property(counter_var, t)
                     
+                    self._add_assertion(self.solver_2, klive_prop_t)
+
+                    res = self._solve(self.solver_2)
+
+                    if res:
+                        Logger.log("K-Liveness failed with k=%s"%(t), 1)
+                    else:
+                        Logger.log("K-Liveness holds with k=%s"%(t), 1)
+                        Logger.log("", 0, not(Logger.level(1)))
+                        return (t, True)
+            
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
             
@@ -168,10 +196,13 @@ class BMCLiveness(BMC):
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min)
 
         model = self._remap_model(self.hts.vars, model, t)
-        
-        if t > -1:
+
+        if model == True:
+            Logger.log("Property is TRUE", 0)        
+            return True
+        elif t > -1:
             Logger.log("Property is FALSE", 0)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, find_loops=True)
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return False
         else:
             Logger.log("No counterexample found", 0)

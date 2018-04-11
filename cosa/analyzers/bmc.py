@@ -587,7 +587,6 @@ class BMC(object):
 
             if self.config.prove:
                 self._add_assertion(self.solver_2, trans_t)
-                self._add_assertion(self.solver_2, trans_t)
                 self._add_assertion(self.solver_2, self.simple_path(self.hts.vars, t))
 
                 self._push(self.solver_2)

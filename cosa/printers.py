@@ -255,7 +255,7 @@ class TextTracePrinter(TracePrinter):
         trace = []
         prevass = []
 
-        hex_values = True
+        hex_values = False
         
         trace.append("---> INIT <---")
 
