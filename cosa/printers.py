@@ -22,6 +22,7 @@ import datetime
 
 
 NL = "\n"
+VCD_SEP = "-"
 
 # Variables starting with HIDDEN are not printed
 HIDDEN = "_-_"
@@ -313,6 +314,7 @@ class VCDTracePrinter(TracePrinter):
         return ".vcd"
         
     def print_trace(self, hts, model, length, map_function=None):
+        hierarchical = False
         ret = []
         
         ret.append("$date")
@@ -330,15 +332,20 @@ class VCDTracePrinter(TracePrinter):
         idvar = 0
         for el in varlist:
             (varname, width) = el
-            varname = varname.split(SEP)
-            for scope in varname[:-1]:
-                ret.append("$scope module %s $end"%scope)
-                
-            ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname[-1], width-1))
 
-            for scope in range(len(varname)-1):
-                ret.append("$upscope $end")
-            
+            if hierarchical:
+                varname = varname.split(SEP)
+                for scope in varname[:-1]:
+                    ret.append("$scope module %s $end"%scope)
+
+                ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname[-1], width-1))
+
+                for scope in range(len(varname)-1):
+                    ret.append("$upscope $end")
+            else:
+                varname = varname.replace(SEP, VCD_SEP)
+                ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname, width-1))
+                
             idvar += 1
             
         ret.append("$upscope $end")

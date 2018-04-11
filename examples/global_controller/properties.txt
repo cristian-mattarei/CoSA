@@ -1,0 +1,1 @@
+(reset_done = 1_1) -> ((counter_693.reg0.out = 0_32) -> !(next(counter_693.reg0.out = (0_32 - 1_32))))

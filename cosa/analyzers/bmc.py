@@ -184,7 +184,13 @@ class BMC(object):
 
         return And(formula)
     
-    def print_trace(self, hts, model, length, xvars=None, diff_only=True, map_function=None, prefix=None, write_to_file=True):
+    def print_trace(self, hts, model, length, \
+                    xvars=None, \
+                    diff_only=True, \
+                    map_function=None, \
+                    prefix=None, \
+                    write_to_file=True, \
+                    find_loops=False):
         trace = []
         prevass = []
 
@@ -192,6 +198,9 @@ class BMC(object):
             prefix = self.config.prefix
 
         full_trace = self.config.full_trace
+
+        if write_to_file:
+            diff_only = False
         
         if Logger.level(1):
             diff_only = False
@@ -202,7 +211,7 @@ class BMC(object):
         hr_printer.extra_vars = xvars
         hr_printer.diff_only = diff_only
         hr_printer.full_trace = full_trace
-        hr_trace = hr_printer.print_trace(hts, model, length, map_function)
+        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loops)
 
         # VCD format
         if self.config.vcd_trace:
@@ -578,7 +587,6 @@ class BMC(object):
 
             if self.config.prove:
                 self._add_assertion(self.solver_2, trans_t)
-                self._add_assertion(self.solver_2, trans_t)
                 self._add_assertion(self.solver_2, self.simple_path(self.hts.vars, t))
 
                 self._push(self.solver_2)
@@ -721,7 +729,7 @@ class BMC(object):
         elif t > -1:
             Logger.log("Property is FALSE", 0)
             model = self._remap_model(self.hts.vars, model, t)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, diff_only=False)
+            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return False
         else:
             Logger.log("No counterexample found", 0)
