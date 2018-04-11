@@ -27,7 +27,8 @@ from cosa.analyzers.bmc import BMC, BMCConfig, SubstituteWalker, FWD
 
 NL = "\n"
 
-KLIVE_COUNT = HIDDEN+"k_live_count"+HIDDEN
+#KLIVE_COUNT = HIDDEN+"k_live_count"+HIDDEN
+KLIVE_COUNT = "k_live_count"
 
 class BMCLiveness(BMC):
 
@@ -36,7 +37,6 @@ class BMCLiveness(BMC):
 
     TraceID = 0
 
-    smtvars = None
     total_time = 0.0
 
     def __init__(self, hts, config):
@@ -60,10 +60,11 @@ class BMCLiveness(BMC):
         counter_width = math.ceil(math.log(k)/math.log(2))
         counter_var = Symbol(KLIVE_COUNT, _BVType(counter_width))
         one = BV(1, counter_width)
+        zero = BV(0, counter_width)
         
         init = EqualsOrIff(counter_var, BV(0, counter_width))
         count1 = Implies(Not(prop), EqualsOrIff(TS.get_prime(counter_var), BVAdd(counter_var, one)))
-        count0 = Implies(prop, EqualsOrIff(TS.get_prime(counter_var), counter_var))
+        count0 = Implies(prop, EqualsOrIff(TS.get_prime(counter_var), zero))
         trans = And(count0, count1)
 
         return (counter_var, init, trans)
@@ -75,17 +76,25 @@ class BMCLiveness(BMC):
     def solve_liveness_inc_fwd(self, hts, prop, k, k_min):
         self._reset_assertions(self.solver)
 
+        vars = hts.vars
+        
         if self.config.prove:
             self._reset_assertions(self.solver_2)
 
             (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
 
-            self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
+            vars.add(counter_var)
+
+        self._init_at_time(vars, k)
 
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        if self.config.prove:
+            self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
+            self._add_assertion(self.solver_2, self.at_time(And(init, invar), 0))
+            
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
             if Logger.level(1):
@@ -151,11 +160,12 @@ class BMCLiveness(BMC):
             if self.config.prove:
                 
                 if t > 0:
-                    self._add_assertion(self.solver_2, self.at_time(counter_trans, t))
-                    self._add_assertion(self.solver_2, self.at_time(trans_t, t))
+                    self._add_assertion(self.solver_2, self.at_time(counter_trans, t-1))
+                    self._add_assertion(self.solver_2, trans_t)
 
                     klive_prop_t = self._klive_property(counter_var, t)
-                    
+
+                    #self._push(self.solver_2)
                     self._add_assertion(self.solver_2, klive_prop_t)
 
                     res = self._solve(self.solver_2)
@@ -166,6 +176,8 @@ class BMCLiveness(BMC):
                         Logger.log("K-Liveness holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
+                    #self._pop(self.solver_2)
+
             
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
@@ -192,7 +204,6 @@ class BMCLiveness(BMC):
         return loopback
     
     def liveness(self, prop, k, k_min):
-        self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min)
 
         model = self._remap_model(self.hts.vars, model, t)
