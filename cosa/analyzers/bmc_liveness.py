@@ -27,8 +27,7 @@ from cosa.analyzers.bmc import BMC, BMCConfig, SubstituteWalker, FWD
 
 NL = "\n"
 
-#KLIVE_COUNT = HIDDEN+"k_live_count"+HIDDEN
-KLIVE_COUNT = "k_live_count"
+KLIVE_COUNT = HIDDEN+"k_live_count"+HIDDEN
 
 class BMCLiveness(BMC):
 
@@ -165,7 +164,6 @@ class BMCLiveness(BMC):
 
                     klive_prop_t = self._klive_property(counter_var, t)
 
-                    #self._push(self.solver_2)
                     self._add_assertion(self.solver_2, klive_prop_t)
 
                     res = self._solve(self.solver_2)
@@ -176,7 +174,6 @@ class BMCLiveness(BMC):
                         Logger.log("K-Liveness holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
-                    #self._pop(self.solver_2)
 
             
             trans_t = self.unroll(trans, invar, t+1, t)
