@@ -780,7 +780,10 @@ class BMC(object):
         if tracefile is not None:
             with open(tracefile, "a") as f:
                 f.write(line+"\n")
-    
+
+    def _write_smt2_comment(self, solver, line):
+        return self._write_smt2_log(solver, ";; %s"%line)
+                
     def _add_assertion(self, solver, formula, comment=None):
         if not self.config.skip_solving:
             solver.solver.add_assertion(formula)
@@ -793,7 +796,7 @@ class BMC(object):
 
         if solver.trace_file is not None:
             if comment:
-                self._write_smt2_log(solver, ";; %s"%comment)
+                self._write_smt2_comment(solver, comment)
 
             smt2vars = solver.smt2vars
                 

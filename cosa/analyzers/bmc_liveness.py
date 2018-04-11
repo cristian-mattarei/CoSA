@@ -56,10 +56,10 @@ class BMCLiveness(BMC):
         return None
 
     def _compile_counter(self, prop, k):
-        if k == 0:
+        if k <= 1:
             counter_width = 1
         else:
-            counter_width = math.ceil(math.log(k+1)/math.log(2))
+            counter_width = math.ceil(math.log(k)/math.log(2))
         counter_var = Symbol(KLIVE_COUNT, _BVType(counter_width))
         one = BV(1, counter_width)
         zero = BV(0, counter_width)
@@ -127,8 +127,7 @@ class BMCLiveness(BMC):
             self._add_assertion(self.solver, loopback)
 
             if t >= k_min:
-                self._write_smt2_log(self.solver, ";;Solving for k=%s"%(t))
-                
+                self._write_smt2_comment(self.solver, "Solving for k=%s"%(t))
                 Logger.log("\nSolving for k=%s"%(t), 1)
                 res = self._solve(self.solver)
 
@@ -164,6 +163,7 @@ class BMCLiveness(BMC):
 
                     self._add_assertion(self.solver_2, klive_prop_t)
 
+                    self._write_smt2_comment(self.solver_2, "Solving for k=%s"%(t))
                     res = self._solve(self.solver_2)
 
                     if res:
