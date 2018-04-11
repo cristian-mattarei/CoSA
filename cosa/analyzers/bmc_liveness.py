@@ -56,7 +56,10 @@ class BMCLiveness(BMC):
         return None
 
     def _compile_counter(self, prop, k):
-        counter_width = math.ceil(math.log(k)/math.log(2))
+        if k == 0:
+            counter_width = 1
+        else:
+            counter_width = math.ceil(math.log(k+1)/math.log(2))
         counter_var = Symbol(KLIVE_COUNT, _BVType(counter_width))
         one = BV(1, counter_width)
         zero = BV(0, counter_width)
@@ -75,25 +78,19 @@ class BMCLiveness(BMC):
     def solve_liveness_inc_fwd(self, hts, prop, k, k_min):
         self._reset_assertions(self.solver)
 
-        vars = hts.vars
-        
-        if self.config.prove:
-            self._reset_assertions(self.solver_2)
-
-            (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
-
-            vars.add(counter_var)
-
-        self._init_at_time(vars, k)
-
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
         if self.config.prove:
+            self._reset_assertions(self.solver_2)
+            (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
+            self._init_at_time(hts.vars.union(set([counter_var])), k)
             self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
             self._add_assertion(self.solver_2, self.at_time(And(init, invar), 0))
-            
+        else:
+            self._init_at_time(hts.vars, k)
+
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
             if Logger.level(1):
@@ -130,8 +127,9 @@ class BMCLiveness(BMC):
             self._add_assertion(self.solver, loopback)
 
             if t >= k_min:
-                Logger.log("Solving for k=%s"%(t), 1)
-
+                self._write_smt2_log(self.solver, ";;Solving for k=%s"%(t))
+                
+                Logger.log("\nSolving for k=%s"%(t), 1)
                 res = self._solve(self.solver)
 
                 if res:
