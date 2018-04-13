@@ -26,6 +26,9 @@ class ProblemSolver(object):
         bmc_config = self.problem2bmc_config(problem, config)
         bmc = BMC(problem.hts, bmc_config)
         bmc_liveness = BMCLiveness(problem.hts, bmc_config)
+        res = VerificationStatus.UNK
+
+        Logger.log("\n*** Analyzing problem %s ***"%(problem), 1)
         
         if problem.verification == VerificationType.SAFETY:
             count = 0
@@ -42,6 +45,9 @@ class ProblemSolver(object):
                 res, trace = bmc_liveness.liveness(prop, problem.bmc_length, problem.bmc_length_min)
                 problem.status = res
                 problem.trace = trace
+
+        Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
+
                     
     def solve_problems(self, problems, config):
         self.parser = CoreIRParser(problems.model_file, "rtlil", "cgralib","commonlib")

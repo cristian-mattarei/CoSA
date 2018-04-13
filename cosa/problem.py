@@ -114,7 +114,7 @@ class Problem(object):
         self.description = ""
 
     def __repr__(self):
-        return "%s, %s"%(self.model_file, self.description, )
+        return self.name
 
     def set_verification(self, value):
         if value == LIVENESS:
