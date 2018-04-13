@@ -16,7 +16,8 @@ from six.moves import cStringIO
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE
+    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
+    BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat
 
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
@@ -222,6 +223,10 @@ class Modules(object):
     @staticmethod
     def Sge(in0,in1,out):
         return Modules.Bop(BVSge,None,in0,in1,out)
+
+    @staticmethod
+    def Concat(in0,in1,out):
+        return Modules.Bop(BVConcat,None,in0,in1,out)
 
     @staticmethod
     def Zext(in_,out):
@@ -681,6 +686,7 @@ class CoreIRParser(object):
         mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
+        mod_map.append(("concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
         
         mod_map = dict(mod_map)
 
