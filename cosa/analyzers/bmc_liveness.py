@@ -24,6 +24,7 @@ from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
 from cosa.analyzers.bmc import BMC, BMCConfig, SubstituteWalker, FWD
+from cosa.problem import VerificationStatus
 
 NL = "\n"
 
@@ -205,11 +206,11 @@ class BMCLiveness(BMC):
 
         if model == True:
             Logger.log("Property is TRUE", 0)        
-            return True
+            return VerificationStatus.TRUE
         elif t > -1:
             Logger.log("Property is FALSE", 0)
             self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
-            return False
+            return VerificationStatus.FALSE
         else:
             Logger.log("No counterexample found", 0)
-            return True
+            return VerificationStatus.UNK

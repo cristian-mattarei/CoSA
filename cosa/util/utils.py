@@ -14,3 +14,17 @@ def is_number(strnum):
         return True
     except:
         return False
+
+def auto_convert(strval):
+    if (strval.upper() == "TRUE") or (strval.upper() == "YES"):
+        return True
+    if (strval.upper() == "FALSE") or (strval.upper() == "NO"):
+        return False
+    try:
+        return int(strval)
+    except Exception:
+        try:
+            return float(strval)
+        except Exception:
+            return strval
+    

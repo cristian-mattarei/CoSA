@@ -17,6 +17,7 @@ import os
 
 from argparse import RawTextHelpFormatter
 
+from cosa.analyzers.dispatcher import ProblemSolver
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.util.logger import Logger
@@ -24,6 +25,9 @@ from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
+from cosa.problem import Problems
+from cosa.problem import VerificationStatus
+
 from pysmt.shortcuts import TRUE
 
 class Config(object):
@@ -88,7 +92,14 @@ class Config(object):
         self.vcd = False
         self.prove = False
 
-def run(config):
+def run_problems(problems, verbosity):
+    Logger.verbosity = verbosity
+    pbms = Problems()
+    psol = ProblemSolver()
+    pbms.load_problems(problems)
+    psol.solve_problems(pbms)
+        
+def run_verification(config):
     parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
     parser.boolean = config.boolean
     
@@ -155,11 +166,34 @@ def run(config):
         stat.append("  Outputs:\t%s"%(len(hts.outputs)))
         print("\n".join(stat))
 
-    def trace_printed(msg, count):
+                    
+    def trace_printed(msg, hr_trace, vcd_trace):
         vcd_msg = ""
-        if config.vcd:
-            vcd_msg = " and in \"%s-id_%s.vcd\""%(config.prefix, count)
-        Logger.log("%s stored in \"%s-id_%s.txt\"%s"%(msg, config.prefix, count, vcd_msg), 0)
+        if vcd_trace:
+            vcd_msg = " and in \"%s\""%(vcd_trace)
+        Logger.log("%s stored in \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
+        
+    def print_trace(msg, trace, index, prefix):
+        trace_hr, trace_vcd = trace
+
+        hr_trace_file = None
+        vcd_trace_file = None
+        
+        if prefix:
+            if trace_hr:
+                hr_trace_file = "%s-id_%s.txt"%(config.prefix, count)
+                with open(hr_trace_file, "w") as f:
+                    f.write(trace_hr)
+
+            if trace_vcd:
+                vcd_trace_file = "%s-id_%s.vcd"%(config.prefix, count)
+                with open(vcd_trace_file, "w") as f:
+                    f.write(trace_vcd)
+
+            trace_printed(msg, hr_trace_file, vcd_trace_file)
+
+        else:
+            Logger.log(trace_hr, 0)
         
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
@@ -180,21 +214,22 @@ def run(config):
             props = sparser.parse_formulae(config.properties)
         for (strprop, prop, types) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
-            if bmc.simulate(prop, config.bmc_length) and config.prefix:
+            res, trace = bmc.simulate(prop, config.bmc_length)
+            if res == VerificationStatus.TRUE:
                 count += 1
-                trace_printed("Execution", count)
+                print_trace("Execution", trace, count, config.prefix)
         
     if config.safety:
         count = 0
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            if not bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas) and config.prefix:
+            res, trace = bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas)
+            if res == VerificationStatus.FALSE:
                 count += 1
-                trace_printed("Counterexample", count)
-                list_status.append(False)
-            else:
-                list_status.append(True)
+                print_trace("Counterexample", trace, count, config.prefix)
+                
+            list_status.append(res)
                 
         return list_status
 
@@ -203,12 +238,12 @@ def run(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-            if not bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min) and config.prefix:
+            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
+            if res == VerificationStatus.FALSE:
                 count += 1
-                trace_printed("Counterexample", count)
-                list_status.append(False)
-            else:
-                list_status.append(True)
+                print_trace("Counterexample", trace, count, config.prefix)
+                
+            list_status.append(res)
                 
         return list_status
     
@@ -250,13 +285,17 @@ if __name__ == "__main__":
     config = Config()
     
     parser.set_defaults(input_file=None)
-    parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=True,
+    parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
                         help='input file, CoreIR json format.')
     
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC.')
 
+    parser.set_defaults(problems=None)
+    parser.add_argument('--problems', metavar='<problems file>', type=str, required=False,
+                       help='problems file describing the verifications to be performed.')
+    
     parser.set_defaults(safety=False)
     parser.add_argument('--safety', dest='safety', action='store_true',
                        help='safety verification using BMC.')
@@ -363,6 +402,17 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    if args.problems:
+        if args.debug:
+            run_problems(args.problems, args.verbosity)
+            sys.exit(0)
+        else:
+            try:
+                run_problems(args.problems, args.verbosity)
+                sys.exit(0)
+            except Exception as e:
+                Logger.error(str(e))
+
     config.strfile = args.input_file
     config.simulate = args.simulate
     config.safety = args.safety
@@ -441,10 +491,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if args.debug:
-        run(config)
+        run_verification(config)
     else:
         try:
-            run(config)
+            run_verification(config)
         except Exception as e:
             Logger.error(str(e))
         

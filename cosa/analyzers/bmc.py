@@ -9,6 +9,7 @@
 # limitations under the License.
 
 import re
+import copy
 from six.moves import cStringIO
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify
@@ -21,8 +22,7 @@ from cosa.core.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter
-
-import copy
+from cosa.problem import VerificationStatus
 
 NL = "\n"
 
@@ -217,31 +217,34 @@ class BMC(object):
         hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loops)
 
         # VCD format
+        vcd_trace = None
         if self.config.vcd_trace:
             vcd_printer = VCDTracePrinter()
             vcd_trace = vcd_printer.print_trace(hts, model, length, map_function)
 
         vcd_trace_file = None
         hr_trace_file = None
-            
-        BMC.TraceID += 1
-        if (prefix is None) or (not write_to_file):
-            Logger.log(hr_trace, 0)
 
-            if self.config.vcd_trace:
-                vcd_trace_file = "%s-id_%s%s"%("trace", BMC.TraceID, vcd_printer.get_file_ext())
-                with open(vcd_trace_file, "w") as f:
-                    f.write(vcd_trace)
-        else:
-            hr_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, hr_printer.get_file_ext())
-            with open(hr_trace_file, "w") as f:
-                f.write(hr_trace)
-            if self.config.vcd_trace:
-                vcd_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, vcd_printer.get_file_ext())
-                with open(vcd_trace_file, "w") as f:
-                    f.write(vcd_trace)
+        return (hr_trace, vcd_trace)
+        
+        # BMC.TraceID += 1
+        # if (prefix is None) or (not write_to_file):
+        #     Logger.log(hr_trace, 0)
 
-        return (hr_trace_file, vcd_trace_file)
+        #     if self.config.vcd_trace:
+        #         vcd_trace_file = "%s-id_%s%s"%("trace", BMC.TraceID, vcd_printer.get_file_ext())
+        #         with open(vcd_trace_file, "w") as f:
+        #             f.write(vcd_trace)
+        # else:
+        #     hr_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, hr_printer.get_file_ext())
+        #     with open(hr_trace_file, "w") as f:
+        #         f.write(hr_trace)
+        #     if self.config.vcd_trace:
+        #         vcd_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, vcd_printer.get_file_ext())
+        #         with open(vcd_trace_file, "w") as f:
+        #             f.write(vcd_trace)
+
+        # return (hr_trace_file, vcd_trace_file)
         
 
     def equivalence(self, hts2, k, symbolic_init):
@@ -351,11 +354,11 @@ class BMC(object):
         
         if t > -1:
             Logger.log("Execution found", 0)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
-            return True
+            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
+            return (VerificationStatus.TRUE, trace)
         else:
             Logger.log("Deadlock wit k=%s"%k, 0)
-            return False
+            return (VerificationStatus.FALSE, None)
 
     def solve(self, hts, prop, k, k_min=0, lemmas=None):
         if self.config.incremental:
@@ -728,15 +731,15 @@ class BMC(object):
 
         if model == True:
             Logger.log("Property is TRUE", 0)        
-            return True
+            return (VerificationStatus.TRUE, None)
         elif t > -1:
             Logger.log("Property is FALSE", 0)
             model = self._remap_model(self.hts.vars, model, t)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
-            return False
+            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
+            return (VerificationStatus.FALSE, trace)
         else:
             Logger.log("No counterexample found", 0)
-            return True
+            return (VerificationStatus.UNK, None)
 
     def _remap_model(self, vars, model, k):
         if model is None:
