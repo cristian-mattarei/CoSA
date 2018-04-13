@@ -205,12 +205,9 @@ class BMCLiveness(BMC):
         model = self._remap_model(self.hts.vars, model, t)
 
         if model == True:
-            Logger.log("Property is TRUE", 0)        
-            return VerificationStatus.TRUE
+            return (VerificationStatus.TRUE, None)
         elif t > -1:
-            Logger.log("Property is FALSE", 0)
-            self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
-            return VerificationStatus.FALSE
+            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, find_loop=True)
+            return (VerificationStatus.FALSE, trace)
         else:
-            Logger.log("No counterexample found", 0)
-            return VerificationStatus.UNK
+            return (VerificationStatus.UNK, None)

@@ -31,28 +31,17 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             for (strprop, prop, types) in sparser.parse_formulae([problem.formula]):
-                Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
                 res, trace = bmc.safety(prop, problem.bmc_length, problem.bmc_length_min, problem.lemmas)
-                if res == VerificationStatus.FALSE:
-                    count += 1
-                    self.trace_printed("Counterexample", count)
+                problem.status = res
+                problem.trace = trace
 
         if problem.verification == VerificationType.LIVENESS:
             count = 0
             list_status = []
             for (strprop, prop, types) in sparser.parse_formulae([problem.formula]):
-                Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-                if not bmc_liveness.liveness(prop, problem.bmc_length, problem.bmc_length_min):
-                    count += 1
-                    self.trace_printed("Counterexample", count)
-                    
-    def trace_printed(self, msg, count):
-        Logger.log(msg, 1)
-        return
-        vcd_msg = ""
-        if False: #config.vcd:
-            vcd_msg = " and in \"%s-id_%s.vcd\""%(config.prefix, count)
-        Logger.log("%s stored in \"%s-id_%s.txt\"%s"%(msg, config.prefix, count, vcd_msg), 0)
+                res, trace = bmc_liveness.liveness(prop, problem.bmc_length, problem.bmc_length_min)
+                problem.status = res
+                problem.trace = trace
                     
     def solve_problems(self, problems):
         self.parser = CoreIRParser(problems.model_file, "rtlil", "cgralib","commonlib")

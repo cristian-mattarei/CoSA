@@ -193,7 +193,7 @@ class BMC(object):
                     map_function=None, \
                     prefix=None, \
                     write_to_file=True, \
-                    find_loops=False):
+                    find_loop=False):
         trace = []
         prevass = []
 
@@ -214,7 +214,7 @@ class BMC(object):
         hr_printer.extra_vars = xvars
         hr_printer.diff_only = diff_only
         hr_printer.full_trace = full_trace
-        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loops)
+        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loop)
 
         # VCD format
         vcd_trace = None
@@ -730,15 +730,12 @@ class BMC(object):
         (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
 
         if model == True:
-            Logger.log("Property is TRUE", 0)        
             return (VerificationStatus.TRUE, None)
         elif t > -1:
-            Logger.log("Property is FALSE", 0)
             model = self._remap_model(self.hts.vars, model, t)
             trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
             return (VerificationStatus.FALSE, trace)
         else:
-            Logger.log("No counterexample found", 0)
             return (VerificationStatus.UNK, None)
 
     def _remap_model(self, vars, model, k):

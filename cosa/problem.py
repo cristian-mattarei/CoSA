@@ -23,9 +23,9 @@ FORMULA = "formula"
 MODEL_FILE = "model_file"
 
 class VerificationStatus(object):
-    UNK = 0
-    TRUE = 1
-    FALSE = -1
+    UNK = "UNKNOWN"
+    TRUE = "TRUE"
+    FALSE = "FALSE"
 
 class VerificationType(object):
     SAFETY = 0
@@ -108,6 +108,7 @@ class Problem(object):
     
     model_file = None
     name = None
+    trace = None
     
     def __init__(self):
         self.status = VerificationStatus.UNK

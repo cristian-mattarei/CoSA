@@ -1,6 +1,6 @@
 [DEFAULT]
 model_file: examples/counter.json
-bmc_length: 10
+bmc_length: 20
 
 [LIVE-01]
 description: "Counter always reaches 10"
@@ -11,9 +11,9 @@ smt2_tracing: /tmp/test.smt2
 assumptions: self.clr = 0_1
 
 [SAFE-01]
-description: "Counter does not reach 10"
+description: "Counter is alwas less than 10"
 verification: Safety
-formula: self.out != 10_16
+formula: self.out < 10_16
 prove: True
 smt2_tracing: /tmp/test.smt2
 

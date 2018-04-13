@@ -92,12 +92,33 @@ class Config(object):
         self.vcd = False
         self.prove = False
 
-def run_problems(problems, verbosity):
-    Logger.verbosity = verbosity
-    pbms = Problems()
-    psol = ProblemSolver()
-    pbms.load_problems(problems)
-    psol.solve_problems(pbms)
+def trace_printed(msg, hr_trace, vcd_trace):
+    vcd_msg = ""
+    if vcd_trace:
+        vcd_msg = " and in \"%s\""%(vcd_trace)
+    Logger.log("%s stored in \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
+
+def print_trace(msg, trace, index, prefix):
+    trace_hr, trace_vcd = trace
+
+    hr_trace_file = None
+    vcd_trace_file = None
+
+    if prefix:
+        if trace_hr:
+            hr_trace_file = "%s-id_%s.txt"%(prefix, index)
+            with open(hr_trace_file, "w") as f:
+                f.write(trace_hr)
+
+        if trace_vcd:
+            vcd_trace_file = "%s-id_%s.vcd"%(prefix, index)
+            with open(vcd_trace_file, "w") as f:
+                f.write(trace_vcd)
+
+        trace_printed(msg, hr_trace_file, vcd_trace_file)
+
+    else:
+        Logger.log(trace_hr, 0)
         
 def run_verification(config):
     parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
@@ -166,35 +187,6 @@ def run_verification(config):
         stat.append("  Outputs:\t%s"%(len(hts.outputs)))
         print("\n".join(stat))
 
-                    
-    def trace_printed(msg, hr_trace, vcd_trace):
-        vcd_msg = ""
-        if vcd_trace:
-            vcd_msg = " and in \"%s\""%(vcd_trace)
-        Logger.log("%s stored in \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
-        
-    def print_trace(msg, trace, index, prefix):
-        trace_hr, trace_vcd = trace
-
-        hr_trace_file = None
-        vcd_trace_file = None
-        
-        if prefix:
-            if trace_hr:
-                hr_trace_file = "%s-id_%s.txt"%(config.prefix, count)
-                with open(hr_trace_file, "w") as f:
-                    f.write(trace_hr)
-
-            if trace_vcd:
-                vcd_trace_file = "%s-id_%s.vcd"%(config.prefix, count)
-                with open(vcd_trace_file, "w") as f:
-                    f.write(trace_vcd)
-
-            trace_printed(msg, hr_trace_file, vcd_trace_file)
-
-        else:
-            Logger.log(trace_hr, 0)
-        
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
         printer = PrintersFactory.printer_by_name(config.printer)
@@ -225,6 +217,7 @@ def run_verification(config):
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             res, trace = bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas)
+            Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
                 print_trace("Counterexample", trace, count, config.prefix)
@@ -239,6 +232,7 @@ def run_verification(config):
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
             res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
+            Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
                 print_trace("Counterexample", trace, count, config.prefix)
@@ -278,6 +272,22 @@ def run_verification(config):
         bmc.fsm_check()
         
 
+def run_problems(problems, config):
+    Logger.verbosity = config.verbosity
+    pbms = Problems()
+    psol = ProblemSolver()
+    pbms.load_problems(problems)
+    psol.solve_problems(pbms)
+
+    Logger.log("\n*** Summary ***", 0)
+    
+    count = 1
+    for pbm in pbms.problems:
+        Logger.log("\nProblem %s: %s"%(pbm.name, pbm.status), 0)
+        if pbm.status == VerificationStatus.FALSE:
+            print_trace("Counterexample", pbm.trace, count, config.prefix)
+            count += 1
+        
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
@@ -402,17 +412,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    if args.problems:
-        if args.debug:
-            run_problems(args.problems, args.verbosity)
-            sys.exit(0)
-        else:
-            try:
-                run_problems(args.problems, args.verbosity)
-                sys.exit(0)
-            except Exception as e:
-                Logger.error(str(e))
-
     config.strfile = args.input_file
     config.simulate = args.simulate
     config.safety = args.safety
@@ -443,6 +442,17 @@ if __name__ == "__main__":
     
     if len(sys.argv)==1:
         ok = False
+
+    if args.problems:
+        if args.debug:
+            run_problems(args.problems, config)
+            sys.exit(0)
+        else:
+            try:
+                run_problems(args.problems, config)
+                sys.exit(0)
+            except Exception as e:
+                Logger.error(str(e))
         
     if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
         config.printer = args.printer
