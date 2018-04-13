@@ -282,7 +282,8 @@ def run_problems(problems, config):
     Logger.log("\n*** Summary ***", 0)
     
     for pbm in pbms.problems:
-        Logger.log("\nProblem %s (%s): %s"%(pbm.name, pbm.description, pbm.status), 0)
+        unk_k = "" if pbm.status != VerificationStatus.UNK else " (with k=%s)"%pbm.bmc_length
+        Logger.log("\nProblem %s (%s): %s%s"%(pbm.name, pbm.description, pbm.status, unk_k), 0)
         if pbm.status == VerificationStatus.FALSE:
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
         
