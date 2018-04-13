@@ -31,10 +31,9 @@ smt2_tracing: /tmp/test3.smt2
 bmc_length: 20
 
 [SAFE-02]
-description: "Counter does not reach 15"
+description: "Counter does not reach 24"
 verification: Safety
 formula: self.out < 24_16
 prove: True
 smt2_tracing: /tmp/test4.smt2
-
-
+bmc_length: 20

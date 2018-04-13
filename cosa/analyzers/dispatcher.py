@@ -39,12 +39,14 @@ class ProblemSolver(object):
         bmc = BMC(problem.hts, bmc_config)
         bmc_liveness = BMCLiveness(problem.hts, bmc_config)
         res = VerificationStatus.UNK
+        bmc_length = max(problem.bmc_length, config.bmc_length)
+        bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
         
         if problem.verification == VerificationType.SAFETY:
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae([problem.formula])[0]
-            res, trace = bmc.safety(prop, problem.bmc_length, problem.bmc_length_min, lemmas)
+            res, trace = bmc.safety(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
 
@@ -52,7 +54,7 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae([problem.formula])[0]
-            res, trace = bmc_liveness.liveness(prop, problem.bmc_length, problem.bmc_length_min)
+            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min)
             problem.status = res
             problem.trace = trace
 

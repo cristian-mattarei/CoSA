@@ -279,11 +279,13 @@ def run_problems(problems, config):
     pbms.load_problems(problems)
     psol.solve_problems(pbms, config)
 
-    Logger.log("\n*** Summary ***", 0)
+    Logger.log("\n*** SUMMARY ***", 0)
     
     for pbm in pbms.problems:
-        unk_k = "" if pbm.status != VerificationStatus.UNK else " (with k=%s)"%pbm.bmc_length
-        Logger.log("\nProblem %s (%s): %s%s"%(pbm.name, pbm.description, pbm.status, unk_k), 0)
+        unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
+        Logger.log("\n** Problem %s **"%(pbm.name), 0)
+        Logger.log("Description: %s"%(pbm.description), 0)
+        Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
         if pbm.status == VerificationStatus.FALSE:
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
         
