@@ -106,12 +106,12 @@ def print_trace(msg, trace, index, prefix):
 
     if prefix:
         if trace_hr:
-            hr_trace_file = "%s-id_%s.txt"%(prefix, index)
+            hr_trace_file = "%s-%s.txt"%(prefix, index)
             with open(hr_trace_file, "w") as f:
                 f.write(trace_hr)
 
         if trace_vcd:
-            vcd_trace_file = "%s-id_%s.vcd"%(prefix, index)
+            vcd_trace_file = "%s-%s.vcd"%(prefix, index)
             with open(vcd_trace_file, "w") as f:
                 f.write(trace_vcd)
 
@@ -277,16 +277,14 @@ def run_problems(problems, config):
     pbms = Problems()
     psol = ProblemSolver()
     pbms.load_problems(problems)
-    psol.solve_problems(pbms)
+    psol.solve_problems(pbms, config)
 
     Logger.log("\n*** Summary ***", 0)
     
-    count = 1
     for pbm in pbms.problems:
         Logger.log("\nProblem %s: %s"%(pbm.name, pbm.status), 0)
         if pbm.status == VerificationStatus.FALSE:
-            print_trace("Counterexample", pbm.trace, count, config.prefix)
-            count += 1
+            print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
         
 if __name__ == "__main__":
 

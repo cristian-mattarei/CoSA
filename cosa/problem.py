@@ -109,6 +109,8 @@ class Problem(object):
     model_file = None
     name = None
     trace = None
+
+    vcd = False
     
     def __init__(self):
         self.status = VerificationStatus.UNK

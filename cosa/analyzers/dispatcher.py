@@ -20,10 +20,10 @@ class ProblemSolver(object):
     def __init__(self):
         pass
 
-    def solve_problem(self, problem):
+    def solve_problem(self, problem, config):
         sparser = StringParser()
 
-        bmc_config = self.problem2bmc_config(problem)
+        bmc_config = self.problem2bmc_config(problem, config)
         bmc = BMC(problem.hts, bmc_config)
         bmc_liveness = BMCLiveness(problem.hts, bmc_config)
         
@@ -43,7 +43,7 @@ class ProblemSolver(object):
                 problem.status = res
                 problem.trace = trace
                     
-    def solve_problems(self, problems):
+    def solve_problems(self, problems, config):
         self.parser = CoreIRParser(problems.model_file, "rtlil", "cgralib","commonlib")
         Logger.msg("Parsing file \"%s\"... "%(problems.model_file), 0)
         hts = self.parser.parse(False)
@@ -51,9 +51,9 @@ class ProblemSolver(object):
         
         for problem in problems.problems:
             problem.hts = hts
-            self.solve_problem(problem)
+            self.solve_problem(problem, config)
 
-    def problem2bmc_config(self, problem):
+    def problem2bmc_config(self, problem, config):
         bmc_config = BMCConfig()
         
         bmc_config.smt2file = problem.smt2_tracing
@@ -63,7 +63,7 @@ class ProblemSolver(object):
         bmc_config.skip_solving = False
         bmc_config.map_function = self.parser.remap_an2or
         bmc_config.solver_name = "msat"
-        bmc_config.vcd_trace = False #problem.vcd
+        bmc_config.vcd_trace = problem.vcd or config.vcd
         bmc_config.prove = problem.prove
 
         return bmc_config
