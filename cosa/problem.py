@@ -16,6 +16,7 @@ from cosa.util.utils import auto_convert
 from cosa.encoders.formulae import StringParser
 
 DEFAULT = "DEFAULT"
+GENERAL = "GENERAL"
 VERIFICATION = "verification"
 LIVENESS = "liveness"
 SAFETY = "safety"
@@ -35,6 +36,7 @@ class Problems(object):
     problems = None
     model_file = None
     bmc_length = 10
+    abstract_clock = False
 
     def __init__(self):
         self.problems = []
@@ -65,22 +67,16 @@ class Problems(object):
         with open(problems_file, "r") as f:
             config.read_string(u""+f.read())
 
-        default_values = None
-
         for value in config:
-            problem = config[value]
+            problem = dict(config[value])
             if DEFAULT == value:
-                default_values = dict(problem)
-
-                for attr,value in default_values.items():
+                continue
+            if GENERAL == value:
+                for attr,value in problem.items():
                     if hasattr(self, attr):
                         setattr(self, attr, auto_convert(value))
-                    else:
-                        Logger.error("Attribute \"%s\" not found"%attr)
                 continue
-            pbm = copy.copy(default_values)
-            pbm.update(dict(problem))
-            pbm = self.generate_problem(value, pbm)
+            pbm = self.generate_problem(value, problem)
             pbm.name = value
             self.add_problem(pbm)
 
@@ -111,6 +107,7 @@ class Problem(object):
     trace = None
 
     vcd = False
+    skip_solving = False
     
     def __init__(self):
         self.status = VerificationStatus.UNK

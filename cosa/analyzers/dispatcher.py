@@ -46,7 +46,7 @@ class ProblemSolver(object):
     def solve_problems(self, problems, config):
         self.parser = CoreIRParser(problems.model_file, "rtlil", "cgralib","commonlib")
         Logger.msg("Parsing file \"%s\"... "%(problems.model_file), 0)
-        hts = self.parser.parse(False)
+        hts = self.parser.parse(problems.abstract_clock)
         Logger.log("DONE", 0)
         
         for problem in problems.problems:
@@ -60,7 +60,7 @@ class ProblemSolver(object):
         bmc_config.full_trace = problem.full_trace
         bmc_config.prefix = problem.name
         bmc_config.strategy = BMCConfig.get_strategies()[0][0]
-        bmc_config.skip_solving = False
+        bmc_config.skip_solving = problem.skip_solving
         bmc_config.map_function = self.parser.remap_an2or
         bmc_config.solver_name = "msat"
         bmc_config.vcd_trace = problem.vcd or config.vcd

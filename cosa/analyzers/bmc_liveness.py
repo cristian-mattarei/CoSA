@@ -28,7 +28,7 @@ from cosa.problem import VerificationStatus
 
 NL = "\n"
 
-KLIVE_COUNT = HIDDEN+"k_live_count"+HIDDEN
+KLIVE_COUNT = HIDDEN+"klive_id%s"+HIDDEN
 
 class BMCLiveness(BMC):
 
@@ -61,7 +61,15 @@ class BMCLiveness(BMC):
             counter_width = 1
         else:
             counter_width = math.ceil(math.log(k)/math.log(2))
-        counter_var = Symbol(KLIVE_COUNT, _BVType(counter_width))
+
+        idcounter = 0
+        while True:
+            try:
+                counter_var = Symbol((KLIVE_COUNT)%(idcounter), _BVType(counter_width))
+                break
+            except:
+                idcounter +=1
+        
         one = BV(1, counter_width)
         zero = BV(0, counter_width)
         
@@ -83,6 +91,8 @@ class BMCLiveness(BMC):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        counter_var = None
+        
         if self.config.prove:
             self._reset_assertions(self.solver_2)
             (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
