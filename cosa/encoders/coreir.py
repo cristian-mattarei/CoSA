@@ -17,9 +17,10 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
-    BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat
+    BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
+    Array, Select, Store
 
-from pysmt.typing import BOOL, _BVType
+from pysmt.typing import BOOL, _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter
 
 from cosa.core.transition_system import TS, HTS
@@ -545,8 +546,66 @@ class Modules(object):
         ts = TS(set([in_, out]), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
-    
-    
+
+    @staticmethod
+    def Mem(clk, wdata, waddr, wen, rdata, raddr):
+        # VAR: Array BV(waddr.width) BV(wdata.width)
+
+        # INIT: True
+
+        # do_clk = (!clk & clk')
+        # act_read = (rdata' = Select(Array, raddr))
+        # act_write = (Array' = Ite(wen, Store(array, waddr, wdata), Array))
+        # act_trans = act_read & act_write
+        # pas_trans = (rdata' = rdata) & (Array' = Array)
+
+        # TRANS: (do_clk -> act_trans) & (!do_clk -> pas_trans)
+        # INVAR: True
+        # one cycle delay on read and write
+
+        vars_ = [clk, wdata, waddr, wen, rdata, raddr]
+        comment = "Mem (clk, wdata, waddr, wen, rdata, raddr) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
+        Logger.log(comment, 2)
+
+        init = TRUE()
+        trans = TRUE()
+        invar = TRUE()
+
+        memname = SEP.join(rdata.symbol_name().split(SEP)[:-1]) if SEP in rdata.symbol_name() else rdata.symbol_name()
+
+        arr = Symbol(memname + ".array", ArrayType(waddr.symbol_type(), wdata.symbol_type()))
+
+        if clk.symbol_type() == BOOL:
+            clk0 = Not(clk)
+            clk1 = clk
+        else:
+            clk0 = EqualsOrIff(clk, BV(0, 1))
+            clk1 = EqualsOrIff(clk, BV(1, 1))
+
+        if wen.symbol_type() == BOOL:
+            wen1 = wen
+        else:
+            wen1 = EqualsOrIff(wen, BV(1, 1))
+
+        if Modules.abstract_clock:
+            do_clk = TRUE()
+        else:
+            do_clk = And(TS.to_next(clk1), clk0)
+
+        act_read = EqualsOrIff(TS.to_next(rdata), Select(arr, raddr))
+        act_write = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
+        act_trans = And(act_read, act_write)
+        pas_trans = And(EqualsOrIff(TS.to_next(rdata), rdata),
+                        EqualsOrIff(TS.to_next(arr), arr))
+
+        trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
+        trans = simplify(trans)
+        ts = TS([v for v in vars_ if v is not None], init, trans, invar)
+        ts.state_vars = set([arr])
+        ts.comment = comment
+        return ts
+
+
 class CoreIRParser(object):
 
     file = None
@@ -574,6 +633,7 @@ class CoreIRParser(object):
         self.map_an2or = {}
         self.map_or2an = {}
         self.anonimize_names = False
+        self.arrays = False
         
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
@@ -648,6 +708,13 @@ class CoreIRParser(object):
         self.attrnames.append(add_name("init"))
         self.attrnames.append(add_name("low", "lo"))
         self.attrnames.append(add_name("high", "hi"))
+
+        # memory interface
+        self.attrnames.append(add_name("wdata"))
+        self.attrnames.append(add_name("waddr"))
+        self.attrnames.append(add_name("wen"))
+        self.attrnames.append(add_name("rdata"))
+        self.attrnames.append(add_name("raddr"))
             
     def __mod_to_impl(self, inst_type, args):
         mod_map = []
@@ -682,6 +749,7 @@ class CoreIRParser(object):
 
         mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
         mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("mem", (Modules.Mem, [self.CLK, self.WDATA, self.WADDR, self.WEN, self.RDATA, self.RADDR])))
         mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
         mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
@@ -691,7 +759,7 @@ class CoreIRParser(object):
         mod_map = dict(mod_map)
 
         ts = None
-        
+
         if inst_type in mod_map:
             ts = mod_map[inst_type][0](*args(mod_map[inst_type][1]))
 
@@ -770,7 +838,7 @@ class CoreIRParser(object):
                     intface = ", ".join(["%s"%(v) for v in values_dic if values_dic[v] is not None])
                     Logger.error("Module type \"%s\" with interface \"%s\" is not defined"%(inst_type, intface))
                     not_defined_mods.append(inst_type)
-                
+
         for var in interface:
             varname = SELF+SEP+var[0]
             bvvar = self.BVVar(varname, var[1].size)
@@ -799,7 +867,7 @@ class CoreIRParser(object):
 
         eq_conns = []
         eq_vars = set([])
-        
+
         for conn in top_def.connections:
 
             first_selectpath = split_paths(conn.first.selectpath)
