@@ -95,8 +95,8 @@ class HTS(object):
                 if ts.invar is not None:
                     self.invar = And(self.invar, ts.invar)
 
-            if self.assumptions is not None:
-                self.invar = And(self.invar, And(self.assumptions))
+        if self.assumptions is not None:
+            return And(self.invar, And(self.assumptions))
 
         return self.invar
 

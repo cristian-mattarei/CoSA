@@ -21,31 +21,44 @@ class ProblemSolver(object):
         pass
 
     def solve_problem(self, problem, config):
+        Logger.log("\n*** Analyzing problem %s ***"%(problem), 1)
         sparser = StringParser()
 
+        if problem.assumptions is not None:
+            assumps = [t[1] for t in sparser.parse_formulae(problem.assumptions.split(","))]
+            problem.hts.assumptions = assumps
+
+        lemmas = None
+        if problem.lemmas is not None:
+            parsed_formulae = sparser.parse_formulae(problem.lemmas.split(","))
+            if list(set([t[2] for t in parsed_formulae]))[0][0] != False:
+                Logger.error("Lemmas do not support \"next\" operators")
+            lemmas = [t[1] for t in parsed_formulae]
+            
         bmc_config = self.problem2bmc_config(problem, config)
         bmc = BMC(problem.hts, bmc_config)
         bmc_liveness = BMCLiveness(problem.hts, bmc_config)
         res = VerificationStatus.UNK
-
-        Logger.log("\n*** Analyzing problem %s ***"%(problem), 1)
         
         if problem.verification == VerificationType.SAFETY:
             count = 0
             list_status = []
-            for (strprop, prop, types) in sparser.parse_formulae([problem.formula]):
-                res, trace = bmc.safety(prop, problem.bmc_length, problem.bmc_length_min, problem.lemmas)
-                problem.status = res
-                problem.trace = trace
+            (strprop, prop, types) = sparser.parse_formulae([problem.formula])[0]
+            res, trace = bmc.safety(prop, problem.bmc_length, problem.bmc_length_min, lemmas)
+            problem.status = res
+            problem.trace = trace
 
         if problem.verification == VerificationType.LIVENESS:
             count = 0
             list_status = []
-            for (strprop, prop, types) in sparser.parse_formulae([problem.formula]):
-                res, trace = bmc_liveness.liveness(prop, problem.bmc_length, problem.bmc_length_min)
-                problem.status = res
-                problem.trace = trace
+            (strprop, prop, types) = sparser.parse_formulae([problem.formula])[0]
+            res, trace = bmc_liveness.liveness(prop, problem.bmc_length, problem.bmc_length_min)
+            problem.status = res
+            problem.trace = trace
 
+        if problem.assumptions is not None:
+            problem.hts.assumptions = None
+            
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
                     

@@ -444,11 +444,8 @@ class BMC(object):
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 1)
                 (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
                 Logger.log("", 1)
-                if hr_trace or vcd_trace:
-                    vcd_msg = ""
-                    if vcd_trace:
-                        vcd_msg = " and in \"%s\""%(vcd_trace)
-                    Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 1)
+                if hr_trace:
+                    Logger.log("Counterexample: \n%s"%(hr_trace), 1)
                 else:
                     Logger.log("", 1)
             return False
