@@ -14,6 +14,7 @@ import sys
 import coreir
 import argparse
 import os
+import pickle
 
 from argparse import RawTextHelpFormatter
 
@@ -56,6 +57,7 @@ class Config(object):
     synchronous = None
     abstract_clock = False
     skip_solving = False
+    pickle_file = None
     solver_name = None
     vcd = False
     prove = False
@@ -88,6 +90,7 @@ class Config(object):
         self.synchronous = None
         self.abstract_clock = False
         self.skip_solving = False
+        self.pickle_file = None
         self.solver_name = "msat"
         self.vcd = False
         self.prove = False
@@ -121,18 +124,37 @@ def print_trace(msg, trace, index, prefix):
         Logger.log(trace_hr, 0)
         
 def run_verification(config):
-    parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
-    parser.boolean = config.boolean
-    
-    config.parser = parser
     Logger.verbosity = config.verbosity
 
-    if config.run_passes:
-        Logger.log("Running passes:", 0)
-        parser.run_passes()
-    
-    Logger.msg("Parsing file \"%s\"... "%(config.strfile), 0)
-    hts = parser.parse(config.abstract_clock)
+    parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
+
+    if config.strfile[-4:] != ".pkl":
+        parser.boolean = config.boolean
+        config.parser = parser
+
+        if config.run_passes:
+            Logger.log("Running passes:", 0)
+            parser.run_passes()
+
+        Logger.msg("Parsing file \"%s\"... "%(config.strfile), 0)
+        hts = parser.parse(config.abstract_clock)
+
+        if config.pickle_file:
+            Logger.msg("Pickling model to %s\n"%(config.pickle_file), 1)
+            sys.setrecursionlimit(50000)
+            with open(config.pickle_file, "wb") as f:
+                pickle.dump(hts, f)
+                f.close()
+            sys.setrecursionlimit(1000)
+    else:
+        if config.pickle_file:
+            raise RuntimeError("Don't need to re-pickle the input file %s"%(config.strfile))
+
+        Logger.msg("Loading pickle file %s\n"%(config.strfile), 0)
+        f = open(config.strfile, "rb")
+        hts = pickle.load(f)
+        f.close()
+
     Logger.log("DONE", 0)
 
     if config.synchronous:
@@ -402,6 +424,10 @@ if __name__ == "__main__":
     parser.set_defaults(skip_solving=False)
     parser.add_argument('--skip-solving', dest='skip_solving', action='store_true',
                        help='does not call the solver (used with --smt2 parameter).')
+
+    parser.set_defaults(pickle=None)
+    parser.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
+                       help='pickles the transition system to be loaded later.')
     
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
@@ -432,6 +458,7 @@ if __name__ == "__main__":
     config.smt2file = args.smt2
     config.strategy = args.strategy
     config.skip_solving = args.skip_solving
+    config.pickle_file = args.pickle
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
     config.synchronous = args.synchronous
