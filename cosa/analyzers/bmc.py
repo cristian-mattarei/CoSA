@@ -840,7 +840,10 @@ class BMC(object):
         if solver.trace_file is not None:
             solver.smt2vars = set([])
             with open(solver.trace_file, "w") as f:
-                f.write("(set-logic QF_BV)\n")
+                if self.hts.arrays:
+                    f.write("(set-logic QF_ABV)\n")
+                else:
+                    f.write("(set-logic QF_BV)\n")
 
     def _solve(self, solver):
         self._write_smt2_log(solver, "(check-sat)")
