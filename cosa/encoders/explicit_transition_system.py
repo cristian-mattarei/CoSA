@@ -15,6 +15,7 @@ from pysmt.typing import BOOL, _BVType
 from cosa.core.transition_system import TS
 from cosa.util.logger import Logger
 from cosa.printers import HIDDEN
+from cosa.core.transition_system import HTS
 
 import math
 
@@ -57,6 +58,7 @@ STATE_ID = HIDDEN+"state_id"+HIDDEN
 
 class ExplicitTSParser(object):
     parser = None
+    extension = "ets"
 
     def __init__(self):
         self.parser = self.__init_parser()
@@ -176,7 +178,10 @@ class ExplicitTSParser(object):
         ts = TS(set(vars_), init, trans, invar)
         ts.comment = "Additional system"
 
-        return ts
+        hts = HTS("ETS")
+        hts.add_ts(ts)
+        
+        return hts
                 
     def __get_bv_value(self, value):
         if T_US in value:

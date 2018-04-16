@@ -24,16 +24,18 @@ from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.util.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
+from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.problem import Problems
 from cosa.problem import VerificationStatus
+from cosa.core.transition_system import HTS
 
 from pysmt.shortcuts import TRUE
 
 class Config(object):
     parser = None
-    strfile = None
+    strfiles = None
     verbosity = 1
     simulate = False
     bmc_length = 10
@@ -54,7 +56,6 @@ class Config(object):
     smt2file = None
     strategy = None
     boolean = None
-    synchronous = None
     abstract_clock = False
     skip_solving = False
     pickle_file = None
@@ -66,7 +67,7 @@ class Config(object):
         PrintersFactory.init_printers()
 
         self.parser = None
-        self.strfile = None
+        self.strfiles = None
         self.verbosity = 1
         self.simulate = False
         self.bmc_length = 10
@@ -87,7 +88,6 @@ class Config(object):
         self.smt2file = None
         self.strategy = BMCConfig.get_strategies()[0][0]
         self.boolean = False
-        self.synchronous = None
         self.abstract_clock = False
         self.skip_solving = False
         self.pickle_file = None
@@ -126,18 +126,48 @@ def print_trace(msg, trace, index, prefix):
 def run_verification(config):
     Logger.verbosity = config.verbosity
 
-    parser = CoreIRParser(config.strfile, "rtlil", "cgralib","commonlib")
+    coreir_parser = None
+    ets_parser = None
+    sts_parser = None
 
-    if config.strfile[-4:] != ".pkl":
-        parser.boolean = config.boolean
-        config.parser = parser
+    hts = HTS("Top level")
+    
+    if config.strfiles[0][-4:] != ".pkl":
+        for strfile in config.strfiles:
+            Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
+            filetype = strfile.split(".")[-1]
+            if filetype == CoreIRParser.extension:
+                coreir_parser = CoreIRParser(strfile, "rtlil", "cgralib","commonlib")
+                coreir_parser.boolean = config.boolean
+                config.parser = coreir_parser
 
-        if config.run_passes:
-            Logger.log("Running passes:", 0)
-            parser.run_passes()
+                hts_a = coreir_parser.parse(config.abstract_clock)
 
-        Logger.msg("Parsing file \"%s\"... "%(config.strfile), 0)
-        hts = parser.parse(config.abstract_clock)
+                if config.run_passes:
+                    Logger.log("Running passes:", 0)
+                    coreir_parser.run_passes()
+                
+                hts.combine(hts_a)
+                Logger.log("DONE", 0)
+                continue
+
+            if filetype == ExplicitTSParser.extension:
+                ets_parser = ExplicitTSParser()
+                with open(strfile, "r") as f:
+                    hts_a = ets_parser.parse(f.read())
+                    hts.combine(hts_a)
+                    Logger.log("DONE", 0)
+                    continue
+
+            if filetype == SymbolicTSParser.extension:
+                sts_parser = SymbolicTSParser()
+                with open(strfile, "r") as f:
+                    hts_a = sts_parser.parse(f.read())
+                    hts.combine(hts_a)
+                    Logger.log("DONE", 0)
+                    continue
+
+            Logger.error("Filetype \"%s\" unsupported"%filetype)
 
         if config.pickle_file:
             Logger.msg("Pickling model to %s\n"%(config.pickle_file), 1)
@@ -154,21 +184,14 @@ def run_verification(config):
         f = open(config.strfile, "rb")
         hts = pickle.load(f)
         f.close()
+        Logger.log("DONE", 0)
 
-    Logger.log("DONE", 0)
-
-    if config.synchronous:
-        with open(config.synchronous, "r") as f:
-            etsparser = ExplicitTSParser()
-            ats = etsparser.parse(f.read())
-            hts.add_ts(ats)
-    
     printsmv = True
 
     bmc_config = BMCConfig()
 
     sparser = StringParser()
-    sparser.remap_or2an = parser.remap_or2an
+    sparser.remap_or2an = config.parser.remap_or2an
     
     if config.assumptions is not None:
         Logger.log("Adding %d assumptions... "%len(config.assumptions), 1)
@@ -190,7 +213,7 @@ def run_verification(config):
     bmc_config.prefix = config.prefix
     bmc_config.strategy = config.strategy
     bmc_config.skip_solving = config.skip_solving
-    bmc_config.map_function = parser.remap_an2or
+    bmc_config.map_function = config.parser.remap_an2or
     bmc_config.solver_name = config.solver_name
     bmc_config.vcd_trace = config.vcd
     bmc_config.prove = config.prove
@@ -317,9 +340,9 @@ if __name__ == "__main__":
     
     config = Config()
     
-    parser.set_defaults(input_file=None)
-    parser.add_argument('-i', '--input_file', metavar='<JSON file>', type=str, required=False,
-                        help='input file, CoreIR json format.')
+    parser.set_defaults(input_files=None)
+    parser.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
+                        help='comma separated list of input files.')
     
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
@@ -361,10 +384,6 @@ if __name__ == "__main__":
     parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
 
-    parser.set_defaults(synchronous=None)
-    parser.add_argument('--synchronous', metavar='<input file>', type=str, required=False,
-                       help='additional state machine to add in synchronous product.')
-    
     parser.set_defaults(translate=None)
     parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
@@ -439,7 +458,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    config.strfile = args.input_file
+    config.strfiles = args.input_files.split(",")
     config.simulate = args.simulate
     config.safety = args.safety
     config.liveness = args.liveness
@@ -461,15 +480,13 @@ if __name__ == "__main__":
     config.pickle_file = args.pickle
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
-    config.synchronous = args.synchronous
     config.verbosity = args.verbosity
     config.vcd = args.vcd
     config.prove = args.prove
 
-    ok = True
-    
     if len(sys.argv)==1:
-        ok = False
+        parser.print_help()
+        sys.exit(1)
 
     if args.problems:
         if args.debug:
@@ -481,16 +498,17 @@ if __name__ == "__main__":
                 sys.exit(0)
             except Exception as e:
                 Logger.error(str(e))
+
+    if (args.problems is None) and (args.input_files is None):
+        Logger.error("No input files provided")
         
     if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
         config.printer = args.printer
     else:
         Logger.error("Printer \"%s\" not found"%(args.printer))
-        ok = False
 
     if args.strategy not in [s[0] for s in BMCConfig.get_strategies()]:
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
-        ok = False
         
     if not(config.simulate or \
            (config.safety) or \
@@ -499,19 +517,15 @@ if __name__ == "__main__":
            (config.translate is not None) or\
            (config.fsm_check)):
         Logger.error("Analysis selection is necessary")
-        ok = False
 
     if config.safety and (config.properties is None):
         Logger.error("Safety verification requires at least a property")
-        ok = False
 
     if config.safety and (config.properties is None):
         Logger.error("Safety verification requires at least a property")
-        ok = False
         
     if config.liveness and (config.properties is None):
         Logger.error("Liveness verification requires at least a property")
-        ok = False
 
     parsing_defs = [config.properties, config.lemmas, config.assumptions]
     for i in range(len(parsing_defs)):
@@ -523,10 +537,6 @@ if __name__ == "__main__":
                 parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs                
-
-    if not ok:
-        parser.print_help()
-        sys.exit(1)
 
     if args.debug:
         run_verification(config)

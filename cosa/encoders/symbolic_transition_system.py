@@ -15,6 +15,7 @@ from pysmt.typing import BOOL, _BVType
 from cosa.core.transition_system import TS
 from cosa.encoders.formulae import StringParser
 from cosa.util.logger import Logger
+from cosa.core.transition_system import HTS
 
 T_NL = "\n"
 
@@ -64,7 +65,8 @@ P_VARSIZE = "varsize"
 
 class SymbolicTSParser(object):
     parser = None
-
+    extension = "sts"
+    
     def __init__(self):
         self.parser = self.__init_parser()
 
@@ -156,5 +158,8 @@ class SymbolicTSParser(object):
         ts = TS(set(vars_), init, trans, invar)
         ts.comment = "Additional system"
 
-        return ts
+        hts = HTS("STS")
+        hts.add_ts(ts)
+        
+        return hts
                 

@@ -105,6 +105,10 @@ class HTS(object):
 
         return self.invar
 
+    def combine(self, other_hts):
+        for ts in other_hts.tss:
+            self.add_ts(ts)
+    
     def __copy__(self):
         cls = self.__class__
         new_hts = cls.__new__(cls)

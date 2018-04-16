@@ -608,6 +608,8 @@ class Modules(object):
 
 class CoreIRParser(object):
 
+    extension = "json"
+    
     file = None
     context = None
 
