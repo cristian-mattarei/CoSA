@@ -13,6 +13,7 @@ import copy
 from six.moves import cStringIO
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify
+from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 from pysmt.walkers.identitydag import IdentityDagWalker
@@ -802,8 +803,15 @@ class BMC(object):
             for v in formula_fv.difference(smt2vars):
                 if v.symbol_type() == BOOL:
                     self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (v.symbol_name()))
-                else:
+                elif v.symbol_type().is_array_type():
+                    st = v.symbol_type()
+                    assert st.index_type.is_bv_type(), "Expecting BV indices"
+                    assert st.elem_type.is_bv_type(), "Expecting BV elements"
+                    self._write_smt2_log(solver, "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))"%(v.symbol_name(), st.index_type.width, st.elem_type.width))
+                elif v.symbol_type().is_bv_type():
                     self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                else:
+                    raise RuntimeError("Unhandled type in smt2 translation")
 
             self._write_smt2_log(solver, "")
             solver.smt2vars = formula_fv.union(smt2vars)

@@ -553,7 +553,7 @@ class Modules(object):
     def Mem(clk, wdata, waddr, wen, rdata, raddr):
         # VAR: Array BV(waddr.width) BV(wdata.width)
 
-        # INIT: True
+        # INIT: True (doesn't handle initial value yet)
 
         # do_clk = (!clk & clk')
         # act_read = (rdata' = Select(Array, raddr))
@@ -576,6 +576,7 @@ class Modules(object):
         memname = SEP.join(rdata.symbol_name().split(SEP)[:-1]) if SEP in rdata.symbol_name() else rdata.symbol_name()
 
         arr = Symbol(memname + ".array", ArrayType(waddr.symbol_type(), wdata.symbol_type()))
+        vars_.append(arr)
 
         if clk.symbol_type() == BOOL:
             clk0 = Not(clk)
