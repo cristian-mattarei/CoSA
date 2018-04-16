@@ -163,3 +163,8 @@ class SymbolicTSParser(object):
         
         return hts
                 
+    def remap_an2or(self, name):
+        return name
+
+    def remap_or2an(self, name):
+        return name

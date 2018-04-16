@@ -605,7 +605,6 @@ class Modules(object):
         ts.comment = comment
         return ts
 
-
 class CoreIRParser(object):
 
     extension = "json"

@@ -153,6 +153,8 @@ def run_verification(config):
 
             if filetype == ExplicitTSParser.extension:
                 ets_parser = ExplicitTSParser()
+                if not config.parser:
+                    config.parser = ets_parser
                 with open(strfile, "r") as f:
                     hts_a = ets_parser.parse(f.read())
                     hts.combine(hts_a)
@@ -161,6 +163,8 @@ def run_verification(config):
 
             if filetype == SymbolicTSParser.extension:
                 sts_parser = SymbolicTSParser()
+                if not config.parser:
+                    config.parser = sts_parser
                 with open(strfile, "r") as f:
                     hts_a = sts_parser.parse(f.read())
                     hts.combine(hts_a)
