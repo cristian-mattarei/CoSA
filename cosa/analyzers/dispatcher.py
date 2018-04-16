@@ -65,9 +65,9 @@ class ProblemSolver(object):
 
                     
     def solve_problems(self, problems, config):
-        self.parser = CoreIRParser(problems.model_file, "rtlil", "cgralib","commonlib")
+        self.parser = CoreIRParser(problems.abstract_clock, "rtlil", "cgralib","commonlib")
         Logger.msg("Parsing file \"%s\"... "%(problems.model_file), 0)
-        hts = self.parser.parse(problems.abstract_clock)
+        hts = self.parser.parse_file(problems.model_file)
         Logger.log("DONE", 0)
         
         for problem in problems.problems:

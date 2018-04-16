@@ -27,6 +27,8 @@ from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
 from cosa.util.logger import Logger
 
+from cosa.encoders.model import ModelParser
+
 SELF = "self"
 INIT = "init"
 
@@ -605,11 +607,10 @@ class Modules(object):
         ts.comment = comment
         return ts
 
-class CoreIRParser(object):
-
+class CoreIRParser(ModelParser):
     extension = "json"
     
-    file = None
+    abstract_clock = None
     context = None
 
     attrnames = None
@@ -620,13 +621,13 @@ class CoreIRParser(object):
     map_or2an = None
     idvars = 0
     
-    def __init__(self, file, *libs):
+    def __init__(self, abstract_clock, *libs):
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
 
-        self.file = file
-
+        self.abstract_clock = abstract_clock
+            
         self.__init_attrnames()
 
         self.boolean = False
@@ -635,6 +636,10 @@ class CoreIRParser(object):
         self.map_or2an = {}
         self.anonimize_names = False
         self.arrays = False
+
+    @staticmethod        
+    def get_extension():
+        return CoreIRParser.extension
         
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
@@ -769,11 +774,11 @@ class CoreIRParser(object):
             
         return ts
     
-    def parse(self, abstract_clock=False):
+    def parse_file(self, strfile):
         Logger.msg("Reading CoreIR system... ", 1)
-        top_module = self.context.load_from_file(self.file)
+        top_module = self.context.load_from_file(strfile)
 
-        Modules.abstract_clock = abstract_clock
+        Modules.abstract_clock = self.abstract_clock
         
         top_def = top_module.definition
         interface = list(top_module.type.items())

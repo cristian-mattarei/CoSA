@@ -134,42 +134,30 @@ def run_verification(config):
     
     if config.strfiles[0][-4:] != ".pkl":
         for strfile in config.strfiles:
-            Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
             filetype = strfile.split(".")[-1]
-            if filetype == CoreIRParser.extension:
-                coreir_parser = CoreIRParser(strfile, "rtlil", "cgralib","commonlib")
-                coreir_parser.boolean = config.boolean
-                config.parser = coreir_parser
+            parser = None
+            
+            if filetype == CoreIRParser.get_extension():
+                parser = CoreIRParser(config.abstract_clock, "rtlil", "cgralib","commonlib")
+                parser.boolean = config.boolean
+                config.parser = parser
 
-                hts_a = coreir_parser.parse(config.abstract_clock)
+            if filetype == ExplicitTSParser.get_extension():
+                parser = ExplicitTSParser()
+                if not config.parser:
+                    config.parser = parser
 
-                if config.run_passes:
-                    Logger.log("Running passes:", 0)
-                    coreir_parser.run_passes()
-                
+            if filetype == SymbolicTSParser.get_extension():
+                parser = SymbolicTSParser()
+                if not config.parser:
+                    config.parser = parser
+
+            if parser is not None:
+                Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
+                hts_a = parser.parse_file(strfile)
                 hts.combine(hts_a)
                 Logger.log("DONE", 0)
                 continue
-
-            if filetype == ExplicitTSParser.extension:
-                ets_parser = ExplicitTSParser()
-                if not config.parser:
-                    config.parser = ets_parser
-                with open(strfile, "r") as f:
-                    hts_a = ets_parser.parse(f.read())
-                    hts.combine(hts_a)
-                    Logger.log("DONE", 0)
-                    continue
-
-            if filetype == SymbolicTSParser.extension:
-                sts_parser = SymbolicTSParser()
-                if not config.parser:
-                    config.parser = sts_parser
-                with open(strfile, "r") as f:
-                    hts_a = sts_parser.parse(f.read())
-                    hts.combine(hts_a)
-                    Logger.log("DONE", 0)
-                    continue
 
             Logger.error("Filetype \"%s\" unsupported"%filetype)
 
@@ -291,14 +279,14 @@ def run_verification(config):
         return list_status
     
     if config.equivalence:
-        parser2 = CoreIRParser(config.equivalence)
+        parser2 = CoreIRParser(config.abstract_clock)
         
         if config.run_passes:
             Logger.log("Running passes:", 0)
             parser2.run_passes()
         
         Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
-        hts2 = parser2.parse(config.abstract_clock)
+        hts2 = parser2.parse_file(config.equivalence)
         Logger.log("DONE", 0)
 
         symb = " (symbolic init)" if config.symbolic_init else ""

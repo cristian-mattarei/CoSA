@@ -70,7 +70,11 @@ class SymbolicTSParser(object):
     def __init__(self):
         self.parser = self.__init_parser()
 
-    def parse(self, strinput):
+    def parse_file(self, strfile):
+        with open(strfile, "r") as f:
+            return self.parse_string(f.read())
+        
+    def parse_string(self, strinput):
         lines = []
         pstring = self.parser.parseString(strinput, parseAll=True)
 
@@ -168,3 +172,11 @@ class SymbolicTSParser(object):
 
     def remap_or2an(self, name):
         return name
+
+    def get_extension(self):
+        return self.extension
+
+    @staticmethod        
+    def get_extension():
+        return SymbolicTSParser.extension
+    

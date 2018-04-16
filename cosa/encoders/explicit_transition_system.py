@@ -63,7 +63,11 @@ class ExplicitTSParser(object):
     def __init__(self):
         self.parser = self.__init_parser()
 
-    def parse(self, strinput):
+    def parse_file(self, strfile):
+        with open(strfile, "r") as f:
+            return self.parse_string(f.read())
+        
+    def parse_string(self, strinput):
         lines = []
         for line in strinput.split(T_NL):
             pline = self.parser.parseString(line, parseAll=True)
@@ -198,3 +202,8 @@ class ExplicitTSParser(object):
 
     def remap_or2an(self, name):
         return name
+
+    @staticmethod        
+    def get_extension():
+        return ExplicitTSParser.extension
+    
