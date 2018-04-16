@@ -33,6 +33,8 @@ T_LTE = "<="
 T_NEQ = "!="
 T_SP = " "
 T_IMPL = "->"
+T_BOOLSYM = "|&"
+T_ITE = "?:"
 
 T_OP = "("
 T_CP = ")"
@@ -116,7 +118,7 @@ class SymbolicTSParser(object):
         vardef = varname + Literal(T_CL) + vartypedef + Literal(T_SC)
         vardefs = (Literal(T_VAR) + (OneOrMore(vardef)(P_VARDEFS)))(P_VARS)
         
-        operators = T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL
+        operators = T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
         formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+operators) + Literal(T_SC))(P_FORMULA)
         
         inits = (Literal(T_INIT) + (OneOrMore(formula))(P_FORMULAE))(P_INIT)
