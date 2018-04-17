@@ -555,14 +555,14 @@ class Modules(object):
 
         # INIT: True (doesn't handle initial value yet)
 
+        # INVAR: (rdata = Select(Array, raddr))
+
         # do_clk = (!clk & clk')
-        # act_read = (rdata' = Select(Array, raddr))
-        # act_write = (Array' = Ite(wen, Store(array, waddr, wdata), Array))
-        # act_trans = act_read & act_write
-        # pas_trans = (rdata' = rdata) & (Array' = Array)
+        # act_trans = (Array' = Ite(wen, Store(array, waddr, wdata), Array))
+        # pas_trans = (Array' = Array)
 
         # TRANS: (do_clk -> act_trans) & (!do_clk -> pas_trans)
-        # INVAR: True
+        # INVAR: (rdata = Select(array, raddr))
         # one cycle delay on read and write
 
         vars_ = [clk, wdata, waddr, wen, rdata, raddr]
@@ -595,11 +595,10 @@ class Modules(object):
         else:
             do_clk = And(TS.to_next(clk1), clk0)
 
-        act_read = EqualsOrIff(TS.to_next(rdata), Select(arr, raddr))
-        act_write = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
-        act_trans = And(act_read, act_write)
-        pas_trans = And(EqualsOrIff(TS.to_next(rdata), rdata),
-                        EqualsOrIff(TS.to_next(arr), arr))
+        invar = EqualsOrIff(rdata, Select(arr, raddr))
+
+        act_trans = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
+        pas_trans = EqualsOrIff(TS.to_next(arr), arr)
 
         trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
         trans = simplify(trans)
