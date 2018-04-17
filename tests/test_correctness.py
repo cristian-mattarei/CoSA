@@ -10,7 +10,7 @@
 
 import os
 
-from CoSA import Config, run
+from CoSA import Config, run_verification
 
 abspath = os.path.abspath(__file__)
 path = ("/".join(abspath.split("/")[:-1]))
@@ -19,14 +19,14 @@ testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
 def runtest(example):
     config = Config()
 
-    config.strfile = "%s/model.json"%example
+    config.strfiles = ["%s/model.json"%example]
     config.safety = True
     config.verbosity = 1
     config.solver_name = "z3"
     with open("%s/properties.txt"%example, "r") as f:
         config.properties = [a.strip() for a in f.read().strip().split("\n")]
     
-    list_status = list(set(run(config)))
+    list_status = list(set(run_verification(config)))
 
     return len(list_status) == 1 and list_status[0] == True
     
