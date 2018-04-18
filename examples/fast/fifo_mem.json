@@ -3,6 +3,8 @@
   "global":{
     "modules":{
       "fifo_mem":{
+        "genref":"global.fifo_mem",
+        "genargs":{"depth":["Int",8], "width":["Int",8]},
         "type":["Record",[
           ["clk",["Named","coreir.clkIn"]],
           ["rst","BitIn"],
@@ -109,6 +111,7 @@
           ["one.out","rdPtrp1.in0"],
           ["one.out","wrPtrp1.in0"],
           ["rdPtr.clk","self.clk"],
+          ["rdPtr.in","rdPtrRst.out"],
           ["rdPtr.out","rdPtrEn.in0"],
           ["rdPtr.out","rdPtrSlice.in"],
           ["rdPtr.out","rdPtrp1.in1"],
@@ -121,6 +124,7 @@
           ["self.full","fullCalc.out.0"],
           ["self.push","wrPtrEn.sel"],
           ["self.rst","wrPtrRst.sel"],
+          ["wrPtr.in","wrPtrRst.out"],
           ["wrPtr.out","wrPtrEn.in0"],
           ["wrPtr.out","wrPtrSlice.in"],
           ["wrPtr.out","wrPtrp1.in1"],
