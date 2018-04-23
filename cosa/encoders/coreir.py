@@ -35,6 +35,9 @@ INIT = "init"
 SEP = "."
 CSEP = "$"
 
+# control if encoding is functional
+functional = False
+
 def B2BV(var):
     return Ite(var, BV(1,1), BV(0,1))
     
@@ -315,13 +318,19 @@ class Modules(object):
     @staticmethod
     def Reg(in_, clk, clr, rst, arst, out, initval, clk_posedge, arst_posedge):
         # INIT: out = initval
-        
-        # inr = Ite(clr, 0, Ite(rst, initval, in))
+
         # do_arst = Ite(arst_posedge, (!arst & arst'), (arst & !arst'))
         # do_clk = Ite(clk_posedge, (!clk & clk'), (clk & !clk'))
+        # inr = Ite(clr, 0, Ite(rst, initval, in))
+
+        # if functional
+        # TRANS: out' = Ite(do_clk, Ite(clr, 0, Ite(rst, initval, in)), Ite(rst, initval, in))
+        # INVAR: True
+        # trans gives priority to clr signal over rst
+
+        # else
         # act_trans = (out' = inr)
         # pas_trans = (out' = out)
-        
         # TRANS: (!do_arst -> ((do_clk -> act_trans) & (!do_clk -> pas_trans))) & (do_arst -> (out' = initval))
         # INVAR: True
         # trans gives priority to clr signal over rst
@@ -333,7 +342,7 @@ class Modules(object):
         init = TRUE()
         trans = TRUE()
         invar = TRUE()
-            
+
         initvar = None
         basename = SEP.join(out.symbol_name().split(SEP)[:-1]) if SEP in out.symbol_name() else out.symbol_name()
         initname = basename+SEP+INIT
@@ -426,9 +435,15 @@ class Modules(object):
         ndo_clk = Not(do_clk)
         act_trans = EqualsOrIff(inr, TS.get_prime(out))
         pas_trans = EqualsOrIff(out, TS.get_prime(out))
-        
-        trans = And(trans, And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
-                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar))))
+
+        if functional:
+            f_outr = Ite(rst1, initvar, out)
+            f_inr = Ite(rst1, initvar, in_)
+            f_clr_rst = Ite(clr1, out0, f_inr)
+            trans = And(trans, EqualsOrIff(TS.get_prime(out), Ite(do_clk, f_clr_rst, f_outr)))
+        else:
+            trans = And(trans, And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
+                                   Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar))))
         
         trans = simplify(trans)
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)
@@ -438,6 +453,9 @@ class Modules(object):
 
     @staticmethod
     def Mux(in0, in1, sel, out):
+        # if functional
+        # INVAR: out' = Ite(sel = 0, in0, in1)
+        # else
         # INVAR: ((sel = 0) -> (out = in0)) & ((sel = 1) -> (out = in1))
         vars_ = [in0,in1,sel,out]
         comment = "Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
@@ -449,8 +467,12 @@ class Modules(object):
         else:            
             sel0 = EqualsOrIff(sel, BV(0, 1))
             sel1 = EqualsOrIff(sel, BV(1, 1))
-            
-        invar = And(Implies(sel0, EqualsOrIff(in0, out)), Implies(sel1, EqualsOrIff(in1, out)))
+
+        if functional:
+            invar = And(EqualsOrIff(out, Ite(sel0, in0, in1)))
+        else:
+            invar = And(Implies(sel0, EqualsOrIff(in0, out)), Implies(sel1, EqualsOrIff(in1, out)))
+
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
