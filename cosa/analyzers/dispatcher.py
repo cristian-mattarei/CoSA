@@ -46,7 +46,7 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae([problem.formula])[0]
-            res, trace = bmc.safety(prop, bmc_length, bmc_length_min, lemmas)
+            res, trace, _ = bmc.safety(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
 
