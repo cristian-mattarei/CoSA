@@ -36,7 +36,7 @@ SEP = "."
 CSEP = "$"
 
 # control if encoding is functional
-functional = False
+functional = True
 
 def B2BV(var):
     return Ite(var, BV(1,1), BV(0,1))
@@ -842,7 +842,7 @@ class CoreIRParser(ModelParser):
                         xval = 1 if xval else 0
                     else:
                         if type(xval) != int:
-                            xval = xval.unsigned_value
+                            xval = xval.val
 
                     values_dic[x] = xval
 

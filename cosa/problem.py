@@ -20,6 +20,7 @@ GENERAL = "GENERAL"
 VERIFICATION = "verification"
 LIVENESS = "liveness"
 SAFETY = "safety"
+EQUIVALENCE = "equivalence"
 FORMULA = "formula"
 MODEL_FILE = "model_file"
 
@@ -31,6 +32,7 @@ class VerificationStatus(object):
 class VerificationType(object):
     SAFETY = 0
     LIVENESS = 1
+    EQUIVALENCE = 2
 
 class Problems(object):
     problems = None
@@ -101,6 +103,7 @@ class Problem(object):
     bmc_length = 10
     bmc_length_min = 0
     full_trace = True
+    equivalence = None
     
     model_file = None
     name = None
@@ -123,6 +126,10 @@ class Problem(object):
 
         if value == SAFETY:
             self.verification = VerificationType.SAFETY
+            return
+
+        if value == EQUIVALENCE:
+            self.verification = VerificationType.EQUIVALENCE
             return
 
         Logger.error("Unknown verification type \"%s\""%value)
