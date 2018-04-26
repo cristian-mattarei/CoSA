@@ -108,6 +108,11 @@ class HTS(object):
     def combine(self, other_hts):
         for ts in other_hts.tss:
             self.add_ts(ts)
+
+        self.inputs = set(other_hts.inputs.union(self.inputs))
+        self.outputs = set(other_hts.outputs.union(self.outputs))
+
+
     
     def __copy__(self):
         cls = self.__class__
