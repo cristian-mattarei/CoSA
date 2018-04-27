@@ -112,7 +112,6 @@ class HTS(object):
         self.inputs = set(other_hts.inputs.union(self.inputs))
         self.outputs = set(other_hts.outputs.union(self.outputs))
         self.vars = set(other_hts.vars.union(self.vars))
-
     
     def __copy__(self):
         cls = self.__class__
@@ -121,6 +120,15 @@ class HTS(object):
         new_hts.tss = list(new_hts.tss)
         new_hts.sub = list(new_hts.sub)
         return new_hts
+
+    def print_statistics(self, name=None):
+        stat = []
+        stat.append("Statistics (%s):"%(self.name if name is None else name))
+        stat.append("  Variables:\t%s"%(len(self.vars)))
+        stat.append("  StateVars:\t%s"%(len(self.state_vars)))
+        stat.append("  Inputs:\t%s"%(len(self.inputs)))
+        stat.append("  Outputs:\t%s"%(len(self.outputs)))
+        return "\n".join(stat)
     
 class TS(object):
 

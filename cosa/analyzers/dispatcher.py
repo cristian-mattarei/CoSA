@@ -20,6 +20,8 @@ from cosa.problem import VerificationStatus
 from cosa.encoders.miter import combined_system
 
 class ProblemSolver(object):
+    parser = None
+    
     def __init__(self):
         pass
 
@@ -73,9 +75,9 @@ class ProblemSolver(object):
             problem.trace = trace
 
         if problem.verification == VerificationType.EQUIVALENCE:
-            parser2 = CoreIRParser(config.abstract_clock)
             if problem.equivalence:
-                problem.hts2 = parser2.parse_file(problem.equivalence)
+                problem.hts2 = self.parse_json(problem.equivalence, config.abstract_clock, "System 2")
+
             htseq, miter_out = combined_system(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
@@ -90,24 +92,26 @@ class ProblemSolver(object):
             
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
+    def parse_json(self, json_file, abstract_clock=False, name=None):
+        parser = CoreIRParser(abstract_clock, "rtlil", "cgralib","commonlib")
+        if self.parser is None:
+            self.parser = parser
+        
+        Logger.msg("Parsing file \"%s\"... "%(json_file), 0)
+        hts = parser.parse_file(json_file)
+        Logger.log("DONE", 0)
+        if Logger.level(1):
+            print(hts.print_statistics(name))
+
+        return hts
+        
     def solve_problems(self, problems, config):
         hts = None
         hts2 = None
-        
-        self.parser = CoreIRParser(problems.abstract_clock, "rtlil", "cgralib","commonlib")
-        Logger.msg("Parsing file \"%s\"... "%(problems.model_file), 0)
-        hts = self.parser.parse_file(problems.model_file)
-        Logger.log("DONE", 0)
-
-        if Logger.level(1):
-            print(hts.print_statistics("System 1"))
+        hts = self.parse_json(problems.model_file, problems.abstract_clock, "System 1")
         
         if problems.equivalence is not None:
-            Logger.msg("Parsing file \"%s\"... "%(problems.equivalence), 0)
-            hts2 = self.parser.parse_file(problems.equivalence)
-            Logger.log("DONE", 0)
-            if Logger.level(1):
-                print(hts2.print_statistics("System 2"))
+            hts2 = self.parse_json(problems.equivalence, problems.abstract_clock, "System 2")
         
         for problem in problems.problems:
             problem.hts = hts
