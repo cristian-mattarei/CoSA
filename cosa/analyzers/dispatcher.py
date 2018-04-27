@@ -77,7 +77,7 @@ class ProblemSolver(object):
             hts2 = parser2.parse_file(problem.equivalence)
             htseq, miter_out = combined_system(problem.hts, hts2, problem.bmc_length, problem.symbolic_init, True)
             if bmc_config.assumptions is not None:
-                assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions.split(","))]
+                assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
                 htseq.assumptions = assumps
             bmcseq = BMC(htseq, bmc_config)
             res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)

@@ -157,6 +157,7 @@ def run_verification(config):
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
                 hts_a = parser.parse_file(strfile)
                 hts.combine(hts_a)
+
                 Logger.log("DONE", 0)
                 continue
 
@@ -318,6 +319,12 @@ def run_verification(config):
         if res == VerificationStatus.FALSE:
             Logger.log("Systems are not equivalent", 0)
             print_trace("Counterexample", trace, 1, config.prefix)
+        elif res == VerificationStatus.UNKNOWN:
+            if config.symbolic_init:
+                # strong equivalence with symbolic initial state
+                Logger.log("Systems are equivalent.", 0)
+            else:
+                Logger.log("Systems are sequentially equivalent up to k=%i"%t, 0)
         else:
             Logger.log("Systems are equivalent at k=%i"%t, 0)
 
