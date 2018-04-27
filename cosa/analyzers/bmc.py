@@ -860,7 +860,7 @@ class BMC(object):
 
         if Logger.level(1):
             self.total_time += Logger.stop_timer(timer)
-            Logger.log("Total time: %.2f sec"%self.total_time, 1)
+            Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
 
         return r
 

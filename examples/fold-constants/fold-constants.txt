@@ -3,12 +3,11 @@ model_file: examples/fold-constants/mpe.json
 equivalence: examples/fold-constants/mpe_fc.json
 
 [DEFAULT]
-bmc_length: 5
+bmc_length: 15
 
 [Sequential Equivalence Checking]
 description: "Sequential Equivalence Checking of constant folded design against original"
 verification: equivalence
-#equivalence: examples/fold-constants/mpe_fc.json
 prove: True
 
 [Inductive Proof of Folded Constants Values]
@@ -20,7 +19,6 @@ formula: examples/fold-constants/mpe_fc_prop.txt
 [Assisted Equivalence Check]
 description: "Use the collateral from CoreIR to help the equivalence check go through"
 verification: equivalence
-#equivalence: examples/fold-constants/mpe_fc.json
 symbolic_init: True
 assumptions: examples/fold-constants/mpe_fc_assump.txt
 prove: True

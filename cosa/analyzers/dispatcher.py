@@ -54,7 +54,7 @@ class ProblemSolver(object):
 
         [bmc_config.properties, bmc_config.lemmas, bmc_config.assumptions] = parsing_defs
 
-        if bmc_config.assumptions is not None and problem.equivalence is None:
+        if bmc_config.assumptions is not None and problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
             problem.hts.assumptions = assumps
 
