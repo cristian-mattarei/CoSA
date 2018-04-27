@@ -81,6 +81,8 @@ class ProblemSolver(object):
                 htseq.assumptions = assumps
             bmcseq = BMC(htseq, bmc_config)
             res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)
+            problem.status = res
+            problem.trace = trace
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
