@@ -111,7 +111,7 @@ class HTS(object):
 
         self.inputs = set(other_hts.inputs.union(self.inputs))
         self.outputs = set(other_hts.outputs.union(self.outputs))
-
+        self.vars = set(other_hts.vars.union(self.vars))
 
     
     def __copy__(self):

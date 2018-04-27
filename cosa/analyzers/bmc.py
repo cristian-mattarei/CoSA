@@ -536,6 +536,10 @@ class BMC(object):
         Logger.log("Add init and invar", 2)
         self._add_assertion(self.solver, formula)
 
+        if self.config.prove:
+            # add invariants at time 0, but not init
+            self._add_assertion(self.solver_2, self.at_time(invar, 0))
+
         next_prop = TS.has_next(prop)
         if next_prop:
             if k < 1:
