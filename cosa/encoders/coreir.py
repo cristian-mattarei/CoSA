@@ -842,7 +842,7 @@ class CoreIRParser(ModelParser):
                         xval = 1 if xval else 0
                     else:
                         if type(xval) != int:
-                            xval = xval.val
+                            xval = xval.unsigned_value
 
                     values_dic[x] = xval
 
