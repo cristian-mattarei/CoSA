@@ -74,8 +74,9 @@ class ProblemSolver(object):
 
         if problem.verification == VerificationType.EQUIVALENCE:
             parser2 = CoreIRParser(config.abstract_clock)
-            hts2 = parser2.parse_file(problem.equivalence)
-            htseq, miter_out = combined_system(problem.hts, hts2, problem.bmc_length, problem.symbolic_init, True)
+            if problem.equivalence:
+                problem.hts2 = parser2.parse_file(problem.equivalence)
+            htseq, miter_out = combined_system(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
                 htseq.assumptions = assumps
@@ -89,15 +90,28 @@ class ProblemSolver(object):
             
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
-                    
     def solve_problems(self, problems, config):
+        hts = None
+        hts2 = None
+        
         self.parser = CoreIRParser(problems.abstract_clock, "rtlil", "cgralib","commonlib")
         Logger.msg("Parsing file \"%s\"... "%(problems.model_file), 0)
         hts = self.parser.parse_file(problems.model_file)
         Logger.log("DONE", 0)
+
+        if Logger.level(1):
+            print(hts.print_statistics("System 1"))
+        
+        if problems.equivalence is not None:
+            Logger.msg("Parsing file \"%s\"... "%(problems.equivalence), 0)
+            hts2 = self.parser.parse_file(problems.equivalence)
+            Logger.log("DONE", 0)
+            if Logger.level(1):
+                print(hts2.print_statistics("System 2"))
         
         for problem in problems.problems:
             problem.hts = hts
+            problem.hts2 = hts2
             self.solve_problem(problem, config)
 
     def problem2bmc_config(self, problem, config):

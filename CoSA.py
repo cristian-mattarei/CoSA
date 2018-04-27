@@ -34,6 +34,7 @@ from cosa.core.transition_system import HTS
 
 from pysmt.shortcuts import TRUE
 
+
 class Config(object):
     parser = None
     strfiles = None
@@ -219,13 +220,7 @@ def run_verification(config):
         bmc = BMC(hts, bmc_config)
 
     if Logger.level(1):
-        stat = []
-        stat.append("Statistics (System 1):")
-        stat.append("  Variables:\t%s"%(len(hts.vars)))
-        stat.append("  StateVars:\t%s"%(len(hts.state_vars)))
-        stat.append("  Inputs:\t%s"%(len(hts.inputs)))
-        stat.append("  Outputs:\t%s"%(len(hts.outputs)))
-        print("\n".join(stat))
+        print(hts.print_statistics("System 1"))
 
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
@@ -296,13 +291,7 @@ def run_verification(config):
         Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
 
         if Logger.level(1):
-            stat = []
-            stat.append("Statistics (System 2):")
-            stat.append("  Variables:\t%s"%(len(hts2.vars)))
-            stat.append("  StateVars:\t%s"%(len(hts2.state_vars)))
-            stat.append("  Inputs:\t%s"%(len(hts2.inputs)))
-            stat.append("  Outputs:\t%s"%(len(hts2.outputs)))
-            print("\n".join(stat))
+            print(hts2.print_statistics("System 2"))
 
         # TODO: Make incremental solving optional
         htseq, miter_out = combined_system(hts, hts2, config.bmc_length, config.symbolic_init, True)

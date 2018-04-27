@@ -39,6 +39,7 @@ class Problems(object):
     model_file = None
     bmc_length = 10
     abstract_clock = False
+    equivalence = None
 
     def __init__(self):
         self.problems = []
