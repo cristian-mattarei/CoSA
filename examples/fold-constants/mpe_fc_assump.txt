@@ -1,0 +1,4 @@
+(sys1.testpeDOLLARlogicandDOLLARDOTFORWARDSLASHtestpeunq1DOTsvCOLON139DOLLAR376bRed.out = 0_1) & (sys1.testpeDOLLARreduceandDOLLARDOTFORWARDSLASHtestpeunq1DOTsvCOLON139DOLLAR375op0.out = 0_1)
+
+# assume that the configuration stays the same
+(sys1.sbwideDOLLARprocdffDOLLAR1231reg0.out = 3072_64) & (sys1.sb1bDOLLARprocdffDOLLAR1210reg0.out = 0_64) & (sys1.cbbit2DOLLARprocdffDOLLAR1235reg0.out = 0_32) & (sys1.cbdata1DOLLARprocdffDOLLAR1236reg0.out = 0_32) & (sys1.testpeDOLLARprocdffDOLLAR1150reg0.out = 11_16) & (sys1.testpeDOLLARprocdffDOLLAR1151reg0.out = 2_16) & (sys1.testpetestoptregbDOLLARprocdffDOLLAR1147reg0.out = 2_16)
