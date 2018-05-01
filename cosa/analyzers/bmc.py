@@ -420,6 +420,7 @@ class BMC(object):
         trans = hts.single_trans()
         invar = hts.single_invar()
         trans = And(trans, invar, TS.to_next(invar))
+        init = And(init, invar)
 
         check_1 = Not(Implies(init, lemma))
         check_1 = self.at_time(check_1, 0)
@@ -431,17 +432,17 @@ class BMC(object):
             prefix = self.config.prefix+"-ind"
 
         if res:
-            if Logger.level(1):
-                Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 1)
+            if Logger.level(2):
+                Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
                 (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
-                Logger.log("", 1)
+                Logger.log("", 2)
                 if hr_trace:
-                    Logger.log("Counterexample: \n%s"%(hr_trace), 1)
+                    Logger.log("Counterexample: \n%s"%(hr_trace), 2)
                 else:
-                    Logger.log("", 1)
+                    Logger.log("", 2)
             return False
         else:
-            Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 1)
+            Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
 
         self._reset_assertions(self.solver)
 
@@ -451,19 +452,19 @@ class BMC(object):
         res = self._solve(self.solver)
 
         if res:
-            if Logger.level(1):
-                Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 1)
+            if Logger.level(2):
+                Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
                 (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
                 if hr_trace or vcd_trace:
                     vcd_msg = ""
                     if vcd_trace:
                         vcd_msg = " and in \"%s\""%(vcd_trace)
-                    Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 1)
+                    Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 2)
                 else:
-                    Logger.log("", 1)
+                    Logger.log("", 2)
             return False
         else:
-            Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 1)
+            Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 2)
 
         return True
 
@@ -485,18 +486,21 @@ class BMC(object):
         self._reset_assertions(self.solver)
 
         holding_lemmas = []
+        lindex = 1
         for lemma in lemmas:
+            Logger.log("\nChecking Lemma %s"%(lindex), 1)
             if self._check_lemma(hts, lemma):
                 holding_lemmas.append(lemma)
-                Logger.log("Lemma \"%s\" holds"%(lemma), 2)
+                Logger.log("Lemma %s holds"%(lindex), 1)
 
                 if self._check_lemmas(prop, holding_lemmas):
                     return (hts, True)
             else:
-                Logger.log("Lemma \"%s\" does not hold"%(lemma), 2)
+                Logger.log("Lemma %s does not hold"%(lindex), 1)
+            lindex += 1
 
 
-        hts.add_ts(TS(set([]), TRUE(), TRUE(), And(holding_lemmas)))
+        hts.assumptions = And(holding_lemmas)
 
         # self._reset_smt2_tracefile()
 
@@ -521,13 +525,13 @@ class BMC(object):
 
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
-            if Logger.level(1):
+            if Logger.level(2):
                 timer = Logger.start_timer("Simplify")
 
             init = simplify(init)
             trans = simplify(trans)
             invar = simplify(invar)
-            if Logger.level(1):
+            if Logger.level(2):
                 Logger.stop_timer(timer)
 
         propt = FALSE()
@@ -853,12 +857,12 @@ class BMC(object):
         if self.config.skip_solving:
             return None
 
-        if Logger.level(1):
+        if Logger.level(2):
             timer = Logger.start_timer("Solve")
 
         r = solver.solver.solve()
 
-        if Logger.level(1):
+        if Logger.level(2):
             self.total_time += Logger.stop_timer(timer)
             Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
 

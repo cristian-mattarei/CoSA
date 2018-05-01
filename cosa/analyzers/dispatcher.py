@@ -29,13 +29,6 @@ class ProblemSolver(object):
         Logger.log("\n*** Analyzing problem %s ***"%(problem), 1)
         sparser = StringParser()
 
-        lemmas = None
-        if problem.lemmas is not None:
-            parsed_formulae = sparser.parse_formulae(problem.lemmas.split(","))
-            if list(set([t[2] for t in parsed_formulae]))[0][0] != False:
-                Logger.error("Lemmas do not support \"next\" operators")
-            lemmas = [t[1] for t in parsed_formulae]
-
         bmc_config = self.problem2bmc_config(problem, config)
         bmc = BMC(problem.hts, bmc_config)
         bmc_liveness = BMCLiveness(problem.hts, bmc_config)
@@ -54,8 +47,12 @@ class ProblemSolver(object):
 
         [bmc_config.properties, bmc_config.lemmas, bmc_config.assumptions] = parsing_defs
 
-        if bmc_config.assumptions is not None and problem.verification != VerificationType.EQUIVALENCE:
+        assumps = None
+        lemmas = None
+        
+        if problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
+            lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
             problem.hts.assumptions = assumps
 
         if problem.verification == VerificationType.SAFETY:
@@ -79,9 +76,14 @@ class ProblemSolver(object):
                 problem.hts2 = self.parse_json(problem.equivalence, config.abstract_clock, "System 2")
 
             htseq, miter_out = combined_system(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
+
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
-                htseq.assumptions = assumps
+
+            if bmc_config.lemmas is not None:
+                lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
+            
+            htseq.assumptions = assumps
             bmcseq = BMC(htseq, bmc_config)
             res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)
             problem.status = res

@@ -10,15 +10,8 @@ description: "Sequential Equivalence Checking of constant folded design against 
 verification: equivalence
 prove: True
 
-[Inductive Proof of Folded Constants Values]
-description: "Check that the properties suggested by CoreIR hold"
-verification: safety
-prove: True
-formula: examples/fold-constants/mpe_fc_prop.txt
-
 [Assisted Equivalence Check]
 description: "Use the collateral from CoreIR to help the equivalence check go through"
 verification: equivalence
-symbolic_init: True
-assumptions: examples/fold-constants/mpe_fc_assump.txt
+lemmas: examples/fold-constants/mpe_fc_assump.txt
 prove: True

@@ -5,7 +5,7 @@ from pysmt.shortcuts import TRUE, FALSE, BOOL, And, EqualsOrIff, Iff, Symbol, Im
 S1 = "sys1"+SEP
 S2 = "sys2"+SEP
 
-def combined_system(hts, hts2, k, symbolic_init, inc=True):
+def combined_system(hts, hts2, k, symbolic_init, inc=True, non_deterministic=False):
     htseq = HTS("eq")
 
     map1 = dict([(v, TS.get_prefix(v, S1)) for v in hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S1)) for v in hts.vars])
@@ -39,7 +39,7 @@ def combined_system(hts, hts2, k, symbolic_init, inc=True):
     htseq.inputs = set([TS.get_prefix(v, S1) for v in hts.inputs]).union(set([TS.get_prefix(v, S2) for v in hts2.inputs]))
     htseq.outputs = set([TS.get_prefix(v, S1) for v in hts.outputs]).union(set([TS.get_prefix(v, S2) for v in hts2.outputs]))
 
-    if symbolic_init:
+    if symbolic_init or (not non_deterministic):
         states = hts.state_vars.intersection(hts2.state_vars)
     else:
         states = []
@@ -59,7 +59,7 @@ def combined_system(hts, hts2, k, symbolic_init, inc=True):
 
     miter_out = Symbol("eq_S1_S2", BOOL)
 
-    if symbolic_init:
+    if symbolic_init or (not non_deterministic):
         eqmiteroutputs = Iff(miter_out, Implies(eqstates, eqoutputs))
     else:
         eqmiteroutputs = Iff(miter_out, eqoutputs)

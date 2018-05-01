@@ -53,7 +53,7 @@ class Modules(object):
         # INVAR: (<op> in) = out)
         vars_ = [in_,out]
         comment = (bvop.__name__ + " (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         in_B = in_.symbol_type() == BOOL
         outB = out.symbol_type() == BOOL
@@ -91,7 +91,7 @@ class Modules(object):
         # INVAR: (in = out)
         vars_ = [in_,out]
         comment = ("Wrap (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         invar = EqualsOrIff(in_, out)
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
@@ -102,7 +102,7 @@ class Modules(object):
         # INVAR: (in0 <op> in1) = out
         vars_ = [in0,in1,out]
         comment = (bvop.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         in0B = in0.symbol_type() == BOOL
         in1B = in1.symbol_type() == BOOL
@@ -150,7 +150,7 @@ class Modules(object):
         # INVAR: (in0 <op> in1) = out
         vars_ = [in0,in1,out]
         comment = (op.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         if out.symbol_type() == BOOL:
             bout = out
@@ -239,7 +239,7 @@ class Modules(object):
         # INVAR: (<op> in) = out)
         vars_ = [in_,out]
         comment = ("ZExt (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         if (in_.symbol_type() == BOOL) and (out.symbol_type() == BOOL):
             invar = EqualsOrIff(in_, out)
@@ -276,7 +276,7 @@ class Modules(object):
             invar = EqualsOrIff(out, const)
             
         comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(value) + ")"
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         ts = TS(set([out]), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
@@ -337,7 +337,7 @@ class Modules(object):
 
         vars_ = [in_,clk,clr,rst,arst,out]
         comment = "Reg (in, clk, clr, rst, arst, out) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         init = TRUE()
         trans = TRUE()
@@ -459,7 +459,7 @@ class Modules(object):
         # INVAR: ((sel = 0) -> (out = in0)) & ((sel = 1) -> (out = in1))
         vars_ = [in0,in1,sel,out]
         comment = "Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         
         if sel.symbol_type() == BOOL:
             sel0 = Not(sel)
@@ -482,7 +482,7 @@ class Modules(object):
         # INVAR: (((in0 = in1) -> (out = #b1)) & ((in0 != in1) -> (out = #b0)))
         vars_ = [in0,in1,out]
         comment = "Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         eq = EqualsOrIff(in0, in1)
 
         if out.symbol_type() == BOOL:
@@ -502,7 +502,7 @@ class Modules(object):
         # INVAR: (((in0 != in1) -> (out = #b1)) & ((in0 == in1) -> (out = #b0)))
         vars_ = [in0,in1,out]
         comment = "Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         eq = EqualsOrIff(in0, in1)
 
         if out.symbol_type() == BOOL:
@@ -522,7 +522,7 @@ class Modules(object):
         # INVAR: (in = 0) -> (out = 0) & (in != 0) -> (out = 1)
         vars_ = [in_, out]
         comment = "Orr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         if (in_.symbol_type() == BOOL) and (out.symbol_type() == BOOL):
             invar = EqualsOrIff(in_, out)
@@ -549,7 +549,7 @@ class Modules(object):
         # INVAR: (in = 2**width - 1) -> (out = 1) & (in != 2**width - 1) -> (out = 0)
         vars_ = [in_, out]
         comment = "Andr (in, out) = (%s, %s)"%(tuple([x.symbol_name() for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         width = in_.symbol_type().width
         eq_all_ones = EqualsOrIff(in_, BV(2**width - 1,width))
         true_res = Implies(eq_all_ones, EqualsOrIff(out, BV(1,1)))
@@ -565,7 +565,7 @@ class Modules(object):
         high -= 1
         vars_ = [in_,out, low, high]
         comment = "Mux (in, out, low, high) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
         invar = EqualsOrIff(BVExtract(in_, low, high), out)
         ts = TS(set([in_, out]), TRUE(), TRUE(), invar)
         ts.comment = comment
@@ -589,7 +589,7 @@ class Modules(object):
 
         vars_ = [clk, wdata, waddr, wen, rdata, raddr]
         comment = "Mem (clk, wdata, waddr, wen, rdata, raddr) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
-        Logger.log(comment, 2)
+        Logger.log(comment, 3)
 
         init = TRUE()
         trans = TRUE()
@@ -986,7 +986,7 @@ class CoreIRParser(ModelParser):
             
             eq_formula = And(eq_formula, EqualsOrIff(first, second))
 
-            Logger.log(str(EqualsOrIff(first, second)), 2)
+            Logger.log(str(EqualsOrIff(first, second)), 3)
 
         ts = TS(eq_vars, TRUE(), TRUE(), eq_formula)
         ts.comment = "Connections" # (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
