@@ -17,7 +17,7 @@ from cosa.encoders.coreir import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.problem import VerificationStatus
-from cosa.encoders.miter import combined_system
+from cosa.encoders.miter import Miter
 
 class ProblemSolver(object):
     parser = None
@@ -75,7 +75,7 @@ class ProblemSolver(object):
             if problem.equivalence:
                 problem.hts2 = self.parse_json(problem.equivalence, config.abstract_clock, "System 2")
 
-            htseq, miter_out = combined_system(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
+            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
 
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]

@@ -39,11 +39,14 @@ class TraceSolver(object):
     name = None
     trace_file = None
     solver = None
-
+    smt2vars = None
+    smt2vars_inc = None
+    
     def __init__(self, name):
         self.name = name
         self.smt2vars = set([])
         self.solver = Solver(name=self.name)
+        self.smt2vars_inc = []
 
 class BMCConfig(object):
 
@@ -830,12 +833,14 @@ class BMC(object):
         if not self.config.skip_solving:
             solver.solver.push()
 
+        solver.smt2vars_inc.append(solver.smt2vars)
         self._write_smt2_log(solver, "(push 1)")
 
     def _pop(self, solver):
         if not self.config.skip_solving:
             solver.solver.pop()
 
+        solver.smt2vars = solver.smt2vars_inc.pop()
         self._write_smt2_log(solver, "(pop 1)")
 
     def _reset_assertions(self, solver):

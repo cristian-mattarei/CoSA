@@ -29,6 +29,8 @@ from cosa.problem import VerificationStatus
 NL = "\n"
 
 KLIVE_COUNT = HIDDEN+"klive_id%s"+HIDDEN
+EQVAR = HIDDEN+"eq_var"+HIDDEN
+HEQVAR = HIDDEN+"heq_var"+HIDDEN
 
 class BMCLiveness(BMC):
 
@@ -91,17 +93,6 @@ class BMCLiveness(BMC):
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        counter_var = None
-        
-        if self.config.prove:
-            self._reset_assertions(self.solver_2)
-            (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
-            self._init_at_time(hts.vars.union(set([counter_var])), k)
-            self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
-            self._add_assertion(self.solver_2, self.at_time(And(init, invar), 0))
-        else:
-            self._init_at_time(hts.vars, k)
-
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
             if Logger.level(1):
@@ -113,7 +104,28 @@ class BMCLiveness(BMC):
 
             if Logger.level(1):
                 Logger.stop_timer(timer)
+                
+        heqvar = None
+        if True:
+            heqvar = Symbol(HEQVAR, BOOL)
 
+        counter_var = None
+        extra_vars = set([])
+
+        if heqvar is not None:
+            extra_vars.add(heqvar)
+        
+        if self.config.prove:
+            self._reset_assertions(self.solver_2)
+            (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
+            extra_vars.add(counter_var)
+            
+        self._init_at_time(hts.vars.union(extra_vars), k)
+
+        if self.config.prove:
+            self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
+            self._add_assertion(self.solver_2, self.at_time(And(init, invar), 0))
+        
         propt = FALSE()
         formula = And(init, invar)
         formula = self.at_time(formula, 0)
@@ -132,7 +144,7 @@ class BMCLiveness(BMC):
 
             loopback = FALSE()
             if t > 0:
-                loopback = self.all_loopback(self.hts.vars, t)
+                loopback = self.all_loopbacks(self.hts.vars, t, heqvar)
                 
             Logger.log("Add loopbacks at time %d"%t, 2)
             self._add_assertion(self.solver, loopback)
@@ -146,7 +158,7 @@ class BMCLiveness(BMC):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self.solver.solver.get_model()
                     Logger.log("", 0, not(Logger.level(1)))
-                    return (t, model)
+                    #return (t, model)
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
@@ -156,11 +168,15 @@ class BMCLiveness(BMC):
                     
             self._pop(self.solver)
 
+            n_prop = Not(prop)
+            if heqvar is not None:
+                n_prop = Or(n_prop, Not(heqvar))
+            
             if next_prop:
                 if t > 0:
-                    propt = self.at_time(Not(prop), t-1)
+                    propt = self.at_time(n_prop, t-1)
             else:
-                propt = self.at_time(Not(prop), t)
+                propt = self.at_time(n_prop, t)
                 
             self._add_assertion(self.solver, propt)
 
@@ -182,7 +198,7 @@ class BMCLiveness(BMC):
                     else:
                         Logger.log("K-Liveness holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
-                        return (t, True)
+                        #return (t, True)
 
             
             trans_t = self.unroll(trans, invar, t+1, t)
@@ -198,15 +214,30 @@ class BMCLiveness(BMC):
                 
         return (-1, None)
 
-    def all_loopback(self, vars, k):
+    def all_loopbacks(self, vars, k, heqvar=None):
         vars_k = [TS.get_timed(v, k) for v in vars]
         loopback = FALSE()
+        eqvar = None
+        heqvars = None
+
+        if heqvar is not None:
+            eqvar = Symbol(EQVAR, BOOL)
+            heqvars = []
         
         for i in range(k):
             vars_i = [TS.get_timed(v, i) for v in vars]
             eq_k_i = And([EqualsOrIff(v, vars_i[vars_k.index(v)]) for v in vars_k])
+            if heqvar is not None:
+                eqvar_i = TS.get_timed(eqvar, i)
+                eq_k_i = And(eqvar_i, Iff(eqvar_i, eq_k_i))
+
+                heqvars.append(Iff(TS.get_timed(heqvar, i), Or([TS.get_timed(eqvar, j) for j in range(i+1)])))
+                
             loopback = Or(loopback, eq_k_i)
 
+        if heqvar is not None:
+            loopback = And(loopback, And(heqvars))
+            
         return loopback
     
     def liveness(self, prop, k, k_min):

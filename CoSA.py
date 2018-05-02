@@ -27,7 +27,7 @@ from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
-from cosa.encoders.miter import combined_system
+from cosa.encoders.miter import Miter
 from cosa.problem import Problems
 from cosa.problem import VerificationStatus
 from cosa.core.transition_system import HTS
@@ -294,7 +294,7 @@ def run_verification(config):
             print(hts2.print_statistics("System 2"))
 
         # TODO: Make incremental solving optional
-        htseq, miter_out = combined_system(hts, hts2, config.bmc_length, config.symbolic_init, True)
+        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, True)
 
         if config.assumptions is not None:
             Logger.log("Adding %d assumptions to combined system... "%len(config.assumptions), 1)
