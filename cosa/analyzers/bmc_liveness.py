@@ -44,15 +44,15 @@ class BMCLiveness(BMC):
     def __init__(self, hts, config):
         BMC.__init__(self, hts, config)
 
-    def solve_liveness(self, hts, prop, k, k_min=0):
+    def solve_liveness(self, hts, prop, k, k_min=0, eventually=False):
         if self.config.incremental:
-            return self.solve_liveness_inc(hts, prop, k, k_min)
+            return self.solve_liveness_inc(hts, prop, k, k_min, eventually)
 
         return self.solve_liveness_fwd(hts, prop, k)
             
-    def solve_liveness_inc(self, hts, prop, k, k_min):
+    def solve_liveness_inc(self, hts, prop, k, k_min, eventually=False):
         if self.config.strategy == FWD:
-            return self.solve_liveness_inc_fwd(hts, prop, k, k_min)
+            return self.solve_liveness_inc_fwd(hts, prop, k, k_min, eventually)
 
         Logger.error("Invalid configuration strategy")
         
@@ -86,7 +86,7 @@ class BMCLiveness(BMC):
         klive_prop = BVUGE(counter_var, BV(t, counter_var.symbol_type().width))
         return self.at_time(klive_prop, t)
     
-    def solve_liveness_inc_fwd(self, hts, prop, k, k_min):
+    def solve_liveness_inc_fwd(self, hts, prop, k, k_min, eventually=False):
         self._reset_assertions(self.solver)
 
         init = hts.single_init()
@@ -104,27 +104,23 @@ class BMCLiveness(BMC):
 
             if Logger.level(1):
                 Logger.stop_timer(timer)
+
+        extra_vars = set([])
                 
         heqvar = None
-        if True:
+        if not eventually:
             heqvar = Symbol(HEQVAR, BOOL)
-
-        counter_var = None
-        extra_vars = set([])
-
-        if heqvar is not None:
             extra_vars.add(heqvar)
-        
-        if self.config.prove:
-            self._reset_assertions(self.solver_2)
-            (counter_var, counter_init, counter_trans) = self._compile_counter(prop, k)
-            extra_vars.add(counter_var)
             
         self._init_at_time(hts.vars.union(extra_vars), k)
 
         if self.config.prove:
-            self._add_assertion(self.solver_2, self.at_time(counter_init, 0))
-            self._add_assertion(self.solver_2, self.at_time(And(init, invar), 0))
+            self._reset_assertions(self.solver_2)
+            self._add_assertion(self.solver_2, self.at_time(invar, 0))
+            self._add_assertion(self.solver_2, self.at_time(Not(prop), 0))
+
+            if eventually:
+                self._add_assertion(self.solver_2, self.at_time(init, 0))
         
         propt = FALSE()
         formula = And(init, invar)
@@ -158,7 +154,7 @@ class BMCLiveness(BMC):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self.solver.solver.get_model()
                     Logger.log("", 0, not(Logger.level(1)))
-                    #return (t, model)
+                    return (t, model)
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
@@ -169,7 +165,7 @@ class BMCLiveness(BMC):
             self._pop(self.solver)
 
             n_prop = Not(prop)
-            if heqvar is not None:
+            if not eventually:
                 n_prop = Or(n_prop, Not(heqvar))
             
             if next_prop:
@@ -183,14 +179,16 @@ class BMCLiveness(BMC):
             if self.config.prove:
                 
                 if t > 0:
-                    self._add_assertion(self.solver_2, self.at_time(counter_trans, t-1))
                     self._add_assertion(self.solver_2, trans_t)
-
-                    klive_prop_t = self._klive_property(counter_var, t)
-
-                    self._add_assertion(self.solver_2, klive_prop_t)
-
                     self._write_smt2_comment(self.solver_2, "Solving for k=%s"%(t))
+
+                    if next_prop:
+                        if t > 0:
+                            propt = self.at_time(Not(prop), t-1)
+                    else:
+                        propt = self.at_time(Not(prop), t)
+                    
+                    self._add_assertion(self.solver_2, propt)
                     res = self._solve(self.solver_2)
 
                     if res:
@@ -198,8 +196,8 @@ class BMCLiveness(BMC):
                     else:
                         Logger.log("K-Liveness holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
-                        #return (t, True)
-
+                        return (t, True)
+                    
             
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
@@ -241,7 +239,7 @@ class BMCLiveness(BMC):
         return loopback
     
     def liveness(self, prop, k, k_min):
-        (t, model) = self.solve_liveness(self.hts, prop, k, k_min)
+        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False)
 
         model = self._remap_model(self.hts.vars, model, t)
 
@@ -252,3 +250,17 @@ class BMCLiveness(BMC):
             return (VerificationStatus.FALSE, trace)
         else:
             return (VerificationStatus.UNK, None)
+
+    def eventually(self, prop, k, k_min):
+        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True)
+
+        model = self._remap_model(self.hts.vars, model, t)
+
+        if model == True:
+            return (VerificationStatus.TRUE, None)
+        elif t > -1:
+            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, find_loop=True)
+            return (VerificationStatus.FALSE, trace)
+        else:
+            return (VerificationStatus.UNK, None)
+        

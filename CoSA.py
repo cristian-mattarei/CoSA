@@ -44,6 +44,7 @@ class Config(object):
     bmc_length_min = 0
     safety = None
     liveness = None
+    eventually = None
     properties = None
     lemmas = None
     assumptions = None
@@ -76,6 +77,7 @@ class Config(object):
         self.bmc_length_min = 0
         self.safety = None
         self.liveness = None
+        self.eventually = None
         self.properties = None
         self.lemmas = None
         self.assumptions = None
@@ -214,7 +216,7 @@ def run_verification(config):
     bmc_config.vcd_trace = config.vcd
     bmc_config.prove = config.prove
 
-    if config.liveness:
+    if config.liveness or config.eventually:
         bmc_liveness = BMCLiveness(hts, bmc_config)
     else:
         bmc = BMC(hts, bmc_config)
@@ -266,6 +268,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
+            print(config.eventually)
             res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
@@ -276,6 +279,22 @@ def run_verification(config):
 
         return list_status
 
+    if config.eventually:
+        count = 0
+        list_status = []
+        for (strprop, prop, types) in sparser.parse_formulae(config.properties):
+            Logger.log("Eventually verification for property \"%s\":"%(strprop), 0)
+            print(config.eventually)
+            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min)
+            Logger.log("Property is %s"%res, 0)
+            if res == VerificationStatus.FALSE:
+                count += 1
+                print_trace("Counterexample", trace, count, config.prefix)
+
+            list_status.append(res)
+
+        return list_status
+    
     if config.equivalence:
         parser2 = CoreIRParser(config.abstract_clock)
 
@@ -367,6 +386,10 @@ if __name__ == "__main__":
     parser.add_argument('--liveness', dest='liveness', action='store_true',
                        help='liveness verification using BMC.')
 
+    parser.set_defaults(eventually=False)
+    parser.add_argument('--eventually', dest='eventually', action='store_true',
+                       help='eventually verification using BMC.')
+    
     parser.set_defaults(properties=None)
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of invariant properties.')
@@ -469,6 +492,7 @@ if __name__ == "__main__":
     config.simulate = args.simulate
     config.safety = args.safety
     config.liveness = args.liveness
+    config.eventually = args.eventually
     config.properties = args.properties
     config.lemmas = args.lemmas
     config.assumptions = args.assumptions
@@ -523,6 +547,7 @@ if __name__ == "__main__":
     if not(config.simulate or \
            (config.safety) or \
            (config.liveness) or \
+           (config.eventually) or \
            (config.equivalence is not None) or\
            (config.translate is not None) or\
            (config.fsm_check)):
@@ -537,6 +562,9 @@ if __name__ == "__main__":
     if config.liveness and (config.properties is None):
         Logger.error("Liveness verification requires at least a property")
 
+    if config.eventually and (config.properties is None):
+        Logger.error("Eventually verification requires at least a property")
+        
     parsing_defs = [config.properties, config.lemmas, config.assumptions]
     for i in range(len(parsing_defs)):
         if parsing_defs[i] is not None:

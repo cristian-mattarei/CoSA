@@ -71,6 +71,14 @@ class ProblemSolver(object):
             problem.status = res
             problem.trace = trace
 
+        if problem.verification == VerificationType.EVENTUALLY:
+            count = 0
+            list_status = []
+            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
+            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min)
+            problem.status = res
+            problem.trace = trace
+            
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
                 problem.hts2 = self.parse_json(problem.equivalence, config.abstract_clock, "System 2")

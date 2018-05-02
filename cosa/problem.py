@@ -19,6 +19,7 @@ DEFAULT = "DEFAULT"
 GENERAL = "GENERAL"
 VERIFICATION = "verification"
 LIVENESS = "liveness"
+EVENTUALLY = "eventually"
 SAFETY = "safety"
 EQUIVALENCE = "equivalence"
 FORMULA = "formula"
@@ -32,7 +33,8 @@ class VerificationStatus(object):
 class VerificationType(object):
     SAFETY = 0
     LIVENESS = 1
-    EQUIVALENCE = 2
+    EVENTUALLY = 2
+    EQUIVALENCE = 3
 
 class Problems(object):
     problems = None
@@ -125,6 +127,10 @@ class Problem(object):
             self.verification = VerificationType.LIVENESS
             return
 
+        if value == EVENTUALLY:
+            self.verification = VerificationType.EVENTUALLY
+            return
+        
         if value == SAFETY:
             self.verification = VerificationType.SAFETY
             return
