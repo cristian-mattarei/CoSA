@@ -117,7 +117,6 @@ class BMCLiveness(BMC):
         if self.config.prove:
             self._reset_assertions(self.solver_2)
             self._add_assertion(self.solver_2, self.at_time(invar, 0))
-            self._add_assertion(self.solver_2, self.at_time(Not(prop), 0))
 
             if eventually:
                 self._add_assertion(self.solver_2, self.at_time(init, 0))
@@ -197,8 +196,17 @@ class BMCLiveness(BMC):
                         Logger.log("K-Liveness holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
-                    
-            
+
+                else:
+                    self._push(self.solver_2)
+                    self._add_assertion(self.solver_2, self.at_time(prop, 0))
+                    res = self._solve(self.solver_2)
+                    self._pop(self.solver_2)
+                    if res:
+                        self._add_assertion(self.solver_2, self.at_time(prop, 0))
+                    else:
+                        self._add_assertion(self.solver_2, self.at_time(Not(prop), 0))
+                        
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
             
