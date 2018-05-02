@@ -268,7 +268,6 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-            print(config.eventually)
             res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
@@ -284,7 +283,6 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Eventually verification for property \"%s\":"%(strprop), 0)
-            print(config.eventually)
             res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
@@ -384,11 +382,11 @@ if __name__ == "__main__":
 
     parser.set_defaults(liveness=False)
     parser.add_argument('--liveness', dest='liveness', action='store_true',
-                       help='liveness verification using BMC.')
+                       help='liveness (GF) verification using BMC.')
 
     parser.set_defaults(eventually=False)
     parser.add_argument('--eventually', dest='eventually', action='store_true',
-                       help='eventually verification using BMC.')
+                       help='eventually (F) verification using BMC.')
     
     parser.set_defaults(properties=None)
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
