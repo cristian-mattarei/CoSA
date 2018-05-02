@@ -402,7 +402,7 @@ if __name__ == "__main__":
 
     parser.set_defaults(prove=False)
     parser.add_argument('--prove', dest='prove', action='store_true',
-                       help='use k-indution to prove the satisfiability of the property.')
+                       help='use indution to prove the satisfiability of the property.')
 
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
