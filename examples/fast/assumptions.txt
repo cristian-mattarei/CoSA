@@ -1,0 +1,2 @@
+# ((self.empty = 1_1) -> (self.pop = 0_1))
+((self.full = 1_1) -> (self.push = 0_1)) & ((self.empty = 1_1) -> (self.pop = 0_1))

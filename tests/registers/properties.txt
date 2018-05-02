@@ -2,9 +2,11 @@
 ((self.clk = 0_1) & next(self.clk = 1_1)) & (!((self.arst = 1_1) & next(self.arst = 0_1))) -> (reg1.in = next(reg1.out))
 ((self.clk = 1_1) & next(self.clk = 0_1)) & (!((self.arst = 0_1) & next(self.arst = 1_1))) -> (reg2.in = next(reg2.out))
 ((self.clk = 1_1) & next(self.clk = 0_1)) & (!((self.arst = 1_1) & next(self.arst = 0_1))) -> (reg0.in = next(reg3.out))
+((self.clk = 0_1) & next(self.clk = 1_1)) -> (reg4.in = next(reg4.out))
+
 
 ((self.arst = 0_1) & next(self.arst = 1_1)) -> (0_16 = next(reg0.out))
 ((self.arst = 1_1) & next(self.arst = 0_1)) -> (0_16 = next(reg1.out))
 ((self.arst = 0_1) & next(self.arst = 1_1)) -> (0_16 = next(reg2.out))
 ((self.arst = 1_1) & next(self.arst = 0_1)) -> (0_16 = next(reg3.out))
-
+((self.clk = 1_1) & next(self.clk = 0_1)) -> (reg4.out = next(reg4.out))

@@ -1,0 +1,1 @@
+(reset_done = 1_1) -> (self.prop_signal = 1_1)

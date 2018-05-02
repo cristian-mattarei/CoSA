@@ -1,0 +1,39 @@
+[GENERAL]
+model_file: examples/counter.json
+abstract_clock: True
+
+[DEFAULT]
+bmc_length: 10
+
+[LIVE-01]
+description: "Counter always reaches 10"
+verification: Liveness
+formula: self.out = 10_16
+prove: True
+smt2_tracing: /tmp/test1.smt2
+  
+[LIVE-02]
+description: "Counter reaches 7 if not reset"
+verification: Liveness
+#formula: (self.clr = 1_1) | (self.out > 7_16)
+formula: (self.out > 7_16)
+assumptions: (self.clr = 0_1)
+smt2_tracing: /tmp/test2.smt2
+prove: True
+bmc_length: 20
+
+[SAFE-01]
+description: "Counter is alwas less than 10"
+verification: Safety
+formula: self.out < 10_16
+prove: True
+smt2_tracing: /tmp/test3.smt2
+bmc_length: 20
+
+[SAFE-02]
+description: "Counter does not reach 24"
+verification: Safety
+formula: self.out < 24_16
+prove: True
+smt2_tracing: /tmp/test4.smt2
+bmc_length: 20

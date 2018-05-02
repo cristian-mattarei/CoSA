@@ -11,6 +11,7 @@
 from pysmt.shortcuts import Symbol, And, TRUE, simplify
 
 NEXT = "_N"
+PREV = "_P"
 AT = "_AT"
 ATP = "_ATP"
 
@@ -27,6 +28,8 @@ class HTS(object):
     init = None
     trans = None
     invar = None
+
+    arrays = False
     
     def __init__(self, name):
         self.tss = []
@@ -41,6 +44,8 @@ class HTS(object):
         self.init = None
         self.trans = None
         self.invar = None
+
+        self.arrays = False
         
     def add_sub(self, sub):
         self.sub.append(sub)
@@ -55,6 +60,7 @@ class HTS(object):
         self.tss.append(ts)
         self.vars = set(self.vars.union(ts.vars))
         self.state_vars = set(self.state_vars.union(ts.state_vars))
+        self.arrays |= ts.array
 
     def add_assumption(self, assumption):
         if self.assumptions is None:
@@ -70,7 +76,7 @@ class HTS(object):
             ts.remove_invar()
 
     def single_init(self):
-        if not self.init:
+        if self.init is None:
             self.init = TRUE()
             for ts in self.tss:
                 if ts.init is not None:
@@ -79,7 +85,7 @@ class HTS(object):
         return self.init
 
     def single_trans(self):
-        if not self.trans:
+        if self.trans is None:
             self.trans = TRUE()
             for ts in self.tss:
                 if ts.trans is not None:
@@ -88,17 +94,25 @@ class HTS(object):
         return self.trans
 
     def single_invar(self):
-        if not self.invar:
+        if self.invar is None:
             self.invar = TRUE()
             for ts in self.tss:
                 if ts.invar is not None:
                     self.invar = And(self.invar, ts.invar)
 
-            if self.assumptions is not None:
-                self.invar = And(self.invar, And(self.assumptions))
+        if self.assumptions is not None:
+            return And(self.invar, And(self.assumptions))
 
         return self.invar
 
+    def combine(self, other_hts):
+        for ts in other_hts.tss:
+            self.add_ts(ts)
+
+        self.inputs = set(other_hts.inputs.union(self.inputs))
+        self.outputs = set(other_hts.outputs.union(self.outputs))
+        self.vars = set(other_hts.vars.union(self.vars))
+    
     def __copy__(self):
         cls = self.__class__
         new_hts = cls.__new__(cls)
@@ -106,6 +120,15 @@ class HTS(object):
         new_hts.tss = list(new_hts.tss)
         new_hts.sub = list(new_hts.sub)
         return new_hts
+
+    def print_statistics(self, name=None):
+        stat = []
+        stat.append("Statistics (%s):"%(self.name if name is None else name))
+        stat.append("  Variables:\t%s"%(len(self.vars)))
+        stat.append("  StateVars:\t%s"%(len(self.state_vars)))
+        stat.append("  Inputs:\t%s"%(len(self.inputs)))
+        stat.append("  Outputs:\t%s"%(len(self.outputs)))
+        return "\n".join(stat)
     
 class TS(object):
 
@@ -116,7 +139,8 @@ class TS(object):
     invar = None
     
     comment = None
-    
+    array = None
+
     def __init__(self, vars, init, trans, invar):
         self.vars = vars
         self.state_vars = set([])
@@ -125,6 +149,7 @@ class TS(object):
         self.invar = invar
 
         self.comment = ""
+        self.array = False # set to true if there's an array
 
     def __repr__(self):
         return "V: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.init), str(self.trans), str(self.invar))
@@ -141,8 +166,24 @@ class TS(object):
         return v.symbol_name()[-len(NEXT):] == NEXT
 
     @staticmethod
+    def is_prev(v):
+        return v.symbol_name()[-len(PREV):] == PREV
+
+    @staticmethod
+    def get_ref_var(v):
+        if TS.is_prime(v):
+            return Symbol(v.symbol_name()[:-len(NEXT)], v.symbol_type())
+        if TS.is_prev(v):
+            return Symbol(v.symbol_name()[:-len(PREV)], v.symbol_type())
+        return v
+        
+    @staticmethod
     def get_prime(v):
         return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
+
+    @staticmethod
+    def get_prev(v):
+        return Symbol(TS.get_prev_name(v.symbol_name()), v.symbol_type())
     
     @staticmethod
     def get_timed(v, t):
@@ -155,14 +196,18 @@ class TS(object):
     @staticmethod
     def get_prime_name(name):
         return ("%s"+NEXT) % name
+
+    @staticmethod
+    def get_prev_name(name):
+        return ("%s"+PREV) % name
     
     @staticmethod
     def get_timed_name(name, t):
-        return "%s%s%s" % (name, AT, str(t))
+        return "%s%s%s" % (name, AT, str(t if t > 0 else 0))
 
     @staticmethod
     def get_ptimed_name(name, t):
-        return "%s%s%s" % (name, ATP, str(t))
+        return "%s%s%s" % (name, ATP, str(t if t > 0 else 0))
     
     @staticmethod
     def get_prefix(v, pref):
@@ -170,9 +215,20 @@ class TS(object):
     
     @staticmethod
     def to_next(formula):
-        varmap = dict([(v,TS.get_prime(v)) for v in formula.get_free_variables()])
-        return formula.substitute(varmap)
+        varmap = []
+        for v in formula.get_free_variables():
+            varmap.append((v,TS.get_prime(v)))
+            varmap.append((TS.get_prev(v),v))
+        return formula.substitute(dict(varmap))
 
+    @staticmethod
+    def to_prev(formula):
+        varmap = []
+        for v in formula.get_free_variables():
+            varmap.append((v,TS.get_prev(v)))
+            varmap.append((TS.get_prime(v),v))
+        return formula.substitute(dict(varmap))
+    
     @staticmethod
     def has_next(formula):
         varlist = formula.get_free_variables()
