@@ -73,7 +73,7 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
-            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min)
+            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
 
@@ -81,7 +81,7 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
-            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min)
+            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
             
@@ -166,7 +166,7 @@ class ProblemSolver(object):
         bmc_config.strategy = BMCConfig.get_strategies()[0][0]
         bmc_config.skip_solving = problem.skip_solving
         bmc_config.map_function = self.parser.remap_an2or
-        bmc_config.solver_name = "msat"
+        bmc_config.solver_name = config.solver_name if problem.solver_name is None else problem.solver_name
         bmc_config.vcd_trace = problem.vcd or config.vcd
         bmc_config.prove = problem.prove
         bmc_config.properties = problem.formula

@@ -268,7 +268,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
+            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min, lemmas)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -283,7 +283,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Eventually verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min)
+            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min, lemmas)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -402,7 +402,7 @@ if __name__ == "__main__":
 
     parser.set_defaults(prove=False)
     parser.add_argument('--prove', dest='prove', action='store_true',
-                       help='use k-indution to prove the satisfiability of the property.')
+                       help='use indution to prove the satisfiability of the property.')
 
     parser.set_defaults(equivalence=None)
     parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
@@ -476,6 +476,10 @@ if __name__ == "__main__":
     parser.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
                        help='pickles the transition system to be loaded later.')
 
+    parser.set_defaults(solver_name=config.solver_name)
+    parser.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
+                        help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
+    
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
@@ -512,6 +516,7 @@ if __name__ == "__main__":
     config.verbosity = args.verbosity
     config.vcd = args.vcd
     config.prove = args.prove
+    config.solver_name = args.solver_name
 
     if len(sys.argv)==1:
         parser.print_help()

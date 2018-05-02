@@ -44,7 +44,14 @@ class BMCLiveness(BMC):
     def __init__(self, hts, config):
         BMC.__init__(self, hts, config)
 
-    def solve_liveness(self, hts, prop, k, k_min=0, eventually=False):
+    def solve_liveness(self, hts, prop, k, k_min=0, eventually=False, lemmas=None):
+        if lemmas is not None:
+            (hts, res) = self.add_lemmas(hts, prop, lemmas)
+            if res:
+                Logger.log("Lemmas imply the property", 1)
+                Logger.log("", 0, not(Logger.level(1)))
+                return (0, True)
+        
         if self.config.incremental:
             return self.solve_liveness_inc(hts, prop, k, k_min, eventually)
 
@@ -105,14 +112,10 @@ class BMCLiveness(BMC):
             if Logger.level(1):
                 Logger.stop_timer(timer)
 
-        extra_vars = set([])
-                
         heqvar = None
         if not eventually:
             heqvar = Symbol(HEQVAR, BOOL)
-            extra_vars.add(heqvar)
-            
-        self._init_at_time(hts.vars.union(extra_vars), k)
+            self._init_at_time(hts.vars.union(set([heqvar])), k)
 
         if self.config.prove:
             self._reset_assertions(self.solver_2)
@@ -246,8 +249,9 @@ class BMCLiveness(BMC):
             
         return loopback
     
-    def liveness(self, prop, k, k_min):
-        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False)
+    def liveness(self, prop, k, k_min, lemmas=None):
+        self._init_at_time(self.hts.vars, k, prop)
+        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False, lemmas)
 
         model = self._remap_model(self.hts.vars, model, t)
 
@@ -259,8 +263,9 @@ class BMCLiveness(BMC):
         else:
             return (VerificationStatus.UNK, None)
 
-    def eventually(self, prop, k, k_min):
-        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True)
+    def eventually(self, prop, k, k_min, lemmas=None):
+        self._init_at_time(self.hts.vars, k, prop)
+        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True, lemmas)
 
         model = self._remap_model(self.hts.vars, model, t)
 
