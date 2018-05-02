@@ -166,7 +166,7 @@ class ProblemSolver(object):
         bmc_config.strategy = BMCConfig.get_strategies()[0][0]
         bmc_config.skip_solving = problem.skip_solving
         bmc_config.map_function = self.parser.remap_an2or
-        bmc_config.solver_name = "msat"
+        bmc_config.solver_name = config.solver_name if problem.solver_name is None else problem.solver_name
         bmc_config.vcd_trace = problem.vcd or config.vcd
         bmc_config.prove = problem.prove
         bmc_config.properties = problem.formula

@@ -114,6 +114,8 @@ class Problem(object):
 
     vcd = False
     skip_solving = False
+
+    solver_name = None
     
     def __init__(self):
         self.status = VerificationStatus.UNK

@@ -476,6 +476,10 @@ if __name__ == "__main__":
     parser.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
                        help='pickles the transition system to be loaded later.')
 
+    parser.set_defaults(solver_name=config.solver_name)
+    parser.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
+                        help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
+    
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
@@ -512,6 +516,7 @@ if __name__ == "__main__":
     config.verbosity = args.verbosity
     config.vcd = args.vcd
     config.prove = args.prove
+    config.solver_name = args.solver_name
 
     if len(sys.argv)==1:
         parser.print_help()
