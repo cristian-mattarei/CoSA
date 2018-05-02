@@ -355,6 +355,13 @@ class BMC(object):
             return (VerificationStatus.FALSE, None)
 
     def solve(self, hts, prop, k, k_min=0, lemmas=None):
+        if lemmas is not None:
+            (hts, res) = self.add_lemmas(hts, prop, lemmas)
+            if res:
+                Logger.log("Lemmas imply the property", 1)
+                Logger.log("", 0, not(Logger.level(1)))
+                return (0, True)
+
         if self.config.incremental:
             return self.solve_inc(hts, prop, k, k_min, lemmas)
 
@@ -484,6 +491,9 @@ class BMC(object):
         return True
 
     def add_lemmas(self, hts, prop, lemmas):
+        if len(lemmas) == 0:
+            return (hts, False)
+        
         # if self.tracefile:
         #     self._set_smt2_tracefile("%s-ind.%s"%(".".join(self.tracefile.split(".")[:-1]), self.tracefile.split(".")[-1]))
         self._reset_assertions(self.solver)
@@ -510,13 +520,6 @@ class BMC(object):
         return (hts, False)
 
     def solve_inc_fwd(self, hts, prop, k, k_min, lemmas=None):
-        if lemmas is not None:
-            (hts, res) = self.add_lemmas(hts, prop, lemmas)
-            if res:
-                Logger.log("Lemmas imply the property", 1)
-                Logger.log("", 0, not(Logger.level(1)))
-                return (0, True)
-
         self._reset_assertions(self.solver)
 
         if self.config.prove:
