@@ -73,7 +73,7 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
-            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min)
+            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
 
@@ -81,7 +81,7 @@ class ProblemSolver(object):
             count = 0
             list_status = []
             (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
-            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min)
+            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
             

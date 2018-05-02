@@ -268,7 +268,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
+            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min, lemmas)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -283,7 +283,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Eventually verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min)
+            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min, lemmas)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
