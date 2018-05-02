@@ -18,6 +18,10 @@ from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
+from cosa.core.transition_system import HTS
+from cosa.encoders.explicit_transition_system import ExplicitTSParser
+from cosa.encoders.symbolic_transition_system import SymbolicTSParser
+
 
 class ProblemSolver(object):
     parser = None
@@ -44,6 +48,8 @@ class ProblemSolver(object):
                         parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
                 else:
                     parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+            else:
+                parsing_defs[i] = []
 
         [bmc_config.properties, bmc_config.lemmas, bmc_config.assumptions] = parsing_defs
 
@@ -81,7 +87,7 @@ class ProblemSolver(object):
             
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
-                problem.hts2 = self.parse_json(problem.equivalence, config.abstract_clock, "System 2")
+                problem.hts2 = self.parse_model(problem.equivalence, config.abstract_clock, "System 2")
 
             htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
 
@@ -102,14 +108,37 @@ class ProblemSolver(object):
             
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
-    def parse_json(self, json_file, abstract_clock=False, name=None):
-        parser = CoreIRParser(abstract_clock, "rtlil", "cgralib","commonlib")
-        if self.parser is None:
-            self.parser = parser
+    def parse_model(self, model_files, abstract_clock=False, name=None):
+        hts = HTS("Top level")
+
+        models = model_files.split(",")
         
-        Logger.msg("Parsing file \"%s\"... "%(json_file), 0)
-        hts = parser.parse_file(json_file)
-        Logger.log("DONE", 0)
+        for strfile in models:
+            filetype = strfile.split(".")[-1]
+            print(strfile, filetype)
+            parser = None
+
+            if filetype == CoreIRParser.get_extension():
+                parser = CoreIRParser(abstract_clock, "rtlil", "cgralib","commonlib")
+                parser.boolean = False
+                self.parser = parser
+
+            if filetype == ExplicitTSParser.get_extension():
+                parser = ExplicitTSParser()
+
+            if filetype == SymbolicTSParser.get_extension():
+                parser = SymbolicTSParser()
+
+            if parser is not None:
+                Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
+                hts_a = parser.parse_file(strfile)
+                hts.combine(hts_a)
+
+                Logger.log("DONE", 0)
+                continue
+
+            Logger.error("Filetype \"%s\" unsupported"%filetype)
+            
         if Logger.level(1):
             print(hts.print_statistics(name))
 
@@ -118,10 +147,10 @@ class ProblemSolver(object):
     def solve_problems(self, problems, config):
         hts = None
         hts2 = None
-        hts = self.parse_json(problems.model_file, problems.abstract_clock, "System 1")
+        hts = self.parse_model(problems.model_file, problems.abstract_clock, "System 1")
         
         if problems.equivalence is not None:
-            hts2 = self.parse_json(problems.equivalence, problems.abstract_clock, "System 2")
+            hts2 = self.parse_model(problems.equivalence, problems.abstract_clock, "System 2")
         
         for problem in problems.problems:
             problem.hts = hts
