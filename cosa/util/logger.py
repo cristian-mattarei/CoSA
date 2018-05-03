@@ -62,6 +62,8 @@ class Logger(object):
     def start_timer(name):
         if not Logger.time:
             return None
+        if Logger.level(2):
+            sys.stdout.write("Timer \"%s\": start\n"%(name))
         Logger.timers.append((time.time(), name))
         Logger.id_timer += 1
         return Logger.id_timer-1

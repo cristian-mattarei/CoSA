@@ -605,14 +605,15 @@ class BMC(object):
                 self._push(self.solver_2)
                 self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
 
-                res = self._solve(self.solver_2)
+                if t >= k_min:
+                    res = self._solve(self.solver_2)
 
-                if res:
-                    Logger.log("Induction failed with k=%s"%(t), 1)
-                else:
-                    Logger.log("Induction holds with k=%s"%(t), 1)
-                    Logger.log("", 0, not(Logger.level(1)))
-                    return (t, True)
+                    if res:
+                        Logger.log("Induction failed with k=%s"%(t), 1)
+                    else:
+                        Logger.log("Induction holds with k=%s"%(t), 1)
+                        Logger.log("", 0, not(Logger.level(1)))
+                        return (t, True)
 
                 self._pop(self.solver_2)
                 self._add_assertion(self.solver_2, self.at_time(prop, t))
