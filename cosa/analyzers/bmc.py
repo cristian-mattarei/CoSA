@@ -182,12 +182,18 @@ class BMC(object):
             return TRUE()
 
         def not_eq_states(vars1, vars2):
-            eqvars = [Not(EqualsOrIff(v, vars2[vars1.index(v)])) for v in vars1]
+            assert len(vars1) == len(vars2)
+            eqvars = []
+            for i in range(len(vars1)):
+                eqvars.append(Not(EqualsOrIff(vars1[i], vars2[i])))
             return Or(eqvars)
 
+        lvars = list(vars_)
+        end_vars = [TS.get_timed(v, k_end) for v in lvars]
+        
         formula = []
         for t in range(k_start, k_end, 1):
-            formula.append(not_eq_states([TS.get_timed(v, k_end) for v in vars_], [TS.get_timed(v, t) for v in vars_]))
+            formula.append(not_eq_states(end_vars, [TS.get_timed(v, t) for v in lvars]))
 
         return And(formula)
 
