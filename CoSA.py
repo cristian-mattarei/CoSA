@@ -125,6 +125,7 @@ def print_trace(msg, trace, index, prefix):
         trace_printed(msg, hr_trace_file, vcd_trace_file)
 
     else:
+        Logger.log("%s:"%msg, 0)
         Logger.log(trace_hr, 0)
 
 def run_verification(config):
