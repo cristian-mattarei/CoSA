@@ -28,7 +28,8 @@ def runtest(example):
 
     with open("%s/expected_results.txt"%example, "r") as f:
         expected_results = f.read().strip().replace(" ","").split(",")
-        
+
+    assert list_status == expected_results
     return list_status == expected_results
     
 def test_problem():
