@@ -230,7 +230,6 @@ class BMCLiveness(BMC):
     def all_loopbacks(self, vars, k, heqvar=None):
         lvars = list(vars)
         vars_k = [TS.get_timed(v, k) for v in lvars]
-        varslen = len(lvars)
         loopback = FALSE()
         eqvar = None
         heqvars = None
@@ -243,7 +242,7 @@ class BMCLiveness(BMC):
             
         for i in range(k):
             vars_i = [TS.get_timed(v, i) for v in lvars]
-            eq_k_i = And([EqualsOrIff(vars_k[j], vars_i[j]) for j in range(varslen)])
+            eq_k_i = And([EqualsOrIff(vars_k[j], vars_i[j]) for j in range(len(lvars))])
             if heqvar is not None:
                 eqvar_i = TS.get_timed(eqvar, i)
                 peqvars = Or(peqvars, eqvar_i)

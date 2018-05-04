@@ -43,8 +43,9 @@ class ProblemSolver(object):
         parsing_defs = [bmc_config.properties, bmc_config.lemmas, bmc_config.assumptions]
         for i in range(len(parsing_defs)):
             if parsing_defs[i] is not None:
-                if os.path.isfile(parsing_defs[i]):
-                    with open(parsing_defs[i]) as f:
+                pdef_file = problem.relative_path+parsing_defs[i]
+                if os.path.isfile(pdef_file):
+                    with open(pdef_file) as f:
                         parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
                 else:
                     parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
@@ -87,7 +88,7 @@ class ProblemSolver(object):
             
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
-                problem.hts2 = self.parse_model(problem.equivalence, config.abstract_clock, "System 2")
+                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, config.abstract_clock, "System 2")
 
             htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
 
@@ -108,14 +109,14 @@ class ProblemSolver(object):
             
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
-    def parse_model(self, model_files, abstract_clock=False, name=None):
+    def parse_model(self, relative_path, model_files, abstract_clock=False, name=None):
         hts = HTS("Top level")
 
         models = model_files.split(",")
         
         for strfile in models:
             filetype = strfile.split(".")[-1]
-            print(strfile, filetype)
+            strfile = relative_path+strfile
             parser = None
 
             if filetype == CoreIRParser.get_extension():
@@ -147,21 +148,22 @@ class ProblemSolver(object):
     def solve_problems(self, problems, config):
         hts = None
         hts2 = None
-        hts = self.parse_model(problems.model_file, problems.abstract_clock, "System 1")
+        hts = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, "System 1")
         
         if problems.equivalence is not None:
-            hts2 = self.parse_model(problems.equivalence, problems.abstract_clock, "System 2")
+            hts2 = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, "System 2")
         
         for problem in problems.problems:
             problem.hts = hts
             problem.hts2 = hts2
+            problem.relative_path = problems.relative_path
             self.solve_problem(problem, config)
 
     def problem2bmc_config(self, problem, config):
         bmc_config = BMCConfig()
         
-        bmc_config.smt2file = problem.smt2_tracing
-        bmc_config.full_trace = problem.full_trace
+        bmc_config.smt2file = problem.smt2_tracing if problem.smt2_tracing is not None else config.smt2file
+        bmc_config.full_trace = problem.full_trace or config.full_trace
         bmc_config.prefix = problem.name
         bmc_config.strategy = BMCConfig.get_strategies()[0][0]
         bmc_config.skip_solving = problem.skip_solving
