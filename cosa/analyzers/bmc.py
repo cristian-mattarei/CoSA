@@ -357,14 +357,18 @@ class BMC(object):
         return (htseq, t, model)
 
 
-    def simulate(self, prop, k):
-        self._init_at_time(self.hts.vars, k)
-
-        if prop == TRUE():
-            self.config.incremental = False
-            (t, model) = self.solve_fwd(self.hts, Not(prop), k, False)
+    def simulate(self, prop, k, no_unroll=False):
+        if no_unroll:
+            self._init_at_time(self.hts.vars, 0, prop)
+            (t, model) = self.sim_no_unroll(self.hts, prop, k)
         else:
-            (t, model) = self.solve(self.hts, Not(prop), k)
+            self._init_at_time(self.hts.vars, k, prop)
+
+            if prop == TRUE():
+                self.config.incremental = False
+                (t, model) = self.solve_fwd(self.hts, Not(prop), k, False)
+            else:
+                (t, model) = self.solve(self.hts, Not(prop), k)
 
         model = self._remap_model(self.hts.vars, model, t)
 
@@ -777,6 +781,46 @@ class BMC(object):
 
         Logger.error("Invalid configuration strategy")
         return None
+
+    def sim_no_unroll(self, hts, cover, k):
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+
+        init_model = None
+        for t in range(k + 1):
+            self._reset_assertions(self.solver)
+
+            if init_model is not None:
+                init = TRUE()
+                for k, v in init_model.items():
+                    init = And(init, EqualsOrIff(k, v))
+
+            formula = And(init, invar)
+            formula = self.at_time(formula, 0)
+            self.add_assertion(self.solver, formula)
+
+            trans_t = self.unroll(trans, invar, 1)
+            self._add_assertion(self.solver, trans_t)
+
+            res_step = self._solve(self.solver):
+
+            if res_step:
+                Logger.log("Able to step forward at k=%s"%(t), 2)
+                init_model = self.solver.solver.get_model()
+            else:
+                Logger.log("System deadlocked at k=%s"%(t), 0)
+
+            covert = self.at_time(cover, 1)
+            self._add_assertion(self.solver, Not(covert))
+
+            res_cont = self._solve(self.solver)
+
+            if not res_cont:
+                Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
+                model = init_model
+
+        return (t, model)
 
     def _remap_model_fwd(self, vars, model, k):
         return model

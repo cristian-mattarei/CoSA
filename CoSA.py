@@ -73,6 +73,7 @@ class Config(object):
         self.strfiles = None
         self.verbosity = 1
         self.simulate = False
+        self.sim_no_unroll = False
         self.bmc_length = 10
         self.bmc_length_min = 0
         self.safety = None
@@ -236,7 +237,7 @@ def run_verification(config):
         with open(config.translate, "w") as f:
             f.write(printer.print_hts(hts, properties))
 
-    if config.simulate:
+    if config.simulate or config.sim_no_unroll:
         count = 0
         if config.properties is None:
             props = [("True", TRUE(), None)]
@@ -244,7 +245,7 @@ def run_verification(config):
             props = sparser.parse_formulae(config.properties)
         for (strprop, prop, types) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
-            res, trace = bmc.simulate(prop, config.bmc_length)
+            res, trace = bmc.simulate(prop, config.bmc_length, no_unroll=config.sim_no_unroll)
             if res == VerificationStatus.TRUE:
                 count += 1
                 print_trace("Execution", trace, count, config.prefix)
@@ -377,6 +378,10 @@ if __name__ == "__main__":
     parser.set_defaults(simulate=False)
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC.')
+
+    parser.set_defaults(sim_no_unroll=False)
+    parser.add_argument('--sim-no-unroll', dest='sim_no_unroll', action='store_true',
+                        help='simulate the system using BMC by only unrolling one step at a time.')
 
     parser.set_defaults(problems=None)
     parser.add_argument('--problems', metavar='<problems file>', type=str, required=False,
