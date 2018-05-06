@@ -783,31 +783,35 @@ class BMC(object):
         return None
 
     def sim_no_unroll(self, hts, cover, k):
-        init = hts.single_init()
-        trans = hts.single_trans()
+        raise RuntimeError("Not finished yet. Not unrolling ETS/STS like it should")
+        init_t = self.at_time(hts.single_init(), 0)
         invar = hts.single_invar()
+        invar_t = self.at_time(invar, 0)
+        trans_t = self.unroll(hts.single_trans(), invar, 1)
 
         init_model = None
         for t in range(k + 1):
             self._reset_assertions(self.solver)
 
             if init_model is not None:
-                init = TRUE()
-                for k, v in init_model.items():
-                    init = And(init, EqualsOrIff(k, v))
+                init_t = TRUE()
+                # Use previous model as initial state for next sat call
+                for v in self.hts.vars:
+                    v0 = self.at_time(v, 0)
+                    v1 = self.at_time(v, 1)
+                    val_1 = init_model[v1]
+                    init_t = And(init_t, EqualsOrIff(v0, val_1))
 
-            formula = And(init, invar)
-            formula = self.at_time(formula, 0)
-            self.add_assertion(self.solver, formula)
+            formula = And(init_t, invar_t)
+            self._add_assertion(self.solver, formula)
 
-            trans_t = self.unroll(trans, invar, 1)
             self._add_assertion(self.solver, trans_t)
 
-            res_step = self._solve(self.solver):
+            res_step = self._solve(self.solver)
 
             if res_step:
                 Logger.log("Able to step forward at k=%s"%(t), 2)
-                init_model = self.solver.solver.get_model()
+                init_model = dict(self.solver.solver.get_model())
             else:
                 Logger.log("System deadlocked at k=%s"%(t), 0)
 
@@ -819,8 +823,11 @@ class BMC(object):
             if not res_cont:
                 Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
                 model = init_model
+            else:
+                Logger.log('Cover not reached at k=%s'%t, 1)
 
-        return (t, model)
+        # doesn't keep track of trace so always length 2 i.e. (0, 1)
+        return (1, model)
 
     def _remap_model_fwd(self, vars, model, k):
         return model

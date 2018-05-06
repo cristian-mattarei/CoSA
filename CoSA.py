@@ -503,6 +503,7 @@ if __name__ == "__main__":
 
     config.strfiles = args.input_files
     config.simulate = args.simulate
+    config.sim_no_unroll = args.sim_no_unroll
     config.safety = args.safety
     config.liveness = args.liveness
     config.eventually = args.eventually
@@ -559,6 +560,7 @@ if __name__ == "__main__":
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
 
     if not(config.simulate or \
+           (config.sim_no_unroll) or \
            (config.safety) or \
            (config.liveness) or \
            (config.eventually) or \
