@@ -836,7 +836,6 @@ class BMC(object):
                 Logger.log("System deadlocked at k=%s"%(t), 0)
 
             covert = self.at_time(cover, t)
-            print('cover assertion', Not(covert))
             self._add_assertion(self.solver, Not(covert))
 
             res_cont = self._solve(self.solver)
