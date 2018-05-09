@@ -119,7 +119,10 @@ class BMC(object):
             if self.config.prove:
                 self.solver_2.trace_file = "%s-ind.smt2"%basename
 
-    def _init_at_time(self, vars, maxtime, prop=None):
+    def _init_at_time(self, vars, maxtime):
+
+        previous = self.config.strategy != FWD
+        
         self.varmapf_t = {}
         self.varmapb_t = {}
 
@@ -142,12 +145,15 @@ class BMC(object):
                 varmapf.append((psname, timed(sname, t+1)))
                 varmapf.append((rsname, timed(sname, t-1)))
 
-                varmapb.append((sname, ptimed(sname, t)))
-                varmapb.append((psname, ptimed(sname, t-1)))
-                varmapb.append((rsname, ptimed(sname, t+1)))
+                if previous:
+                    varmapb.append((sname, ptimed(sname, t)))
+                    varmapb.append((psname, ptimed(sname, t-1)))
+                    varmapb.append((rsname, ptimed(sname, t+1)))
 
             self.varmapf_t[t] = dict(varmapf)
-            self.varmapb_t[t-1] = dict(varmapb)
+
+            if previous:
+                self.varmapb_t[t-1] = dict(varmapb)
 
     def at_time(self, formula, t):
         self.subwalker.set_substitute_map(self.varmapf_t[t])
@@ -342,7 +348,7 @@ class BMC(object):
 
 
     def simulate(self, prop, k):
-        self._init_at_time(self.hts.vars, k, prop)
+        self._init_at_time(self.hts.vars, k)
 
         if prop == TRUE():
             self.config.incremental = False
@@ -734,7 +740,7 @@ class BMC(object):
         return (-1, None)
 
     def safety(self, prop, k, k_min, lemmas=None):
-        self._init_at_time(self.hts.vars, k, prop)
+        self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
 
         if model == True:
