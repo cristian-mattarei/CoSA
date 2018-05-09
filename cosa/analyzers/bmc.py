@@ -16,9 +16,9 @@ from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Impl
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition, disjunctive_partition
-from pysmt.walkers.identitydag import IdentityDagWalker
 
 from cosa.util.logger import Logger
+from cosa.util.utils import SubstituteWalker
 from cosa.core.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
@@ -898,19 +898,3 @@ class BMC(object):
             Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
 
         return r
-
-class SubstituteWalker(IdentityDagWalker):
-
-    def set_substitute_function(self, function):
-        self.substitute_function = function
-
-    def set_substitute_map(self, smap):
-        self.mapsymbols = smap
-
-    def walk_symbol(self, formula, args, **kwargs):
-        if formula.symbol_name() in self.mapsymbols:
-            return self.mgr.Symbol(self.mapsymbols[formula.symbol_name()],
-                                   formula.symbol_type())
-        else:
-            return self.mgr.Symbol(formula.symbol_name(),
-                                   formula.symbol_type())

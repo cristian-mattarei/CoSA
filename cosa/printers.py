@@ -150,7 +150,8 @@ class SMVHTSPrinter(HTSPrinter):
 
         locvars = [v for v in hts.vars if v not in printed_vars]
 
-        printed_vars = printed_vars.union(hts.vars)
+        for v in hts.vars:
+            printed_vars.add(v)
 
         if locvars: self.write("\nVAR\n")
         for var in locvars:

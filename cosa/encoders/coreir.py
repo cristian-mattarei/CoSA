@@ -26,6 +26,7 @@ from pysmt.smtlib.printers import SmtPrinter
 from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number
 from cosa.util.logger import Logger
+from cosa.util.utils import SubstituteWalker
 
 from cosa.encoders.model import ModelParser
 
@@ -121,7 +122,6 @@ class Modules(object):
             invar = EqualsOrIff(bvop(in0,in1), out)
             
         else:
-
             if bools == 3:
                 invar = EqualsOrIff(bop(in0, in1), out)
             elif bools == 0:
@@ -659,6 +659,16 @@ class CoreIRParser(ModelParser):
         self.anonimize_names = False
         self.arrays = False
 
+        self._init_mod_map()
+
+        self.memoize_encoding = False
+        self.subwalker = SubstituteWalker(invalidate_memoization=True)
+
+        self.enc_map = {}
+
+        Logger.time = True
+
+        
     @staticmethod        
     def get_extension():
         return CoreIRParser.extension
@@ -743,8 +753,9 @@ class CoreIRParser(ModelParser):
         self.attrnames.append(add_name("wen"))
         self.attrnames.append(add_name("rdata"))
         self.attrnames.append(add_name("raddr"))
-            
-    def __mod_to_impl(self, inst_type, args):
+
+
+    def _init_mod_map(self):
         mod_map = []
         mod_map.append(("not",  (Modules.Not,  [self.IN, self.OUT])))
         mod_map.append(("not",  (Modules.Not,  [self.IN, self.OUT])))
@@ -784,12 +795,68 @@ class CoreIRParser(ModelParser):
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         mod_map.append(("concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
         
-        mod_map = dict(mod_map)
+        self.mod_map = dict(mod_map)
 
+    def __encoding_memoization(self, inst_type, args):
+        value = 0
+        vec_par = []
+        actual = []
+        for x in args:
+            if x is not None:
+                if type(x) != int:
+                    value += 1
+                    vec_par.append(("a%s"%value, x.symbol_type().width))
+                    actual.append(x)
+            else:
+                vec_par.append(x)
+
+
+        def join(l1, l2):
+            ret = []
+            for i in range(len(l1)):
+                ret.append((l1[i], l2[i]))
+
+            return ret
+
+        def set_remap(in_set, remap):
+            ret = set([])
+
+            source = False
+            
+            for v in in_set:
+                if v in remap:
+                    ret.add(remap[v])
+                else:
+                    if source is False:
+                        base_source = ".".join(list(in_set)[0].symbol_name().split(".")[:-1])
+                        base_dest = ".".join(remap[list(in_set)[0]].symbol_name().split(".")[:-1])
+                        source = True
+
+                    ret.add(Symbol(v.symbol_name().replace(base_source, base_dest), v.symbol_type()))
+                    
+            return ret
+
+        enc_val = (inst_type, str(vec_par))
+        if enc_val in self.enc_map:
+            (enc, formal) = self.enc_map[enc_val]
+            remap = dict(join(formal, actual))
+            self.subwalker.set_substitute_map(remap)
+            ts = TS(set_remap(enc.vars, remap), self.subwalker.walk(enc.init), self.subwalker.walk(enc.trans), self.subwalker.walk(enc.invar))
+            return ts
+
+        ret = self.mod_map[inst_type][0](*args)
+        self.enc_map[enc_val] = (ret, actual)
+
+        return ret
+        
+    def __mod_to_impl(self, inst_type, args):
         ts = None
 
-        if inst_type in mod_map:
-            ts = mod_map[inst_type][0](*args(mod_map[inst_type][1]))
+        if inst_type in self.mod_map:
+            if self.memoize_encoding:
+                ts = self.__encoding_memoization(inst_type, args(self.mod_map[inst_type][1]))
+            else:
+                ts = self.mod_map[inst_type][0](*args(self.mod_map[inst_type][1]))
 
         if ((args([self.CLK_POSEDGE])[0] == 0) or (args([self.ARST_POSEDGE])[0] == 0)) and Modules.abstract_clock:
             Logger.warning("Unsound clock abstraction: registers with negedge behavior")
@@ -814,45 +881,57 @@ class CoreIRParser(ModelParser):
 
         totalinst = len(top_def.instances)
         count = 0
-        
-        for inst in top_def.instances:
+        top_def_instances = list(top_def.instances)
+
+
+        def extract_value(x, modname, inst_intr, inst_conf, inst_mod):
+            if x in inst_intr:
+                return self.BVVar(modname+x, inst_intr[x].size)
+
+            if x in inst_conf:
+                xval = inst_conf[x].value
+                if type(xval) == bool:
+                    xval = 1 if xval else 0
+                else:
+                    if type(xval) != int:
+                        xval = xval.unsigned_value
+
+                return xval
+
+            if inst_mod.generated:
+                inst_args = inst_mod.generator_args
+                if x in inst_args:
+                    return inst_args[x].value
+
+            return None
+
+        if Logger.level(2):
+            timer = Logger.start_timer("Convertion")
+            total_time = 0.0
+            
+        for inst in top_def_instances:
             count += 1
             if count % 1000 == 0:
                 Logger.msg("..converted %.2f%%"%(float(count*100)/float(totalinst)), 1)
+
+                if Logger.level(2):
+                    total_time += Logger.stop_timer(timer)
+                    Logger.log("Total time convert: %.2f sec"%total_time, 1)
+                    timer = Logger.start_timer("Convertion")
             
             ts = None
             
             inst_name = inst.selectpath
-            inst_type = inst.module.name
-            inst_intr = dict(inst.module.type.items())
+            inst_conf = inst.config
+            inst_mod  = inst.module
+            inst_type = inst_mod.name
+            inst_intr = dict(inst_mod.type.items())
             modname = (SEP.join(inst_name))+SEP
 
             values_dic = {}
 
             for x in self.attrnames:
-                if x in inst_intr:
-                    values_dic[x] = self.BVVar(modname+x, inst_intr[x].size)
-                else:
-                    values_dic[x] = None
-
-            for x in self.attrnames:
-                if x in inst.config:
-                    xval = inst.config[x].value
-                    if type(xval) == bool:
-                        xval = 1 if xval else 0
-                    else:
-                        if type(xval) != int:
-                            xval = xval.unsigned_value
-
-                    values_dic[x] = xval
-
-            if inst.module.generated:
-                inst_args = inst.module.generator_args
-
-                for x in self.attrnames:
-                    if x in inst_args:
-                        values_dic[x] = inst_args[x].value
-
+                values_dic[x] = extract_value(x, modname, inst_intr, inst_conf, inst_mod)
 
             def args(ports_list):
                 return [values_dic[x] for x in ports_list]
@@ -866,6 +945,12 @@ class CoreIRParser(ModelParser):
                     intface = ", ".join(["%s"%(v) for v in values_dic if values_dic[v] is not None])
                     Logger.error("Module type \"%s\" with interface \"%s\" is not defined"%(inst_type, intface))
                     not_defined_mods.append(inst_type)
+
+            del(values_dic)
+            
+        if Logger.level(2):
+            total_time += Logger.stop_timer(timer)
+            Logger.log("Total time convert: %.2f sec"%total_time, 1)
 
         for var in interface:
             varname = SELF+SEP+var[0]
@@ -992,6 +1077,9 @@ class CoreIRParser(ModelParser):
         ts.comment = "Connections" # (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
         hts.add_ts(ts)
 
+        if self.enc_map is not None:
+            del(self.enc_map)
+        
         return hts
 
 

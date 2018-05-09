@@ -58,8 +58,10 @@ class HTS(object):
         
     def add_ts(self, ts):
         self.tss.append(ts)
-        self.vars = set(self.vars.union(ts.vars))
-        self.state_vars = set(self.state_vars.union(ts.state_vars))
+        for v in ts.vars:
+            self.vars.add(v)
+        for v in ts.state_vars:
+            self.state_vars.add(v)
         self.arrays |= ts.array
 
     def add_assumption(self, assumption):
@@ -109,9 +111,14 @@ class HTS(object):
         for ts in other_hts.tss:
             self.add_ts(ts)
 
-        self.inputs = set(other_hts.inputs.union(self.inputs))
-        self.outputs = set(other_hts.outputs.union(self.outputs))
-        self.vars = set(other_hts.vars.union(self.vars))
+        for v in other_hts.inputs:
+            self.inputs.add(v)
+
+        for v in other_hts.outputs:
+            self.outputs.add(v)
+
+        for v in other_hts.vars:
+            self.vars.add(v)
     
     def __copy__(self):
         cls = self.__class__
@@ -152,7 +159,7 @@ class TS(object):
         self.array = False # set to true if there's an array
 
     def __repr__(self):
-        return "V: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.init), str(self.trans), str(self.invar))
+        return "V: %s\nSV: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.state_vars), str(self.init), str(self.trans), str(self.invar))
         
     def remove_invar(self):
         if self.invar is not None:
