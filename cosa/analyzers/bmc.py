@@ -112,6 +112,10 @@ class BMC(object):
 
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
+        self.varmapf_t = None
+        self.varmapb_t = None
+
+
     def _reset_smt2_tracefile(self):
         if self.config.smt2file is not None:
             basename = ".".join(self.config.smt2file.split(".")[:-1])
@@ -122,7 +126,13 @@ class BMC(object):
     def _init_at_time(self, vars, maxtime):
 
         previous = self.config.strategy != FWD
-        
+
+        if self.varmapf_t is not None:
+            del(self.varmapf_t)
+
+        if self.varmapb_t is not None:
+            del(self.varmapb_t)
+            
         self.varmapf_t = {}
         self.varmapb_t = {}
 
