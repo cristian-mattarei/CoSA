@@ -110,7 +110,7 @@ class BMCLiveness(BMC):
             invar = simplify(invar)
 
             if Logger.level(1):
-                Logger.stop_timer(timer)
+                Logger.get_timer(timer)
 
         heqvar = None
         if not eventually:

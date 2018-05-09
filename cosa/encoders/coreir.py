@@ -905,19 +905,26 @@ class CoreIRParser(ModelParser):
 
             return None
 
+        if Logger.level(1):
+            timer = Logger.start_timer("Convertion", False)
+            en_tprinting = False
+
         if Logger.level(2):
-            timer = Logger.start_timer("Convertion")
-            total_time = 0.0
+            ttimer = Logger.start_timer("Total Convertion", False)
             
         for inst in top_def_instances:
-            count += 1
-            if count % 1000 == 0:
-                Logger.msg("..converted %.2f%%"%(float(count*100)/float(totalinst)), 1)
+            if Logger.level(1):
+                count += 1
+                if count % 100 == 0:
+                    dtime = Logger.get_timer(timer, False)
+                    if dtime > 2:
+                        en_tprinting = True
+                    if en_tprinting and (dtime > 0.5):
+                        Logger.inline("... converted %.2f%%"%(float(count*100)/float(totalinst)), 1)
+                        timer = Logger.start_timer("Convertion", False)
 
-                if Logger.level(2):
-                    total_time += Logger.stop_timer(timer)
-                    Logger.log("Total time convert: %.2f sec"%total_time, 1)
-                    timer = Logger.start_timer("Convertion")
+                    if Logger.level(2):
+                        Logger.get_timer(timer, False)
             
             ts = None
             
@@ -948,10 +955,6 @@ class CoreIRParser(ModelParser):
 
             del(values_dic)
             
-        if Logger.level(2):
-            total_time += Logger.stop_timer(timer)
-            Logger.log("Total time convert: %.2f sec"%total_time, 1)
-
         for var in interface:
             varname = SELF+SEP+var[0]
             bvvar = self.BVVar(varname, var[1].size)
@@ -1079,7 +1082,10 @@ class CoreIRParser(ModelParser):
 
         if self.enc_map is not None:
             del(self.enc_map)
-        
+
+        if Logger.level(2):
+            Logger.get_timer(ttimer)
+
         return hts
 
 

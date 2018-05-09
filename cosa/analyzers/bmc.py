@@ -560,7 +560,7 @@ class BMC(object):
             trans = simplify(trans)
             invar = simplify(invar)
             if Logger.level(2):
-                Logger.stop_timer(timer)
+                Logger.get_timer(timer)
 
         propt = FALSE()
         formula = And(init, invar)
@@ -894,7 +894,7 @@ class BMC(object):
         r = solver.solver.solve()
 
         if Logger.level(2):
-            self.total_time += Logger.stop_timer(timer)
+            self.total_time += Logger.get_timer(timer)
             Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
 
         return r
