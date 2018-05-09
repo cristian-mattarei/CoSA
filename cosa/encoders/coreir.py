@@ -24,7 +24,7 @@ from pysmt.typing import BOOL, _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter
 
 from cosa.core.transition_system import TS, HTS
-from cosa.util.utils import is_number
+from cosa.util.utils import is_number, status_bar
 from cosa.util.logger import Logger
 from cosa.util.utils import SubstituteWalker
 
@@ -906,22 +906,22 @@ class CoreIRParser(ModelParser):
             return None
 
         if Logger.level(1):
-            timer = Logger.start_timer("Convertion", False)
+            timer = Logger.start_timer("IntConvertion", False)
             en_tprinting = False
 
         if Logger.level(2):
-            ttimer = Logger.start_timer("Total Convertion", False)
+            ttimer = Logger.start_timer("Convertion", False)
             
         for inst in top_def_instances:
             if Logger.level(1):
                 count += 1
-                if count % 100 == 0:
+                if count % 300 == 0:
                     dtime = Logger.get_timer(timer, False)
                     if dtime > 2:
                         en_tprinting = True
-                    if en_tprinting and (dtime > 0.5):
-                        Logger.inline("... converted %.2f%%"%(float(count*100)/float(totalinst)), 1)
-                        timer = Logger.start_timer("Convertion", False)
+                    if en_tprinting:
+                        Logger.inline("%s"%status_bar((float(count)/float(totalinst))), 1)
+                        timer = Logger.start_timer("IntConvertion", False)
 
                     if Logger.level(2):
                         Logger.get_timer(timer, False)

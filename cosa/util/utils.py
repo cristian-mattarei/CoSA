@@ -30,7 +30,10 @@ def auto_convert(strval):
         except Exception:
             return strval
     
-
+def status_bar(status, length=30):
+    curr = int(length*status)
+    return "["+("="*(curr-1))+">"+(" "*(length-curr))+"]"+(" %.2f%%"%(status*100))
+        
 class SubstituteWalker(IdentityDagWalker):
 
     def set_substitute_function(self, function):
