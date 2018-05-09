@@ -378,13 +378,15 @@ class BMC(object):
 
 
     def simulate(self, prop, k, no_unroll=False):
-        self._init_at_time(self.hts.vars, k, prop)
         if no_unroll:
+            self._init_at_time(self.hts.vars, 0)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
             # print out last state
+            print('t = {}'.format(t))
             self.print_state(self.hts, model, t)
             return (VerificationStatus.UNK, None)
         else:
+            self._init_at_time(self.hts.vars, k)
             if prop == TRUE():
                 self.config.incremental = False
                 (t, model) = self.solve_fwd(self.hts, Not(prop), k, False)
@@ -809,6 +811,8 @@ class BMC(object):
         trans = hts.single_trans()
 
         init_t = self.at_time(hts.single_init(), 0)
+        invar_t = self.at_time(invar, 0)
+        trans_t = self.unroll(hts.single_trans(), invar, 1)
 
         init_model = None
         for t in range(k + 1):
@@ -819,15 +823,14 @@ class BMC(object):
                 init_t = TRUE()
                 # Use previous model as initial state for next sat call
                 for v in self.hts.vars:
-                    vt = self.at_time(v, t)
-                    if vt in init_model:
-                        val = init_model[vt]
-                        init_t = And(init_t, EqualsOrIff(vt, val))
+                    v0 = self.at_time(v, 0)
+                    v1 = self.at_time(v, 1)
+                    if v1 in init_model:
+                        val = init_model[v1]
+                        init_t = And(init_t, EqualsOrIff(v0, val))
 
-            invar_t = self.at_time(invar, t)
             formula = And(init_t, invar_t)
 
-            trans_t = self.unroll(hts.single_trans(), invar, t+1, t)
             self._add_assertion(self.solver, formula)
             self._add_assertion(self.solver, trans_t)
 
@@ -836,10 +839,11 @@ class BMC(object):
             if res_step:
                 Logger.log("Able to step forward at k=%s"%(t), 2)
                 init_model = dict(self.solver.solver.get_model())
+                model = init_model
             else:
                 Logger.log("System deadlocked at k=%s"%(t), 0)
 
-            covert = self.at_time(cover, t)
+            covert = self.at_time(cover, 1)
             self._add_assertion(self.solver, Not(covert))
 
             res_cont = self._solve(self.solver)
@@ -847,11 +851,12 @@ class BMC(object):
             if not res_cont:
                 Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
                 model = init_model
-                return (t, model)
+                return (1, model)
             else:
                 Logger.log('Cover not reached at k=%s'%t, 1)
 
-        return (t, model)
+        # only uses 0 and 1 symbols
+        return (1, model)
 
     def _remap_model_fwd(self, vars, model, k):
         return model

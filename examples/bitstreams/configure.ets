@@ -1,328 +1,328 @@
 # INIT
-I: self.reset = 0_1
+I: self.reset_in = 0_1
 I: conf_done = 0_1
-I: self.config_addr = 00000000
-I: self.config_data = 00000000
+I: self.config_addr_in = 00000000
+I: self.config_data_in = 00000000
 
 # STATES
-S0: self.reset = 0_1
+S0: self.reset_in = 0_1
 S0: conf_done = 0_1
-S0: self.config_addr = 00000000
-S0: self.config_data = 00000000
+S0: self.config_addr_in = 00000000
+S0: self.config_data_in = 00000000
 
-S0a: self.reset = 1_1
+S0a: self.reset_in = 1_1
 S0a: conf_done = 0_1
-S0a: self.config_addr = 00000000
-S0a: self.config_data = 00000000
+S0a: self.config_addr_in = 00000000
+S0a: self.config_data_in = 00000000
 
-S1: self.reset = 0_1
+S1: self.reset_in = 0_1
 S1: conf_done = 0_1
-S1: self.config_addr = 00000000
-S1: self.config_data = 00000000
+S1: self.config_addr_in = 00000000
+S1: self.config_data_in = 00000000
 
-S1a: self.reset = 0_1
+S1a: self.reset_in = 0_1
 S1a: conf_done = 0_1
-S1a: self.config_addr = F0000007
-S1a: self.config_data = 00000000
+S1a: self.config_addr_in = F0000007
+S1a: self.config_data_in = 00000000
 
-S2: self.reset = 0_1
+S2: self.reset_in = 0_1
 S2: conf_done = 0_1
-S2: self.config_addr = F0000007
-S2: self.config_data = 00000000
+S2: self.config_addr_in = F0000007
+S2: self.config_data_in = 00000000
 
-S2a: self.reset = 0_1
+S2a: self.reset_in = 0_1
 S2a: conf_done = 0_1
-S2a: self.config_addr = FF000007
-S2a: self.config_data = 00080000
+S2a: self.config_addr_in = FF000007
+S2a: self.config_data_in = 00080000
 
-S3: self.reset = 0_1
+S3: self.reset_in = 0_1
 S3: conf_done = 0_1
-S3: self.config_addr = FF000007
-S3: self.config_data = 00080000
+S3: self.config_addr_in = FF000007
+S3: self.config_data_in = 00080000
 
-S3a: self.reset = 0_1
+S3a: self.reset_in = 0_1
 S3a: conf_done = 0_1
-S3a: self.config_addr = 00030007
-S3a: self.config_data = 00000000
+S3a: self.config_addr_in = 00030007
+S3a: self.config_data_in = 00000000
 
-S4: self.reset = 0_1
+S4: self.reset_in = 0_1
 S4: conf_done = 0_1
-S4: self.config_addr = 00030007
-S4: self.config_data = 00000000
+S4: self.config_addr_in = 00030007
+S4: self.config_data_in = 00000000
 
-S4a: self.reset = 0_1
+S4a: self.reset_in = 0_1
 S4a: conf_done = 0_1
-S4a: self.config_addr = 00080007
-S4a: self.config_data = 0000000E
+S4a: self.config_addr_in = 00080007
+S4a: self.config_data_in = 0000000E
 
-S5: self.reset = 0_1
+S5: self.reset_in = 0_1
 S5: conf_done = 0_1
-S5: self.config_addr = 00080007
-S5: self.config_data = 0000000E
+S5: self.config_addr_in = 00080007
+S5: self.config_data_in = 0000000E
 
-S5a: self.reset = 0_1
+S5a: self.reset_in = 0_1
 S5a: conf_done = 0_1
-S5a: self.config_addr = FF000008
-S5a: self.config_data = 000A0000
+S5a: self.config_addr_in = FF000008
+S5a: self.config_data_in = 000A0000
 
-S6: self.reset = 0_1
+S6: self.reset_in = 0_1
 S6: conf_done = 0_1
-S6: self.config_addr = FF000008
-S6: self.config_data = 000A0000
+S6: self.config_addr_in = FF000008
+S6: self.config_data_in = 000A0000
 
-S6a: self.reset = 0_1
+S6a: self.reset_in = 0_1
 S6a: conf_done = 0_1
-S6a: self.config_addr = 00020008
-S6a: self.config_data = 00000001
+S6a: self.config_addr_in = 00020008
+S6a: self.config_data_in = 00000001
 
-S7: self.reset = 0_1
+S7: self.reset_in = 0_1
 S7: conf_done = 0_1
-S7: self.config_addr = 00020008
-S7: self.config_data = 00000001
+S7: self.config_addr_in = 00020008
+S7: self.config_data_in = 00000001
 
-S7a: self.reset = 0_1
+S7a: self.reset_in = 0_1
 S7a: conf_done = 0_1
-S7a: self.config_addr = 00030008
-S7a: self.config_data = 00000005
+S7a: self.config_addr_in = 00030008
+S7a: self.config_data_in = 00000005
 
-S8: self.reset = 0_1
+S8: self.reset_in = 0_1
 S8: conf_done = 0_1
-S8: self.config_addr = 00030008
-S8: self.config_data = 00000005
+S8: self.config_addr_in = 00030008
+S8: self.config_data_in = 00000005
 
-S8a: self.reset = 0_1
+S8a: self.reset_in = 0_1
 S8a: conf_done = 0_1
-S8a: self.config_addr = 00080008
-S8a: self.config_data = 00300001
+S8a: self.config_addr_in = 00080008
+S8a: self.config_data_in = 00300001
 
-S9: self.reset = 0_1
+S9: self.reset_in = 0_1
 S9: conf_done = 0_1
-S9: self.config_addr = 00080008
-S9: self.config_data = 00300001
+S9: self.config_addr_in = 00080008
+S9: self.config_data_in = 00300001
 
-S9a: self.reset = 0_1
+S9a: self.reset_in = 0_1
 S9a: conf_done = 0_1
-S9a: self.config_addr = F1000009
-S9a: self.config_data = 00000007
+S9a: self.config_addr_in = F1000009
+S9a: self.config_data_in = 00000007
 
-S10: self.reset = 0_1
+S10: self.reset_in = 0_1
 S10: conf_done = 0_1
-S10: self.config_addr = F1000009
-S10: self.config_data = 00000007
+S10: self.config_addr_in = F1000009
+S10: self.config_data_in = 00000007
 
-S10a: self.reset = 0_1
+S10a: self.reset_in = 0_1
 S10a: conf_done = 0_1
-S10a: self.config_addr = FF000009
-S10a: self.config_data = 0002000B
+S10a: self.config_addr_in = FF000009
+S10a: self.config_data_in = 0002000B
 
-S11: self.reset = 0_1
+S11: self.reset_in = 0_1
 S11: conf_done = 0_1
-S11: self.config_addr = FF000009
-S11: self.config_data = 0002000B
+S11: self.config_addr_in = FF000009
+S11: self.config_data_in = 0002000B
 
-S11a: self.reset = 0_1
+S11a: self.reset_in = 0_1
 S11a: conf_done = 0_1
-S11a: self.config_addr = 00020009
-S11a: self.config_data = 00000000
+S11a: self.config_addr_in = 00020009
+S11a: self.config_data_in = 00000000
 
-S12: self.reset = 0_1
+S12: self.reset_in = 0_1
 S12: conf_done = 0_1
-S12: self.config_addr = 00020009
-S12: self.config_data = 00000000
+S12: self.config_addr_in = 00020009
+S12: self.config_data_in = 00000000
 
-S12a: self.reset = 0_1
+S12a: self.reset_in = 0_1
 S12a: conf_done = 0_1
-S12a: self.config_addr = 00080009
-S12a: self.config_data = 00300001
+S12a: self.config_addr_in = 00080009
+S12a: self.config_data_in = 00300001
 
-S13: self.reset = 0_1
+S13: self.reset_in = 0_1
 S13: conf_done = 0_1
-S13: self.config_addr = 00080009
-S13: self.config_data = 00300001
+S13: self.config_addr_in = 00080009
+S13: self.config_data_in = 00300001
 
-S13a: self.reset = 0_1
+S13a: self.reset_in = 0_1
 S13a: conf_done = 0_1
-S13a: self.config_addr = 00090009
-S13a: self.config_data = 00000000
+S13a: self.config_addr_in = 00090009
+S13a: self.config_data_in = 00000000
 
-S14: self.reset = 0_1
+S14: self.reset_in = 0_1
 S14: conf_done = 0_1
-S14: self.config_addr = 00090009
-S14: self.config_data = 00000000
+S14: self.config_addr_in = 00090009
+S14: self.config_data_in = 00000000
 
-S14a: self.reset = 0_1
+S14a: self.reset_in = 0_1
 S14a: conf_done = 0_1
-S14a: self.config_addr = 0003000A
-S14a: self.config_data = 00000C00
+S14a: self.config_addr_in = 0003000A
+S14a: self.config_data_in = 00000C00
 
-S15: self.reset = 0_1
+S15: self.reset_in = 0_1
 S15: conf_done = 0_1
-S15: self.config_addr = 0003000A
-S15: self.config_data = 00000C00
+S15: self.config_addr_in = 0003000A
+S15: self.config_data_in = 00000C00
 
-S15a: self.reset = 0_1
+S15a: self.reset_in = 0_1
 S15a: conf_done = 0_1
-S15a: self.config_addr = 000A000A
-S15a: self.config_data = 00000000
+S15a: self.config_addr_in = 000A000A
+S15a: self.config_data_in = 00000000
 
-S16: self.reset = 0_1
+S16: self.reset_in = 0_1
 S16: conf_done = 0_1
-S16: self.config_addr = 000A000A
-S16: self.config_data = 00000000
+S16: self.config_addr_in = 000A000A
+S16: self.config_data_in = 00000000
 
-S16a: self.reset = 0_1
+S16a: self.reset_in = 0_1
 S16a: conf_done = 0_1
-S16a: self.config_addr = 000D000A
-S16a: self.config_data = 00000000
+S16a: self.config_addr_in = 000D000A
+S16a: self.config_data_in = 00000000
 
-S17: self.reset = 0_1
+S17: self.reset_in = 0_1
 S17: conf_done = 0_1
-S17: self.config_addr = 000D000A
-S17: self.config_data = 00000000
+S17: self.config_addr_in = 000D000A
+S17: self.config_data_in = 00000000
 
-S17a: self.reset = 0_1
+S17a: self.reset_in = 0_1
 S17a: conf_done = 0_1
-S17a: self.config_addr = 0008000D
-S17a: self.config_data = 40000000
+S17a: self.config_addr_in = 0008000D
+S17a: self.config_data_in = 40000000
 
-S18: self.reset = 0_1
+S18: self.reset_in = 0_1
 S18: conf_done = 0_1
-S18: self.config_addr = 0008000D
-S18: self.config_data = 40000000
+S18: self.config_addr_in = 0008000D
+S18: self.config_data_in = 40000000
 
-S18a: self.reset = 0_1
+S18a: self.reset_in = 0_1
 S18a: conf_done = 0_1
-S18a: self.config_addr = 0009000F
-S18a: self.config_data = 40000000
+S18a: self.config_addr_in = 0009000F
+S18a: self.config_data_in = 40000000
 
-S19: self.reset = 0_1
+S19: self.reset_in = 0_1
 S19: conf_done = 0_1
-S19: self.config_addr = 0009000F
-S19: self.config_data = 40000000
+S19: self.config_addr_in = 0009000F
+S19: self.config_data_in = 40000000
 
-S19a: self.reset = 0_1
+S19a: self.reset_in = 0_1
 S19a: conf_done = 0_1
-S19a: self.config_addr = F1000012
-S19a: self.config_data = 00000007
+S19a: self.config_addr_in = F1000012
+S19a: self.config_data_in = 00000007
 
-S20: self.reset = 0_1
+S20: self.reset_in = 0_1
 S20: conf_done = 0_1
-S20: self.config_addr = F1000012
-S20: self.config_data = 00000007
+S20: self.config_addr_in = F1000012
+S20: self.config_data_in = 00000007
 
-S20a: self.reset = 0_1
+S20a: self.reset_in = 0_1
 S20a: conf_done = 0_1
-S20a: self.config_addr = FF000012
-S20a: self.config_data = 0002000B
+S20a: self.config_addr_in = FF000012
+S20a: self.config_data_in = 0002000B
 
-S21: self.reset = 0_1
+S21: self.reset_in = 0_1
 S21: conf_done = 0_1
-S21: self.config_addr = FF000012
-S21: self.config_data = 0002000B
+S21: self.config_addr_in = FF000012
+S21: self.config_data_in = 0002000B
 
-S21a: self.reset = 0_1
+S21a: self.reset_in = 0_1
 S21a: conf_done = 0_1
-S21a: self.config_addr = 00020012
-S21a: self.config_data = 00000005
+S21a: self.config_addr_in = 00020012
+S21a: self.config_data_in = 00000005
 
-S22: self.reset = 0_1
+S22: self.reset_in = 0_1
 S22: conf_done = 0_1
-S22: self.config_addr = 00020012
-S22: self.config_data = 00000005
+S22: self.config_addr_in = 00020012
+S22: self.config_data_in = 00000005
 
-S22a: self.reset = 0_1
+S22a: self.reset_in = 0_1
 S22a: conf_done = 0_1
-S22a: self.config_addr = 00080012
-S22a: self.config_data = C0000000
+S22a: self.config_addr_in = 00080012
+S22a: self.config_data_in = C0000000
 
-S23: self.reset = 0_1
+S23: self.reset_in = 0_1
 S23: conf_done = 0_1
-S23: self.config_addr = 00080012
-S23: self.config_data = C0000000
+S23: self.config_addr_in = 00080012
+S23: self.config_data_in = C0000000
 
-S23a: self.reset = 0_1
+S23a: self.reset_in = 0_1
 S23a: conf_done = 0_1
-S23a: self.config_addr = 00000013
-S23a: self.config_data = 000000FF
+S23a: self.config_addr_in = 00000013
+S23a: self.config_data_in = 000000FF
 
-S24: self.reset = 0_1
+S24: self.reset_in = 0_1
 S24: conf_done = 0_1
-S24: self.config_addr = 00000013
-S24: self.config_data = 000000FF
+S24: self.config_addr_in = 00000013
+S24: self.config_data_in = 000000FF
 
-S24a: self.reset = 0_1
+S24a: self.reset_in = 0_1
 S24a: conf_done = 0_1
-S24a: self.config_addr = FF000013
-S24a: self.config_data = 0000E000
+S24a: self.config_addr_in = FF000013
+S24a: self.config_data_in = 0000E000
 
-S25: self.reset = 0_1
+S25: self.reset_in = 0_1
 S25: conf_done = 0_1
-S25: self.config_addr = FF000013
-S25: self.config_data = 0000E000
+S25: self.config_addr_in = FF000013
+S25: self.config_data_in = 0000E000
 
-S25a: self.reset = 0_1
+S25a: self.reset_in = 0_1
 S25a: conf_done = 0_1
-S25a: self.config_addr = 00080013
-S25a: self.config_data = 00000000
+S25a: self.config_addr_in = 00080013
+S25a: self.config_data_in = 00000000
 
-S26: self.reset = 0_1
+S26: self.reset_in = 0_1
 S26: conf_done = 0_1
-S26: self.config_addr = 00080013
-S26: self.config_data = 00000000
+S26: self.config_addr_in = 00080013
+S26: self.config_data_in = 00000000
 
-S26a: self.reset = 0_1
+S26a: self.reset_in = 0_1
 S26a: conf_done = 0_1
-S26a: self.config_addr = 00090013
-S26a: self.config_data = 00000003
+S26a: self.config_addr_in = 00090013
+S26a: self.config_data_in = 00000003
 
-S27: self.reset = 0_1
+S27: self.reset_in = 0_1
 S27: conf_done = 0_1
-S27: self.config_addr = 00090013
-S27: self.config_data = 00000003
+S27: self.config_addr_in = 00090013
+S27: self.config_data_in = 00000003
 
-S27a: self.reset = 0_1
+S27a: self.reset_in = 0_1
 S27a: conf_done = 0_1
-S27a: self.config_addr = 00080014
-S27a: self.config_data = 00000000
+S27a: self.config_addr_in = 00080014
+S27a: self.config_data_in = 00000000
 
-S28: self.reset = 0_1
+S28: self.reset_in = 0_1
 S28: conf_done = 0_1
-S28: self.config_addr = 00080014
-S28: self.config_data = 00000000
+S28: self.config_addr_in = 00080014
+S28: self.config_data_in = 00000000
 
-S28a: self.reset = 0_1
+S28a: self.reset_in = 0_1
 S28a: conf_done = 0_1
-S28a: self.config_addr = 00090014
-S28a: self.config_data = 80000000
+S28a: self.config_addr_in = 00090014
+S28a: self.config_data_in = 80000000
 
-S29: self.reset = 0_1
+S29: self.reset_in = 0_1
 S29: conf_done = 0_1
-S29: self.config_addr = 00090014
-S29: self.config_data = 80000000
+S29: self.config_addr_in = 00090014
+S29: self.config_data_in = 80000000
 
-S29a: self.reset = 0_1
+S29a: self.reset_in = 0_1
 S29a: conf_done = 0_1
-S29a: self.config_addr = 00020015
-S29a: self.config_data = 00200000
+S29a: self.config_addr_in = 00020015
+S29a: self.config_data_in = 00200000
 
-S30: self.reset = 0_1
+S30: self.reset_in = 0_1
 S30: conf_done = 0_1
-S30: self.config_addr = 00020015
-S30: self.config_data = 00200000
+S30: self.config_addr_in = 00020015
+S30: self.config_data_in = 00200000
 
-S30a: self.reset = 0_1
+S30a: self.reset_in = 0_1
 S30a: conf_done = 0_1
-S30a: self.config_addr = 0004000A
-S30a: self.config_data = 00000054
+S30a: self.config_addr_in = 0004000A
+S30a: self.config_data_in = 00000054
 
-S31: self.reset = 0_1
+S31: self.reset_in = 0_1
 S31: conf_done = 0_1
-S31: self.config_addr = 0004000A
-S31: self.config_data = 00000054
+S31: self.config_addr_in = 0004000A
+S31: self.config_data_in = 00000054
 
-S31a: self.config_addr = 00000000
-S31a: self.config_data = 00000000
-S31a: self.reset = 0_1
+S31a: self.config_addr_in = 00000000
+S31a: self.config_data_in = 00000000
+S31a: self.reset_in = 0_1
 S31a: conf_done = 1_1
 
 # TRANSITIONS
