@@ -48,6 +48,10 @@ class TraceSolver(object):
         self.solver = Solver(name=self.name)
         self.smt2vars_inc = []
 
+    def clear(self):
+        self.solver.exit()
+        self.solver = Solver(self.name)
+
 class BMCConfig(object):
 
     incremental = True
@@ -808,7 +812,7 @@ class BMC(object):
 
         init_model = None
         for t in range(k + 1):
-            self._reset_assertions(self.solver)
+            self._reset_assertions(self.solver, True)
 
             if init_model is not None:
                 assert t > 0
@@ -940,7 +944,9 @@ class BMC(object):
         solver.smt2vars = solver.smt2vars_inc.pop()
         self._write_smt2_log(solver, "(pop 1)")
 
-    def _reset_assertions(self, solver):
+    def _reset_assertions(self, solver, clear=False):
+        if clear:
+            solver.clear()
         if not self.config.skip_solving:
             solver.solver.reset_assertions()
 
