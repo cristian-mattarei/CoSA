@@ -28,3 +28,12 @@ To start playing with the tool, you can run:
 
 4) ``python3 CoSA.py --problem examples/fold-constants/problem.txt -v2`` (performs equivalence checking using lemmas)
 
+========================
+Docker
+========================
+
+1) install Docker with your package manager e.g., ``sudo apt-get install docker``
+
+2) build the Docker image: ``cd docker/ubuntu_1604 && docker build -t ubuntu-cosa .``
+
+3) run the Docker image: ``docker run -i -t ubuntu-cosa /bin/bash``
