@@ -1,0 +1,4 @@
+pyparsing
+pysmt
+coreir
+six

@@ -143,7 +143,7 @@ def run_verification(config):
             parser = None
 
             if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(config.abstract_clock, "rtlil", "cgralib","commonlib")
+                parser = CoreIRParser(config.abstract_clock)
                 parser.boolean = config.boolean
                 config.parser = parser
 
