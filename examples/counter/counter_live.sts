@@ -1,0 +1,9 @@
+VAR
+en_clr: BV(1);
+
+INIT
+en_clr = 0_1;
+
+TRANS
+(en_clr = 1_1) -> (next(en_clr) = 1_1);
+(en_clr = 0_1) -> ((self.out > 5_16) <-> (next(en_clr) = 1_1));

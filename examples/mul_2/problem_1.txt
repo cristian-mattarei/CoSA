@@ -1,0 +1,11 @@
+[GENERAL]
+model_file: mul_2.json
+equivalence: mul_2_pe.json
+
+[DEFAULT]
+bmc_length: 5
+
+[Equivalence Checking]
+description: "Mul2 is equivalent to Mul2 PE"
+verification: equivalence
+prove: True

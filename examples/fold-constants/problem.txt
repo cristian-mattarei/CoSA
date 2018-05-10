@@ -1,0 +1,17 @@
+[GENERAL]
+model_file: mpe.json
+equivalence: mpe_fc.json
+
+[DEFAULT]
+bmc_length: 5
+
+[Equivalence Checking]
+description: "Sequential Equivalence Checking of constant folded design against original"
+verification: equivalence
+prove: True
+
+[Equivalence Checking with Lemmas]
+description: "Use the collateral from CoreIR to help the equivalence check go through"
+verification: equivalence
+lemmas: mpe_fc_assump.txt
+prove: True

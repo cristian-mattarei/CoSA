@@ -1,0 +1,78 @@
+{"top":"global.registers",
+"namespaces":{
+  "global":{
+    "modules":{
+      "registers":{
+        "type":["Record",[
+          ["clk",["Named","coreir.clkIn"]],
+          ["arst","BitIn"],
+          ["in",["Array",16,"BitIn"]],
+          ["out0",["Array",16,"Bit"]],
+          ["out1",["Array",16,"Bit"]],
+          ["out2",["Array",16,"Bit"]],
+          ["out3",["Array",16,"Bit"]],
+          ["out4",["Array",16,"Bit"]]
+        ]],
+        "instances":{
+          "rstwrap":{
+            "genref":"coreir.wrap",
+            "genargs":{"type":["CoreIRType",["Named","coreir.arst"]]}
+          },
+          "reg0":{
+            "genref":"coreir.reg_arst",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"arst_posedge":["Bool",true], "clk_posedge":["Bool",true], "init":[["BitVector",16],"16'h0000"]}
+          },            
+          "reg1":{
+            "genref":"coreir.reg_arst",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"arst_posedge":["Bool",false], "clk_posedge":["Bool",true], "init":[["BitVector",16],"16'h0000"]}
+          },            
+          "reg2":{
+            "genref":"coreir.reg_arst",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"arst_posedge":["Bool",true], "clk_posedge":["Bool",false], "init":[["BitVector",16],"16'h0000"]}
+          },            
+          "reg3":{
+            "genref":"coreir.reg_arst",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"arst_posedge":["Bool",false], "clk_posedge":["Bool",false], "init":[["BitVector",16],"16'h0000"]}
+          },
+          "reg4":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"init":[["BitVector",16],"16'h0000"]}
+          }            
+        },
+        "connections":[
+          ["self.arst","rstwrap.in"],
+           
+          ["reg0.clk","self.clk"],
+          ["reg0.arst","rstwrap.out"],
+          ["reg0.in","self.in"],
+          ["reg0.out","self.out0"],
+            
+          ["reg1.clk","self.clk"],
+          ["reg1.arst","rstwrap.out"],
+          ["reg1.in","self.in"],
+          ["reg1.out","self.out1"],
+
+          ["reg2.clk","self.clk"],
+          ["reg2.arst","rstwrap.out"],
+          ["reg2.in","self.in"],
+          ["reg2.out","self.out2"],
+
+          ["reg3.clk","self.clk"],
+          ["reg3.arst","rstwrap.out"],
+          ["reg3.in","self.in"],
+          ["reg3.out","self.out3"],
+
+          ["reg4.clk","self.clk"],
+          ["reg4.in","self.in"],
+          ["reg4.out","self.out4"]
+        ]
+      }
+    }
+  }
+}
+}
