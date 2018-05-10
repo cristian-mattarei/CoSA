@@ -125,6 +125,7 @@ def print_trace(msg, trace, index, prefix):
         trace_printed(msg, hr_trace_file, vcd_trace_file)
 
     else:
+        Logger.log("%s:"%msg, 0)
         Logger.log(trace_hr, 0)
 
 def run_verification(config):
@@ -350,14 +351,19 @@ def run_problems(problems, config):
 
     Logger.log("\n*** SUMMARY ***", 0)
 
+    list_status = []
+    
     for pbm in pbms.problems:
         unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
         Logger.log("\n** Problem %s **"%(pbm.name), 0)
         Logger.log("Description: %s"%(pbm.description), 0)
         Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+        list_status.append(pbm.status)
         if pbm.status == VerificationStatus.FALSE:
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
 
+    return list_status
+            
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)

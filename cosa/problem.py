@@ -42,6 +42,7 @@ class Problems(object):
     bmc_length = 10
     abstract_clock = False
     equivalence = None
+    relative_path = None
 
     def __init__(self):
         self.problems = []
@@ -72,6 +73,8 @@ class Problems(object):
         with open(problems_file, "r") as f:
             config.read_string(u""+f.read())
 
+        self.relative_path = ("/".join(problems_file.split("/")[:-1]))+"/"
+        
         for value in config:
             problem = dict(config[value])
             if DEFAULT == value:
@@ -109,6 +112,7 @@ class Problem(object):
     equivalence = None
     
     model_file = None
+    relative_path = None
     name = None
     trace = None
 
