@@ -1,0 +1,10 @@
+[GENERAL]
+model_file: pe_tile.json,conf.ets
+
+[DEFAULT]
+bmc_length: 30
+
+[Check Configuration]
+description: "Firmware configures PE Tile to perform Mul2"
+verification: safety
+formula: properties.txt
