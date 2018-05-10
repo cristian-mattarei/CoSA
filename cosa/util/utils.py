@@ -9,6 +9,7 @@
 # limitations under the License.
 
 from pysmt.walkers.identitydag import IdentityDagWalker
+import math
 
 def is_number(strnum):
     try:
@@ -31,7 +32,7 @@ def auto_convert(strval):
             return strval
     
 def status_bar(status, length=30):
-    curr = int(length*status)
+    curr = math.ceil(length*status)
     return "["+("="*(curr-1))+">"+(" "*(length-curr))+"]"+(" %.2f%%"%(status*100))
         
 class SubstituteWalker(IdentityDagWalker):
