@@ -7,12 +7,9 @@ if [ ! -f "$PYCOREIR" ]; then
     unzip 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
     rm 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
     mv pysmt-15f039f8a2c84b5d8aea10b35d83d3c370b142b6 pysmt
-    ls -lah
     cd pysmt
     pip3 install -e .
     pysmt-install --msat --confirm-agreement
-    pysmt-install --check
-    pysmt-install --env
     echo ${TRAVIS_BUILD_DIR}
     cd ..
 
