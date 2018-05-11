@@ -9,7 +9,7 @@ if [ ! -f "$PYCOREIR" ]; then
     mv pysmt-15f039f8a2c84b5d8aea10b35d83d3c370b142b6 pysmt
     ls -lah
     cd pysmt
-    sudo pip install -e .
+    sudo pip3 install -e .
     pysmt-install --msat --confirm-agreement
     pysmt-install --check
     pysmt-install --env
