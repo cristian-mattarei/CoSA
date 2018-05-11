@@ -31,6 +31,7 @@ install:
   -  bash travis_install.sh
 
 env:
- - PYTHONPATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
+ - PYTHONPATH="/home/travis/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="/home/travis/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
+
 
 script: nosetests3 tests -v
