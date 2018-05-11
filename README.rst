@@ -37,3 +37,10 @@ Docker
 2) build the Docker image: ``cd docker/ubuntu_1604 && docker build -t ubuntu-cosa .``
 
 3) run the Docker image: ``docker run -i -t ubuntu-cosa /bin/bash``
+
+========================
+Build Status
+========================
+
+.. image:: https://travis-ci.org/cristian-mattarei/CoSA.svg?branch=master
+    :target: https://travis-ci.org/cristian-mattarei/CoSA
