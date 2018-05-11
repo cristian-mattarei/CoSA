@@ -31,7 +31,7 @@ addons:
 
 install:
   - pip install six pyparsing bit_vector
-  - bash travis_install.sh
+  - bash scripts/travis_install.sh
 
 env:
  - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"/home/travis/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/pycoreir/lib":"/home/travis/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
