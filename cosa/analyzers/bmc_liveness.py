@@ -110,7 +110,7 @@ class BMCLiveness(BMC):
             invar = simplify(invar)
 
             if Logger.level(1):
-                Logger.stop_timer(timer)
+                Logger.get_timer(timer)
 
         heqvar = None
         if not eventually:
@@ -191,14 +191,18 @@ class BMCLiveness(BMC):
                         propt = self.at_time(Not(prop), t)
                     
                     self._add_assertion(self.solver_2, propt)
-                    res = self._solve(self.solver_2)
 
-                    if res:
-                        Logger.log("K-Liveness failed with k=%s"%(t), 1)
-                    else:
-                        Logger.log("K-Liveness holds with k=%s"%(t), 1)
-                        Logger.log("", 0, not(Logger.level(1)))
-                        return (t, True)
+
+                    if t >= k_min:
+
+                        res = self._solve(self.solver_2)
+
+                        if res:
+                            Logger.log("K-Liveness failed with k=%s"%(t), 1)
+                        else:
+                            Logger.log("K-Liveness holds with k=%s"%(t), 1)
+                            Logger.log("", 0, not(Logger.level(1)))
+                            return (t, True)
 
                 else:
                     self._push(self.solver_2)
@@ -224,7 +228,8 @@ class BMCLiveness(BMC):
         return (-1, None)
 
     def all_loopbacks(self, vars, k, heqvar=None):
-        vars_k = [TS.get_timed(v, k) for v in vars]
+        lvars = list(vars)
+        vars_k = [TS.get_timed(v, k) for v in lvars]
         loopback = FALSE()
         eqvar = None
         heqvars = None
@@ -232,15 +237,18 @@ class BMCLiveness(BMC):
         if heqvar is not None:
             eqvar = Symbol(EQVAR, BOOL)
             heqvars = []
-        
+
+        peqvars = FALSE()
+            
         for i in range(k):
-            vars_i = [TS.get_timed(v, i) for v in vars]
-            eq_k_i = And([EqualsOrIff(v, vars_i[vars_k.index(v)]) for v in vars_k])
+            vars_i = [TS.get_timed(v, i) for v in lvars]
+            eq_k_i = And([EqualsOrIff(vars_k[j], vars_i[j]) for j in range(len(lvars))])
             if heqvar is not None:
                 eqvar_i = TS.get_timed(eqvar, i)
+                peqvars = Or(peqvars, eqvar_i)
                 eq_k_i = And(eqvar_i, Iff(eqvar_i, eq_k_i))
 
-                heqvars.append(Iff(TS.get_timed(heqvar, i), Or([TS.get_timed(eqvar, j) for j in range(i+1)])))
+                heqvars.append(Iff(TS.get_timed(heqvar, i), peqvars))
                 
             loopback = Or(loopback, eq_k_i)
 
@@ -250,7 +258,7 @@ class BMCLiveness(BMC):
         return loopback
     
     def liveness(self, prop, k, k_min, lemmas=None):
-        self._init_at_time(self.hts.vars, k, prop)
+        self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False, lemmas)
 
         model = self._remap_model(self.hts.vars, model, t)
@@ -264,7 +272,7 @@ class BMCLiveness(BMC):
             return (VerificationStatus.UNK, None)
 
     def eventually(self, prop, k, k_min, lemmas=None):
-        self._init_at_time(self.hts.vars, k, prop)
+        self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True, lemmas)
 
         model = self._remap_model(self.hts.vars, model, t)

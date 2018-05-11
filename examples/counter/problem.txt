@@ -1,0 +1,19 @@
+[GENERAL]
+model_file: counter.json,counter_live.sts
+
+[DEFAULT]
+bmc_length: 30
+
+[Finally]
+description: "Finally Check"
+formula: self.out = 4_16
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: eventually
+prove: True
+
+[Liveness]
+description: "Liveness Check"
+formula: self.out = 4_16
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: liveness
+prove: True

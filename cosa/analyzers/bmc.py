@@ -16,9 +16,9 @@ from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Impl
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition, disjunctive_partition
-from pysmt.walkers.identitydag import IdentityDagWalker
 
 from cosa.util.logger import Logger
+from cosa.util.utils import SubstituteWalker
 from cosa.core.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
@@ -112,6 +112,10 @@ class BMC(object):
 
         self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
+        self.varmapf_t = None
+        self.varmapb_t = None
+
+
     def _reset_smt2_tracefile(self):
         if self.config.smt2file is not None:
             basename = ".".join(self.config.smt2file.split(".")[:-1])
@@ -119,7 +123,16 @@ class BMC(object):
             if self.config.prove:
                 self.solver_2.trace_file = "%s-ind.smt2"%basename
 
-    def _init_at_time(self, vars, maxtime, prop=None):
+    def _init_at_time(self, vars, maxtime):
+
+        previous = self.config.strategy != FWD
+
+        if self.varmapf_t is not None:
+            del(self.varmapf_t)
+
+        if self.varmapb_t is not None:
+            del(self.varmapb_t)
+            
         self.varmapf_t = {}
         self.varmapb_t = {}
 
@@ -142,12 +155,15 @@ class BMC(object):
                 varmapf.append((psname, timed(sname, t+1)))
                 varmapf.append((rsname, timed(sname, t-1)))
 
-                varmapb.append((sname, ptimed(sname, t)))
-                varmapb.append((psname, ptimed(sname, t-1)))
-                varmapb.append((rsname, ptimed(sname, t+1)))
+                if previous:
+                    varmapb.append((sname, ptimed(sname, t)))
+                    varmapb.append((psname, ptimed(sname, t-1)))
+                    varmapb.append((rsname, ptimed(sname, t+1)))
 
             self.varmapf_t[t] = dict(varmapf)
-            self.varmapb_t[t-1] = dict(varmapb)
+
+            if previous:
+                self.varmapb_t[t-1] = dict(varmapb)
 
     def at_time(self, formula, t):
         self.subwalker.set_substitute_map(self.varmapf_t[t])
@@ -182,12 +198,18 @@ class BMC(object):
             return TRUE()
 
         def not_eq_states(vars1, vars2):
-            eqvars = [Not(EqualsOrIff(v, vars2[vars1.index(v)])) for v in vars1]
+            assert len(vars1) == len(vars2)
+            eqvars = []
+            for i in range(len(vars1)):
+                eqvars.append(Not(EqualsOrIff(vars1[i], vars2[i])))
             return Or(eqvars)
 
+        lvars = list(vars_)
+        end_vars = [TS.get_timed(v, k_end) for v in lvars]
+        
         formula = []
         for t in range(k_start, k_end, 1):
-            formula.append(not_eq_states([TS.get_timed(v, k_end) for v in vars_], [TS.get_timed(v, t) for v in vars_]))
+            formula.append(not_eq_states(end_vars, [TS.get_timed(v, t) for v in lvars]))
 
         return And(formula)
 
@@ -336,7 +358,7 @@ class BMC(object):
 
 
     def simulate(self, prop, k):
-        self._init_at_time(self.hts.vars, k, prop)
+        self._init_at_time(self.hts.vars, k)
 
         if prop == TRUE():
             self.config.incremental = False
@@ -538,7 +560,7 @@ class BMC(object):
             trans = simplify(trans)
             invar = simplify(invar)
             if Logger.level(2):
-                Logger.stop_timer(timer)
+                Logger.get_timer(timer)
 
         propt = FALSE()
         formula = And(init, invar)
@@ -599,14 +621,15 @@ class BMC(object):
                 self._push(self.solver_2)
                 self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
 
-                res = self._solve(self.solver_2)
+                if t >= k_min:
+                    res = self._solve(self.solver_2)
 
-                if res:
-                    Logger.log("Induction failed with k=%s"%(t), 1)
-                else:
-                    Logger.log("Induction holds with k=%s"%(t), 1)
-                    Logger.log("", 0, not(Logger.level(1)))
-                    return (t, True)
+                    if res:
+                        Logger.log("Induction failed with k=%s"%(t), 1)
+                    else:
+                        Logger.log("Induction holds with k=%s"%(t), 1)
+                        Logger.log("", 0, not(Logger.level(1)))
+                        return (t, True)
 
                 self._pop(self.solver_2)
                 self._add_assertion(self.solver_2, self.at_time(prop, t))
@@ -727,7 +750,7 @@ class BMC(object):
         return (-1, None)
 
     def safety(self, prop, k, k_min, lemmas=None):
-        self._init_at_time(self.hts.vars, k, prop)
+        self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
 
         if model == True:
@@ -871,23 +894,7 @@ class BMC(object):
         r = solver.solver.solve()
 
         if Logger.level(2):
-            self.total_time += Logger.stop_timer(timer)
+            self.total_time += Logger.get_timer(timer)
             Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
 
         return r
-
-class SubstituteWalker(IdentityDagWalker):
-
-    def set_substitute_function(self, function):
-        self.substitute_function = function
-
-    def set_substitute_map(self, smap):
-        self.mapsymbols = smap
-
-    def walk_symbol(self, formula, args, **kwargs):
-        if formula.symbol_name() in self.mapsymbols:
-            return self.mgr.Symbol(self.mapsymbols[formula.symbol_name()],
-                                   formula.symbol_type())
-        else:
-            return self.mgr.Symbol(formula.symbol_name(),
-                                   formula.symbol_type())
