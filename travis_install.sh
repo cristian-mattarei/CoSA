@@ -11,6 +11,9 @@ if [ ! -f "$PYCOREIR" ]; then
     cd pysmt
     pip3 install -e .
     pysmt-install --msat --confirm-agreement
+    pysmt-install --check
+    pysmt-install --env
+    echo ${TRAVIS_BUILD_DIR}
     cd ..
 
     wget https://github.com/rdaly525/coreir/archive/a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
