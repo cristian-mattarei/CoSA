@@ -21,7 +21,7 @@ if [ ! -f "$PYCOREIR" ]; then
     unzip a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
     rm a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
     mv coreir-a20cb469a10f504ebed6ea8a1872bb5baac406c2 coreir
-    cd coreir && make -j4
+    cd coreir && make -j4 && sudo make install
     cd ..
 
     wget https://github.com/leonardt/pycoreir/archive/0c10e7b814360d40b6291485fac7d921aae19d36.zip
