@@ -39,5 +39,7 @@ if [ ! -f "$PYCOREIR" ]; then
 
 else
     echo "Skipping installation"
-
+    cd coreir && sudo make install && cd ..
+    cd pycoreir && sudo pip install -e . && cd ..
+    cd pysmt && sudo pip install -e . && cd ..
 fi
