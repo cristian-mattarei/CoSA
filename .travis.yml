@@ -58,8 +58,7 @@ install:
   -  cd pycoreir && pip3 install -e .
 
 env:
- - PYTHONPATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${PYTHONPATH}"
- - LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
+ - PYTHONPATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
 
 
 script: nosetests3 tests -v
