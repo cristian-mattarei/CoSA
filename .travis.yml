@@ -5,12 +5,6 @@ python:
 
 sudo: required
 
-cache:
-  directories:
-  - ${TRAVIS_BUILD_DIR}/coreir
-  - ${TRAVIS_BUILD_DIR}/pycoreir
-  - ${TRAVIS_BUILD_DIR}/pysmt
-  - ${TRAVIS_BUILD_DIR}/.smt_solvers
 
 addons:
   apt:
@@ -38,6 +32,5 @@ install:
 
 env:
  - PYTHONPATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
-
 
 script: nosetests3 tests -v
