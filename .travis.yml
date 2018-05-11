@@ -5,6 +5,12 @@ python:
 
 sudo: required
 
+cache:
+  directories:
+  - ${TRAVIS_BUILD_DIR}/coreir
+  - ${TRAVIS_BUILD_DIR}/pycoreir
+  - ${TRAVIS_BUILD_DIR}/pysmt
+  - /home/travis/.smt_solvers
 
 addons:
   apt:
