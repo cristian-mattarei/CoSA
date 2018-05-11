@@ -30,6 +30,7 @@ class HTS(object):
     invar = None
 
     arrays = False
+    en_simplify = False
     
     def __init__(self, name):
         self.tss = []
@@ -46,6 +47,8 @@ class HTS(object):
         self.invar = None
 
         self.arrays = False
+
+        self.en_simplify = True
         
     def add_sub(self, sub):
         self.sub.append(sub)
@@ -100,7 +103,10 @@ class HTS(object):
             self.invar = TRUE()
             for ts in self.tss:
                 if ts.invar is not None:
-                    self.invar = And(self.invar, ts.invar)
+                    if self.en_simplify:
+                        self.invar = simplify(And(self.invar, ts.invar))
+                    else:
+                        self.invar = And(self.invar, ts.invar)
 
         if self.assumptions is not None:
             return And(self.invar, And(self.assumptions))

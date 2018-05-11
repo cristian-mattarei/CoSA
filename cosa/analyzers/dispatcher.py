@@ -120,7 +120,7 @@ class ProblemSolver(object):
             parser = None
 
             if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(abstract_clock, "rtlil", "cgralib","commonlib")
+                parser = CoreIRParser(abstract_clock)
                 parser.boolean = False
                 self.parser = parser
 

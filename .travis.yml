@@ -1,0 +1,40 @@
+dist: trusty
+language: python
+python:
+  - "3.6"
+
+sudo: required
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+     - g++-4.9
+     - wget
+     - unzip
+     - build-essential
+     - python3
+     - automake
+     - libgmp-dev
+     - curl
+     - nano
+     - python3-dev
+     - libboost-dev
+     - default-jdk
+     - libclang-dev
+     - llvm
+     - llvm-dev
+     - lbzip2
+     - libncurses5-dev
+     - python3-nose
+
+install:
+  - pip install six pyparsing bit_vector
+  - bash scripts/travis_install.sh
+
+env:
+ - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"/home/travis/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/pycoreir/lib":"/home/travis/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
+
+
+script: nosetests tests -v

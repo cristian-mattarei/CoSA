@@ -1,0 +1,80 @@
+{"top":"global.counters",
+"namespaces":{
+  "global":{
+    "modules":{
+      "counters":{
+        "type":["Record",[
+          ["clk",["Named","coreir.clkIn"]]
+        ]],
+        "instances":{
+          "count0$a":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "count0$c1":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0001"]}
+          },
+          "count0$r$c0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "count0$r$clrMux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "count0$r$reg0":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"init":[["BitVector",16],"16'h0000"]}
+          },
+          "count1$a":{
+            "genref":"coreir.add",
+            "genargs":{"width":["Int",16]}
+          },
+          "count1$c1":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0001"]}
+          },
+          "count1$r$c0":{
+            "genref":"coreir.const",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"value":[["BitVector",16],"16'h0000"]}
+          },
+          "count1$r$clrMux":{
+            "genref":"coreir.mux",
+            "genargs":{"width":["Int",16]}
+          },
+          "count1$r$reg0":{
+            "genref":"coreir.reg",
+            "genargs":{"width":["Int",16]},
+            "modargs":{"init":[["BitVector",16],"16'h0000"]}
+          }
+        },
+        "connections":[
+          ["count0$a.in0","count0$c1.out"],
+          ["count0$a.in1","count0$r$reg0.out"],
+          ["count0$a.out","count0$r$clrMux.in0"],
+            
+          ["count0$r$c0.out","count0$r$clrMux.in1"],
+          ["count0$r$clrMux.out","count0$r$reg0.in"],
+          ["count0$r$clrMux.sel","count1$r$reg0.out.8"],
+          ["count0$r$reg0.clk","self.clk"],
+
+          ["count1$a.in0","count1$c1.out"],
+          ["count1$a.in1","count1$r$reg0.out"],
+          ["count1$a.out","count1$r$clrMux.in0"],
+            
+          ["count1$r$c0.out","count1$r$clrMux.in1"],
+          ["count1$r$clrMux.out","count1$r$reg0.in"],
+          ["count1$r$clrMux.sel","count1$r$reg0.out.4"],
+          ["count1$r$reg0.clk","self.clk"]
+        ]
+      }
+    }
+  }
+}
+}
