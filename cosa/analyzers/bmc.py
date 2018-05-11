@@ -382,7 +382,6 @@ class BMC(object):
             self._init_at_time(self.hts.vars, 0)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
             # print out last state
-            print('t = {}'.format(t))
             self.print_state(self.hts, model, t)
             return (VerificationStatus.UNK, None)
         else:

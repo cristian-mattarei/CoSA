@@ -576,16 +576,19 @@ class Modules(object):
         # VAR: Array BV(waddr.width) BV(wdata.width)
 
         # INIT: True (doesn't handle initial value yet)
-
         # INVAR: (rdata = Select(Array, raddr))
 
         # do_clk = (!clk & clk')
-        # act_trans = (Array' = Ite(wen, Store(array, waddr, wdata), Array))
+
+        # if functional
+        # TRANS: Array' = Ite(do_clk, Ite(wen, Store(Array, waddr, wdata), Array), Array)
+
+        # else
+        # act_trans = (Array' = Ite(wen, Store(Array, waddr, wdata), Array))
         # pas_trans = (Array' = Array)
 
         # TRANS: (do_clk -> act_trans) & (!do_clk -> pas_trans)
-        # INVAR: (rdata = Select(array, raddr))
-        # one cycle delay on read and write
+        # one cycle delay on write
 
         vars_ = [clk, wdata, waddr, wen, rdata, raddr]
         comment = "Mem (clk, wdata, waddr, wen, rdata, raddr) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
@@ -619,10 +622,13 @@ class Modules(object):
 
         invar = EqualsOrIff(rdata, Select(arr, raddr))
 
-        act_trans = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
-        pas_trans = EqualsOrIff(TS.to_next(arr), arr)
+        if functional:
+            trans = EqualsOrIff(TS.to_next(arr), Ite(do_clk, Ite(wen1, Store(arr, waddr, wdata), arr), arr))
+        else:
+            act_trans = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
+            pas_trans = EqualsOrIff(TS.to_next(arr), arr)
+            trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
 
-        trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
         trans = simplify(trans)
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([arr])
