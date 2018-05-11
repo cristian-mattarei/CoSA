@@ -28,6 +28,7 @@ addons:
      - python3-nose
 
 install:
+  - pip3 install six pyparsing
   -  bash travis_install.sh
 
 env:
