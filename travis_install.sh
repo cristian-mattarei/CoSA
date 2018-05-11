@@ -9,7 +9,7 @@ if [ ! -f "$PYCOREIR" ]; then
     mv pysmt-15f039f8a2c84b5d8aea10b35d83d3c370b142b6 pysmt
     ls -lah
     cd pysmt
-    # pip install -e .
+    sudo pip install -e .
     pysmt-install --msat --confirm-agreement
     pysmt-install --check
     pysmt-install --env
@@ -33,7 +33,7 @@ if [ ! -f "$PYCOREIR" ]; then
     sed -i -e 's/KeyError(f"key={key} not in params={self.params.keys()}")/KeyError("key={key} not in params={params_keys}".format(key=key, params_keys=self.params.keys()))/g' coreir/generator.py
     sed -i -e 's/ValueError(f"Arg(name={key}, value={value}) does not match expected type {self.params\[key\].kind}")/ValueError("Arg(name={key}, value={value}) does not match expected type {params_kind}".format(key=key, value=value, params_kind=self.params\[key\].kind))/g' coreir/generator.py
     sed -i -e 's/f"{self.module.name}.{self.name}"/"{module_name}.{self_name}".format(module_name=self.module.name, name=self.name)/g' coreir/wireable.py
-    #pip install -e .
+    sudo pip install -e .
 
     popd
 
