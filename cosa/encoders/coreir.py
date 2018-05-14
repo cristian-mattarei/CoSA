@@ -47,6 +47,7 @@ def BV2B(var):
 
 class Modules(object):
 
+    symbolic_init=False
     abstract_clock=False
     
     @staticmethod
@@ -347,7 +348,7 @@ class Modules(object):
         basename = SEP.join(out.symbol_name().split(SEP)[:-1]) if SEP in out.symbol_name() else out.symbol_name()
         initname = basename+SEP+INIT
 
-        if initval is not None:
+        if initval is not None and not Modules.symbolic_init:
             if out.symbol_type() == BOOL:
                 binitval = FALSE() if initval == 0 else TRUE()
             else:
@@ -635,10 +636,26 @@ class Modules(object):
         ts.comment = comment
         return ts
 
+    def Term(_in):
+        '''
+        Term is a no-op. Just terminates a coreir wireable
+        '''
+        vars_ = [_in]
+        init = TRUE()
+        trans = TRUE()
+        invar = TRUE()
+        ts = TS(vars_, init, trans, invar)
+        ts.state_vars = set()
+        ts.comment = "Terminate wire"
+        return ts
+
+
 class CoreIRParser(ModelParser):
     extension = "json"
     
     abstract_clock = None
+    symbolic_init = None
+
     context = None
 
     attrnames = None
@@ -649,12 +666,13 @@ class CoreIRParser(ModelParser):
     map_or2an = None
     idvars = 0
     
-    def __init__(self, abstract_clock, *libs):
+    def __init__(self, config, *libs):
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
 
-        self.abstract_clock = abstract_clock
+        self.abstract_clock = config.abstract_clock
+        self.symbolic_init = config.symbolic_init
             
         self.__init_attrnames()
 
@@ -800,7 +818,9 @@ class CoreIRParser(ModelParser):
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         mod_map.append(("concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
-        
+
+        mod_map.append(('term', (Modules.Term, [self.IN])))
+
         self.mod_map = dict(mod_map)
 
     def __encoding_memoization(self, inst_type, args):
@@ -874,6 +894,7 @@ class CoreIRParser(ModelParser):
         top_module = self.context.load_from_file(strfile)
 
         Modules.abstract_clock = self.abstract_clock
+        Modules.symbolic_init = self.symbolic_init
         
         top_def = top_module.definition
         interface = list(top_module.type.items())
@@ -900,7 +921,7 @@ class CoreIRParser(ModelParser):
                     xval = 1 if xval else 0
                 else:
                     if type(xval) != int:
-                        xval = xval.unsigned_value
+                        xval = xval.val
 
                 return xval
 

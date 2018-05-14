@@ -145,7 +145,7 @@ def run_verification(config):
             parser = None
 
             if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(config.abstract_clock)
+                parser = CoreIRParser(config)
                 parser.boolean = config.boolean
                 config.parser = parser
 
@@ -297,7 +297,7 @@ def run_verification(config):
         return list_status
     
     if config.equivalence:
-        parser2 = CoreIRParser(config.abstract_clock)
+        parser2 = CoreIRParser(config)
 
         if config.run_passes:
             Logger.log("Running passes:", 0)
@@ -314,7 +314,7 @@ def run_verification(config):
             print(hts2.print_statistics("System 2"))
 
         # TODO: Make incremental solving optional
-        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, True)
+        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)
 
         if config.assumptions is not None:
             Logger.log("Adding %d assumptions to combined system... "%len(config.assumptions), 1)
@@ -328,7 +328,7 @@ def run_verification(config):
         if res == VerificationStatus.FALSE:
             Logger.log("Systems are not equivalent", 0)
             print_trace("Counterexample", trace, 1, config.prefix)
-        elif res == VerificationStatus.UNKNOWN:
+        elif res == VerificationStatus.UNK:
             if config.symbolic_init:
                 # strong equivalence with symbolic initial state
                 Logger.log("Systems are equivalent.", 0)

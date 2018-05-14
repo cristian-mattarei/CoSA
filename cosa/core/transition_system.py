@@ -48,7 +48,7 @@ class HTS(object):
 
         self.arrays = False
 
-        self.en_simplify = True
+        self.en_simplify = False
         
     def add_sub(self, sub):
         self.sub.append(sub)

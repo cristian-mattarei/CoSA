@@ -276,14 +276,16 @@ class BMC(object):
 
         # return (hr_trace_file, vcd_trace_file)
 
-    def print_state(self, hts, model, t, state_marker="I: "):
+    def print_state(self, hts, model, t, statevars_only=False, state_marker="I: "):
         if self.config.prefix:
             f = open(self.config.prefix + ".txt", "w")
             _write = lambda s: f.write(s + "\n")
         else:
             _write = print
 
-        for v in self.hts.vars:
+        vars_ = self.hts.state_vars if statevars_only else self.hts.vars
+
+        for v in vars_:
             vt = self.at_time(v, t)
             if vt in model:
                 val = model[vt]
@@ -382,7 +384,7 @@ class BMC(object):
             self._init_at_time(self.hts.vars, 0)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
             # print out last state
-            self.print_state(self.hts, model, t)
+            self.print_state(self.hts, model, t, statevars_only=True)
             return (VerificationStatus.UNK, None)
         else:
             self._init_at_time(self.hts.vars, k)
