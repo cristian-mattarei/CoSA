@@ -25,7 +25,7 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 
 class ProblemSolver(object):
     parser = None
-    
+
     def __init__(self):
         pass
 
@@ -56,7 +56,7 @@ class ProblemSolver(object):
 
         assumps = None
         lemmas = None
-        
+
         if problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
@@ -85,10 +85,10 @@ class ProblemSolver(object):
             res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
-            
+
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
-                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, config.abstract_clock, "System 2")
+                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problems.abstract_clock, problem.symbolic_init, "System 2")
 
             htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
 
@@ -97,7 +97,7 @@ class ProblemSolver(object):
 
             if bmc_config.lemmas is not None:
                 lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
-            
+
             htseq.assumptions = assumps
             bmcseq = BMC(htseq, bmc_config)
             res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)
@@ -106,21 +106,21 @@ class ProblemSolver(object):
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
-            
+
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
-    def parse_model(self, relative_path, model_files, abstract_clock=False, name=None):
+    def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None):
         hts = HTS("Top level")
 
         models = model_files.split(",")
-        
+
         for strfile in models:
             filetype = strfile.split(".")[-1]
             strfile = relative_path+strfile
             parser = None
 
             if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(abstract_clock)
+                parser = CoreIRParser(abstract_clock, symbolic_init)
                 parser.boolean = False
                 self.parser = parser
 
@@ -139,29 +139,32 @@ class ProblemSolver(object):
                 continue
 
             Logger.error("Filetype \"%s\" unsupported"%filetype)
-            
+
         if Logger.level(1):
             print(hts.print_statistics(name))
 
         return hts
-        
+
     def solve_problems(self, problems, config):
-        hts = None
-        hts2 = None
-        hts = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, "System 1")
-        
+        # generate systems for each problem configuration
+        systems = {}
+        for si in problems.symbolic_inits:
+            systems[('hts', si)] = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1")
+
         if problems.equivalence is not None:
-            hts2 = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, "System 2")
-        
+            systems[('hts2', si)] = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2")
+        else:
+            systems[('hts2', si)] = None
+
         for problem in problems.problems:
-            problem.hts = hts
-            problem.hts2 = hts2
+            problem.hts = systems[('hts', problem.symbolic_init)]
+            problem.hts2 = systems[('hts2', problem.symbolic_init)]
             problem.relative_path = problems.relative_path
             self.solve_problem(problem, config)
 
     def problem2bmc_config(self, problem, config):
         bmc_config = BMCConfig()
-        
+
         bmc_config.smt2file = problem.smt2_tracing if problem.smt2_tracing is not None else config.smt2file
         bmc_config.full_trace = problem.full_trace or config.full_trace
         bmc_config.prefix = problem.name

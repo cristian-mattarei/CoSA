@@ -46,9 +46,12 @@ class Problems(object):
 
     def __init__(self):
         self.problems = []
+        # need to create TS for each symbolic init value
+        self.symbolic_inits = set()
 
     def add_problem(self, problem):
         self.problems.append(problem)
+        self.symbolic_inits.add(problem.symbolic_init)
 
     def generate_problem(self, name, pbm_values):
         pbm = Problem()

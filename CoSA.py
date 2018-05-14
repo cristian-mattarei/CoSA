@@ -145,7 +145,7 @@ def run_verification(config):
             parser = None
 
             if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(config)
+                parser = CoreIRParser(config.abstract_clock, config.symbolic_init)
                 parser.boolean = config.boolean
                 config.parser = parser
 
@@ -297,7 +297,7 @@ def run_verification(config):
         return list_status
     
     if config.equivalence:
-        parser2 = CoreIRParser(config)
+        parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init)
 
         if config.run_passes:
             Logger.log("Running passes:", 0)

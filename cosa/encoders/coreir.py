@@ -666,14 +666,14 @@ class CoreIRParser(ModelParser):
     map_or2an = None
     idvars = 0
     
-    def __init__(self, config, *libs):
+    def __init__(self, abstract_clock, symbolic_init, *libs):
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
 
-        self.abstract_clock = config.abstract_clock
-        self.symbolic_init = config.symbolic_init
-            
+        self.abstract_clock = abstract_clock
+        self.symbolic_init = symbolic_init
+
         self.__init_attrnames()
 
         self.boolean = False
@@ -921,7 +921,7 @@ class CoreIRParser(ModelParser):
                     xval = 1 if xval else 0
                 else:
                     if type(xval) != int:
-                        xval = xval.val
+                        xval = xval.unsigned_value
 
                 return xval
 
