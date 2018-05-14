@@ -117,6 +117,9 @@ class HTS(object):
         for ts in other_hts.tss:
             self.add_ts(ts)
 
+        for v in other_hts.state_vars:
+            self.state_vars.add(v)
+            
         for v in other_hts.inputs:
             self.inputs.add(v)
 

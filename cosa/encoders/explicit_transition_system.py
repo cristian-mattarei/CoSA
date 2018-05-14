@@ -184,6 +184,8 @@ class ExplicitTSParser(object):
 
         hts = HTS("ETS")
         hts.add_ts(ts)
+
+        hts.state_vars = set([stateid_var])
         
         return hts
                 
