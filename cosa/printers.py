@@ -271,7 +271,10 @@ class TextTracePrinter(TracePrinter):
         strvarlist.sort()
 
         for var in strvarlist:
-            varass = (var[0], model[TS.get_timed(var[1], 0)])
+            var_0 = TS.get_timed(var[1], 0)
+            if var_0 not in model:
+                continue
+            varass = (var[0], model[var_0])
             if hex_values:
                 varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
             if self.diff_only: prevass.append(varass)
@@ -283,7 +286,10 @@ class TextTracePrinter(TracePrinter):
             trace.append("\n---> STATE %s <---"%(t+1))
 
             for var in strvarlist:
-                varass = (var[0], model[TS.get_timed(var[1], t+1)])
+                var_t = TS.get_timed(var[1], t+1)
+                if var_t not in model:
+                    continue
+                varass = (var[0], model[var_t])
                 if hex_values:
                     varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
                 if (not self.diff_only) or (prevass[varass[0]] != varass[1]):

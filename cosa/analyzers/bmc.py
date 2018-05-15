@@ -109,7 +109,8 @@ class BMC(object):
         self.total_time = 0.0
 
         self.solver = TraceSolver(config.solver_name)
-        self.solver_2 = TraceSolver(config.solver_name)
+        if self.config.prove:
+            self.solver_2 = TraceSolver(config.solver_name)
 
         self._reset_smt2_tracefile()
 
@@ -121,7 +122,8 @@ class BMC(object):
         if self.config.smt2file is not None:
             basename = ".".join(self.config.smt2file.split(".")[:-1])
             self.solver.trace_file = "%s.smt2"%basename
-            self.solver_2.trace_file = "%s-ind.smt2"%basename
+            if self.config.prove:
+                self.solver_2.trace_file = "%s-ind.smt2"%basename
 
     def _init_at_time(self, vars, maxtime):
 
@@ -803,7 +805,7 @@ class BMC(object):
         Logger.error("Invalid configuration strategy")
         return None
 
-    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=False):
+    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=True):
         init = hts.single_init()
         invar = hts.single_invar()
         trans = hts.single_trans()
@@ -811,7 +813,7 @@ class BMC(object):
         init_0 = self.at_time(init, 0)
         invar_0 = self.at_time(invar, 0)
         trans_01 = self.unroll(trans, invar, 1)
-        cover_0 = self.at_time(cover, 0)
+        cover_1 = self.at_time(cover, 1)
 
         full_model = {}
         
@@ -820,16 +822,15 @@ class BMC(object):
         else:
             relevant_vars = self.hts.state_vars | self.hts.inputs | self.hts.outputs
         
-        relevant_vars_01 = [(TS.get_timed(v, 0), TS.get_timed(v, 1)) for v in relevant_vars]
         relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]
+
+        relevant_vars_01 = [(TS.get_timed(v, 0), TS.get_timed(v, 1), v) for v in relevant_vars]
         
         self._reset_assertions(self.solver)
-        self._reset_assertions(self.solver_2)
         
-        # Picking Initial states
+        # Picking Initial State
         self._add_assertion(self.solver, And(init_0, invar_0))
-        self._add_assertion(self.solver, trans_01)
         res = self._solve(self.solver)
 
         if res:
@@ -846,16 +847,12 @@ class BMC(object):
         if inc:
             self._add_assertion(self.solver, trans_01)
             self._add_assertion(self.solver, invar_0)
-            
-            self._add_assertion(self.solver_2, Not(cover_0))
-            self._add_assertion(self.solver_2, invar_0)
 
         init_model = None
         for t in range(1, k + 2):
 
             if not inc:
                 self._reset_assertions(self.solver, True)
-                self._reset_assertions(self.solver_2, True)
 
                 formula = And(init_0, invar_0)
                 self._add_assertion(self.solver, trans_01)
@@ -869,31 +866,33 @@ class BMC(object):
 
             if res_step:
                 Logger.log("Able to step forward at k=%s"%(t), 2)
-                init_model = self._get_model(self.solver, relevant_vars_1)
+                if all_vars:
+                    init_model = self._get_model(self.solver)
+                else:
+                    init_model = self._get_model(self.solver, relevant_vars_1)
                 model = init_model
             else:
                 Logger.log("System deadlocked at k=%s"%(t), 0)
 
-            if inc:
-                self._pop(self.solver)
-
             # Use previous model as initial state for next sat call
-            init_0 = And([EqualsOrIff(v[0], init_model[v[1]]) for v in relevant_vars_01])
+            init_0 = []
+            init_1 = []
+            
+            for v in relevant_vars_01:
+                val = init_model[v[1]]
+                full_model[v[2]] = val
+                init_0.append(EqualsOrIff(v[0], val))
+                init_1.append(EqualsOrIff(v[1], val))
 
-            for v in relevant_vars:
-                full_model[TS.get_timed(v, t)] = init_model[TS.get_timed(v, 1)]
-
-            if inc:
-                self._push(self.solver_2)
-            else:
-                self._add_assertion(self.solver_2, Not(cover_0))
-                self._add_assertion(self.solver_2, invar_0)
+            init_0 = And(init_0)
+            init_1 = And(init_1)
                 
-            self._add_assertion(self.solver_2, init_0)
+            self._add_assertion(self.solver, init_1)
+            self._add_assertion(self.solver, cover_1)
+            
+            res_cont = self._solve(self.solver)
 
-            res_cont = self._solve(self.solver_2)
-
-            if not res_cont:
+            if res_cont:
                 Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
                 model = init_model
                 return (t, full_model)
@@ -901,7 +900,7 @@ class BMC(object):
                 Logger.log('Cover not reached at k=%s'%t, 1)
 
             if inc:
-                self._pop(self.solver_2)
+                self._pop(self.solver)
                 
                 
         # only uses 0 and 1 symbols

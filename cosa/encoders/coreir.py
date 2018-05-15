@@ -312,6 +312,7 @@ class Modules(object):
             trans = TRUE()
             
         ts = TS(set([clk]), init, trans, invar)
+        ts.state_vars = set([clk])
         ts.comment = comment
         return ts
 
