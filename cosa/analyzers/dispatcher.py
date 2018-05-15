@@ -90,7 +90,7 @@ class ProblemSolver(object):
             if problem.equivalence:
                 problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problems.abstract_clock, problem.symbolic_init, "System 2")
 
-            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
+            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init)
 
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
