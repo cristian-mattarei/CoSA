@@ -24,6 +24,7 @@ from cosa.encoders.coreir import CoreIRParser, SEP
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
 from cosa.analyzers.bmc import BMC, BMCConfig, FWD
 from cosa.problem import VerificationStatus
+from cosa.util.formula_mngm import substitute, get_free_variables
 
 NL = "\n"
 
