@@ -12,10 +12,9 @@ import re
 import math
 from six.moves import cStringIO
 
-from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify, BVAdd, BVUGE
+from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition
-from pysmt.walkers.identitydag import IdentityDagWalker
 from pysmt.typing import BOOL, _BVType
 
 from cosa.util.logger import Logger
@@ -23,7 +22,7 @@ from cosa.core.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
-from cosa.analyzers.bmc import BMC, BMCConfig, SubstituteWalker, FWD
+from cosa.analyzers.bmc import BMC, BMCConfig, FWD
 from cosa.problem import VerificationStatus
 
 NL = "\n"
@@ -266,7 +265,7 @@ class BMCLiveness(BMC):
         if model == True:
             return (VerificationStatus.TRUE, None)
         elif t > -1:
-            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, find_loop=True)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
             return (VerificationStatus.FALSE, trace)
         else:
             return (VerificationStatus.UNK, None)
@@ -280,7 +279,7 @@ class BMCLiveness(BMC):
         if model == True:
             return (VerificationStatus.TRUE, None)
         elif t > -1:
-            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function, find_loop=True)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
             return (VerificationStatus.FALSE, trace)
         else:
             return (VerificationStatus.UNK, None)

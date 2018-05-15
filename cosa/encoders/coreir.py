@@ -26,7 +26,6 @@ from pysmt.smtlib.printers import SmtPrinter
 from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number, status_bar
 from cosa.util.logger import Logger
-from cosa.util.utils import SubstituteWalker
 
 from cosa.encoders.model import ModelParser
 
@@ -686,7 +685,6 @@ class CoreIRParser(ModelParser):
         self._init_mod_map()
 
         self.memoize_encoding = False
-        self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
         self.enc_map = {}
 

@@ -12,13 +12,13 @@ import re
 import copy
 from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, get_free_variables, simplify
+from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 
 from cosa.util.logger import Logger
-from cosa.util.utils import SubstituteWalker
+from cosa.util.formula_mngm import substitute, get_free_variables
 from cosa.core.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
@@ -113,8 +113,6 @@ class BMC(object):
 
         self._reset_smt2_tracefile()
 
-        self.subwalker = SubstituteWalker(invalidate_memoization=True)
-
         self.varmapf_t = None
         self.varmapb_t = None
 
@@ -123,8 +121,7 @@ class BMC(object):
         if self.config.smt2file is not None:
             basename = ".".join(self.config.smt2file.split(".")[:-1])
             self.solver.trace_file = "%s.smt2"%basename
-            if self.config.prove:
-                self.solver_2.trace_file = "%s-ind.smt2"%basename
+            self.solver_2.trace_file = "%s-ind.smt2"%basename
 
     def _init_at_time(self, vars, maxtime):
 
@@ -169,12 +166,10 @@ class BMC(object):
                 self.varmapb_t[t-1] = dict(varmapb)
 
     def at_time(self, formula, t):
-        self.subwalker.set_substitute_map(self.varmapf_t[t])
-        return self.subwalker.walk(formula)
+        return substitute(formula, self.varmapf_t[t])
 
     def at_ptime(self, formula, t):
-        self.subwalker.set_substitute_map(self.varmapb_t[t])
-        return self.subwalker.walk(formula)
+        return substitute(formula, self.varmapb_t[t])
 
     def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
@@ -380,11 +375,14 @@ class BMC(object):
 
     def simulate(self, prop, k, no_unroll=False):
         if no_unroll:
-            self._init_at_time(self.hts.vars, 0)
+            self._init_at_time(self.hts.vars, 1)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
-            # print out last state
-            self.print_state(self.hts, model, t, statevars_only=True)
-            return (VerificationStatus.UNK, None)
+
+            if t > -1:
+                trace = self.print_trace(self.hts, model, t, None, False, map_function=self.config.map_function)
+                return (VerificationStatus.TRUE, trace)
+            else:
+                return (VerificationStatus.FALSE, None)
         else:
             self._init_at_time(self.hts.vars, k)
             if prop == TRUE():
@@ -397,7 +395,7 @@ class BMC(object):
 
         if t > -1:
             Logger.log("Execution found", 0)
-            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
             return (VerificationStatus.TRUE, trace)
         else:
             Logger.log("Deadlock wit k=%s"%k, 0)
@@ -784,7 +782,7 @@ class BMC(object):
             return (VerificationStatus.TRUE, None, t)
         elif t > -1:
             model = self._remap_model(self.hts.vars, model, t)
-            trace = self.print_trace(self.hts, model, t, prop.get_free_variables(), map_function=self.config.map_function)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)
@@ -815,25 +813,45 @@ class BMC(object):
         trans_01 = self.unroll(trans, invar, 1)
         cover_0 = self.at_time(cover, 0)
 
+        full_model = {}
+        
         if all_vars:
             relevant_vars = self.hts.vars
         else:
             relevant_vars = self.hts.state_vars | self.hts.inputs | self.hts.outputs
         
         relevant_vars_01 = [(TS.get_timed(v, 0), TS.get_timed(v, 1)) for v in relevant_vars]
+        relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]
         
+        self._reset_assertions(self.solver)
+        self._reset_assertions(self.solver_2)
+        
+        # Picking Initial states
+        self._add_assertion(self.solver, And(init_0, invar_0))
+        self._add_assertion(self.solver, trans_01)
+        res = self._solve(self.solver)
+
+        if res:
+            init_model =  self._get_model(self.solver, relevant_vars_0)
+            init_0 = And([EqualsOrIff(v, init_model[v]) for v in relevant_vars_0])
+
+            for v in relevant_vars_0:
+                full_model[v] = init_model[v]
+        else:
+            return (0, None)
+
+        self._reset_assertions(self.solver)
+        
         if inc:
-            self._reset_assertions(self.solver)
             self._add_assertion(self.solver, trans_01)
             self._add_assertion(self.solver, invar_0)
             
-            self._reset_assertions(self.solver_2)
             self._add_assertion(self.solver_2, Not(cover_0))
             self._add_assertion(self.solver_2, invar_0)
 
         init_model = None
-        for t in range(k + 1):
+        for t in range(1, k + 2):
 
             if not inc:
                 self._reset_assertions(self.solver, True)
@@ -861,7 +879,10 @@ class BMC(object):
 
             # Use previous model as initial state for next sat call
             init_0 = And([EqualsOrIff(v[0], init_model[v[1]]) for v in relevant_vars_01])
-            
+
+            for v in relevant_vars:
+                full_model[TS.get_timed(v, t)] = init_model[TS.get_timed(v, 1)]
+
             if inc:
                 self._push(self.solver_2)
             else:
@@ -875,7 +896,7 @@ class BMC(object):
             if not res_cont:
                 Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
                 model = init_model
-                return (1, model)
+                return (t, full_model)
             else:
                 Logger.log('Cover not reached at k=%s'%t, 1)
 
@@ -884,7 +905,8 @@ class BMC(object):
                 
                 
         # only uses 0 and 1 symbols
-        return (1, model)
+        return (-1, None)
+
 
     def _remap_model_fwd(self, vars, model, k):
         return model
@@ -930,11 +952,12 @@ class BMC(object):
             if comment:
                 self._write_smt2_comment(solver, comment)
 
-            smt2vars = solver.smt2vars
-
-            formula_fv = set(formula.get_free_variables())
-
-            for v in formula_fv.difference(smt2vars):
+            formula_fv = get_free_variables(formula)
+                
+            for v in formula_fv:
+                if v in solver.smt2vars:
+                    continue
+                
                 if v.symbol_type() == BOOL:
                     self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (v.symbol_name()))
                 elif v.symbol_type().is_array_type():
@@ -948,7 +971,9 @@ class BMC(object):
                     raise RuntimeError("Unhandled type in smt2 translation")
 
             self._write_smt2_log(solver, "")
-            solver.smt2vars = formula_fv.union(smt2vars)
+
+            for v in formula_fv:
+                solver.smt2vars.add(v)
 
             if formula.is_and():
                 for f in conjunctive_partition(formula):

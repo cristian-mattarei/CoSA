@@ -9,6 +9,7 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Symbol, And, TRUE, simplify
+from cosa.util.formula_mngm import get_free_variables
 
 NEXT = "_N"
 PREV = "_P"
@@ -232,7 +233,7 @@ class TS(object):
     @staticmethod
     def to_next(formula):
         varmap = []
-        for v in formula.get_free_variables():
+        for v in get_free_variables(formula):
             varmap.append((v,TS.get_prime(v)))
             varmap.append((TS.get_prev(v),v))
         return formula.substitute(dict(varmap))
@@ -240,14 +241,14 @@ class TS(object):
     @staticmethod
     def to_prev(formula):
         varmap = []
-        for v in formula.get_free_variables():
+        for v in get_free_variables(formula):
             varmap.append((v,TS.get_prev(v)))
             varmap.append((TS.get_prime(v),v))
         return formula.substitute(dict(varmap))
     
     @staticmethod
     def has_next(formula):
-        varlist = formula.get_free_variables()
+        varlist = get_free_variables(formula)
         for v in varlist:
             if TS.is_prime(v):
                 return True
