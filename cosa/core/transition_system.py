@@ -50,7 +50,7 @@ class HTS(object):
         self.trans = None
         self.invar = None
 
-        self.logic = L_ABV        
+        self.logic = L_BV
         self.en_simplify = False
         
     def add_sub(self, sub):
@@ -63,12 +63,8 @@ class HTS(object):
         self.state_vars.add(var)
 
     def update_logic(self, logic):
-        if logic == L_ABV:
+        if (self.logic == L_BV) and (logic == L_ABV):
             self.logic = L_ABV
-        elif logic == L_BV:
-            self.logic = L_BV
-        else:
-            return
         
     def add_ts(self, ts):
         if self.en_simplify:
