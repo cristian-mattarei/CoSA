@@ -33,6 +33,7 @@ S2 = "sys2"+SEP
 FWD = "FWD"
 BWD = "BWD"
 ZZ  = "ZZ"
+NU  = "NU"
 
 class TraceSolver(object):
 
@@ -69,7 +70,7 @@ class BMCConfig(object):
     def __init__(self):
         self.incremental = True
         self.strategy = FWD
-        self.solver_name = "z3"
+        self.solver_name = "msat"
         self.full_trace = False
         self.prefix = None
         self.smt2file = None
@@ -86,6 +87,7 @@ class BMCConfig(object):
         strategies.append((FWD, "Forward reachability"))
         strategies.append((BWD, "Backward reachability"))
         strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((NU,  "States picking without unrolling (only for simulation)"))
 
         return strategies
 
@@ -375,8 +377,8 @@ class BMC(object):
         return (htseq, t, model)
 
 
-    def simulate(self, prop, k, no_unroll=False):
-        if no_unroll:
+    def simulate(self, prop, k):
+        if self.config.strategy == NU:
             self._init_at_time(self.hts.vars, 1)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
 
@@ -805,7 +807,7 @@ class BMC(object):
         Logger.error("Invalid configuration strategy")
         return None
 
-    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=True):
+    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=False):
         init = hts.single_init()
         invar = hts.single_invar()
         trans = hts.single_trans()

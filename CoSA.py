@@ -74,7 +74,6 @@ class Config(object):
         self.strfiles = None
         self.verbosity = 1
         self.simulate = False
-        self.sim_no_unroll = False
         self.bmc_length = 10
         self.bmc_length_min = 0
         self.safety = None
@@ -238,7 +237,7 @@ def run_verification(config):
         with open(config.translate, "w") as f:
             f.write(printer.print_hts(hts, properties))
 
-    if config.simulate or config.sim_no_unroll:
+    if config.simulate:
         count = 0
         if config.properties is None:
             props = [("True", TRUE(), None)]
@@ -246,7 +245,7 @@ def run_verification(config):
             props = sparser.parse_formulae(config.properties)
         for (strprop, prop, types) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
-            res, trace = bmc.simulate(prop, config.bmc_length, no_unroll=config.sim_no_unroll)
+            res, trace = bmc.simulate(prop, config.bmc_length)
             if res == VerificationStatus.TRUE:
                 count += 1
                 print_trace("Execution", trace, count, config.prefix)
@@ -380,10 +379,6 @@ if __name__ == "__main__":
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC.')
 
-    parser.set_defaults(sim_no_unroll=False)
-    parser.add_argument('--sim-no-unroll', dest='sim_no_unroll', action='store_true',
-                        help='simulate the system using BMC by only unrolling one step at a time.')
-
     parser.set_defaults(problems=None)
     parser.add_argument('--problems', metavar='<problems file>', type=str, required=False,
                        help='problems file describing the verifications to be performed.')
@@ -504,7 +499,6 @@ if __name__ == "__main__":
 
     config.strfiles = args.input_files
     config.simulate = args.simulate
-    config.sim_no_unroll = args.sim_no_unroll
     config.safety = args.safety
     config.liveness = args.liveness
     config.eventually = args.eventually
@@ -561,7 +555,6 @@ if __name__ == "__main__":
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
 
     if not(config.simulate or \
-           (config.sim_no_unroll) or \
            (config.safety) or \
            (config.liveness) or \
            (config.eventually) or \
