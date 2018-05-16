@@ -88,9 +88,9 @@ class ProblemSolver(object):
 
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
-                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problems.abstract_clock, problem.symbolic_init, "System 2")
+                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
 
-            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init)
+            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, bmc_config.properties, True)
 
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
@@ -159,6 +159,7 @@ class ProblemSolver(object):
         for problem in problems.problems:
             problem.hts = systems[('hts', problem.symbolic_init)]
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
+            problem.abstract_clock = problems.abstract_clock
             problem.relative_path = problems.relative_path
             self.solve_problem(problem, config)
 

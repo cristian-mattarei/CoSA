@@ -25,7 +25,7 @@ class Miter(object):
         htseq = HTS("eq")
 
         map1 = dict([(v, TS.get_prefix(v, S1)) for v in hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S1)) for v in hts.vars])
-        map2 = dict([(v, TS.get_prefix(v, S2)) for v in hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S2)) for v in hts.vars])
+        map2 = dict([(v, TS.get_prefix(v, S2)) for v in hts2.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S2)) for v in hts2.vars])
 
         ts1_init = TRUE()
         ts2_init = TRUE()
