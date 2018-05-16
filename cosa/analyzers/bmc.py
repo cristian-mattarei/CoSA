@@ -826,6 +826,7 @@ class BMC(object):
         self._reset_assertions(self.solver)
         
         # Picking Initial State
+        Logger.log("\nSolving for k=0", 1)
         self._add_assertion(self.solver, And(init_0, invar_0))
         res = self._solve(self.solver)
 
@@ -846,6 +847,7 @@ class BMC(object):
 
         init_model = None
         for t in range(1, k + 1):
+            Logger.log("\nSolving for k=%s"%(t), 1)
 
             if not inc:
                 self._reset_assertions(self.solver, True)
@@ -868,7 +870,8 @@ class BMC(object):
                     init_model = self._get_model(self.solver, relevant_vars_1)
                 model = init_model
             else:
-                Logger.log("System deadlocked at k=%s"%(t), 0)
+                Logger.log("System deadlocked at k=%s"%(t), 2)
+                return (-1, full_model)
 
             # Use previous model as initial state for next sat call
             init_0 = []
@@ -891,11 +894,11 @@ class BMC(object):
                 res_cont = self._solve(self.solver)
 
                 if res_cont:
-                    Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
+                    Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 2)
                     model = init_model
                     return (t, full_model)
                 else:
-                    Logger.log('Cover not reached at k=%s'%t, 1)
+                    Logger.log('Cover not reached at k=%s'%t, 2)
 
             if inc:
                 self._pop(self.solver)
