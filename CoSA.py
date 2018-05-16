@@ -129,6 +129,13 @@ def print_trace(msg, trace, index, prefix):
         Logger.log("%s:"%msg, 0)
         Logger.log(trace_hr, 0)
 
+def get_file_flags(strfile):
+    if "[" not in strfile:
+        return (strfile, [])
+    
+    (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+    return (strfile, flags)
+                        
 def run_verification(config):
     Logger.verbosity = config.verbosity
 
@@ -139,34 +146,9 @@ def run_verification(config):
     hts = HTS("Top level")
 
     if config.strfiles[0][-4:] != ".pkl":
-        for strfile in config.strfiles:
-            filetype = strfile.split(".")[-1]
-            parser = None
-
-            if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(config.abstract_clock, config.symbolic_init)
-                parser.boolean = config.boolean
-                config.parser = parser
-
-            if filetype == ExplicitTSParser.get_extension():
-                parser = ExplicitTSParser()
-                if not config.parser:
-                    config.parser = parser
-
-            if filetype == SymbolicTSParser.get_extension():
-                parser = SymbolicTSParser()
-                if not config.parser:
-                    config.parser = parser
-
-            if parser is not None:
-                Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                hts_a = parser.parse_file(strfile)
-                hts.combine(hts_a)
-
-                Logger.log("DONE", 0)
-                continue
-
-            Logger.error("Filetype \"%s\" unsupported"%filetype)
+        ps = ProblemSolver()
+        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init)
+        config.parser = ps.parser
 
         if config.pickle_file:
             Logger.msg("Pickling model to %s\n"%(config.pickle_file), 1)
@@ -543,8 +525,8 @@ if __name__ == "__main__":
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
 
-    if config.strfiles:
-        config.strfiles = config.strfiles.split(",")
+    # if config.strfiles:
+    #     config.strfiles = config.strfiles.split(",")
 
     if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
         config.printer = args.printer

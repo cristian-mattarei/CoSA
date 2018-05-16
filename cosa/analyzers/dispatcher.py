@@ -109,12 +109,20 @@ class ProblemSolver(object):
 
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
+    def get_file_flags(self, strfile):
+        if "[" not in strfile:
+            return (strfile, [])
+
+        (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+        return (strfile, flags)
+        
     def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None):
         hts = HTS("Top level")
 
         models = model_files.split(",")
 
         for strfile in models:
+            (strfile, flags) = self.get_file_flags(strfile)
             filetype = strfile.split(".")[-1]
             strfile = relative_path+strfile
             parser = None
@@ -132,7 +140,7 @@ class ProblemSolver(object):
 
             if parser is not None:
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                hts_a = parser.parse_file(strfile)
+                hts_a = parser.parse_file(strfile, flags)
                 hts.combine(hts_a)
 
                 Logger.log("DONE", 0)

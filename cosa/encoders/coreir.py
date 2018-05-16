@@ -27,7 +27,7 @@ from cosa.core.transition_system import TS, HTS
 from cosa.util.utils import is_number, status_bar
 from cosa.util.logger import Logger
 
-from cosa.encoders.model import ModelParser
+from cosa.encoders.model import ModelParser, NO_INIT
 
 SELF = "self"
 INIT = "init"
@@ -888,7 +888,7 @@ class CoreIRParser(ModelParser):
             
         return ts
     
-    def parse_file(self, strfile):
+    def parse_file(self, strfile, flags=None):
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
 
@@ -908,7 +908,6 @@ class CoreIRParser(ModelParser):
         totalinst = len(top_def.instances)
         count = 0
         top_def_instances = list(top_def.instances)
-
 
         def extract_value(x, modname, inst_intr, inst_conf, inst_mod):
             if x in inst_intr:
@@ -972,6 +971,10 @@ class CoreIRParser(ModelParser):
             ts = self.__mod_to_impl(inst_type, args)
 
             if ts is not None:
+
+                if NO_INIT in flags:
+                    ts.init = TRUE()
+                    
                 hts.add_ts(ts)
             else:
                 if inst_type not in not_defined_mods:
@@ -993,7 +996,12 @@ class CoreIRParser(ModelParser):
             # Adding clock behavior
             if (self.CLK in var[0].lower()) and (var[1].is_input()):
                 Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
-                hts.add_ts(Modules.Clock(bvvar))
+                ts = Modules.Clock(bvvar)
+                
+                if NO_INIT in flags:
+                    ts.init = TRUE()
+                
+                hts.add_ts(ts)
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 
@@ -1104,6 +1112,7 @@ class CoreIRParser(ModelParser):
 
         ts = TS(eq_vars, TRUE(), TRUE(), eq_formula)
         ts.comment = "Connections" # (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
+
         hts.add_ts(ts)
 
         if self.enc_map is not None:
