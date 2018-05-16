@@ -71,7 +71,7 @@ class HTS(object):
             self.vars.add(v)
         for v in ts.state_vars:
             self.state_vars.add(v)
-        self.arrays |= ts.array
+        self.arrays |= ts.arrays
 
     def add_assumption(self, assumption):
         if self.assumptions is None:
@@ -158,7 +158,7 @@ class TS(object):
     invar = None
     
     comment = None
-    array = None
+    arrays = None
 
     def __init__(self, vars, init, trans, invar):
         self.vars = vars
@@ -168,7 +168,7 @@ class TS(object):
         self.invar = invar
 
         self.comment = ""
-        self.array = False # set to true if there's an array
+        self.arrays = False # set to true if there's an array
 
     def __repr__(self):
         return "V: %s\nSV: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.state_vars), str(self.init), str(self.trans), str(self.invar))

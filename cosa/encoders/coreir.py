@@ -634,6 +634,7 @@ class Modules(object):
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([arr])
         ts.comment = comment
+        ts.arrays = True
         return ts
 
     def Term(_in):
@@ -681,7 +682,6 @@ class CoreIRParser(ModelParser):
         self.map_an2or = {}
         self.map_or2an = {}
         self.anonimize_names = False
-        self.arrays = False
 
         self._init_mod_map()
 
