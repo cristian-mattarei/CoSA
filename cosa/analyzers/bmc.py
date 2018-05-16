@@ -381,12 +381,6 @@ class BMC(object):
         if self.config.strategy == NU:
             self._init_at_time(self.hts.vars, 1)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
-
-            if t > -1:
-                trace = self.print_trace(self.hts, model, t, None, False, map_function=self.config.map_function)
-                return (VerificationStatus.TRUE, trace)
-            else:
-                return (VerificationStatus.FALSE, None)
         else:
             self._init_at_time(self.hts.vars, k)
             if prop == TRUE():
@@ -801,7 +795,7 @@ class BMC(object):
         if self.config.strategy == ZZ:
             return self._remap_model_zz(vars, model, k)
 
-        if self.config.strategy == FWD:
+        if self.config.strategy in [FWD, NU]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
@@ -882,7 +876,7 @@ class BMC(object):
             
             for v in relevant_vars_01:
                 val = init_model[v[1]]
-                full_model[v[2]] = val
+                full_model[TS.get_timed(v[2], t)] = val
                 init_0.append(EqualsOrIff(v[0], val))
                 init_1.append(EqualsOrIff(v[1], val))
 
