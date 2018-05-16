@@ -845,7 +845,7 @@ class BMC(object):
             self._add_assertion(self.solver, invar_0)
 
         init_model = None
-        for t in range(1, k + 2):
+        for t in range(1, k + 1):
 
             if not inc:
                 self._reset_assertions(self.solver, True)
@@ -881,26 +881,28 @@ class BMC(object):
                 init_1.append(EqualsOrIff(v[1], val))
 
             init_0 = And(init_0)
-            init_1 = And(init_1)
-                
-            self._add_assertion(self.solver, init_1)
-            self._add_assertion(self.solver, cover_1)
-            
-            res_cont = self._solve(self.solver)
 
-            if res_cont:
-                Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
-                model = init_model
-                return (t, full_model)
-            else:
-                Logger.log('Cover not reached at k=%s'%t, 1)
+            if cover != TRUE():
+                init_1 = And(init_1)
+
+                self._add_assertion(self.solver, init_1)
+                self._add_assertion(self.solver, cover_1)
+
+                res_cont = self._solve(self.solver)
+
+                if res_cont:
+                    Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 1)
+                    model = init_model
+                    return (t, full_model)
+                else:
+                    Logger.log('Cover not reached at k=%s'%t, 1)
 
             if inc:
                 self._pop(self.solver)
                 
                 
         # only uses 0 and 1 symbols
-        return (-1, None)
+        return (t, full_model)
 
 
     def _remap_model_fwd(self, vars, model, k):
