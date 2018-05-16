@@ -16,6 +16,9 @@ PREV = "_P"
 AT = "_AT"
 ATP = "_ATP"
 
+L_ABV = "QF_ABV"
+L_BV = "QF_BV"
+
 class HTS(object):
 
     tss = None
@@ -30,7 +33,7 @@ class HTS(object):
     trans = None
     invar = None
 
-    arrays = False
+    logic = None
     en_simplify = False
     
     def __init__(self, name):
@@ -47,8 +50,7 @@ class HTS(object):
         self.trans = None
         self.invar = None
 
-        self.arrays = False
-        
+        self.logic = L_ABV        
         self.en_simplify = False
         
     def add_sub(self, sub):
@@ -59,6 +61,14 @@ class HTS(object):
 
     def add_state_var(self, var):
         self.state_vars.add(var)
+
+    def update_logic(self, logic):
+        if logic == L_ABV:
+            self.logic = L_ABV
+        elif logic == L_BV:
+            self.logic = L_BV
+        else:
+            return
         
     def add_ts(self, ts):
         if self.en_simplify:
@@ -71,7 +81,8 @@ class HTS(object):
             self.vars.add(v)
         for v in ts.state_vars:
             self.state_vars.add(v)
-        self.arrays |= ts.arrays
+            
+        self.update_logic(ts.logic)
 
     def add_assumption(self, assumption):
         if self.assumptions is None:
@@ -158,7 +169,7 @@ class TS(object):
     invar = None
     
     comment = None
-    arrays = None
+    logic = None
 
     def __init__(self, vars, init, trans, invar):
         self.vars = vars
@@ -168,7 +179,7 @@ class TS(object):
         self.invar = invar
 
         self.comment = ""
-        self.arrays = False # set to true if there's an array
+        self.logic = L_BV
 
     def __repr__(self):
         return "V: %s\nSV: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.state_vars), str(self.init), str(self.trans), str(self.invar))

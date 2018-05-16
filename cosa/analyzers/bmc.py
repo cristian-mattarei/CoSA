@@ -801,7 +801,7 @@ class BMC(object):
         Logger.error("Invalid configuration strategy")
         return None
 
-    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=False):
+    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=True):
         init = hts.single_init()
         invar = hts.single_invar()
         trans = hts.single_trans()
@@ -1017,10 +1017,7 @@ class BMC(object):
         if solver.trace_file is not None:
             solver.smt2vars = set([])
             with open(solver.trace_file, "w") as f:
-                if self.hts.arrays:
-                    f.write("(set-logic QF_ABV)\n")
-                else:
-                    f.write("(set-logic QF_BV)\n")
+                f.write("(set-logic %s)\n"%self.hts.logic)
 
     def _solve(self, solver):
         self._write_smt2_log(solver, "(check-sat)")

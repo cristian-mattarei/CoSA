@@ -23,7 +23,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 from pysmt.typing import BOOL, _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter
 
-from cosa.core.transition_system import TS, HTS
+from cosa.core.transition_system import TS, HTS, L_BV, L_ABV
 from cosa.util.utils import is_number, status_bar
 from cosa.util.logger import Logger
 
@@ -634,7 +634,7 @@ class Modules(object):
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([arr])
         ts.comment = comment
-        ts.arrays = True
+        ts.logic = L_ABV
         return ts
 
     def Term(_in):
