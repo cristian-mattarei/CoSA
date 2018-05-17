@@ -147,6 +147,9 @@ class ProblemSolver(object):
                 parser = SymbolicTSParser()
 
             if parser is not None:
+                if not os.path.isfile(strfile):
+                    Logger.error("File \"%s\" does not exist"%strfile)
+
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
                 hts_a = parser.parse_file(strfile, flags)
                 hts.combine(hts_a)

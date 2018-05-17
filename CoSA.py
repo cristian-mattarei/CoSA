@@ -541,13 +541,12 @@ if __name__ == "__main__":
     if args.problems:
         if args.debug:
             run_problems(args.problems, config)
-            sys.exit(0)
         else:
             try:
                 run_problems(args.problems, config)
-                sys.exit(0)
             except Exception as e:
                 Logger.msg(str(e), 0)
+        sys.exit(0)
 
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
@@ -599,6 +598,5 @@ if __name__ == "__main__":
             run_verification(config)
         except Exception as e:
             Logger.msg(str(e), 0)
-
     
 
