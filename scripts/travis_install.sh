@@ -32,9 +32,9 @@ if [ ! -f "$PYCOREIR" ]; then
     pip3 install -e .
 else
     echo "Skipping installation"
+    cd pysmt && pip3 install -e . && cd ..
     cd coreir && sudo make install && cd ..
     cd pycoreir && pip3 install -e . && cd ..
-    cd pysmt && pip3 install -e . && cd ..
 fi
 
 popd
