@@ -53,6 +53,9 @@ class StringParser(object):
         return literal
     
     def parse_formula(self, strformula):
+        if strformula is None:
+            return None
+        
         formula = strformula.replace("\\","")
         for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
             if lit in KEYWORDS:
@@ -64,6 +67,9 @@ class StringParser(object):
 
     def parse_formulae(self, strforms):
         formulae = []
+
+        if strforms is None:
+            return formulae
 
         for strform in strforms:
             if ("#" not in strform) and (strform != ""):

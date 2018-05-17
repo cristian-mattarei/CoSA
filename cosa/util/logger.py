@@ -43,9 +43,7 @@ class Logger(object):
 
     @staticmethod        
     def error(msg):
-        sys.stderr.write("ERROR: "+msg+"\n")
-        sys.stderr.flush()
-        sys.exit(1)
+        raise RuntimeError("ERROR: "+msg+"\n")
 
     @staticmethod        
     def warning(msg):

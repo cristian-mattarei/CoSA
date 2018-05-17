@@ -81,15 +81,15 @@ class Miter(object):
             else:
                 invar = And(eqinputs, Iff(miter_out, eqoutputs))
 
-            Logger.log('Inferring equivalence property: {}'.format(invar), 1)
+            Logger.log('Inferring equivalence property: {}'.format(invar), 2)
         else:
             sparser = StringParser()
             eqprop = sparser.parse_formulae(eqprop)
             if len(eqprop) > 1:
-                raise RuntimeError("Expecting a single equivalence property")
+                Logger.error("Expecting a single equivalence property")
             eqprop = eqprop[0][1]
             invar = Iff(miter_out, eqprop)
-            Logger.log('Using provided equivalence property: {}'.format(invar), 1)
+            Logger.log('Using provided equivalence property: {}'.format(invar), 2)
 
         htseq.add_ts(TS(set([miter_out]), TRUE(), TRUE(), invar))
 
