@@ -10,7 +10,6 @@ if [ ! -f "$PYCOREIR" ]; then
     cd pysmt
     pip3 install -e .
     pysmt-install --msat --confirm-agreement
-    echo ${TRAVIS_BUILD_DIR}
     cd ..
 
     export COREIRCONFIG="g++-4.9"
@@ -31,12 +30,12 @@ if [ ! -f "$PYCOREIR" ]; then
     sed -i -e 's/ValueError(f"Arg(name={key}, value={value}) does not match expected type {self.params\[key\].kind}")/ValueError("Arg(name={key}, value={value}) does not match expected type {params_kind}".format(key=key, value=value, params_kind=self.params\[key\].kind))/g' coreir/generator.py
     sed -i -e 's/f"{self.module.name}.{self.name}"/"{module_name}.{self_name}".format(module_name=self.module.name, name=self.name)/g' coreir/wireable.py
     pip3 install -e .
-
-    popd
-
 else
     echo "Skipping installation"
     cd coreir && sudo make install && cd ..
     cd pycoreir && pip3 install -e . && cd ..
     cd pysmt && pip3 install -e . && cd ..
 fi
+
+popd
+
