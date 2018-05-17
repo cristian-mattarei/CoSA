@@ -1,8 +1,10 @@
+#!/bin/bash
+
 PYCOREIR="`pwd`/pycoreir"
 COREIR="`pwd`/coreir"
 PYSMT="`pwd`/pysmt"
 
-if [ ! -f "$PYSMT" ]; then
+if [ ! -d "$PYSMT" ]; then
     rm -fr pysmt*
     wget https://github.com/pysmt/pysmt/archive/15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
     unzip 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
@@ -17,9 +19,10 @@ else
     cd pysmt && pip3 install -e . && cd ..
 fi
     
-if [ ! -f "$COREIR" ]; then
+export COREIRCONFIG="g++-4.9"
+
+if [ ! -d "$COREIR" ]; then
     rm -fr coreir*
-    export COREIRCONFIG="g++-4.9"
     wget https://github.com/rdaly525/coreir/archive/a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
     unzip a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
     rm a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
@@ -31,7 +34,7 @@ else
     cd coreir && sudo make install && cd ..
 fi
     
-if [ ! -f "$PYCOREIR" ]; then
+if [ ! -d "$PYCOREIR" ]; then
     rm -fr pycoreir*
     wget https://github.com/leonardt/pycoreir/archive/0c10e7b814360d40b6291485fac7d921aae19d36.zip
     unzip 0c10e7b814360d40b6291485fac7d921aae19d36.zip
