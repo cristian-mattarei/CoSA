@@ -552,9 +552,6 @@ if __name__ == "__main__":
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
 
-    # if config.strfiles:
-    #     config.strfiles = config.strfiles.split(",")
-
     if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
         config.printer = args.printer
     else:
