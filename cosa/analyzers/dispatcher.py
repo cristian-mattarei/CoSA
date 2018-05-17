@@ -182,15 +182,17 @@ class ProblemSolver(object):
     def problem2bmc_config(self, problem, config):
         bmc_config = BMCConfig()
 
-        bmc_config.smt2file = problem.smt2_tracing if problem.smt2_tracing is not None else config.smt2file
+        config_selection = lambda problem, config: config if problem is None else problem
+        
+        bmc_config.smt2file = config_selection(problem.smt2_tracing, config.smt2file)
         bmc_config.full_trace = problem.full_trace or config.full_trace
         bmc_config.prefix = problem.name
-        bmc_config.strategy = BMCConfig.get_strategies()[0][0]
-        bmc_config.skip_solving = problem.skip_solving
+        bmc_config.strategy = config_selection(problem.strategy, config.strategy)
+        bmc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
         bmc_config.map_function = self.parser.remap_an2or
-        bmc_config.solver_name = config.solver_name if problem.solver_name is None else problem.solver_name
+        bmc_config.solver_name = config_selection(problem.solver_name, config.solver_name)
         bmc_config.vcd_trace = problem.vcd or config.vcd
-        bmc_config.prove = problem.prove
+        bmc_config.prove = config_selection(problem.prove, config.prove)
         bmc_config.properties = problem.formula
         bmc_config.assumptions = problem.assumptions
         bmc_config.lemmas = problem.lemmas
