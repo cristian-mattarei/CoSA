@@ -13,6 +13,7 @@ import re
 from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
 from cosa.util.logger import Logger
 from cosa.core.transition_system import TS
+from cosa.util.formula_mngm import get_free_variables
 
 KEYWORDS = ["not","False","True","next","prev"]
 OPERATORS = [(" < "," u< "), \
@@ -67,7 +68,7 @@ class StringParser(object):
         for strform in strforms:
             if ("#" not in strform) and (strform != ""):
                 formula = self.parse_formula(strform)
-                formula_fv = formula.get_free_variables()
+                formula_fv = get_free_variables(formula)
                 nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
                 prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
                 formulae.append((strform, formula, (nextvars, prevvars)))

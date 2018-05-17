@@ -16,3 +16,9 @@ description: "Two counters are always equal"
 formula: count0.r.reg0.out = count1.r.reg0.out
 verification: safety
 prove: True
+
+[Counters-SIM]
+description: "Simulation with no unrolling"
+formula: count0.r.reg0.out = 5_16
+verification: simulation
+strategy: NU

@@ -16,6 +16,7 @@ from cosa.core.transition_system import TS
 from cosa.util.logger import Logger
 from cosa.printers import HIDDEN
 from cosa.core.transition_system import HTS
+from cosa.util.formula_mngm import get_free_variables
 
 import math
 
@@ -63,7 +64,7 @@ class ExplicitTSParser(object):
     def __init__(self):
         self.parser = self.__init_parser()
 
-    def parse_file(self, strfile):
+    def parse_file(self, strfile, flags=None):
         with open(strfile, "r") as f:
             return self.parse_string(f.read())
         
@@ -176,14 +177,16 @@ class ExplicitTSParser(object):
             (start, end) = (transition, transdic[transition])
             trans = And(trans, Implies(start, TS.to_next(Or(end))))
 
-        vars_ = [v for v in trans.get_free_variables() if not TS.is_prime(v)]
-        vars_ += init.get_free_variables()
-        vars_ += invar.get_free_variables()
+        vars_ = [v for v in get_free_variables(trans) if not TS.is_prime(v)]
+        vars_ += get_free_variables(init)
+        vars_ += get_free_variables(invar)
         ts = TS(set(vars_), init, trans, invar)
         ts.comment = "Additional system"
 
         hts = HTS("ETS")
         hts.add_ts(ts)
+
+        hts.state_vars = set([stateid_var])
         
         return hts
                 

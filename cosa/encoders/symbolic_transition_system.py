@@ -72,7 +72,7 @@ class SymbolicTSParser(object):
     def __init__(self):
         self.parser = self.__init_parser()
 
-    def parse_file(self, strfile):
+    def parse_file(self, strfile, flags=None):
         with open(strfile, "r") as f:
             return self.parse_string(f.read())
         
