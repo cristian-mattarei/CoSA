@@ -50,7 +50,7 @@ class ProblemSolver(object):
                 else:
                     parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
             else:
-                parsing_defs[i] = []
+                parsing_defs[i] = None
 
         [bmc_config.properties, bmc_config.lemmas, bmc_config.assumptions] = parsing_defs
 
@@ -119,7 +119,7 @@ class ProblemSolver(object):
 
     def get_file_flags(self, strfile):
         if "[" not in strfile:
-            return (strfile, [])
+            return (strfile, None)
 
         (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
         return (strfile, flags)

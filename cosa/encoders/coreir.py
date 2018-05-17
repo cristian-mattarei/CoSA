@@ -972,7 +972,7 @@ class CoreIRParser(ModelParser):
 
             if ts is not None:
 
-                if NO_INIT in flags:
+                if (flags is not None) and (NO_INIT in flags):
                     ts.init = TRUE()
                     
                 hts.add_ts(ts)
@@ -998,7 +998,7 @@ class CoreIRParser(ModelParser):
                 Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
                 ts = Modules.Clock(bvvar)
                 
-                if NO_INIT in flags:
+                if (flags is not None) and (NO_INIT in flags):
                     ts.init = TRUE()
                 
                 hts.add_ts(ts)
