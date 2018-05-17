@@ -356,17 +356,15 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
                         help='comma separated list of input files.')
 
-    parser.set_defaults(simulate=False)
-    parser.add_argument('--simulate', dest='simulate', action='store_true',
-                       help='simulate system using BMC.')
-
     parser.set_defaults(problems=None)
     parser.add_argument('--problems', metavar='<problems file>', type=str, required=False,
                        help='problems file describing the verifications to be performed.')
 
+    # Verification selection
+    
     parser.set_defaults(safety=False)
     parser.add_argument('--safety', dest='safety', action='store_true',
-                       help='safety verification using BMC.')
+                       help='safety (G) verification using BMC.')
 
     parser.set_defaults(liveness=False)
     parser.add_argument('--liveness', dest='liveness', action='store_true',
@@ -375,11 +373,33 @@ if __name__ == "__main__":
     parser.set_defaults(eventually=False)
     parser.add_argument('--eventually', dest='eventually', action='store_true',
                        help='eventually (F) verification using BMC.')
+
+    parser.set_defaults(simulate=False)
+    parser.add_argument('--simulate', dest='simulate', action='store_true',
+                       help='simulate system using BMC.')
+
+    parser.set_defaults(equivalence=None)
+    parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
+                       help='equivalence checking using BMC.')
+
+    parser.set_defaults(fsm_check=False)
+    parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
+                       help='check if the state machine is deterministic.')
+    
+    # Verification parameters
     
     parser.set_defaults(properties=None)
     parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of invariant properties.')
 
+    parser.set_defaults(bmc_length=config.bmc_length)
+    parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
+                        help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
+
+    parser.set_defaults(bmc_length_min=config.bmc_length_min)
+    parser.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
+                        help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
+    
     parser.set_defaults(lemmas=None)
     parser.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of lemmas.')
@@ -392,29 +412,21 @@ if __name__ == "__main__":
     parser.add_argument('--prove', dest='prove', action='store_true',
                        help='use indution to prove the satisfiability of the property.')
 
-    parser.set_defaults(equivalence=None)
-    parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
-                       help='equivalence checking using BMC.')
+    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in BMCConfig.get_strategies()]
+    defstrategy = BMCConfig.get_strategies()[0][0]
+    parser.set_defaults(strategy=defstrategy)
+    parser.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
+                        help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
 
-    parser.set_defaults(fsm_check=False)
-    parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
-                       help='check if the state machine is deterministic.')
-
-    parser.set_defaults(translate=None)
-    parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
-                       help='translate input file.')
-
+    parser.set_defaults(solver_name=config.solver_name)
+    parser.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
+                        help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
+    
+    # Encoding parameters
+    
     parser.set_defaults(abstract_clock=False)
     parser.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
                        help='abstracts the clock behavior.')
-
-    parser.set_defaults(bmc_length=config.bmc_length)
-    parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
-                        help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
-
-    parser.set_defaults(bmc_length_min=config.bmc_length_min)
-    parser.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
-                        help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
 
     parser.set_defaults(symbolic_init=config.symbolic_init)
     parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
@@ -424,49 +436,49 @@ if __name__ == "__main__":
     parser.add_argument('--boolean', dest='boolean', action='store_true',
                         help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
 
-    parser.set_defaults(run_passes=config.run_passes)
-    parser.add_argument('--run-passes', dest='run_passes', action='store_true',
-                        help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
+    # parser.set_defaults(run_passes=config.run_passes)
+    # parser.add_argument('--run-passes', dest='run_passes', action='store_true',
+    #                     help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
 
     parser.set_defaults(full_trace=config.full_trace)
     parser.add_argument('--full-trace', dest='full_trace', action='store_true',
                        help="show all variables in the counterexamples. (Default is \"%s\")"%config.full_trace)
 
-    parser.set_defaults(vcd=False)
-    parser.add_argument('--vcd', dest='vcd', action='store_true',
-                       help='generate traces also in vcd format.')
+    # Printing parameters
 
     parser.set_defaults(prefix=None)
     parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
                        help='write the counterexamples with specified location prefix.')
+    
+    parser.set_defaults(vcd=False)
+    parser.add_argument('--vcd', dest='vcd', action='store_true',
+                       help='generate traces also in vcd format.')
 
+    # Translation parameters
+
+    parser.set_defaults(smt2=None)
+    parser.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+                       help='generates the smtlib2 encoding for a BMC call.')
+
+    parser.set_defaults(translate=None)
+    parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
+                       help='translate input file.')
+    
     printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
 
     parser.set_defaults(printer=config.printer)
     parser.add_argument('--printer', metavar='printer', type=str, nargs='?',
                         help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
 
-    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in BMCConfig.get_strategies()]
-    defstrategy = BMCConfig.get_strategies()[0][0]
-    parser.set_defaults(strategy=defstrategy)
-    parser.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
-                        help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
-
-    parser.set_defaults(smt2=None)
-    parser.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
-                       help='generates the smtlib2 encoding for a BMC call.')
-
     parser.set_defaults(skip_solving=False)
     parser.add_argument('--skip-solving', dest='skip_solving', action='store_true',
-                       help='does not call the solver (used with --smt2 parameter).')
+                        help='does not call the solver (used with --smt2 or --translate parameters).')
 
     parser.set_defaults(pickle=None)
     parser.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
                        help='pickles the transition system to be loaded later.')
 
-    parser.set_defaults(solver_name=config.solver_name)
-    parser.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
-                        help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
+    # Debugging
     
     parser.set_defaults(verbosity=config.verbosity)
     parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
