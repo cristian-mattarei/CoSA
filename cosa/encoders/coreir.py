@@ -1133,23 +1133,34 @@ class CoreIRParser(ModelParser):
             (first, second) = (conn[0][0], conn[1][0])
             (sel1, sel2) = (conn[0][1], conn[1][1])
 
+            if str(first) > str(second):
+                (first, second, sel1, sel2) = (second, first, sel2, sel1)
+
             if (first, second) not in dict_conns:
                 dict_conns[(first, second)] = []
             
             dict_conns[(first, second)].append((sel1, sel2))
 
+        ex_set = 0
+        tr_set = 0
 
         for conn in dict_conns:
             (first,second) = conn
-            conns = self.__analyze_connections(dict_conns[conn])
+            (tcon, conns) = self.__analyze_connections(dict_conns[conn])
 
+            if tcon == 1:
+                ex_set += 1
+
+            if tcon == 2:
+                tr_set += 1
+                
             if conns is None:
                 for single_conn in dict_conns[conn]:
                     new_conns.append(((first, single_conn[0]),(second, single_conn[1])))
             else:
                 ((min_1, max_1), (min_2, max_2)) = conns
                 new_conns.append(((first, min_1, max_1),(second, min_2, max_2)))
-
+                
         return new_conns
 
 
@@ -1167,7 +1178,7 @@ class CoreIRParser(ModelParser):
             
             # Exact set e.g., [0,1,2,3] = [0,1,2,3]
             if inds_1 == inds_2:
-                return ((min_1, max_1), (min_2, max_2))
+                return (1, ((min_1, max_1), (min_2, max_2)))
 
             d_min = (min_1 - min_2) if min_1 > min_2 else (min_2 - min_1)
             d_max = (max_1 - max_2) if max_1 > max_2 else (max_2 - max_1)
@@ -1175,9 +1186,9 @@ class CoreIRParser(ModelParser):
             # Transposed set e.g., [0,1,2,3] = [5,6,7,8]
             if (min_1 == inds_1[0]) and (min_2 == inds_2[0]) and (max_1 == inds_1[-1]) and (max_2 == inds_2[-1]) \
                and (d_min == d_max) and (len(inds_1) == len(inds_2)):
-                return ((min_1, max_1), (min_2, max_2))
+                return (2, ((min_1, max_1), (min_2, max_2)))
             
-        return None
+        return (-1, None)
     
 
     
