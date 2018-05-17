@@ -801,7 +801,7 @@ class BMC(object):
         Logger.error("Invalid configuration strategy")
         return None
 
-    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=True):
+    def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=False):
         init = hts.single_init()
         invar = hts.single_invar()
         trans = hts.single_trans()
