@@ -30,7 +30,7 @@ from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
 from cosa.problem import Problems, VerificationStatus, VerificationType
-from cosa.core.transition_system import HTS
+from cosa.transition_system import HTS
 
 from pysmt.shortcuts import TRUE
 
