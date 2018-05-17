@@ -12,7 +12,6 @@ cache:
   - ${TRAVIS_BUILD_DIR}/coreir
   - /home/travis/.smt_solvers/python-bindings-3.6
 
-
 addons:
   apt:
     sources:
