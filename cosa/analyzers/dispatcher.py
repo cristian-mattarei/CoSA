@@ -30,7 +30,7 @@ class ProblemSolver(object):
         pass
 
     def solve_problem(self, problem, config):
-        Logger.log("\n*** Analyzing problem %s ***"%(problem), 1)
+        Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
         sparser = StringParser()
 
         bmc_config = self.problem2bmc_config(problem, config)
@@ -61,38 +61,19 @@ class ProblemSolver(object):
             assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
             problem.hts.assumptions = assumps
+            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
 
         if problem.verification == VerificationType.SAFETY:
-            count = 0
-            list_status = []
-            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
             res, trace, _ = bmc.safety(prop, bmc_length, bmc_length_min, lemmas)
-            problem.status = res
-            problem.trace = trace
 
         if problem.verification == VerificationType.LIVENESS:
-            count = 0
-            list_status = []
-            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
             res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min, lemmas)
-            problem.status = res
-            problem.trace = trace
 
         if problem.verification == VerificationType.EVENTUALLY:
-            count = 0
-            list_status = []
-            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
             res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min, lemmas)
-            problem.status = res
-            problem.trace = trace
 
         if problem.verification == VerificationType.SIMULATION:
-            count = 0
-            list_status = []
-            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
             res, trace = bmc.simulate(prop, bmc_length)
-            problem.status = res
-            problem.trace = trace
             
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
@@ -109,13 +90,14 @@ class ProblemSolver(object):
             htseq.assumptions = assumps
             bmcseq = BMC(htseq, bmc_config)
             res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)
-            problem.status = res
-            problem.trace = trace
+            
+        problem.status = res
+        problem.trace = trace
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
 
-        Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
+        Logger.log("\n*** Result for problem \"%s\" is %s ***"%(problem, res), 1)
 
     def get_file_flags(self, strfile):
         if "[" not in strfile:
