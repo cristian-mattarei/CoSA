@@ -1,8 +1,8 @@
-pushd .
-
 PYCOREIR="`pwd`/pycoreir"
-if [ ! -f "$PYCOREIR" ]; then
+COREIR="`pwd`/coreir"
+PYSMT="`pwd`/pysmt"
 
+if [ ! -f "$PYSMT" ]; then
     wget https://github.com/pysmt/pysmt/archive/15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
     unzip 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
     rm 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
@@ -11,7 +11,12 @@ if [ ! -f "$PYCOREIR" ]; then
     pip3 install -e .
     pysmt-install --msat --confirm-agreement
     cd ..
-
+else
+    echo "Skipping PYSMT installation"
+    cd pysmt && pip3 install -e . && cd ..
+fi
+    
+if [ ! -f "$COREIR" ]; then
     export COREIRCONFIG="g++-4.9"
     wget https://github.com/rdaly525/coreir/archive/a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
     unzip a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
@@ -19,7 +24,12 @@ if [ ! -f "$PYCOREIR" ]; then
     mv coreir-a20cb469a10f504ebed6ea8a1872bb5baac406c2 coreir
     cd coreir && make -j4 && sudo make install
     cd ..
-
+else
+    echo "Skipping COREIR installation"
+    cd coreir && sudo make install && cd ..
+fi
+    
+if [ ! -f "$PYCOREIR" ]; then
     wget https://github.com/leonardt/pycoreir/archive/0c10e7b814360d40b6291485fac7d921aae19d36.zip
     unzip 0c10e7b814360d40b6291485fac7d921aae19d36.zip
     rm 0c10e7b814360d40b6291485fac7d921aae19d36.zip
@@ -31,11 +41,7 @@ if [ ! -f "$PYCOREIR" ]; then
     sed -i -e 's/f"{self.module.name}.{self.name}"/"{module_name}.{self_name}".format(module_name=self.module.name, name=self.name)/g' coreir/wireable.py
     pip3 install -e .
 else
-    echo "Skipping installation"
-    cd pysmt && pip3 install -e . && cd ..
-    cd coreir && sudo make install && cd ..
+    echo "Skipping PYCOREIR installation"
     cd pycoreir && pip3 install -e . && cd ..
 fi
-
-popd
 
