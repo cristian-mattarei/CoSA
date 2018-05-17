@@ -385,7 +385,7 @@ if __name__ == "__main__":
                        help='simulate system using BMC.')
 
     ver_options.set_defaults(equivalence=None)
-    ver_options.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
+    ver_options.add_argument('--equivalence', metavar='<input files>', type=str, required=False,
                        help='equivalence checking using BMC.')
 
     ver_options.set_defaults(fsm_check=False)
@@ -398,7 +398,7 @@ if __name__ == "__main__":
     
     ver_params.set_defaults(properties=None)
     ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
-                       help='comma separated list of invariant properties.')
+                       help='comma separated list of properties.')
 
     ver_params.set_defaults(bmc_length=config.bmc_length)
     ver_params.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
@@ -521,7 +521,7 @@ if __name__ == "__main__":
     config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
     config.prefix = args.prefix
-    config.run_passes = args.run_passes
+    # config.run_passes = args.run_passes
     config.translate = args.translate
     config.smt2file = args.smt2
     config.strategy = args.strategy
