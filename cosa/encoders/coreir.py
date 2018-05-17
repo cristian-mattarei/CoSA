@@ -23,12 +23,11 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 from pysmt.typing import BOOL, _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter
 
-from cosa.core.transition_system import TS, HTS
+from cosa.core.transition_system import TS, HTS, L_BV, L_ABV
 from cosa.util.utils import is_number, status_bar
 from cosa.util.logger import Logger
-from cosa.util.utils import SubstituteWalker
 
-from cosa.encoders.model import ModelParser
+from cosa.encoders.model import ModelParser, NO_INIT
 
 SELF = "self"
 INIT = "init"
@@ -47,6 +46,7 @@ def BV2B(var):
 
 class Modules(object):
 
+    symbolic_init=False
     abstract_clock=False
     
     @staticmethod
@@ -312,6 +312,7 @@ class Modules(object):
             trans = TRUE()
             
         ts = TS(set([clk]), init, trans, invar)
+        ts.state_vars = set([clk])
         ts.comment = comment
         return ts
 
@@ -347,7 +348,7 @@ class Modules(object):
         basename = SEP.join(out.symbol_name().split(SEP)[:-1]) if SEP in out.symbol_name() else out.symbol_name()
         initname = basename+SEP+INIT
 
-        if initval is not None:
+        if initval is not None and not Modules.symbolic_init:
             if out.symbol_type() == BOOL:
                 binitval = FALSE() if initval == 0 else TRUE()
             else:
@@ -576,16 +577,19 @@ class Modules(object):
         # VAR: Array BV(waddr.width) BV(wdata.width)
 
         # INIT: True (doesn't handle initial value yet)
-
         # INVAR: (rdata = Select(Array, raddr))
 
         # do_clk = (!clk & clk')
-        # act_trans = (Array' = Ite(wen, Store(array, waddr, wdata), Array))
+
+        # if functional
+        # TRANS: Array' = Ite(do_clk, Ite(wen, Store(Array, waddr, wdata), Array), Array)
+
+        # else
+        # act_trans = (Array' = Ite(wen, Store(Array, waddr, wdata), Array))
         # pas_trans = (Array' = Array)
 
         # TRANS: (do_clk -> act_trans) & (!do_clk -> pas_trans)
-        # INVAR: (rdata = Select(array, raddr))
-        # one cycle delay on read and write
+        # one cycle delay on write
 
         vars_ = [clk, wdata, waddr, wen, rdata, raddr]
         comment = "Mem (clk, wdata, waddr, wen, rdata, raddr) = (%s, %s, %s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
@@ -619,20 +623,40 @@ class Modules(object):
 
         invar = EqualsOrIff(rdata, Select(arr, raddr))
 
-        act_trans = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
-        pas_trans = EqualsOrIff(TS.to_next(arr), arr)
+        if functional:
+            trans = EqualsOrIff(TS.to_next(arr), Ite(do_clk, Ite(wen1, Store(arr, waddr, wdata), arr), arr))
+        else:
+            act_trans = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
+            pas_trans = EqualsOrIff(TS.to_next(arr), arr)
+            trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
 
-        trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
         trans = simplify(trans)
         ts = TS([v for v in vars_ if v is not None], init, trans, invar)
         ts.state_vars = set([arr])
         ts.comment = comment
+        ts.logic = L_ABV
         return ts
+
+    def Term(_in):
+        '''
+        Term is a no-op. Just terminates a coreir wireable
+        '''
+        vars_ = [_in]
+        init = TRUE()
+        trans = TRUE()
+        invar = TRUE()
+        ts = TS(vars_, init, trans, invar)
+        ts.state_vars = set()
+        ts.comment = "Terminate wire"
+        return ts
+
 
 class CoreIRParser(ModelParser):
     extension = "json"
     
     abstract_clock = None
+    symbolic_init = None
+
     context = None
 
     attrnames = None
@@ -643,13 +667,14 @@ class CoreIRParser(ModelParser):
     map_or2an = None
     idvars = 0
     
-    def __init__(self, abstract_clock, *libs):
+    def __init__(self, abstract_clock, symbolic_init, *libs):
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
 
         self.abstract_clock = abstract_clock
-            
+        self.symbolic_init = symbolic_init
+
         self.__init_attrnames()
 
         self.boolean = False
@@ -657,12 +682,10 @@ class CoreIRParser(ModelParser):
         self.map_an2or = {}
         self.map_or2an = {}
         self.anonimize_names = False
-        self.arrays = False
 
         self._init_mod_map()
 
         self.memoize_encoding = False
-        self.subwalker = SubstituteWalker(invalidate_memoization=True)
 
         self.enc_map = {}
 
@@ -794,7 +817,9 @@ class CoreIRParser(ModelParser):
         mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
         mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
         mod_map.append(("concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
-        
+
+        mod_map.append(('term', (Modules.Term, [self.IN])))
+
         self.mod_map = dict(mod_map)
 
     def __encoding_memoization(self, inst_type, args):
@@ -863,11 +888,12 @@ class CoreIRParser(ModelParser):
             
         return ts
     
-    def parse_file(self, strfile):
+    def parse_file(self, strfile, flags=None):
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
 
         Modules.abstract_clock = self.abstract_clock
+        Modules.symbolic_init = self.symbolic_init
         
         top_def = top_module.definition
         interface = list(top_module.type.items())
@@ -882,7 +908,6 @@ class CoreIRParser(ModelParser):
         totalinst = len(top_def.instances)
         count = 0
         top_def_instances = list(top_def.instances)
-
 
         def extract_value(x, modname, inst_intr, inst_conf, inst_mod):
             if x in inst_intr:
@@ -946,6 +971,10 @@ class CoreIRParser(ModelParser):
             ts = self.__mod_to_impl(inst_type, args)
 
             if ts is not None:
+
+                if NO_INIT in flags:
+                    ts.init = TRUE()
+                    
                 hts.add_ts(ts)
             else:
                 if inst_type not in not_defined_mods:
@@ -967,7 +996,12 @@ class CoreIRParser(ModelParser):
             # Adding clock behavior
             if (self.CLK in var[0].lower()) and (var[1].is_input()):
                 Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
-                hts.add_ts(Modules.Clock(bvvar))
+                ts = Modules.Clock(bvvar)
+                
+                if NO_INIT in flags:
+                    ts.init = TRUE()
+                
+                hts.add_ts(ts)
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 
@@ -1078,6 +1112,7 @@ class CoreIRParser(ModelParser):
 
         ts = TS(eq_vars, TRUE(), TRUE(), eq_formula)
         ts.comment = "Connections" # (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
+
         hts.add_ts(ts)
 
         if self.enc_map is not None:

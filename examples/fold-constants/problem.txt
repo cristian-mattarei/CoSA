@@ -3,7 +3,7 @@ model_file: mpe.json
 equivalence: mpe_fc.json
 
 [DEFAULT]
-bmc_length: 5
+bmc_length: 10
 
 [Equivalence Checking]
 description: "Sequential Equivalence Checking of constant folded design against original"

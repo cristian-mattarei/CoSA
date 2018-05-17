@@ -10,6 +10,8 @@
 
 from cosa.util.logger import Logger
 
+NO_INIT = "NO-INIT"
+
 class ModelParser(object):
     extension = None
     
@@ -19,7 +21,7 @@ class ModelParser(object):
     def parse_string(self, string):
         Logger.error("Not implemented")
 
-    def parse_file(self, strfile):
+    def parse_file(self, strfile, flags=None):
         Logger.error("Not implemented")
 
     @staticmethod        

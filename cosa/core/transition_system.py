@@ -9,11 +9,15 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Symbol, And, TRUE, simplify
+from cosa.util.formula_mngm import get_free_variables
 
 NEXT = "_N"
 PREV = "_P"
 AT = "_AT"
 ATP = "_ATP"
+
+L_ABV = "QF_ABV"
+L_BV = "QF_BV"
 
 class HTS(object):
 
@@ -29,7 +33,7 @@ class HTS(object):
     trans = None
     invar = None
 
-    arrays = False
+    logic = None
     en_simplify = False
     
     def __init__(self, name):
@@ -46,9 +50,8 @@ class HTS(object):
         self.trans = None
         self.invar = None
 
-        self.arrays = False
-
-        self.en_simplify = True
+        self.logic = L_BV
+        self.en_simplify = False
         
     def add_sub(self, sub):
         self.sub.append(sub)
@@ -58,14 +61,24 @@ class HTS(object):
 
     def add_state_var(self, var):
         self.state_vars.add(var)
+
+    def update_logic(self, logic):
+        if (self.logic == L_BV) and (logic == L_ABV):
+            self.logic = L_ABV
         
     def add_ts(self, ts):
+        if self.en_simplify:
+            ts.init = simplify(ts.init)
+            ts.invar = simplify(ts.invar)
+            ts.trans = simplify(ts.trans)
+        
         self.tss.append(ts)
         for v in ts.vars:
             self.vars.add(v)
         for v in ts.state_vars:
             self.state_vars.add(v)
-        self.arrays |= ts.array
+            
+        self.update_logic(ts.logic)
 
     def add_assumption(self, assumption):
         if self.assumptions is None:
@@ -103,10 +116,7 @@ class HTS(object):
             self.invar = TRUE()
             for ts in self.tss:
                 if ts.invar is not None:
-                    if self.en_simplify:
-                        self.invar = simplify(And(self.invar, ts.invar))
-                    else:
-                        self.invar = And(self.invar, ts.invar)
+                    self.invar = And(self.invar, ts.invar)
 
         if self.assumptions is not None:
             return And(self.invar, And(self.assumptions))
@@ -117,6 +127,9 @@ class HTS(object):
         for ts in other_hts.tss:
             self.add_ts(ts)
 
+        for v in other_hts.state_vars:
+            self.state_vars.add(v)
+            
         for v in other_hts.inputs:
             self.inputs.add(v)
 
@@ -152,7 +165,7 @@ class TS(object):
     invar = None
     
     comment = None
-    array = None
+    logic = None
 
     def __init__(self, vars, init, trans, invar):
         self.vars = vars
@@ -162,7 +175,7 @@ class TS(object):
         self.invar = invar
 
         self.comment = ""
-        self.array = False # set to true if there's an array
+        self.logic = L_BV
 
     def __repr__(self):
         return "V: %s\nSV: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.state_vars), str(self.init), str(self.trans), str(self.invar))
@@ -229,7 +242,7 @@ class TS(object):
     @staticmethod
     def to_next(formula):
         varmap = []
-        for v in formula.get_free_variables():
+        for v in get_free_variables(formula):
             varmap.append((v,TS.get_prime(v)))
             varmap.append((TS.get_prev(v),v))
         return formula.substitute(dict(varmap))
@@ -237,14 +250,14 @@ class TS(object):
     @staticmethod
     def to_prev(formula):
         varmap = []
-        for v in formula.get_free_variables():
+        for v in get_free_variables(formula):
             varmap.append((v,TS.get_prev(v)))
             varmap.append((TS.get_prime(v),v))
         return formula.substitute(dict(varmap))
     
     @staticmethod
     def has_next(formula):
-        varlist = formula.get_free_variables()
+        varlist = get_free_variables(formula)
         for v in varlist:
             if TS.is_prime(v):
                 return True

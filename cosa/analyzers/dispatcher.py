@@ -25,7 +25,7 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 
 class ProblemSolver(object):
     parser = None
-    
+
     def __init__(self):
         pass
 
@@ -56,7 +56,7 @@ class ProblemSolver(object):
 
         assumps = None
         lemmas = None
-        
+
         if problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
@@ -85,19 +85,27 @@ class ProblemSolver(object):
             res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min, lemmas)
             problem.status = res
             problem.trace = trace
+
+        if problem.verification == VerificationType.SIMULATION:
+            count = 0
+            list_status = []
+            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
+            res, trace = bmc.simulate(prop, bmc_length)
+            problem.status = res
+            problem.trace = trace
             
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
-                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, config.abstract_clock, "System 2")
+                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
 
-            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, True)
+            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, problem.bmc_length, problem.symbolic_init, bmc_config.properties, True)
 
             if bmc_config.assumptions is not None:
                 assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
 
             if bmc_config.lemmas is not None:
                 lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
-            
+
             htseq.assumptions = assumps
             bmcseq = BMC(htseq, bmc_config)
             res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)
@@ -106,21 +114,29 @@ class ProblemSolver(object):
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
-            
+
         Logger.log("\n*** Result for problem %s is %s ***"%(problem, res), 1)
 
-    def parse_model(self, relative_path, model_files, abstract_clock=False, name=None):
-        hts = HTS("Top level")
+    def get_file_flags(self, strfile):
+        if "[" not in strfile:
+            return (strfile, [])
+
+        (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+        return (strfile, flags)
+        
+    def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None):
+        hts = HTS("System 1")
 
         models = model_files.split(",")
-        
+
         for strfile in models:
+            (strfile, flags) = self.get_file_flags(strfile)
             filetype = strfile.split(".")[-1]
             strfile = relative_path+strfile
             parser = None
 
             if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(abstract_clock)
+                parser = CoreIRParser(abstract_clock, symbolic_init)
                 parser.boolean = False
                 self.parser = parser
 
@@ -132,45 +148,51 @@ class ProblemSolver(object):
 
             if parser is not None:
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                hts_a = parser.parse_file(strfile)
+                hts_a = parser.parse_file(strfile, flags)
                 hts.combine(hts_a)
 
                 Logger.log("DONE", 0)
                 continue
 
             Logger.error("Filetype \"%s\" unsupported"%filetype)
-            
+
         if Logger.level(1):
             print(hts.print_statistics(name))
 
         return hts
-        
+
     def solve_problems(self, problems, config):
-        hts = None
-        hts2 = None
-        hts = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, "System 1")
-        
+        # generate systems for each problem configuration
+        systems = {}
+        for si in problems.symbolic_inits:
+            systems[('hts', si)] = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1")
+
         if problems.equivalence is not None:
-            hts2 = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, "System 2")
-        
+            systems[('hts2', si)] = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2")
+        else:
+            systems[('hts2', si)] = None
+
         for problem in problems.problems:
-            problem.hts = hts
-            problem.hts2 = hts2
+            problem.hts = systems[('hts', problem.symbolic_init)]
+            problem.hts2 = systems[('hts2', problem.symbolic_init)]
+            problem.abstract_clock = problems.abstract_clock
             problem.relative_path = problems.relative_path
             self.solve_problem(problem, config)
 
     def problem2bmc_config(self, problem, config):
         bmc_config = BMCConfig()
+
+        config_selection = lambda problem, config: config if problem is None else problem
         
-        bmc_config.smt2file = problem.smt2_tracing if problem.smt2_tracing is not None else config.smt2file
+        bmc_config.smt2file = config_selection(problem.smt2_tracing, config.smt2file)
         bmc_config.full_trace = problem.full_trace or config.full_trace
         bmc_config.prefix = problem.name
-        bmc_config.strategy = BMCConfig.get_strategies()[0][0]
-        bmc_config.skip_solving = problem.skip_solving
+        bmc_config.strategy = config_selection(problem.strategy, config.strategy)
+        bmc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
         bmc_config.map_function = self.parser.remap_an2or
-        bmc_config.solver_name = config.solver_name if problem.solver_name is None else problem.solver_name
+        bmc_config.solver_name = config_selection(problem.solver_name, config.solver_name)
         bmc_config.vcd_trace = problem.vcd or config.vcd
-        bmc_config.prove = problem.prove
+        bmc_config.prove = config_selection(problem.prove, config.prove)
         bmc_config.properties = problem.formula
         bmc_config.assumptions = problem.assumptions
         bmc_config.lemmas = problem.lemmas

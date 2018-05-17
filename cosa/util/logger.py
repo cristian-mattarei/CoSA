@@ -66,7 +66,7 @@ class Logger(object):
         return Logger.verbosity > level
 
     @staticmethod        
-    def start_timer(name, print_time=False):
+    def start_timer(name, print_time=True):
         if not Logger.time:
             return None
         if print_time:

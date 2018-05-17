@@ -5,6 +5,13 @@ python:
 
 sudo: required
 
+cache:
+  directories:
+  - ${TRAVIS_BUILD_DIR}/pycoreir
+  - ${TRAVIS_BUILD_DIR}/pysmt
+  - ${TRAVIS_BUILD_DIR}/coreir
+  - /home/travis/.smt_solvers/python-bindings-3.6
+
 addons:
   apt:
     sources:

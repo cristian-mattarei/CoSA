@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 # Copyright 2018 Cristian Mattarei
@@ -28,8 +29,7 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
-from cosa.problem import Problems
-from cosa.problem import VerificationStatus
+from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.core.transition_system import HTS
 
 from pysmt.shortcuts import TRUE
@@ -128,6 +128,13 @@ def print_trace(msg, trace, index, prefix):
         Logger.log("%s:"%msg, 0)
         Logger.log(trace_hr, 0)
 
+def get_file_flags(strfile):
+    if "[" not in strfile:
+        return (strfile, [])
+    
+    (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+    return (strfile, flags)
+                        
 def run_verification(config):
     Logger.verbosity = config.verbosity
 
@@ -138,34 +145,9 @@ def run_verification(config):
     hts = HTS("Top level")
 
     if config.strfiles[0][-4:] != ".pkl":
-        for strfile in config.strfiles:
-            filetype = strfile.split(".")[-1]
-            parser = None
-
-            if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(config.abstract_clock)
-                parser.boolean = config.boolean
-                config.parser = parser
-
-            if filetype == ExplicitTSParser.get_extension():
-                parser = ExplicitTSParser()
-                if not config.parser:
-                    config.parser = parser
-
-            if filetype == SymbolicTSParser.get_extension():
-                parser = SymbolicTSParser()
-                if not config.parser:
-                    config.parser = parser
-
-            if parser is not None:
-                Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                hts_a = parser.parse_file(strfile)
-                hts.combine(hts_a)
-
-                Logger.log("DONE", 0)
-                continue
-
-            Logger.error("Filetype \"%s\" unsupported"%filetype)
+        ps = ProblemSolver()
+        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init)
+        config.parser = ps.parser
 
         if config.pickle_file:
             Logger.msg("Pickling model to %s\n"%(config.pickle_file), 1)
@@ -221,9 +203,6 @@ def run_verification(config):
         bmc_liveness = BMCLiveness(hts, bmc_config)
     else:
         bmc = BMC(hts, bmc_config)
-
-    if Logger.level(1):
-        print(hts.print_statistics("System 1"))
 
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
@@ -295,7 +274,7 @@ def run_verification(config):
         return list_status
     
     if config.equivalence:
-        parser2 = CoreIRParser(config.abstract_clock)
+        parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init)
 
         if config.run_passes:
             Logger.log("Running passes:", 0)
@@ -312,7 +291,7 @@ def run_verification(config):
             print(hts2.print_statistics("System 2"))
 
         # TODO: Make incremental solving optional
-        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, True)
+        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)
 
         if config.assumptions is not None:
             Logger.log("Adding %d assumptions to combined system... "%len(config.assumptions), 1)
@@ -326,7 +305,7 @@ def run_verification(config):
         if res == VerificationStatus.FALSE:
             Logger.log("Systems are not equivalent", 0)
             print_trace("Counterexample", trace, 1, config.prefix)
-        elif res == VerificationStatus.UNKNOWN:
+        elif res == VerificationStatus.UNK:
             if config.symbolic_init:
                 # strong equivalence with symbolic initial state
                 Logger.log("Systems are equivalent.", 0)
@@ -359,9 +338,12 @@ def run_problems(problems, config):
         Logger.log("Description: %s"%(pbm.description), 0)
         Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
         list_status.append(pbm.status)
-        if pbm.status == VerificationStatus.FALSE:
+        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
 
+        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+            print_trace("Execution", pbm.trace, pbm.name, config.prefix)
+            
     return list_status
             
 if __name__ == "__main__":
@@ -370,128 +352,156 @@ if __name__ == "__main__":
 
     config = Config()
 
-    parser.set_defaults(input_files=None)
-    parser.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
+    # Main inputs
+
+    in_options = parser.add_argument_group('input options')
+    
+    in_options.set_defaults(input_files=None)
+    in_options.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
                         help='comma separated list of input files.')
 
-    parser.set_defaults(simulate=False)
-    parser.add_argument('--simulate', dest='simulate', action='store_true',
-                       help='simulate system using BMC.')
-
-    parser.set_defaults(problems=None)
-    parser.add_argument('--problems', metavar='<problems file>', type=str, required=False,
+    in_options.set_defaults(problems=None)
+    in_options.add_argument('--problems', metavar='<problems file>', type=str, required=False,
                        help='problems file describing the verifications to be performed.')
 
-    parser.set_defaults(safety=False)
-    parser.add_argument('--safety', dest='safety', action='store_true',
-                       help='safety verification using BMC.')
+    # Verification Options
 
-    parser.set_defaults(liveness=False)
-    parser.add_argument('--liveness', dest='liveness', action='store_true',
+    ver_options = parser.add_argument_group('analysis')
+    
+    ver_options.set_defaults(safety=False)
+    ver_options.add_argument('--safety', dest='safety', action='store_true',
+                       help='safety (G) verification using BMC.')
+
+    ver_options.set_defaults(liveness=False)
+    ver_options.add_argument('--liveness', dest='liveness', action='store_true',
                        help='liveness (GF) verification using BMC.')
 
-    parser.set_defaults(eventually=False)
-    parser.add_argument('--eventually', dest='eventually', action='store_true',
+    ver_options.set_defaults(eventually=False)
+    ver_options.add_argument('--eventually', dest='eventually', action='store_true',
                        help='eventually (F) verification using BMC.')
-    
-    parser.set_defaults(properties=None)
-    parser.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
-                       help='comma separated list of invariant properties.')
 
-    parser.set_defaults(lemmas=None)
-    parser.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
-                       help='comma separated list of lemmas.')
+    ver_options.set_defaults(simulate=False)
+    ver_options.add_argument('--simulate', dest='simulate', action='store_true',
+                       help='simulate system using BMC.')
 
-    parser.set_defaults(assumptions=None)
-    parser.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
-                       help='comma separated list of invariant assumptions.')
-
-    parser.set_defaults(prove=False)
-    parser.add_argument('--prove', dest='prove', action='store_true',
-                       help='use indution to prove the satisfiability of the property.')
-
-    parser.set_defaults(equivalence=None)
-    parser.add_argument('--equivalence', metavar='<JSON file>', type=str, required=False,
+    ver_options.set_defaults(equivalence=None)
+    ver_options.add_argument('--equivalence', metavar='<input files>', type=str, required=False,
                        help='equivalence checking using BMC.')
 
-    parser.set_defaults(fsm_check=False)
-    parser.add_argument('--fsm-check', dest='fsm_check', action='store_true',
+    ver_options.set_defaults(fsm_check=False)
+    ver_options.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
+    
+    # Verification parameters
 
-    parser.set_defaults(translate=None)
-    parser.add_argument('--translate', metavar='<output file>', type=str, required=False,
-                       help='translate input file.')
+    ver_params = parser.add_argument_group('verification parameters')
+    
+    ver_params.set_defaults(properties=None)
+    ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
+                       help='comma separated list of properties.')
 
-    parser.set_defaults(abstract_clock=False)
-    parser.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
-                       help='abstracts the clock behavior.')
-
-    parser.set_defaults(bmc_length=config.bmc_length)
-    parser.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
+    ver_params.set_defaults(bmc_length=config.bmc_length)
+    ver_params.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
                         help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
 
-    parser.set_defaults(bmc_length_min=config.bmc_length_min)
-    parser.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
+    ver_params.set_defaults(bmc_length_min=config.bmc_length_min)
+    ver_params.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
                         help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
+    
+    ver_params.set_defaults(lemmas=None)
+    ver_params.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
+                       help='comma separated list of lemmas.')
 
-    parser.set_defaults(symbolic_init=config.symbolic_init)
-    parser.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
-                       help='symbolic inititial state for equivalence checking. (Default is \"%s\")'%config.symbolic_init)
+    ver_params.set_defaults(assumptions=None)
+    ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
+                       help='comma separated list of invariant assumptions.')
 
-    parser.set_defaults(boolean=config.boolean)
-    parser.add_argument('--boolean', dest='boolean', action='store_true',
-                        help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
-
-    parser.set_defaults(run_passes=config.run_passes)
-    parser.add_argument('--run-passes', dest='run_passes', action='store_true',
-                        help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
-
-    parser.set_defaults(full_trace=config.full_trace)
-    parser.add_argument('--full-trace', dest='full_trace', action='store_true',
-                       help="show all variables in the counterexamples. (Default is \"%s\")"%config.full_trace)
-
-    parser.set_defaults(vcd=False)
-    parser.add_argument('--vcd', dest='vcd', action='store_true',
-                       help='generate traces also in vcd format.')
-
-    parser.set_defaults(prefix=None)
-    parser.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
-                       help='write the counterexamples with specified location prefix.')
-
-    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
-
-    parser.set_defaults(printer=config.printer)
-    parser.add_argument('--printer', metavar='printer', type=str, nargs='?',
-                        help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
+    ver_params.set_defaults(prove=False)
+    ver_params.add_argument('--prove', dest='prove', action='store_true',
+                       help='use indution to prove the satisfiability of the property.')
 
     strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in BMCConfig.get_strategies()]
     defstrategy = BMCConfig.get_strategies()[0][0]
-    parser.set_defaults(strategy=defstrategy)
-    parser.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
+    ver_params.set_defaults(strategy=defstrategy)
+    ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                         help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
 
-    parser.set_defaults(smt2=None)
-    parser.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
-                       help='generates the smtlib2 encoding for a BMC call.')
-
-    parser.set_defaults(skip_solving=False)
-    parser.add_argument('--skip-solving', dest='skip_solving', action='store_true',
-                       help='does not call the solver (used with --smt2 parameter).')
-
-    parser.set_defaults(pickle=None)
-    parser.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
-                       help='pickles the transition system to be loaded later.')
-
-    parser.set_defaults(solver_name=config.solver_name)
-    parser.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
+    ver_params.set_defaults(solver_name=config.solver_name)
+    ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
     
-    parser.set_defaults(verbosity=config.verbosity)
-    parser.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
+    # Encoding parameters
+
+    enc_params = parser.add_argument_group('encoding')
+    
+    enc_params.set_defaults(abstract_clock=False)
+    enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
+                       help='abstracts the clock behavior.')
+
+    enc_params.set_defaults(symbolic_init=config.symbolic_init)
+    enc_params.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
+                       help='symbolic inititial state for equivalence checking. (Default is \"%s\")'%config.symbolic_init)
+
+    enc_params.set_defaults(boolean=config.boolean)
+    enc_params.add_argument('--boolean', dest='boolean', action='store_true',
+                        help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
+
+    # enc_params.set_defaults(run_passes=config.run_passes)
+    # enc_params.add_argument('--run-passes', dest='run_passes', action='store_true',
+    #                     help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
+
+    enc_params.set_defaults(full_trace=config.full_trace)
+    enc_params.add_argument('--full-trace', dest='full_trace', action='store_true',
+                       help="show all variables in the counterexamples. (Default is \"%s\")"%config.full_trace)
+
+    # Printing parameters
+
+    print_params = parser.add_argument_group('trace printing')
+    
+    print_params.set_defaults(prefix=None)
+    print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
+                       help='write the counterexamples with a specified location prefix.')
+    
+    print_params.set_defaults(vcd=False)
+    print_params.add_argument('--vcd', dest='vcd', action='store_true',
+                       help='generate traces also in vcd format.')
+
+    # Translation parameters
+
+    trans_params = parser.add_argument_group('translation')
+    
+    trans_params.set_defaults(smt2=None)
+    trans_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+                       help='generates the smtlib2 encoding for a BMC call.')
+
+    trans_params.set_defaults(translate=None)
+    trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
+                       help='translate input file.')
+    
+    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
+
+    trans_params.set_defaults(printer=config.printer)
+    trans_params.add_argument('--printer', metavar='printer', type=str, nargs='?',
+                        help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
+
+    trans_params.set_defaults(skip_solving=False)
+    trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',
+                        help='does not call the solver (used with --smt2 or --translate parameters).')
+
+    trans_params.set_defaults(pickle=None)
+    trans_params.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
+                       help='pickles the transition system to be loaded later.')
+
+    # Debugging
+
+    deb_params = parser.add_argument_group('verbosity')
+    
+    deb_params.set_defaults(verbosity=config.verbosity)
+    deb_params.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
 
-    parser.set_defaults(debug=False)
-    parser.add_argument('--debug', dest='debug', action='store_true',
+    deb_params.set_defaults(debug=False)
+    deb_params.add_argument('--debug', dest='debug', action='store_true',
                        help='enables debug mode.')
 
     args = parser.parse_args()
@@ -511,7 +521,7 @@ if __name__ == "__main__":
     config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
     config.prefix = args.prefix
-    config.run_passes = args.run_passes
+    # config.run_passes = args.run_passes
     config.translate = args.translate
     config.smt2file = args.smt2
     config.strategy = args.strategy
@@ -541,9 +551,6 @@ if __name__ == "__main__":
 
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
-
-    if config.strfiles:
-        config.strfiles = config.strfiles.split(",")
 
     if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
         config.printer = args.printer
