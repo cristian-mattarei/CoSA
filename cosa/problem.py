@@ -22,6 +22,7 @@ LIVENESS = "liveness"
 EVENTUALLY = "eventually"
 SAFETY = "safety"
 EQUIVALENCE = "equivalence"
+SIMULATION = "simulation"
 FORMULA = "formula"
 MODEL_FILE = "model_file"
 
@@ -35,6 +36,7 @@ class VerificationType(object):
     LIVENESS = 1
     EVENTUALLY = 2
     EQUIVALENCE = 3
+    SIMULATION = 4
 
 class Problems(object):
     problems = None
@@ -148,4 +150,8 @@ class Problem(object):
             self.verification = VerificationType.EQUIVALENCE
             return
 
+        if value == SIMULATION:
+            self.verification = VerificationType.SIMULATION
+            return
+        
         Logger.error("Unknown verification type \"%s\""%value)

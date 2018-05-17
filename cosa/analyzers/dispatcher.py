@@ -86,6 +86,14 @@ class ProblemSolver(object):
             problem.status = res
             problem.trace = trace
 
+        if problem.verification == VerificationType.SIMULATION:
+            count = 0
+            list_status = []
+            (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
+            res, trace = bmc.simulate(prop, bmc_length)
+            problem.status = res
+            problem.trace = trace
+            
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
                 problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
@@ -117,7 +125,7 @@ class ProblemSolver(object):
         return (strfile, flags)
         
     def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None):
-        hts = HTS("Top level")
+        hts = HTS("System 1")
 
         models = model_files.split(",")
 

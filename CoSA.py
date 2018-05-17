@@ -29,8 +29,7 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
-from cosa.problem import Problems
-from cosa.problem import VerificationStatus
+from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.core.transition_system import HTS
 
 from pysmt.shortcuts import TRUE
@@ -205,9 +204,6 @@ def run_verification(config):
     else:
         bmc = BMC(hts, bmc_config)
 
-    if Logger.level(1):
-        print(hts.print_statistics("System 1"))
-
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
         printer = PrintersFactory.printer_by_name(config.printer)
@@ -342,9 +338,12 @@ def run_problems(problems, config):
         Logger.log("Description: %s"%(pbm.description), 0)
         Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
         list_status.append(pbm.status)
-        if pbm.status == VerificationStatus.FALSE:
+        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
 
+        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+            print_trace("Execution", pbm.trace, pbm.name, config.prefix)
+            
     return list_status
             
 if __name__ == "__main__":
