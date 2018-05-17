@@ -1133,7 +1133,7 @@ class CoreIRParser(ModelParser):
             (first, second) = (conn[0][0], conn[1][0])
             (sel1, sel2) = (conn[0][1], conn[1][1])
 
-            if str(first) > str(second):
+            if first.symbol_name() > second.symbol_name():
                 (first, second, sel1, sel2) = (second, first, sel2, sel1)
 
             if (first, second) not in dict_conns:
