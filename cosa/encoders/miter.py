@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cosa.core.transition_system import HTS, TS
+from cosa.transition_system import HTS, TS
 from cosa.encoders.coreir import SEP
 from cosa.util.logger import Logger
 from cosa.encoders.formulae import StringParser

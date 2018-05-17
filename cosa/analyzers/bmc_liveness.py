@@ -18,7 +18,7 @@ from pysmt.rewritings import conjunctive_partition
 from pysmt.typing import BOOL, _BVType
 
 from cosa.util.logger import Logger
-from cosa.core.transition_system import TS, HTS
+from cosa.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN

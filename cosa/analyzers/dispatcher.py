@@ -18,7 +18,7 @@ from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
-from cosa.core.transition_system import HTS
+from cosa.transition_system import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 

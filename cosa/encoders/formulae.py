@@ -12,7 +12,7 @@ import re
 
 from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
 from cosa.util.logger import Logger
-from cosa.core.transition_system import TS
+from cosa.transition_system import TS
 from cosa.util.formula_mngm import get_free_variables
 
 KEYWORDS = ["not","False","True","next","prev"]

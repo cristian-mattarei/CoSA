@@ -19,7 +19,7 @@ from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 
 from cosa.util.logger import Logger
 from cosa.util.formula_mngm import substitute, get_free_variables
-from cosa.core.transition_system import TS, HTS
+from cosa.transition_system import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter
