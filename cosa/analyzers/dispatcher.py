@@ -22,6 +22,11 @@ from cosa.transition_systems import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 
+FLAG_SR = "["
+FLAG_ST = "]"
+FLAG_SP = "+"
+
+MODEL_SP = ","
 
 class ProblemSolver(object):
     parser = None
@@ -48,7 +53,7 @@ class ProblemSolver(object):
                     with open(pdef_file) as f:
                         parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
                 else:
-                    parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+                    parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(MODEL_SP)]
             else:
                 parsing_defs[i] = None
 
@@ -60,17 +65,20 @@ class ProblemSolver(object):
         if problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(bmc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
-            problem.hts.assumptions = assumps
+            for ass in assumps:
+                problem.hts.add_assumption(ass)
+            for lemma in lemmas:
+                problem.hts.add_lemma(lemma)
             (strprop, prop, types) = sparser.parse_formulae(bmc_config.properties)[0]
 
         if problem.verification == VerificationType.SAFETY:
-            res, trace, _ = bmc.safety(prop, bmc_length, bmc_length_min, lemmas)
+            res, trace, _ = bmc.safety(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.LIVENESS:
-            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min, lemmas)
+            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.EVENTUALLY:
-            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min, lemmas)
+            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.SIMULATION:
             res, trace = bmc.simulate(prop, bmc_length)
@@ -87,9 +95,16 @@ class ProblemSolver(object):
             if bmc_config.lemmas is not None:
                 lemmas = [t[1] for t in sparser.parse_formulae(bmc_config.lemmas)]
 
-            htseq.assumptions = assumps
+            if assumps is not None:
+                for assumption in assumps:
+                    htseq.add_assumption(assumption)
+
+            if lemmas is not None:
+                for lemma in lemmas:
+                    htseq.add_lemma(lemma)
+
             bmcseq = BMC(htseq, bmc_config)
-            res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min, lemmas)
+            res, trace, t = bmcseq.safety(miter_out, problem.bmc_length, problem.bmc_length_min)
             
         problem.status = res
         problem.trace = trace
@@ -100,16 +115,16 @@ class ProblemSolver(object):
         Logger.log("\n*** Result for problem \"%s\" is %s ***"%(problem, res), 1)
 
     def get_file_flags(self, strfile):
-        if "[" not in strfile:
+        if FLAG_SR not in strfile:
             return (strfile, None)
-
-        (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+        
+        (strfile, flags) = (strfile[:strfile.index(FLAG_SR)], strfile[strfile.index(FLAG_SR)+1:strfile.index(FLAG_ST)].split(FLAG_SP))
         return (strfile, flags)
         
     def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None):
         hts = HTS("System 1")
 
-        models = model_files.split(",")
+        models = model_files.split(MODEL_SP)
 
         for strfile in models:
             (strfile, flags) = self.get_file_flags(strfile)

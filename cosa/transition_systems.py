@@ -9,7 +9,7 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Symbol, And, TRUE, simplify
-from cosa.utils.formula_mngm import get_free_variables
+from cosa.utils.formula_mngm import get_free_variables, substitute
 
 NEXT = "_N"
 PREV = "_P"
@@ -28,6 +28,7 @@ class HTS(object):
     outputs = None
     state_vars = None
     assumptions = None
+    lemmas = None
 
     init = None
     trans = None
@@ -45,6 +46,7 @@ class HTS(object):
         self.inputs = set([])
         self.outputs = set([])
         self.assumptions = None
+        self.lemmas = None
 
         self.init = None
         self.trans = None
@@ -85,6 +87,12 @@ class HTS(object):
             self.assumptions = []
 
         self.assumptions.append(assumption)
+
+    def add_lemma(self, lemma):
+        if self.lemmas is None:
+            self.lemmas = []
+
+        self.lemmas.append(lemma)
         
     def is_input(self, var):
         return var in self.inputs
@@ -138,7 +146,15 @@ class HTS(object):
 
         for v in other_hts.vars:
             self.vars.add(v)
-    
+
+        if other_hts.assumptions is not None:
+            for assumption in other_hts.assumptions:
+                self.add_assumption(assumption)
+
+        if other_hts.lemmas is not None:
+            for lemma in other_hts.lemmas:
+                self.add_lemma(lemma)
+            
     def __copy__(self):
         cls = self.__class__
         new_hts = cls.__new__(cls)
@@ -220,6 +236,10 @@ class TS(object):
         return Symbol(TS.get_ptimed_name(v.symbol_name(), t), v.symbol_type())
 
     @staticmethod
+    def get_prefix(v, pref):
+        return Symbol(TS.get_prefix_name(v.symbol_name(), pref), v.symbol_type())
+    
+    @staticmethod
     def get_prime_name(name):
         return ("%s"+NEXT) % name
 
@@ -234,26 +254,28 @@ class TS(object):
     @staticmethod
     def get_ptimed_name(name, t):
         return "%s%s%s" % (name, ATP, str(t if t > 0 else 0))
-    
+
     @staticmethod
-    def get_prefix(v, pref):
-        return Symbol("%s%s" % (pref, v.symbol_name()), v.symbol_type())
+    def get_prefix_name(name, pref):
+        return "%s%s" % (pref, name)
     
     @staticmethod
     def to_next(formula):
         varmap = []
         for v in get_free_variables(formula):
-            varmap.append((v,TS.get_prime(v)))
-            varmap.append((TS.get_prev(v),v))
-        return formula.substitute(dict(varmap))
+            vname = v.symbol_name()
+            varmap.append((vname,TS.get_prime_name(vname)))
+            varmap.append((TS.get_prev_name(vname),vname))
+        return substitute(formula, dict(varmap))
 
     @staticmethod
     def to_prev(formula):
         varmap = []
         for v in get_free_variables(formula):
-            varmap.append((v,TS.get_prev(v)))
-            varmap.append((TS.get_prime(v),v))
-        return formula.substitute(dict(varmap))
+            vname = v.symbol_name()
+            varmap.append((vname,TS.get_prev_name(vname)))
+            varmap.append((TS.get_prime_name(vname),vname))
+        return substitute(formula, dict(varmap))
     
     @staticmethod
     def has_next(formula):

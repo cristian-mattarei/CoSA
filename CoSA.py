@@ -186,7 +186,7 @@ def run_verification(config):
         if list(set([t[2] for t in parsed_formulae]))[0][0] != False:
             Logger.error("Lemmas do not support \"next\" operators")
         lemmas = [t[1] for t in parsed_formulae]
-
+        hts.lemmas = lemmas
 
     bmc_config.smt2file = config.smt2file
 
@@ -233,7 +233,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            res, trace, t = bmc.safety(prop, config.bmc_length, config.bmc_length_min, lemmas)
+            res, trace, t = bmc.safety(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -248,7 +248,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min, lemmas)
+            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -263,7 +263,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Eventually verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min, lemmas)
+            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -300,7 +300,7 @@ def run_verification(config):
 
         # create bmc object for combined system
         bmcseq = BMC(htseq, bmc_config)
-        res, trace, t = bmcseq.safety(miter_out, config.bmc_length, config.bmc_length_min, lemmas)
+        res, trace, t = bmcseq.safety(miter_out, config.bmc_length, config.bmc_length_min)
 
         if res == VerificationStatus.FALSE:
             Logger.log("Systems are not equivalent", 0)

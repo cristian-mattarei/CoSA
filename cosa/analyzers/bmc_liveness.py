@@ -257,7 +257,8 @@ class BMCLiveness(BMC):
             
         return loopback
     
-    def liveness(self, prop, k, k_min, lemmas=None):
+    def liveness(self, prop, k, k_min):
+        lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False, lemmas)
 
@@ -271,7 +272,8 @@ class BMCLiveness(BMC):
         else:
             return (VerificationStatus.UNK, None)
 
-    def eventually(self, prop, k, k_min, lemmas=None):
+    def eventually(self, prop, k, k_min):
+        lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True, lemmas)
 

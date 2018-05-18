@@ -27,13 +27,16 @@ from cosa.transition_systems import TS, HTS, L_BV, L_ABV
 from cosa.utils.generic import is_number, status_bar
 from cosa.utils.logger import Logger
 
-from cosa.encoders.model import ModelParser, NO_INIT
+from cosa.encoders.model import ModelParser, ModelFlags
 
 SELF = "self"
 INIT = "init"
 
 SEP = "."
 CSEP = "$"
+
+CR = "_const_replacement"
+RCR = "_reg_const_replacement"
 
 # control if encoding is functional
 functional = True
@@ -43,6 +46,9 @@ def B2BV(var):
     
 def BV2B(var):
     return EqualsOrIff(var, BV(1,1))
+
+class CoreIRModelFlags(ModelFlags):
+    FC_LEMMAS = "FC-LEMMAS"
 
 class Modules(object):
 
@@ -972,9 +978,23 @@ class CoreIRParser(ModelParser):
 
             if ts is not None:
 
-                if (flags is not None) and (NO_INIT in flags):
-                    ts.init = TRUE()
-                    
+                if flags is not None:
+                    if CoreIRModelFlags.NO_INIT in flags:
+                        ts.init = TRUE()
+
+                    if CoreIRModelFlags.FC_LEMMAS in flags:
+                        for v in ts.vars:
+                            v_name = v.symbol_name()
+                            if (CR in v_name) or (RCR in v_name):
+                                cons_v_name = v_name[:len(CR)] if CR in v_name else v_name[:len(RCR)]
+                                cons_v = Symbol(cons_v_name, v.symbol_type())
+                                lemma = EqualsOrIff(cons_v, BV(values_dic[self.VALUE], cons_v.symbol_type().width))
+                                hts.add_lemma(lemma)
+
+                        for v in ts.state_vars:
+                            lemma = EqualsOrIff(v, BV(values_dic[self.INIT], v.symbol_type().width))
+                            hts.add_lemma(lemma)
+                                
                 hts.add_ts(ts)
             else:
                 if inst_type not in not_defined_mods:
@@ -998,7 +1018,7 @@ class CoreIRParser(ModelParser):
                 Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
                 ts = Modules.Clock(bvvar)
                 
-                if (flags is not None) and (NO_INIT in flags):
+                if (flags is not None) and (CoreIRModelFlags.NO_INIT in flags):
                     ts.init = TRUE()
                 
                 hts.add_ts(ts)
