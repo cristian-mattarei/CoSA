@@ -90,7 +90,8 @@ class Miter(object):
             if sets_intersect(fv_assumption, hts2.vars):
                 c_assumption = And(c_assumption, substitute(assumption, map2))
 
-            htseq.add_assumption(c_assumption)
+            if c_assumption != TRUE():
+                htseq.add_assumption(c_assumption)
 
         for lemma in lemmas:
             fv_lemma = get_free_variables(lemma)
@@ -101,7 +102,8 @@ class Miter(object):
             if sets_intersect(fv_lemma, hts2.vars):
                 c_lemma = And(c_lemma, substitute(lemma, map2))
 
-            htseq.add_lemma(c_lemma)
+            if c_lemma != TRUE():
+                htseq.add_lemma(c_lemma)
                 
         miter_out = Symbol(EQS, BOOL)
 
