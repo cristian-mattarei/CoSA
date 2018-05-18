@@ -9,7 +9,7 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Symbol, And, TRUE, simplify
-from cosa.util.formula_mngm import get_free_variables
+from cosa.utils.formula_mngm import get_free_variables
 
 NEXT = "_N"
 PREV = "_P"

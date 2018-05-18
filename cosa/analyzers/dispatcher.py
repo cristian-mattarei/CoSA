@@ -12,13 +12,13 @@ import os
 
 from cosa.problem import VerificationType
 from cosa.encoders.formulae import StringParser
-from cosa.util.logger import Logger
+from cosa.utils.logger import Logger
 from cosa.encoders.coreir import CoreIRParser
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
-from cosa.transition_system import HTS
+from cosa.transition_systems import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 

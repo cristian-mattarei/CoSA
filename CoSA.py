@@ -22,7 +22,7 @@ from argparse import RawTextHelpFormatter
 from cosa.analyzers.dispatcher import ProblemSolver
 from cosa.analyzers.bmc import BMC, BMCConfig
 from cosa.analyzers.bmc_liveness import BMCLiveness
-from cosa.util.logger import Logger
+from cosa.utils.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
@@ -30,7 +30,7 @@ from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
 from cosa.problem import Problems, VerificationStatus, VerificationType
-from cosa.transition_system import HTS
+from cosa.transition_systems import HTS
 
 from pysmt.shortcuts import TRUE
 

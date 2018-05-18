@@ -23,9 +23,9 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 from pysmt.typing import BOOL, _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter
 
-from cosa.transition_system import TS, HTS, L_BV, L_ABV
-from cosa.util.utils import is_number, status_bar
-from cosa.util.logger import Logger
+from cosa.transition_systems import TS, HTS, L_BV, L_ABV
+from cosa.utils.generic import is_number, status_bar
+from cosa.utils.logger import Logger
 
 from cosa.encoders.model import ModelParser, NO_INIT
 

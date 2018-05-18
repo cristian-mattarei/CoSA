@@ -8,9 +8,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cosa.transition_system import HTS, TS
+from cosa.transition_systems import HTS, TS
 from cosa.encoders.coreir import SEP
-from cosa.util.logger import Logger
+from cosa.utils.logger import Logger
 from cosa.encoders.formulae import StringParser
 from pysmt.shortcuts import TRUE, FALSE, BOOL, And, EqualsOrIff, Iff, Symbol, Implies
 
