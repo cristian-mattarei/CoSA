@@ -17,9 +17,9 @@ from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 
-from cosa.util.logger import Logger
-from cosa.util.formula_mngm import substitute, get_free_variables
-from cosa.core.transition_system import TS, HTS
+from cosa.utils.logger import Logger
+from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter
@@ -467,63 +467,75 @@ class BMC(object):
         Logger.log("", 0, not(Logger.level(1)))
 
         return (-1, None)
-
+    
     def _check_lemma(self, hts, lemma):
-        self._reset_assertions(self.solver)
-
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
         trans = And(trans, invar, TS.to_next(invar))
         init = And(init, invar)
 
-        check_1 = Not(Implies(init, lemma))
-        check_1 = self.at_time(check_1, 0)
-        self._add_assertion(self.solver, check_1, comment="Init check")
-        res = self._solve(self.solver)
+        def check_init():
+            self._reset_assertions(self.solver)
+            check_1 = Not(Implies(init, lemma))
+            check_1 = self.at_time(check_1, 0)
+            self._add_assertion(self.solver, check_1, comment="Init check")
+            res = self._solve(self.solver)
 
-        prefix = None
-        if self.config.prefix is not None:
-            prefix = self.config.prefix+"-ind"
+            prefix = None
+            if self.config.prefix is not None:
+                prefix = self.config.prefix+"-ind"
 
-        if res:
-            if Logger.level(2):
-                Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
-                Logger.log("", 2)
-                if hr_trace:
-                    Logger.log("Counterexample: \n%s"%(hr_trace), 2)
-                else:
+            if res:
+                if Logger.level(2):
+                    Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
+                    (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
                     Logger.log("", 2)
+                    if hr_trace:
+                        Logger.log("Counterexample: \n%s"%(hr_trace), 2)
+                    else:
+                        Logger.log("", 2)
+                return False
+            else:
+                Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
+
+            return True
+
+        def check_step():
+            self._reset_assertions(self.solver)
+
+            check_2 = And(trans, lemma, Not(TS.to_next(lemma)))
+            check_2 = self.at_time(check_2, 0)
+            self._add_assertion(self.solver, check_2, comment="Trans check")
+            res = self._solve(self.solver)
+
+            if res:
+                if Logger.level(2):
+                    Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
+                    if Logger.level(3):
+                        (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
+                        if hr_trace or vcd_trace:
+                            vcd_msg = ""
+                            if vcd_trace:
+                                vcd_msg = " and in \"%s\""%(vcd_trace)
+                            Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 2)
+                        else:
+                            Logger.log("", 2)
+                return False
+            else:
+                Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 2)
+
+            return True
+
+
+        if not check_step():
             return False
-        else:
-            Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
-
-        self._reset_assertions(self.solver)
-
-        check_2 = And(trans, lemma, Not(TS.to_next(lemma)))
-        check_2 = self.at_time(check_2, 0)
-        self._add_assertion(self.solver, check_2, comment="Trans check")
-        res = self._solve(self.solver)
-
-        if res:
-            if Logger.level(2):
-                Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
-                (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
-                if hr_trace or vcd_trace:
-                    vcd_msg = ""
-                    if vcd_trace:
-                        vcd_msg = " and in \"%s\""%(vcd_trace)
-                    Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 2)
-                else:
-                    Logger.log("", 2)
+        if not check_init():
             return False
-        else:
-            Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 2)
-
+                
         return True
 
-    def _check_lemmas(self, prop, lemmas):
+    def _suff_lemmas(self, prop, lemmas):
         self._reset_assertions(self.solver)
 
         check_1 = Not(Implies(And(lemmas), prop))
@@ -539,28 +551,27 @@ class BMC(object):
         if len(lemmas) == 0:
             return (hts, False)
         
-        # if self.tracefile:
-        #     self._set_smt2_tracefile("%s-ind.%s"%(".".join(self.tracefile.split(".")[:-1]), self.tracefile.split(".")[-1]))
         self._reset_assertions(self.solver)
 
         holding_lemmas = []
         lindex = 1
+        nlemmas = len(lemmas)
         for lemma in lemmas:
-            Logger.log("\nChecking Lemma %s"%(lindex), 1)
+            Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
             if self._check_lemma(hts, lemma):
                 holding_lemmas.append(lemma)
                 Logger.log("Lemma %s holds"%(lindex), 1)
-
-                if self._check_lemmas(prop, holding_lemmas):
+                Logger.msg("L", 0, not(Logger.level(1)))
+                
+                if self._suff_lemmas(prop, holding_lemmas):
                     return (hts, True)
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
+                Logger.msg("_", 0, not(Logger.level(1)))
             lindex += 1
 
 
         hts.assumptions = And(holding_lemmas)
-
-        # self._reset_smt2_tracefile()
 
         return (hts, False)
 
@@ -772,7 +783,8 @@ class BMC(object):
 
         return (-1, None)
 
-    def safety(self, prop, k, k_min, lemmas=None):
+    def safety(self, prop, k, k_min):
+        lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
 

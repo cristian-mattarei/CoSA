@@ -12,10 +12,9 @@ from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOf
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, _BVType
 
-from cosa.core.transition_system import TS
+from cosa.transition_systems import HTS, TS
 from cosa.encoders.formulae import StringParser
-from cosa.util.logger import Logger
-from cosa.core.transition_system import HTS
+from cosa.utils.logger import Logger
 
 T_NL = "\n"
 

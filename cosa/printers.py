@@ -15,7 +15,7 @@ from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
-from cosa.core.transition_system import TS
+from cosa.transition_systems import TS
 from cosa.encoders.coreir import SEP
 
 import datetime

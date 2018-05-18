@@ -11,8 +11,8 @@
 import configparser
 import copy
 
-from cosa.util.logger import Logger
-from cosa.util.utils import auto_convert
+from cosa.utils.logger import Logger
+from cosa.utils.generic import auto_convert
 from cosa.encoders.formulae import StringParser
 
 DEFAULT = "DEFAULT"

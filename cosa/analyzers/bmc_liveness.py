@@ -17,14 +17,14 @@ from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from pysmt.rewritings import conjunctive_partition
 from pysmt.typing import BOOL, _BVType
 
-from cosa.util.logger import Logger
-from cosa.core.transition_system import TS, HTS
+from cosa.utils.logger import Logger
+from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
 from cosa.analyzers.bmc import BMC, BMCConfig, FWD
 from cosa.problem import VerificationStatus
-from cosa.util.formula_mngm import substitute, get_free_variables
 
 NL = "\n"
 
@@ -257,7 +257,8 @@ class BMCLiveness(BMC):
             
         return loopback
     
-    def liveness(self, prop, k, k_min, lemmas=None):
+    def liveness(self, prop, k, k_min):
+        lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False, lemmas)
 
@@ -271,7 +272,8 @@ class BMCLiveness(BMC):
         else:
             return (VerificationStatus.UNK, None)
 
-    def eventually(self, prop, k, k_min, lemmas=None):
+    def eventually(self, prop, k, k_min):
+        lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
         (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True, lemmas)
 
