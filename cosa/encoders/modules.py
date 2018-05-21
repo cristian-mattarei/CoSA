@@ -8,17 +8,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cosa.utils.logger import Logger
-
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
     BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
     Array, Select, Store
-
 from pysmt.typing import BOOL, _BVType, ArrayType
+
 from cosa.transition_systems import TS, HTS, L_BV, L_ABV
+from cosa.utils.logger import Logger
 
 SEP = "."
 CSEP = "$"

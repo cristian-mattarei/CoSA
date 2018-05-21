@@ -13,17 +13,13 @@ import sys
 
 from six.moves import cStringIO
 
-from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
-    TRUE, FALSE, \
-    And, EqualsOrIff, BVExtract
-
+from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
 from cosa.transition_systems import TS, HTS, L_BV, L_ABV
 from cosa.utils.generic import is_number, status_bar
 from cosa.utils.logger import Logger
-
 from cosa.encoders.model import ModelParser, ModelFlags
 from cosa.encoders.modules import Modules, SEP, CSEP
 

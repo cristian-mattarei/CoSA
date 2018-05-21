@@ -22,3 +22,9 @@ description: "Simulation with no unrolling"
 formula: count0.r.reg0.out = 5_16
 verification: simulation
 strategy: NU
+
+[Counter1-LT19]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
+verification: safety
+prove: True

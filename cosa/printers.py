@@ -258,6 +258,8 @@ class TextTracePrinter(TracePrinter):
 
         hex_values = False
 
+        modeldic = dict(model)
+        
         trace.append("---> INIT <---")
 
         if self.full_trace:
@@ -272,9 +274,9 @@ class TextTracePrinter(TracePrinter):
 
         for var in strvarlist:
             var_0 = TS.get_timed(var[1], 0)
-            if var_0 not in model:
+            if var_0 not in modeldic:
                 continue
-            varass = (var[0], model[var_0])
+            varass = (var[0], modeldic[var_0])
             if hex_values:
                 varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
             if self.diff_only: prevass.append(varass)
@@ -287,9 +289,9 @@ class TextTracePrinter(TracePrinter):
 
             for var in strvarlist:
                 var_t = TS.get_timed(var[1], t+1)
-                if var_t not in model:
+                if var_t not in modeldic:
                     continue
-                varass = (var[0], model[var_t])
+                varass = (var[0], modeldic[var_t])
                 if hex_values:
                     varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
                 if (not self.diff_only) or (prevass[varass[0]] != varass[1]):
@@ -297,11 +299,11 @@ class TextTracePrinter(TracePrinter):
                     if self.diff_only: prevass[varass[0]] = varass[1]
 
         if find_loop:
-            last_state = [(var[0], model[TS.get_timed(var[1], length)]) for var in strvarlist]
+            last_state = [(var[0], modeldic[TS.get_timed(var[1], length)]) for var in strvarlist]
             last_state.sort()
             loop_id = 0
             for i in range(length):
-                state_i = [(var[0], model[TS.get_timed(var[1], i)]) for var in strvarlist]
+                state_i = [(var[0], modeldic[TS.get_timed(var[1], i)]) for var in strvarlist]
                 state_i.sort()
                 if state_i == last_state:
                     loop_id = i
@@ -333,13 +335,6 @@ class VCDTracePrinter(TracePrinter):
         ret.append("$timescale")
         ret.append("1 ns")
         ret.append("$end")
-
-        # varlist = [(map_function(v.symbol_name()), 1
-        #             if v.symbol_type() == BOOL
-        #             else v.symbol_type().width)
-        #            for v in list(hts.vars)
-        #            if not self.is_hidden(v.symbol_name()) and
-        #            not v.is_array_type()]
 
         def _recover_array(store_ops):
             d = {}
