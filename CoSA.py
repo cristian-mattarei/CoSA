@@ -535,8 +535,6 @@ if __name__ == "__main__":
     config.prove = args.prove
     config.solver_name = args.solver_name
 
-    Logger.error_raise_exept = False
-    
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -551,6 +549,8 @@ if __name__ == "__main__":
                 Logger.msg(str(e), 0)
         sys.exit(0)
 
+    Logger.error_raise_exept = False
+            
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
 
