@@ -20,13 +20,15 @@ Usage
 
 To start playing with the tool, you can run:
 
+0) ``python3 CoSA.py -h`` (shows the helper with command options)
+
 1) ``python3 CoSA.py -i examples/counters/counters.json --simulate -k 7`` (generates a system execution with depth 7)
 
 2) ``python3 CoSA.py -i examples/counters/counters.json --safety -p "!(count0.a.out = 5_16)" -k 7`` (performs reachability model checking with property count0.a.out != 5 as a 16-bit Bitvector)
 
 3) ``python3 CoSA.py --problem examples/counter/problem.txt --prefix trace`` (liveness (GF) and finally (F) checking on the counter.json model using the problem definition)
 
-4) ``python3 CoSA.py --problem examples/fold-constants/problem.txt -v2`` (performs equivalence checking using lemmas)
+4) ``python3 CoSA.py --problem examples/fold-constants/problem.txt`` (performs equivalence checking using lemmas)
 
 ========================
 Docker
