@@ -45,6 +45,7 @@ class Logger(object):
         if Logger._last_inline is not None:
             if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
                 Logger.inline(" "*Logger._last_inline, 0)
+                Logger._last_inline = None
             
     @staticmethod        
     def log(msg, level, condition=True, max_level=10):
