@@ -18,6 +18,7 @@ from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.utils.generic import status_bar
 from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
@@ -396,29 +397,33 @@ class BMC(MCSolver):
     def add_lemmas(self, hts, prop, lemmas):
         if len(lemmas) == 0:
             return (hts, False)
-        
+
         self._reset_assertions(self.solver)
 
         holding_lemmas = []
         lindex = 1
         nlemmas = len(lemmas)
+        tlemmas = 0
+        flemmas = 0
         for lemma in lemmas:
             Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
             if self._check_lemma(hts, lemma):
                 holding_lemmas.append(lemma)
                 Logger.log("Lemma %s holds"%(lindex), 1)
-                Logger.msg("L", 0, not(Logger.level(1)))
-                
+                tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
                     return (hts, True)
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
-                Logger.msg("_", 0, not(Logger.level(1)))
+                flemmas += 1
             lindex += 1
 
-
+            msg = "%s T%s F%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas)
+            Logger.inline(msg, 0, not(Logger.level(1))) 
+            
+        Logger.clear_inline(0, not(Logger.level(1)))
+        
         hts.assumptions = And(holding_lemmas)
-
         return (hts, False)
 
     def solve_inc_fwd(self, hts, prop, k, k_min, lemmas=None):

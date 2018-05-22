@@ -19,6 +19,8 @@ class Logger(object):
     single_warnings = True
     prev_warnings = None
     error_raise_exept = True
+
+    _last_inline = None
     
     @staticmethod        
     def msg(msg, level, condition=True, max_level=10):
@@ -32,10 +34,18 @@ class Logger(object):
     @staticmethod        
     def inline(msg, level, condition=True, max_level=10):
         if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
+            lmsg = len(msg)
+            Logger._last_inline = lmsg
             sys.stdout.write(msg)
             sys.stdout.flush()
-            sys.stdout.write('\b'*len(msg))
-                
+            sys.stdout.write('\b'*lmsg)
+
+    @staticmethod        
+    def clear_inline(level, condition=True, max_level=10):
+        if Logger._last_inline is not None:
+            if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
+                Logger.inline(" "*Logger._last_inline, 0)
+            
     @staticmethod        
     def log(msg, level, condition=True, max_level=10):
         if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
