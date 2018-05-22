@@ -3,7 +3,7 @@ model_file: counters.json
 abstract_clock: True
 
 [DEFAULT]
-bmc_length: 20
+bmc_length: 40
 
 [Counter0-LT18]
 description: "Counter 0 is always less than 18"
@@ -14,5 +14,17 @@ prove: True
 [Counters-EQ]
 description: "Two counters are always equal"
 formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+prove: True
+
+[Counters-SIM]
+description: "Simulation with no unrolling"
+formula: count0.r.reg0.out = 5_16
+verification: simulation
+strategy: NU
+
+[Counter1-LT19]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
 verification: safety
 prove: True

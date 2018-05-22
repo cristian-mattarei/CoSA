@@ -15,83 +15,24 @@ from six.moves import cStringIO
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.utils.generic import status_bar
 from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter
 from cosa.problem import VerificationStatus
 
+from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU
+
 NL = "\n"
 
 S1 = "sys1"+SEP
 S2 = "sys2"+SEP
 
-FWD = "FWD"
-BWD = "BWD"
-ZZ  = "ZZ"
-NU  = "NU"
-
-class TraceSolver(object):
-
-    name = None
-    trace_file = None
-    solver = None
-    smt2vars = None
-    smt2vars_inc = None
-    
-    def __init__(self, name):
-        self.name = name
-        self.smt2vars = set([])
-        self.solver = Solver(name=self.name)
-        self.smt2vars_inc = []
-
-    def clear(self):
-        self.solver.exit()
-        self.solver = Solver(self.name)
-
-class BMCConfig(object):
-
-    incremental = True
-    strategy = None
-    solver = None
-    full_trace = False
-    prefix = None
-    smt2file = None
-    simplify = False
-    map_function = None
-    solver_name = None
-    vcd_trace = None
-    prove = None
-
-    def __init__(self):
-        self.incremental = True
-        self.strategy = FWD
-        self.solver_name = "msat"
-        self.full_trace = False
-        self.prefix = None
-        self.smt2file = None
-        self.simplify = False
-        self.map_function = None
-        self.vcd_trace = False
-        self.prove = False
-
-        self.strategies = BMCConfig.get_strategies()
-
-    @staticmethod
-    def get_strategies():
-        strategies = []
-        strategies.append((FWD, "Forward reachability"))
-        strategies.append((BWD, "Backward reachability"))
-        strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((NU,  "States picking without unrolling (only for simulation)"))
-
-        return strategies
-
-class BMC(object):
+class BMC(MCSolver):
 
     hts = None
     config = None
@@ -118,62 +59,6 @@ class BMC(object):
 
         self.varmapf_t = None
         self.varmapb_t = None
-
-
-    def _reset_smt2_tracefile(self):
-        if self.config.smt2file is not None:
-            basename = ".".join(self.config.smt2file.split(".")[:-1])
-            self.solver.trace_file = "%s.smt2"%basename
-            if self.config.prove:
-                self.solver_2.trace_file = "%s-ind.smt2"%basename
-
-    def _init_at_time(self, vars, maxtime):
-
-        previous = self.config.strategy != FWD
-
-        if self.varmapf_t is not None:
-            del(self.varmapf_t)
-
-        if self.varmapb_t is not None:
-            del(self.varmapb_t)
-            
-        self.varmapf_t = {}
-        self.varmapb_t = {}
-
-        timed = TS.get_timed_name
-        ptimed = TS.get_ptimed_name
-        prime = TS.get_prime_name
-        prev = TS.get_prev_name
-
-        varsstr = [v.symbol_name() for v in vars]
-
-        for t in range(maxtime+2):
-            varmapf = []
-            varmapb = []
-
-            for sname in varsstr:
-                psname = prime(sname)
-                rsname = prev(sname)
-
-                varmapf.append((sname, timed(sname, t)))
-                varmapf.append((psname, timed(sname, t+1)))
-                varmapf.append((rsname, timed(sname, t-1)))
-
-                if previous:
-                    varmapb.append((sname, ptimed(sname, t)))
-                    varmapb.append((psname, ptimed(sname, t-1)))
-                    varmapb.append((rsname, ptimed(sname, t+1)))
-
-            self.varmapf_t[t] = dict(varmapf)
-
-            if previous:
-                self.varmapb_t[t-1] = dict(varmapb)
-
-    def at_time(self, formula, t):
-        return substitute(formula, self.varmapf_t[t])
-
-    def at_ptime(self, formula, t):
-        return substitute(formula, self.varmapb_t[t])
 
     def unroll(self, trans, invar, k_end, k_start=0):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
@@ -254,44 +139,6 @@ class BMC(object):
         hr_trace_file = None
 
         return (hr_trace, vcd_trace)
-
-        # BMC.TraceID += 1
-        # if (prefix is None) or (not write_to_file):
-        #     Logger.log(hr_trace, 0)
-
-        #     if self.config.vcd_trace:
-        #         vcd_trace_file = "%s-id_%s%s"%("trace", BMC.TraceID, vcd_printer.get_file_ext())
-        #         with open(vcd_trace_file, "w") as f:
-        #             f.write(vcd_trace)
-        # else:
-        #     hr_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, hr_printer.get_file_ext())
-        #     with open(hr_trace_file, "w") as f:
-        #         f.write(hr_trace)
-        #     if self.config.vcd_trace:
-        #         vcd_trace_file = "%s-id_%s%s"%(prefix, BMC.TraceID, vcd_printer.get_file_ext())
-        #         with open(vcd_trace_file, "w") as f:
-        #             f.write(vcd_trace)
-
-        # return (hr_trace_file, vcd_trace_file)
-
-    def print_state(self, hts, model, t, statevars_only=False, state_marker="I: "):
-        if self.config.prefix:
-            f = open(self.config.prefix + ".txt", "w")
-            _write = lambda s: f.write(s + "\n")
-        else:
-            _write = print
-
-        vars_ = self.hts.state_vars if statevars_only else self.hts.vars
-
-        for v in vars_:
-            vt = self.at_time(v, t)
-            if vt in model:
-                val = model[vt]
-                _write(state_marker + "{} = {}".format(v, val))
-
-        if self.config.prefix:
-            f.close()
-            Logger.log("State written to file {}.txt".format(self.config.prefix), 1)
 
     def fsm_check(self):
         (htseq, t, model) = self.combined_system(self.hts, 1, True, False)
@@ -392,11 +239,11 @@ class BMC(object):
         model = self._remap_model(self.hts.vars, model, t)
 
         if t > -1:
-            Logger.log("Execution found", 0)
+            Logger.log("Execution found", 1)
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
             return (VerificationStatus.TRUE, trace)
         else:
-            Logger.log("Deadlock wit k=%s"%k, 0)
+            Logger.log("Deadlock wit k=%s"%k, 1)
             return (VerificationStatus.FALSE, None)
 
     def solve(self, hts, prop, k, k_min=0, lemmas=None):
@@ -456,7 +303,7 @@ class BMC(object):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.solver.get_model()
+                model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -489,7 +336,7 @@ class BMC(object):
             if res:
                 if Logger.level(2):
                     Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
-                    (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
+                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 1, prefix=prefix, map_function=self.config.map_function)
                     Logger.log("", 2)
                     if hr_trace:
                         Logger.log("Counterexample: \n%s"%(hr_trace), 2)
@@ -513,7 +360,7 @@ class BMC(object):
                 if Logger.level(2):
                     Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
                     if Logger.level(3):
-                        (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
+                        (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 1, prefix=prefix, map_function=self.config.map_function)
                         if hr_trace or vcd_trace:
                             vcd_msg = ""
                             if vcd_trace:
@@ -550,29 +397,33 @@ class BMC(object):
     def add_lemmas(self, hts, prop, lemmas):
         if len(lemmas) == 0:
             return (hts, False)
-        
+
         self._reset_assertions(self.solver)
 
         holding_lemmas = []
         lindex = 1
         nlemmas = len(lemmas)
+        tlemmas = 0
+        flemmas = 0
         for lemma in lemmas:
             Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
             if self._check_lemma(hts, lemma):
                 holding_lemmas.append(lemma)
                 Logger.log("Lemma %s holds"%(lindex), 1)
-                Logger.msg("L", 0, not(Logger.level(1)))
-                
+                tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
                     return (hts, True)
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
-                Logger.msg("_", 0, not(Logger.level(1)))
+                flemmas += 1
             lindex += 1
 
-
+            msg = "%s T%s F%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas)
+            Logger.inline(msg, 0, not(Logger.level(1))) 
+            
+        Logger.clear_inline(0, not(Logger.level(1)))
+        
         hts.assumptions = And(holding_lemmas)
-
         return (hts, False)
 
     def solve_inc_fwd(self, hts, prop, k, k_min, lemmas=None):
@@ -633,7 +484,7 @@ class BMC(object):
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self.solver.solver.get_model()
+                    model = self._get_model(self.solver)
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:
@@ -704,7 +555,7 @@ class BMC(object):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.solver.get_model()
+                model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -762,7 +613,7 @@ class BMC(object):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.solver.get_model()
+                model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -848,6 +699,8 @@ class BMC(object):
 
             for v in relevant_vars_0:
                 full_model[v] = init_model[v]
+
+            Logger.msg(".", 0, not(Logger.level(1)))
         else:
             return (0, None)
 
@@ -875,6 +728,7 @@ class BMC(object):
             res_step = self._solve(self.solver)
 
             if res_step:
+                Logger.msg(".", 0, not(Logger.level(1)))
                 Logger.log("Able to step forward at k=%s"%(t), 2)
                 if all_vars:
                     init_model = self._get_model(self.solver)
@@ -883,6 +737,7 @@ class BMC(object):
                 model = init_model
             else:
                 Logger.log("System deadlocked at k=%s"%(t), 2)
+                Logger.log("", 0, not(Logger.level(1)))
                 return (-1, full_model)
 
             # Use previous model as initial state for next sat call
@@ -890,6 +745,8 @@ class BMC(object):
             init_1 = []
             
             for v in relevant_vars_01:
+                if v[1] not in init_model:
+                    continue
                 val = init_model[v[1]]
                 full_model[TS.get_timed(v[2], t)] = val
                 init_0.append(EqualsOrIff(v[0], val))
@@ -908,6 +765,7 @@ class BMC(object):
                 if res_cont:
                     Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 2)
                     model = init_model
+                    Logger.log("", 0, not(Logger.level(1)))
                     return (t, full_model)
                 else:
                     Logger.log('Cover not reached at k=%s'%t, 2)
@@ -915,8 +773,7 @@ class BMC(object):
             if inc:
                 self._pop(self.solver)
                 
-                
-        # only uses 0 and 1 symbols
+        Logger.log("", 0, not(Logger.level(1)))
         return (t, full_model)
 
 
@@ -940,111 +797,3 @@ class BMC(object):
                 retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
 
         return retmodel
-
-    def _write_smt2_log(self, solver, line):
-        tracefile = solver.trace_file
-        if tracefile is not None:
-            with open(tracefile, "a") as f:
-                f.write(line+"\n")
-
-    def _write_smt2_comment(self, solver, line):
-        return self._write_smt2_log(solver, ";; %s"%line)
-
-    def _add_assertion(self, solver, formula, comment=None):
-        if not self.config.skip_solving:
-            solver.solver.add_assertion(formula)
-
-        if Logger.level(3):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue()+"\n")
-
-        if solver.trace_file is not None:
-            if comment:
-                self._write_smt2_comment(solver, comment)
-
-            formula_fv = get_free_variables(formula)
-                
-            for v in formula_fv:
-                if v in solver.smt2vars:
-                    continue
-                
-                if v.symbol_type() == BOOL:
-                    self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (v.symbol_name()))
-                elif v.symbol_type().is_array_type():
-                    st = v.symbol_type()
-                    assert st.index_type.is_bv_type(), "Expecting BV indices"
-                    assert st.elem_type.is_bv_type(), "Expecting BV elements"
-                    self._write_smt2_log(solver, "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))"%(v.symbol_name(), st.index_type.width, st.elem_type.width))
-                elif v.symbol_type().is_bv_type():
-                    self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
-                else:
-                    raise RuntimeError("Unhandled type in smt2 translation")
-
-            self._write_smt2_log(solver, "")
-
-            for v in formula_fv:
-                solver.smt2vars.add(v)
-
-            if formula.is_and():
-                for f in conjunctive_partition(formula):
-                    buf = cStringIO()
-                    printer = SmtPrinter(buf)
-                    printer.printer(f)
-                    self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
-            else:
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(formula)
-                self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
-
-
-    def _push(self, solver):
-        if not self.config.skip_solving:
-            solver.solver.push()
-
-        solver.smt2vars_inc.append(solver.smt2vars)
-        self._write_smt2_log(solver, "(push 1)")
-
-    def _pop(self, solver):
-        if not self.config.skip_solving:
-            solver.solver.pop()
-
-        solver.smt2vars = solver.smt2vars_inc.pop()
-        self._write_smt2_log(solver, "(pop 1)")
-
-    def _get_model(self, solver, relevant_vars=None):
-        if relevant_vars is None:
-            return solver.solver.get_model()
-
-        return dict([(v, solver.solver.get_value(v)) for v in relevant_vars])
-        
-    def _reset_assertions(self, solver, clear=False):
-        if clear:
-            solver.clear()
-        if not self.config.skip_solving:
-            solver.solver.reset_assertions()
-
-        if solver.trace_file is not None:
-            solver.smt2vars = set([])
-            with open(solver.trace_file, "w") as f:
-                f.write("(set-logic %s)\n"%self.hts.logic)
-
-    def _solve(self, solver):
-        self._write_smt2_log(solver, "(check-sat)")
-        self._write_smt2_log(solver, "")
-
-        if self.config.skip_solving:
-            return None
-
-        if Logger.level(2):
-            timer = Logger.start_timer("Solve")
-
-        r = solver.solver.solve()
-
-        if Logger.level(2):
-            self.total_time += Logger.get_timer(timer)
-            Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
-
-        return r

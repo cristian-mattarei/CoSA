@@ -23,12 +23,14 @@ from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
-from cosa.analyzers.bmc import BMC, BMCConfig, FWD
+from cosa.analyzers.mcsolver import MCConfig, FWD
+from cosa.analyzers.bmc import BMC
 from cosa.problem import VerificationStatus
+
+from cosa.analyzers.mcsolver import TraceSolver, MCSolver
 
 NL = "\n"
 
-KLIVE_COUNT = HIDDEN+"klive_id%s"+HIDDEN
 EQVAR = HIDDEN+"eq_var"+HIDDEN
 HEQVAR = HIDDEN+"heq_var"+HIDDEN
 
@@ -65,34 +67,6 @@ class BMCLiveness(BMC):
         
         return None
 
-    def _compile_counter(self, prop, k):
-        if k <= 1:
-            counter_width = 1
-        else:
-            counter_width = math.ceil(math.log(k)/math.log(2))
-
-        idcounter = 0
-        while True:
-            try:
-                counter_var = Symbol((KLIVE_COUNT)%(idcounter), _BVType(counter_width))
-                break
-            except:
-                idcounter +=1
-        
-        one = BV(1, counter_width)
-        zero = BV(0, counter_width)
-        
-        init = EqualsOrIff(counter_var, BV(0, counter_width))
-        count1 = Implies(Not(prop), EqualsOrIff(TS.get_prime(counter_var), BVAdd(counter_var, one)))
-        count0 = Implies(prop, EqualsOrIff(TS.get_prime(counter_var), zero))
-        trans = And(count0, count1)
-
-        return (counter_var, init, trans)
-
-    def _klive_property(self, counter_var, t):
-        klive_prop = BVUGE(counter_var, BV(t, counter_var.symbol_type().width))
-        return self.at_time(klive_prop, t)
-    
     def solve_liveness_inc_fwd(self, hts, prop, k, k_min, eventually=False):
         self._reset_assertions(self.solver)
 
@@ -154,7 +128,7 @@ class BMCLiveness(BMC):
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self.solver.solver.get_model()
+                    model = self._get_model(self.solver)
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:

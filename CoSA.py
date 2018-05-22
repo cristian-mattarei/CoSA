@@ -20,7 +20,8 @@ import pickle
 from argparse import RawTextHelpFormatter
 
 from cosa.analyzers.dispatcher import ProblemSolver
-from cosa.analyzers.bmc import BMC, BMCConfig
+from cosa.analyzers.mcsolver import MCConfig
+from cosa.analyzers.bmc import BMC
 from cosa.analyzers.bmc_liveness import BMCLiveness
 from cosa.utils.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
@@ -90,7 +91,7 @@ class Config(object):
         self.printer = PrintersFactory.get_default().get_name()
         self.translate = None
         self.smt2file = None
-        self.strategy = BMCConfig.get_strategies()[0][0]
+        self.strategy = MCConfig.get_strategies()[0][0]
         self.boolean = False
         self.abstract_clock = False
         self.skip_solving = False
@@ -168,7 +169,7 @@ def run_verification(config):
 
     printsmv = True
 
-    bmc_config = BMCConfig()
+    mc_config = MCConfig()
 
     sparser = StringParser()
     sparser.remap_or2an = config.parser.remap_or2an
@@ -188,21 +189,21 @@ def run_verification(config):
         lemmas = [t[1] for t in parsed_formulae]
         hts.lemmas = lemmas
 
-    bmc_config.smt2file = config.smt2file
+    mc_config.smt2file = config.smt2file
 
-    bmc_config.full_trace = config.full_trace
-    bmc_config.prefix = config.prefix
-    bmc_config.strategy = config.strategy
-    bmc_config.skip_solving = config.skip_solving
-    bmc_config.map_function = config.parser.remap_an2or
-    bmc_config.solver_name = config.solver_name
-    bmc_config.vcd_trace = config.vcd
-    bmc_config.prove = config.prove
+    mc_config.full_trace = config.full_trace
+    mc_config.prefix = config.prefix
+    mc_config.strategy = config.strategy
+    mc_config.skip_solving = config.skip_solving
+    mc_config.map_function = config.parser.remap_an2or
+    mc_config.solver_name = config.solver_name
+    mc_config.vcd_trace = config.vcd
+    mc_config.prove = config.prove
 
     if config.liveness or config.eventually:
-        bmc_liveness = BMCLiveness(hts, bmc_config)
+        bmc_liveness = BMCLiveness(hts, mc_config)
     else:
-        bmc = BMC(hts, bmc_config)
+        bmc = BMC(hts, mc_config)
 
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
@@ -299,7 +300,7 @@ def run_verification(config):
             htseq.assumptions = assumps
 
         # create bmc object for combined system
-        bmcseq = BMC(htseq, bmc_config)
+        bmcseq = BMC(htseq, mc_config)
         res, trace, t = bmcseq.safety(miter_out, config.bmc_length, config.bmc_length_min)
 
         if res == VerificationStatus.FALSE:
@@ -420,8 +421,8 @@ if __name__ == "__main__":
     ver_params.add_argument('--prove', dest='prove', action='store_true',
                        help='use indution to prove the satisfiability of the property.')
 
-    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in BMCConfig.get_strategies()]
-    defstrategy = BMCConfig.get_strategies()[0][0]
+    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in MCConfig.get_strategies()]
+    defstrategy = MCConfig.get_strategies()[0][0]
     ver_params.set_defaults(strategy=defstrategy)
     ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                         help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
@@ -548,6 +549,8 @@ if __name__ == "__main__":
                 Logger.msg(str(e), 0)
         sys.exit(0)
 
+    Logger.error_raise_exept = False
+            
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
 
@@ -556,7 +559,7 @@ if __name__ == "__main__":
     else:
         Logger.error("Printer \"%s\" not found"%(args.printer))
 
-    if args.strategy not in [s[0] for s in BMCConfig.get_strategies()]:
+    if args.strategy not in [s[0] for s in MCConfig.get_strategies()]:
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
 
     if not(config.simulate or \
@@ -591,6 +594,8 @@ if __name__ == "__main__":
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs
 
+    Logger.error_raise_exept = True
+    
     if args.debug:
         run_verification(config)
     else:
