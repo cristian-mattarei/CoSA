@@ -315,18 +315,11 @@ class BMC(MCSolver):
 
         return (-1, None)
     
-    def _check_lemma(self, hts, lemma):
-        init = hts.single_init()
-        trans = hts.single_trans()
-        invar = hts.single_invar()
-        trans = And(trans, invar, TS.to_next(invar))
-        init = And(init, invar)
+    def _check_lemma(self, hts, lemma, init, trans):
 
         def check_init():
             self._reset_assertions(self.solver)
-            check_1 = Not(Implies(init, lemma))
-            check_1 = self.at_time(check_1, 0)
-            self._add_assertion(self.solver, check_1, comment="Init check")
+            self._add_assertion(self.solver, self.at_time(And(init, Not(lemma)), 0), comment="Init check")
             res = self._solve(self.solver)
 
             prefix = None
@@ -336,7 +329,7 @@ class BMC(MCSolver):
             if res:
                 if Logger.level(2):
                     Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
-                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 1, prefix=prefix, map_function=self.config.map_function)
+                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 0, prefix=prefix, map_function=self.config.map_function)
                     Logger.log("", 2)
                     if hr_trace:
                         Logger.log("Counterexample: \n%s"%(hr_trace), 2)
@@ -350,10 +343,8 @@ class BMC(MCSolver):
 
         def check_step():
             self._reset_assertions(self.solver)
-
-            check_2 = And(trans, lemma, Not(TS.to_next(lemma)))
-            check_2 = self.at_time(check_2, 0)
-            self._add_assertion(self.solver, check_2, comment="Trans check")
+            self._add_assertion(self.solver, self.at_time(And(trans, lemma), 0))
+            self._add_assertion(self.solver, self.at_time(Not(lemma), 1))
             res = self._solve(self.solver)
 
             if res:
@@ -385,8 +376,7 @@ class BMC(MCSolver):
     def _suff_lemmas(self, prop, lemmas):
         self._reset_assertions(self.solver)
 
-        check_1 = Not(Implies(And(lemmas), prop))
-        self._add_assertion(self.solver, check_1)
+        self._add_assertion(self.solver, And(And(lemmas), Not(prop)))
         res = self._solve(self.solver)
 
         if res:
@@ -400,14 +390,18 @@ class BMC(MCSolver):
 
         self._reset_assertions(self.solver)
 
+        invar = hts.single_invar()
+        init = And(hts.single_init(), invar)
+        trans = And(invar, hts.single_trans(), TS.to_next(invar))
+        
         holding_lemmas = []
-        lindex = 1
+        lindex = 0
         nlemmas = len(lemmas)
         tlemmas = 0
         flemmas = 0
         for lemma in lemmas:
             Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
-            if self._check_lemma(hts, lemma):
+            if self._check_lemma(hts, lemma, init, trans):
                 holding_lemmas.append(lemma)
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
@@ -416,9 +410,9 @@ class BMC(MCSolver):
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
                 flemmas += 1
+                
             lindex += 1
-
-            msg = "%s T%s F%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas)
+            msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
             Logger.inline(msg, 0, not(Logger.level(1))) 
             
         Logger.clear_inline(0, not(Logger.level(1)))

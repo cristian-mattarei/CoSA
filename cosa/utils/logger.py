@@ -34,6 +34,7 @@ class Logger(object):
     @staticmethod        
     def inline(msg, level, condition=True, max_level=10):
         if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
+            Logger.clear_inline(0)
             lmsg = len(msg)
             Logger._last_inline = lmsg
             sys.stdout.write(msg)
@@ -44,7 +45,9 @@ class Logger(object):
     def clear_inline(level, condition=True, max_level=10):
         if Logger._last_inline is not None:
             if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
-                Logger.inline(" "*Logger._last_inline, 0)
+                sys.stdout.write(' '*Logger._last_inline)
+                sys.stdout.write('\b'*Logger._last_inline)
+                sys.stdout.flush()
                 Logger._last_inline = None
             
     @staticmethod        
