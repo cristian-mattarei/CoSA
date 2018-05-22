@@ -252,13 +252,11 @@ class TextTracePrinter(TracePrinter):
     def get_file_ext(self):
         return ".txt"
 
-    def print_trace(self, hts, model, length, map_function=None, find_loop=False):
+    def print_trace(self, hts, modeldic, length, map_function=None, find_loop=False):
         trace = []
         prevass = []
 
         hex_values = False
-
-        modeldic = dict(model)
         
         trace.append("---> INIT <---")
 
@@ -322,7 +320,7 @@ class VCDTracePrinter(TracePrinter):
     def get_file_ext(self):
         return ".vcd"
 
-    def print_trace(self, hts, model, length, map_function=None):
+    def print_trace(self, hts, modeldic, length, map_function=None):
         hierarchical = False
         ret = []
 
@@ -346,7 +344,6 @@ class VCDTracePrinter(TracePrinter):
                     d[k.constant_value()] = v.constant_value()
             return d
 
-        modeldic = dict(model)
         # TODO, use modeldic[v].array_value_assigned_values_map()
         # to get all the array values for a counterexample trace
         modeldic = dict([(v.symbol_name(), modeldic[v].constant_value()

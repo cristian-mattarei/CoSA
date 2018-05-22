@@ -18,6 +18,7 @@ class Logger(object):
     time = False
     single_warnings = True
     prev_warnings = None
+    error_raise_exept = True
     
     @staticmethod        
     def msg(msg, level, condition=True, max_level=10):
@@ -43,6 +44,11 @@ class Logger(object):
 
     @staticmethod        
     def error(msg):
+        if not Logger.error_raise_exept:
+            sys.stderr.write("ERROR: "+msg+"\n")
+            sys.stderr.flush()
+            sys.exit(0)
+            
         raise RuntimeError("ERROR: "+msg+"\n")
 
     @staticmethod        

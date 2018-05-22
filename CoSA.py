@@ -535,6 +535,8 @@ if __name__ == "__main__":
     config.prove = args.prove
     config.solver_name = args.solver_name
 
+    Logger.error_raise_exept = False
+    
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -592,6 +594,8 @@ if __name__ == "__main__":
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs
 
+    Logger.error_raise_exept = True
+    
     if args.debug:
         run_verification(config)
     else:

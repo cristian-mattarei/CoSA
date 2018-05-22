@@ -15,7 +15,6 @@ from six.moves import cStringIO
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.rewritings import conjunctive_partition, disjunctive_partition
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
@@ -303,7 +302,7 @@ class BMC(MCSolver):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.solver.get_model()
+                model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -336,7 +335,7 @@ class BMC(MCSolver):
             if res:
                 if Logger.level(2):
                     Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
-                    (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
+                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 1, prefix=prefix, map_function=self.config.map_function)
                     Logger.log("", 2)
                     if hr_trace:
                         Logger.log("Counterexample: \n%s"%(hr_trace), 2)
@@ -360,7 +359,7 @@ class BMC(MCSolver):
                 if Logger.level(2):
                     Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
                     if Logger.level(3):
-                        (hr_trace, vcd_trace) = self.print_trace(hts, self.solver.solver.get_model(), 1, prefix=prefix, map_function=self.config.map_function)
+                        (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 1, prefix=prefix, map_function=self.config.map_function)
                         if hr_trace or vcd_trace:
                             vcd_msg = ""
                             if vcd_trace:
@@ -480,7 +479,7 @@ class BMC(MCSolver):
 
                 if res:
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self.solver.solver.get_model()
+                    model = self._get_model(self.solver)
                     Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:
@@ -551,7 +550,7 @@ class BMC(MCSolver):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.solver.get_model()
+                model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -609,7 +608,7 @@ class BMC(MCSolver):
 
             if res:
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self.solver.solver.get_model()
+                model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
@@ -741,6 +740,8 @@ class BMC(MCSolver):
             init_1 = []
             
             for v in relevant_vars_01:
+                if v[1] not in init_model:
+                    continue
                 val = init_model[v[1]]
                 full_model[TS.get_timed(v[2], t)] = val
                 init_0.append(EqualsOrIff(v[0], val))

@@ -212,7 +212,7 @@ class MCSolver(object):
 
     def _get_model(self, solver, relevant_vars=None):
         if relevant_vars is None:
-            return solver.solver.get_model()
+            return dict(solver.solver.get_model())
 
         return dict([(v, solver.solver.get_value(v)) for v in relevant_vars])
         
