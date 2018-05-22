@@ -376,6 +376,8 @@ class CoreIRParser(ModelParser):
                     not_defined_mods.append(inst_type)
 
             del(values_dic)
+
+        Logger.clear_inline(1)
             
         for var in interface:
             varname = SELF+SEP+var[0]

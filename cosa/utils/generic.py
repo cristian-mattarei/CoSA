@@ -30,7 +30,7 @@ def auto_convert(strval):
         except Exception:
             return strval
     
-def status_bar(status, percent=True, length=30):
+def status_bar(status, percent=True, length=40):
     curr = math.ceil(length*status)
-    percent = (" %.2f%%"%(status*100)) if percent else "" 
-    return "["+("="*(curr-1))+">"+(" "*(length-curr))+"]"+percent
+    percent = (" %.2f%%"%(status*100)) if percent else ""
+    return "["+("#"*(curr))+(" "*(length-curr))+"]"+percent
