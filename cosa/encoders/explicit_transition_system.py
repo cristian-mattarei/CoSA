@@ -9,7 +9,7 @@
 # limitations under the License.
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
-from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
+from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
 from pysmt.typing import BOOL, _BVType
 
 from cosa.transition_systems import HTS, TS
@@ -179,6 +179,8 @@ class ExplicitTSParser(object):
         vars_ = [v for v in get_free_variables(trans) if not TS.is_prime(v)]
         vars_ += get_free_variables(init)
         vars_ += get_free_variables(invar)
+
+        invar = And(invar, BVULE(stateid_var, BV(count-1, stateid_width)))
         ts = TS(set(vars_), init, trans, invar)
         ts.comment = "Additional system"
 

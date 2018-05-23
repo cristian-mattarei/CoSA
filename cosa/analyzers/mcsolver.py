@@ -8,7 +8,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from six.moves import cStringIO
+
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
+from pysmt.rewritings import conjunctive_partition
+from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.utils.logger import Logger
 from cosa.transition_systems import TS, HTS

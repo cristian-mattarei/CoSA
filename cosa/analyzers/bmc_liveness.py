@@ -10,11 +10,9 @@
 
 import re
 import math
-from six.moves import cStringIO
 
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.rewritings import conjunctive_partition
 from pysmt.typing import BOOL, _BVType
 
 from cosa.utils.logger import Logger

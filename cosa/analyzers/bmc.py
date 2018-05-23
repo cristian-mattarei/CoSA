@@ -93,8 +93,8 @@ class BMC(MCSolver):
             assert len(vars1) == len(vars2)
             eqvars = []
             for i in range(len(vars1)):
-                eqvars.append(Not(EqualsOrIff(vars1[i], vars2[i])))
-            return Or(eqvars)
+                eqvars.append(EqualsOrIff(vars1[i], vars2[i]))
+            return Not(And(eqvars))
 
         lvars = list(vars_)
         end_vars = [TS.get_timed(v, k_end) for v in lvars]
@@ -516,11 +516,16 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min):
+    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
             self._reset_assertions(self.solver_2)
+
+            if all_vars:
+                relevant_vars = hts.vars
+            else:
+                relevant_vars = hts.state_vars | hts.inputs | hts.outputs
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -591,12 +596,13 @@ class BMC(MCSolver):
 
             if self.config.prove:
                 self._add_assertion(self.solver_2, trans_t)
-                self._add_assertion(self.solver_2, self.simple_path(self.hts.vars, t))
+                
+                if t > k_min:
+                    self._add_assertion(self.solver_2, self.simple_path(relevant_vars, t))
 
-                self._push(self.solver_2)
-                self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
+                    self._push(self.solver_2)
+                    self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
 
-                if t >= k_min:
                     res = self._solve(self.solver_2)
 
                     if res:
@@ -606,8 +612,8 @@ class BMC(MCSolver):
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
-                self._pop(self.solver_2)
-                self._add_assertion(self.solver_2, self.at_time(prop, t))
+                    self._pop(self.solver_2)
+                    self._add_assertion(self.solver_2, self.at_time(prop, t))
 
             if self.assert_property:
                 prop_t = self.unroll(TRUE(), prop, t, t-1)
@@ -768,9 +774,9 @@ class BMC(MCSolver):
         full_model = {}
         
         if all_vars:
-            relevant_vars = self.hts.vars
+            relevant_vars = hts.vars
         else:
-            relevant_vars = self.hts.state_vars | self.hts.inputs | self.hts.outputs
+            relevant_vars = hts.state_vars | hts.inputs | hts.outputs
         
         relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]
