@@ -13,6 +13,8 @@ import copy
 from six.moves import cStringIO
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
+from pysmt.shortcuts import Interpolator
+from pysmt.oracles import get_logic
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
@@ -254,6 +256,8 @@ class BMC(MCSolver):
                 Logger.log("", 0, not(Logger.level(1)))
                 return (0, True)
 
+        hts.reset_formulae()
+            
         if self.config.incremental:
             return self.solve_inc(hts, prop, k, k_min, lemmas)
 
@@ -420,7 +424,7 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min, lemmas=None):
+    def solve_inc_fwd(self, hts, prop, k, k_min):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
@@ -627,7 +631,7 @@ class BMC(MCSolver):
         Logger.log("", 0, not(Logger.level(1)))
 
         return (-1, None)
-
+    
     def safety(self, prop, k, k_min):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
