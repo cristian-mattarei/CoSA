@@ -395,7 +395,7 @@ class BMC(MCSolver):
         trans = And(invar, hts.single_trans(), TS.to_next(invar))
         
         holding_lemmas = []
-        lindex = 0
+        lindex = 1
         nlemmas = len(lemmas)
         tlemmas = 0
         flemmas = 0
@@ -411,9 +411,9 @@ class BMC(MCSolver):
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
                 flemmas += 1
                 
-            lindex += 1
             msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
             Logger.inline(msg, 0, not(Logger.level(1))) 
+            lindex += 1
             
         Logger.clear_inline(0, not(Logger.level(1)))
         
