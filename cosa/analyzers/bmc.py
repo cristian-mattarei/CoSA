@@ -298,28 +298,33 @@ class BMC(MCSolver):
 
         if TS.has_next(prop):
             Logger.error("Interpolation does not support properties with next variables")
-        
-        itp = Interpolator(logic=get_logic(trans))
 
+        map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
+            
+        itp = Interpolator(logic=get_logic(trans))
         init = And(init, invar)
+        nprop = Not(prop)
         
         t = 0
         while (t < k+1):
-            self._reset_assertions(self.solver)
-
             init_0 = self.at_time(init, 0)
             R = init_0
+
+
+            trans_t = self.unroll(trans, invar, t, gen_list=True)
+            trans_tA = And(trans_t[0]) if t > 0 else TRUE()
+            trans_tB = And(trans_t[1:]) if t > 0 else TRUE()
             
             while True:
+                self._reset_assertions(self.solver)
                 Logger.log("Add init and invar", 2)
                 self._add_assertion(self.solver, R)
 
-                trans_t = self.unroll(trans, invar, t, gen_list=True)
-                self._add_assertion(self.solver, And(trans_t))
+                self._add_assertion(self.solver, And(trans_tA, trans_tB))
 
-                propt = self.at_time(Not(prop), t)
+                npropt = self.at_time(nprop, t)
                 Logger.log("Add property time %d"%t, 2)
-                self._add_assertion(self.solver, propt)
+                self._add_assertion(self.solver, npropt)
 
                 res = self._solve(self.solver)
 
@@ -337,16 +342,11 @@ class BMC(MCSolver):
                         Logger.msg(".", 0, not(Logger.level(1)))
                         break
 
-                    trans_tA = And(trans_t[0])
-                    trans_tB = And(trans_t[1:])
+                    Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, npropt)]))
+                    Ri = substitute(Ri, map_10)
                     
-                    Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, propt)]))
-                    rmap = dict([(v.symbol_name(), TS.get_timed_name(v.symbol_name(), 0)) for v in get_free_variables(Ri)])
-                    Ri = substitute(Ri, rmap)
                     self._reset_assertions(self.solver)
-
                     self._add_assertion(self.solver, And(Ri, Not(R)))
-
                     res = self._solve(self.solver)
 
                     if not res:
