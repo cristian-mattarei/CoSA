@@ -292,11 +292,13 @@ class BMC(MCSolver):
         return None
 
     def solve_int(self, hts, prop, k):
-
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        if TS.has_next(prop):
+            Logger.error("Interpolation does not support properties with next variables")
+        
         itp = Interpolator(logic=get_logic(trans))
 
         init = And(init, invar)
