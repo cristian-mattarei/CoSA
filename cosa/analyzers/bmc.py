@@ -307,9 +307,10 @@ class BMC(MCSolver):
         
         t = 0
         while (t < k+1):
+            Logger.log("\nSolving for k=%s"%t, 1)
+            int_c = 0
             init_0 = self.at_time(init, 0)
             R = init_0
-
 
             trans_t = self.unroll(trans, invar, t, gen_list=True)
             trans_tA = And(trans_t[0]) if t > 0 else TRUE()
@@ -335,6 +336,8 @@ class BMC(MCSolver):
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, model)
                     else:
+                        Logger.log("No counterexample or proof found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
                         break
                 else:
                     if len(trans_t) < 2:
@@ -350,12 +353,13 @@ class BMC(MCSolver):
                     res = self._solve(self.solver)
 
                     if not res:
+                        Logger.log("Proof found with k=%s"%(t), 1)
                         return (t, True)
                     else:
                         R = Or(R, Ri)
+                        int_c += 1
 
-                    Logger.log("No counterexample found with k=%s"%(t), 1)
-                    Logger.msg(".", 0, not(Logger.level(1)))
+                    Logger.log("Extending initial states (%s)"%int_c, 1)
 
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
@@ -477,9 +481,8 @@ class BMC(MCSolver):
 
         self._reset_assertions(self.solver)
 
-        invar = hts.single_invar()
-        init = And(hts.single_init(), invar)
-        trans = And(invar, hts.single_trans(), TS.to_next(invar))
+        h_init = hts.single_init()
+        h_trans = hts.single_trans()
         
         holding_lemmas = []
         lindex = 1
@@ -488,8 +491,14 @@ class BMC(MCSolver):
         flemmas = 0
         for lemma in lemmas:
             Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
+            invar = hts.single_invar()
+            init = And(h_init, invar)
+            trans = And(invar, h_trans, TS.to_next(invar))
             if self._check_lemma(hts, lemma, init, trans):
                 holding_lemmas.append(lemma)
+                hts.add_assumption(lemma)
+                hts.reset_formulae()
+                
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
