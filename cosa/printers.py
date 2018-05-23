@@ -119,7 +119,7 @@ class SMVHTSPrinter(HTSPrinter):
         self.write("MODULE main\n")
 
         if properties is not None:
-            for strprop, prop in properties:
+            for strprop, prop, _ in properties:
                 self.write("\nINVARSPEC ")
                 self.printer(prop)
                 self.write(";\n")
