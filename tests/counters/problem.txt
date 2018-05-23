@@ -28,3 +28,26 @@ description: "Counter 1 is always less than 18"
 formula: count1.r.reg0.out < 19_16
 verification: safety
 prove: True
+
+[Counter0-LT18-INT]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: INT
+incremental: False
+
+[Counters-EQ-INT]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+prove: True
+strategy: INT
+incremental: False
+
+[Counter1-LT19-INT]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
+verification: safety
+prove: True
+strategy: INT
+incremental: False

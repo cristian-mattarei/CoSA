@@ -27,7 +27,7 @@ from cosa.encoders.coreir import CoreIRParser, SEP
 from cosa.printers import TextTracePrinter, VCDTracePrinter
 from cosa.problem import VerificationStatus
 
-from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU
+from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU, INT
 
 NL = "\n"
 
@@ -62,7 +62,7 @@ class BMC(MCSolver):
         self.varmapf_t = None
         self.varmapb_t = None
 
-    def unroll(self, trans, invar, k_end, k_start=0):
+    def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
         fwd = k_start <= k_end
@@ -78,6 +78,9 @@ class BMC(MCSolver):
             Logger.log("Add trans, k=%s"%t, 2)
             t += 1
 
+        if gen_list:
+            return formula
+            
         return And(formula)
 
     def simple_path(self, vars_, k_end, k_start=0):
@@ -259,31 +262,109 @@ class BMC(MCSolver):
         hts.reset_formulae()
             
         if self.config.incremental:
-            return self.solve_inc(hts, prop, k, k_min, lemmas)
+            return self.solve_inc(hts, prop, k, k_min)
 
-        return self.solve_fwd(hts, prop, k)
+        return self.solve_ninc(hts, prop, k)
 
-    def solve_inc(self, hts, prop, k, k_min, lemmas=None):
+    def solve_ninc(self, hts, prop, k):
         if self.config.strategy == FWD:
-            return self.solve_inc_fwd(hts, prop, k, k_min, lemmas)
+            return self.solve_fwd(hts, prop, k)
+
+        if self.config.strategy == INT:
+            return self.solve_int(hts, prop, k)
+        
+        Logger.error("Invalid configuration strategy")
+
+        return None
+    
+    def solve_inc(self, hts, prop, k, k_min):
+        if self.config.strategy == FWD:
+            return self.solve_inc_fwd(hts, prop, k, k_min)
 
         if self.config.strategy == BWD:
             return self.solve_inc_bwd(hts, prop, k)
 
         if self.config.strategy == ZZ:
             return self.solve_inc_zz(hts, prop, k)
-
+        
         Logger.error("Invalid configuration strategy")
 
         return None
 
-    def solve_fwd(self, hts, prop, k, shortest=True):
+    def solve_int(self, hts, prop, k):
 
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        # trans = And(trans, self._update_trans_prev(prop))
+        itp = Interpolator(logic=get_logic(trans))
+
+        init = And(init, invar)
+        
+        t = 0
+        while (t < k+1):
+            self._reset_assertions(self.solver)
+
+            init_0 = self.at_time(init, 0)
+            R = init_0
+            
+            while True:
+                Logger.log("Add init and invar", 2)
+                self._add_assertion(self.solver, R)
+
+                trans_t = self.unroll(trans, invar, t, gen_list=True)
+                self._add_assertion(self.solver, And(trans_t))
+
+                propt = self.at_time(Not(prop), t)
+                Logger.log("Add property time %d"%t, 2)
+                self._add_assertion(self.solver, propt)
+
+                res = self._solve(self.solver)
+
+                if res:
+                    if R == init_0:
+                        Logger.log("Counterexample found with k=%s"%(t), 1)
+                        model = self._get_model(self.solver)
+                        Logger.log("", 0, not(Logger.level(1)))
+                        return (t, model)
+                    else:
+                        break
+                else:
+                    if len(trans_t) < 2:
+                        Logger.log("No counterexample found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
+                        break
+
+                    trans_tA = And(trans_t[0])
+                    trans_tB = And(trans_t[1:])
+                    
+                    Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, propt)]))
+                    rmap = dict([(v.symbol_name(), TS.get_timed_name(v.symbol_name(), 0)) for v in get_free_variables(Ri)])
+                    Ri = substitute(Ri, rmap)
+                    self._reset_assertions(self.solver)
+
+                    self._add_assertion(self.solver, And(Ri, Not(R)))
+
+                    res = self._solve(self.solver)
+
+                    if not res:
+                        return (t, True)
+                    else:
+                        R = Or(R, Ri)
+
+                    Logger.log("No counterexample found with k=%s"%(t), 1)
+                    Logger.msg(".", 0, not(Logger.level(1)))
+
+            t += 1
+        Logger.log("", 0, not(Logger.level(1)))
+
+        return (-1, None)
+    
+    def solve_fwd(self, hts, prop, k, shortest=True):
+
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
 
         t_start = 0 if shortest else k
 
@@ -631,6 +712,7 @@ class BMC(MCSolver):
         Logger.log("", 0, not(Logger.level(1)))
 
         return (-1, None)
+
     
     def safety(self, prop, k, k_min):
         lemmas = self.hts.lemmas
@@ -656,7 +738,7 @@ class BMC(MCSolver):
         if self.config.strategy == ZZ:
             return self._remap_model_zz(vars, model, k)
 
-        if self.config.strategy in [FWD, NU]:
+        if self.config.strategy in [FWD, NU, INT]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")

@@ -18,6 +18,7 @@ FWD = "FWD"
 BWD = "BWD"
 ZZ  = "ZZ"
 NU  = "NU"
+INT  = "INT"
 
 class MCConfig(object):
 
@@ -53,6 +54,7 @@ class MCConfig(object):
         strategies.append((FWD, "Forward reachability"))
         strategies.append((BWD, "Backward reachability"))
         strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((INT, "Interpolation"))
         strategies.append((NU,  "States picking without unrolling (only for simulation)"))
 
         return strategies
