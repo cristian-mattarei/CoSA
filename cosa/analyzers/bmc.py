@@ -509,7 +509,7 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True, assert_property=False):
+    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
@@ -559,8 +559,9 @@ class BMC(MCSolver):
         while (t < k+1):
             self._push(self.solver)
 
+            t_prop = t-1 if next_prop else t
+            
             if k_min > 0:
-                t_prop = t-1 if next_prop else t
                 if (not next_prop) or (next_prop and t>0):
                     n_prop_t = Or(n_prop_t, self.at_time(Not(prop), t_prop))
             else:
@@ -580,11 +581,6 @@ class BMC(MCSolver):
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
-                    
-                    if assert_property:
-                        self._add_assertion(self.solver, self.at_time(prop, t))
-                        Logger.log("Add property at time %d"%t, 2)
-                        
             else:
                 Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
@@ -592,7 +588,7 @@ class BMC(MCSolver):
             self._pop(self.solver)
             
             if self.config.prove:
-                if t >= k_min:
+                if t > k_min:
                     loop_free = self.loop_free(relevant_vars, t, t-1)
 
                     # Checking I & T & loopFree
@@ -629,8 +625,11 @@ class BMC(MCSolver):
                         return (t, True)
 
                     self._pop(self.solver_2)
-                    
+
                     self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
+                else:
+                    if not next_prop:
+                        self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
 
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
