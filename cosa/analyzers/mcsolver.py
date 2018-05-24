@@ -164,7 +164,7 @@ class MCSolver(object):
 
         if solver.trace_file is not None:
             if comment:
-                self._write_smt2_comment(solver, comment)
+                self._write_smt2_comment(solver, "%s: START"%comment)
 
             formula_fv = get_free_variables(formula)
                 
@@ -201,6 +201,9 @@ class MCSolver(object):
                 printer.printer(formula)
                 self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
 
+            if comment:
+                self._write_smt2_comment(solver, "%s: END"%comment)
+                                
 
     def _push(self, solver):
         if not self.config.skip_solving:

@@ -509,7 +509,7 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True, assert_property=True):
+    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True, assert_property=False):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
@@ -527,6 +527,7 @@ class BMC(MCSolver):
         acc_init = TRUE()
         acc_prop = TRUE()
         acc_loop_free = TRUE()
+        trans_t = TRUE()
         
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
@@ -546,7 +547,7 @@ class BMC(MCSolver):
 
         if self.config.prove:
             # add invariants at time 0, but not init
-            self._add_assertion(self.solver_2, self.at_time(invar, 0))
+            self._add_assertion(self.solver_2, self.at_time(invar, 0), "invar")
 
         next_prop = TS.has_next(prop)
         if next_prop:
@@ -580,24 +581,19 @@ class BMC(MCSolver):
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
                     
-                    ass_prop = self.at_time(prop, t)
-                    
                     if assert_property:
-                        self._add_assertion(self.solver, ass_prop)
+                        self._add_assertion(self.solver, self.at_time(prop, t))
                         Logger.log("Add property at time %d"%t, 2)
-
-                    if self.config.prove:
-                        self._add_assertion(self.solver_2, ass_prop)
                         
             else:
                 Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
             self._pop(self.solver)
-
+            
             if self.config.prove:
-                if t > k_min:
-                    loop_free = self.loop_free(relevant_vars, t)
+                if t >= k_min:
+                    loop_free = self.loop_free(relevant_vars, t, t-1)
 
                     # Checking I & T & loopFree
                     acc_init = And(acc_init, self.at_time(Not(init), t))
@@ -618,12 +614,12 @@ class BMC(MCSolver):
                     self._pop(self.solver)
 
                     # Checking T & loopFree & !P
-                    self._add_assertion(self.solver_2, trans_t)
-                    self._add_assertion(self.solver_2, loop_free)
+                    self._add_assertion(self.solver_2, trans_t, comment="trans")
+                    self._add_assertion(self.solver_2, loop_free, comment="loop_free")
                     
                     self._push(self.solver_2)
-                    
-                    self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
+
+                    self._add_assertion(self.solver_2, self.at_time(Not(prop), t_prop))
 
                     if self._solve(self.solver_2):
                         Logger.log("Induction 2 failed with k=%s"%(t), 1)
@@ -633,10 +629,14 @@ class BMC(MCSolver):
                         return (t, True)
 
                     self._pop(self.solver_2)
+                    
+                    self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
 
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
+                    
             t += 1
+            
         Logger.log("", 0, not(Logger.level(1)))
 
         return (-1, None)
