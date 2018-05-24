@@ -22,6 +22,7 @@ from cosa.utils.generic import is_number, status_bar
 from cosa.utils.logger import Logger
 from cosa.encoders.model import ModelParser, ModelFlags
 from cosa.encoders.modules import Modules, ModuleSymbols, SEP, CSEP
+from cosa.utils.generic import bin_to_dec
 
 CR = "_const_replacement"
 RCR = "_reg_const_replacement"
@@ -562,6 +563,9 @@ class CoreIRParser(ModelParser):
         new_conns = []
         dict_conns = {}
 
+        bv0 = BV(0, 1)
+        bv1 = BV(1, 1)
+        
         for conn in connections:
             (first, second) = (conn[0][0], conn[1][0])
             (sel1, sel2) = (conn[0][1], conn[1][1])
@@ -580,8 +584,21 @@ class CoreIRParser(ModelParser):
 
         for conn in dict_conns:
             (first,second) = conn
+            
             (first, second, new_conn) = self.__analyze_connections(first, second, dict_conns[conn])
+
+            if (new_conn is None) and (second.is_constant()):
+                zeros_conn = (first, bv0)
+                ones_conn = (first, bv1)
                 
+                zeros = dict_conns[zeros_conn] if zeros_conn in dict_conns else None
+                ones = dict_conns[ones_conn] if ones_conn in dict_conns else None
+
+                if (second == bv1) and (zeros is not None):
+                    continue
+                
+                (first, second, new_conn) = self.__recombine_constants(first, second, zeros, ones)
+            
             if new_conn is None:
                 for single_conn in dict_conns[conn]:
                     new_conns.append(((first, single_conn[0]),(second, single_conn[1])))
@@ -615,7 +632,52 @@ class CoreIRParser(ModelParser):
             if (min_1 == inds_1[0]) and (min_2 == inds_2[0]) and (max_1 == inds_1[-1]) and (max_2 == inds_2[-1]) \
                and (d_min == d_max) and (len(inds_1) == len(inds_2)):
                 return (first, second, ((min_1, max_1), (min_2, max_2)))
+            
+        return (first, second, None)
+    
 
+    
+    def __recombine_constants(self, first, second, zeros, ones):
+
+        inds_z0 = []
+        inds_o0 = []
+        inds_z1 = []
+        inds_o1 = []
+        
+        if zeros is not None:
+            zeros.sort()
+            inds_z0 = [i[0] for i in zeros if i[0] is not None]
+            inds_z1 = [i[1] for i in zeros if i[1] is not None]
+        if ones is not None:
+            ones.sort()
+            inds_o0 = [i[0] for i in ones if i[0] is not None]
+            inds_o1 = [i[1] for i in ones if i[1] is not None]
+
+        c_inds0 = list(set(inds_z0+inds_o0))
+        c_inds1 = list(set(inds_z1+inds_o1))
+
+        if (len(c_inds0) > 1) and (len(c_inds1) == 0):
+
+            min_1 = min(c_inds0)
+            max_1 = max(c_inds0)
+
+            if len(c_inds0) == ((max_1 - min_1) + 1):
+
+                inds_z = [(i, 0) for i in inds_z0]
+                inds_o = [(i, 1) for i in inds_o0]
+                inds = inds_z + inds_o
+                inds.sort()
+                inds.reverse()
+                value = [str(v[1]) for v in inds]
+                bvval = bin_to_dec("".join(value))
+
+                bvlen = len(c_inds0)
+                new_second = BV(bvval, bvlen)
+                return (first, new_second, ((min_1, max_1),(0, bvlen-1)))
+
+                
+        return (first, second, None)
+    
         # Bit Constant e.g. var[0] = 0, var[1] = 0, ...
         if (second.is_symbol()):
             return (first, second, None)
@@ -631,6 +693,8 @@ class CoreIRParser(ModelParser):
                 bvval = val if val == 0 else (2**bvlen)-1
                 new_second = BV(bvval, bvlen)
                 return (first, new_second, ((min_1, max_1),(0, bvlen-1)))
+            else:
+                print(first, second, inds_1, inds_2)
             
         return (first, second, None)
     

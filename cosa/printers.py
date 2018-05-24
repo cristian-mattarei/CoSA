@@ -17,6 +17,7 @@ from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
 from cosa.transition_systems import TS
 from cosa.encoders.coreir import SEP
+from cosa.utils.generic import dec_to_bin, dec_to_hex
 
 import datetime
 
@@ -229,16 +230,6 @@ class TracePrinter(object):
     def get_file_ext(self):
         pass
 
-    def dec_to_bin(self, val, width):
-        bitval = "{0:b}".format(int(val))
-        bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
-        return bitval
-
-    def dec_to_hex(self, val, width):
-        hexval = str(hex(val))[2:]
-        hexval = "%s%s"%("0"*(width-len(hexval)), hexval)
-        return hexval.upper()
-
     def is_hidden(self, name):
         return name[:len(HIDDEN)] == HIDDEN
 
@@ -276,7 +267,7 @@ class TextTracePrinter(TracePrinter):
                 continue
             varass = (var[0], modeldic[var_0])
             if hex_values:
-                varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
+                varass = (varass[0], dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
             if self.diff_only: prevass.append(varass)
             trace.append("  I: %s = %s"%(varass[0], varass[1]))
 
@@ -291,7 +282,7 @@ class TextTracePrinter(TracePrinter):
                     continue
                 varass = (var[0], modeldic[var_t])
                 if hex_values:
-                    varass = (varass[0], self.dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
+                    varass = (varass[0], dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
                 if (not self.diff_only) or (prevass[varass[0]] != varass[1]):
                     trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
                     if self.diff_only: prevass[varass[0]] = varass[1]
@@ -419,7 +410,7 @@ class VCDTracePrinter(TracePrinter):
                 (varname, width) = el
                 tname = TS.get_timed_name(varname, t)
                 val = modeldic[tname] if tname in modeldic else 0
-                ret.append("b%s v%s"%(self.dec_to_bin(val, width), var2id[varname]))
+                ret.append("b%s v%s"%(dec_to_bin(val, width), var2id[varname]))
 
             for a in arr_vars:
                 name = a.symbol_name()
@@ -428,7 +419,7 @@ class VCDTracePrinter(TracePrinter):
                 m = modeldic[tname]
                 for i, v in m.items():
                     vcdname = name + "[%i]"%i
-                    ret.append("b%s v%s"%(self.dec_to_bin(v,width),var2id[vcdname]))
+                    ret.append("b%s v%s"%(dec_to_bin(v,width),var2id[vcdname]))
 
         # make the last time step visible
         # also important for correctness, gtkwave sometimes doesn't read the
