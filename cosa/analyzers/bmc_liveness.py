@@ -122,9 +122,8 @@ class BMCLiveness(BMC):
             if t >= k_min:
                 self._write_smt2_comment(self.solver, "Solving for k=%s"%(t))
                 Logger.log("\nSolving for k=%s"%(t), 1)
-                res = self._solve(self.solver)
-
-                if res:
+                
+                if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(self.solver)
                     Logger.log("", 0, not(Logger.level(1)))
@@ -166,10 +165,7 @@ class BMCLiveness(BMC):
 
 
                     if t >= k_min:
-
-                        res = self._solve(self.solver_2)
-
-                        if res:
+                        if self._solve(self.solver_2):
                             Logger.log("K-Liveness failed with k=%s"%(t), 1)
                         else:
                             Logger.log("K-Liveness holds with k=%s"%(t), 1)
