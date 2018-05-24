@@ -190,6 +190,7 @@ class ProblemSolver(object):
         mc_config.full_trace = problem.full_trace or config.full_trace
         mc_config.prefix = problem.name
         mc_config.strategy = config_selection(problem.strategy, config.strategy)
+        mc_config.incremental = config_selection(problem.incremental, config.incremental)
         mc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
         mc_config.map_function = self.parser.remap_an2or
         mc_config.solver_name = config_selection(problem.solver_name, config.solver_name)

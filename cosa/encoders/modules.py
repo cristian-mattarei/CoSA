@@ -639,3 +639,15 @@ class Modules(object):
         ts.comment = "Terminate wire"
         return ts
 
+class ModuleSymbols(object):
+
+    @staticmethod
+    def Const(out, value):
+        if value is None:
+            return None
+        if out.symbol_type() == BOOL:
+            const = TRUE() if value == 1 else FALSE()
+        else:
+            const = BV(value, out.symbol_type().width)
+
+        return (out, const)

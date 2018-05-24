@@ -34,3 +34,16 @@ def status_bar(status, percent=True, length=40):
     curr = math.ceil(length*status)
     percent = (" %.2f%%"%(status*100)) if percent else ""
     return "["+("#"*(curr))+(" "*(length-curr))+"]"+percent
+
+def dec_to_bin(val, width):
+    bitval = "{0:b}".format(int(val))
+    bitval = "%s%s"%("0"*(width-len(bitval)), bitval)
+    return bitval
+
+def dec_to_hex(val, width):
+    hexval = str(hex(val))[2:]
+    hexval = "%s%s"%("0"*(width-len(hexval)), hexval)
+    return hexval.upper()
+
+def bin_to_dec(val):
+    return int(val, 2)

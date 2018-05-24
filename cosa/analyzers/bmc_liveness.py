@@ -10,11 +10,9 @@
 
 import re
 import math
-from six.moves import cStringIO
 
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.rewritings import conjunctive_partition
 from pysmt.typing import BOOL, _BVType
 
 from cosa.utils.logger import Logger
@@ -124,9 +122,8 @@ class BMCLiveness(BMC):
             if t >= k_min:
                 self._write_smt2_comment(self.solver, "Solving for k=%s"%(t))
                 Logger.log("\nSolving for k=%s"%(t), 1)
-                res = self._solve(self.solver)
-
-                if res:
+                
+                if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(self.solver)
                     Logger.log("", 0, not(Logger.level(1)))
@@ -168,10 +165,7 @@ class BMCLiveness(BMC):
 
 
                     if t >= k_min:
-
-                        res = self._solve(self.solver_2)
-
-                        if res:
+                        if self._solve(self.solver_2):
                             Logger.log("K-Liveness failed with k=%s"%(t), 1)
                         else:
                             Logger.log("K-Liveness holds with k=%s"%(t), 1)

@@ -66,6 +66,7 @@ class Config(object):
     solver_name = None
     vcd = False
     prove = False
+    incremental = True
 
     def __init__(self):
         PrintersFactory.init_printers()
@@ -99,6 +100,8 @@ class Config(object):
         self.solver_name = "msat"
         self.vcd = False
         self.prove = False
+        self.incremental = True
+
 
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
@@ -199,6 +202,7 @@ def run_verification(config):
     mc_config.solver_name = config.solver_name
     mc_config.vcd_trace = config.vcd
     mc_config.prove = config.prove
+    mc_config.incremental = config.incremental
 
     if config.liveness or config.eventually:
         bmc_liveness = BMCLiveness(hts, mc_config)
@@ -427,6 +431,10 @@ if __name__ == "__main__":
     ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                         help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
 
+    ver_params.set_defaults(ninc=False)
+    ver_params.add_argument('--ninc', dest='ninc', action='store_true',
+                       help='disables incrementality.')
+    
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
@@ -534,6 +542,7 @@ if __name__ == "__main__":
     config.vcd = args.vcd
     config.prove = args.prove
     config.solver_name = args.solver_name
+    config.incremental = not args.ninc
 
     if len(sys.argv)==1:
         parser.print_help()

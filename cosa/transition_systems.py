@@ -119,8 +119,8 @@ class HTS(object):
 
         return self.trans
 
-    def single_invar(self):
-        if self.invar is None:
+    def single_invar(self, rebuild=False):
+        if (self.invar is None) or (rebuild):
             self.invar = TRUE()
             for ts in self.tss:
                 if ts.invar is not None:
@@ -131,6 +131,11 @@ class HTS(object):
 
         return self.invar
 
+    def reset_formulae(self):
+        self.init = None
+        self.invar = None
+        self.trans = None
+    
     def combine(self, other_hts):
         for ts in other_hts.tss:
             self.add_ts(ts)

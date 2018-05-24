@@ -97,6 +97,7 @@ class Problem(object):
     assumptions = None
     lemmas = None
     strategy = None
+    incremental = None
     symbolic_init = None
     smt2_tracing = None
 

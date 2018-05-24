@@ -13,6 +13,8 @@ import copy
 from six.moves import cStringIO
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
+from pysmt.shortcuts import Interpolator
+from pysmt.oracles import get_logic
 from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
@@ -25,7 +27,7 @@ from cosa.encoders.coreir import CoreIRParser, SEP
 from cosa.printers import TextTracePrinter, VCDTracePrinter
 from cosa.problem import VerificationStatus
 
-from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU
+from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU, INT
 
 NL = "\n"
 
@@ -60,7 +62,7 @@ class BMC(MCSolver):
         self.varmapf_t = None
         self.varmapb_t = None
 
-    def unroll(self, trans, invar, k_end, k_start=0):
+    def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
         fwd = k_start <= k_end
@@ -76,9 +78,12 @@ class BMC(MCSolver):
             Logger.log("Add trans, k=%s"%t, 2)
             t += 1
 
+        if gen_list:
+            return formula
+            
         return And(formula)
 
-    def simple_path(self, vars_, k_end, k_start=0):
+    def loop_free(self, vars_, k_end, k_start=0):
         Logger.log("Simple path from %s to %s"%(k_start, k_end), 2)
 
         if k_end == k_start:
@@ -88,8 +93,8 @@ class BMC(MCSolver):
             assert len(vars1) == len(vars2)
             eqvars = []
             for i in range(len(vars1)):
-                eqvars.append(Not(EqualsOrIff(vars1[i], vars2[i])))
-            return Or(eqvars)
+                eqvars.append(EqualsOrIff(vars1[i], vars2[i]))
+            return Not(And(eqvars))
 
         lvars = list(vars_)
         end_vars = [TS.get_timed(v, k_end) for v in lvars]
@@ -254,32 +259,115 @@ class BMC(MCSolver):
                 Logger.log("", 0, not(Logger.level(1)))
                 return (0, True)
 
+        hts.reset_formulae()
+            
         if self.config.incremental:
-            return self.solve_inc(hts, prop, k, k_min, lemmas)
+            return self.solve_inc(hts, prop, k, k_min)
 
-        return self.solve_fwd(hts, prop, k)
+        return self.solve_ninc(hts, prop, k)
 
-    def solve_inc(self, hts, prop, k, k_min, lemmas=None):
+    def solve_ninc(self, hts, prop, k):
         if self.config.strategy == FWD:
-            return self.solve_inc_fwd(hts, prop, k, k_min, lemmas)
+            return self.solve_fwd(hts, prop, k)
+
+        if self.config.strategy == INT:
+            return self.solve_int(hts, prop, k)
+        
+        Logger.error("Invalid configuration strategy")
+
+        return None
+    
+    def solve_inc(self, hts, prop, k, k_min):
+        if self.config.strategy == FWD:
+            return self.solve_inc_fwd(hts, prop, k, k_min)
 
         if self.config.strategy == BWD:
             return self.solve_inc_bwd(hts, prop, k)
 
         if self.config.strategy == ZZ:
             return self.solve_inc_zz(hts, prop, k)
-
+        
         Logger.error("Invalid configuration strategy")
 
         return None
 
+    def solve_int(self, hts, prop, k):
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+
+        if TS.has_next(prop):
+            Logger.error("Interpolation does not support properties with next variables")
+
+        map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
+            
+        itp = Interpolator(logic=get_logic(trans))
+        init = And(init, invar)
+        nprop = Not(prop)
+        
+        t = 0
+        while (t < k+1):
+            Logger.log("\nSolving for k=%s"%t, 1)
+            int_c = 0
+            init_0 = self.at_time(init, 0)
+            R = init_0
+
+            trans_t = self.unroll(trans, invar, t, gen_list=True)
+            trans_tA = And(trans_t[0]) if t > 0 else TRUE()
+            trans_tB = And(trans_t[1:]) if t > 0 else TRUE()
+            
+            while True:
+                self._reset_assertions(self.solver)
+                Logger.log("Add init and invar", 2)
+                self._add_assertion(self.solver, R)
+
+                self._add_assertion(self.solver, And(trans_tA, trans_tB))
+
+                npropt = self.at_time(nprop, t)
+                Logger.log("Add property time %d"%t, 2)
+                self._add_assertion(self.solver, npropt)
+
+                if self._solve(self.solver):
+                    if R == init_0:
+                        Logger.log("Counterexample found with k=%s"%(t), 1)
+                        model = self._get_model(self.solver)
+                        Logger.log("", 0, not(Logger.level(1)))
+                        return (t, model)
+                    else:
+                        Logger.log("No counterexample or proof found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
+                        break
+                else:
+                    if len(trans_t) < 2:
+                        Logger.log("No counterexample found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
+                        break
+
+                    Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, npropt)]))
+                    Ri = substitute(Ri, map_10)
+                    
+                    self._reset_assertions(self.solver)
+                    self._add_assertion(self.solver, And(Ri, Not(R)))
+
+                    if not self._solve(self.solver):
+                        Logger.log("Proof found with k=%s"%(t), 1)
+                        return (t, True)
+                    else:
+                        R = Or(R, Ri)
+                        int_c += 1
+
+                    Logger.log("Extending initial states (%s)"%int_c, 1)
+
+            t += 1
+        Logger.log("", 0, not(Logger.level(1)))
+
+        return (-1, None)
+    
     def solve_fwd(self, hts, prop, k, shortest=True):
 
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
-
-        # trans = And(trans, self._update_trans_prev(prop))
 
         t_start = 0 if shortest else k
 
@@ -299,9 +387,7 @@ class BMC(MCSolver):
             Logger.log("Add property time %d"%t, 2)
             self._add_assertion(self.solver, propt)
 
-            res = self._solve(self.solver)
-
-            if res:
+            if self._solve(self.solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
@@ -345,9 +431,8 @@ class BMC(MCSolver):
             self._reset_assertions(self.solver)
             self._add_assertion(self.solver, self.at_time(And(trans, lemma), 0))
             self._add_assertion(self.solver, self.at_time(Not(lemma), 1))
-            res = self._solve(self.solver)
 
-            if res:
+            if self._solve(self.solver):
                 if Logger.level(2):
                     Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
                     if Logger.level(3):
@@ -377,9 +462,8 @@ class BMC(MCSolver):
         self._reset_assertions(self.solver)
 
         self._add_assertion(self.solver, And(And(lemmas), Not(prop)))
-        res = self._solve(self.solver)
-
-        if res:
+        
+        if self._solve(self.solver):
             return False
 
         return True
@@ -390,9 +474,8 @@ class BMC(MCSolver):
 
         self._reset_assertions(self.solver)
 
-        invar = hts.single_invar()
-        init = And(hts.single_init(), invar)
-        trans = And(invar, hts.single_trans(), TS.to_next(invar))
+        h_init = hts.single_init()
+        h_trans = hts.single_trans()
         
         holding_lemmas = []
         lindex = 1
@@ -401,8 +484,14 @@ class BMC(MCSolver):
         flemmas = 0
         for lemma in lemmas:
             Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
+            invar = hts.single_invar()
+            init = And(h_init, invar)
+            trans = And(invar, h_trans, TS.to_next(invar))
             if self._check_lemma(hts, lemma, init, trans):
                 holding_lemmas.append(lemma)
+                hts.add_assumption(lemma)
+                hts.reset_formulae()
+                
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
@@ -420,16 +509,26 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min, lemmas=None):
+    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
             self._reset_assertions(self.solver_2)
 
+            if all_vars:
+                relevant_vars = hts.vars
+            else:
+                relevant_vars = hts.state_vars | hts.inputs | hts.outputs
+
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
+        acc_init = TRUE()
+        acc_prop = TRUE()
+        acc_loop_free = TRUE()
+        trans_t = TRUE()
+        
         if self.config.simplify:
             Logger.log("Simplifying the Transition System", 1)
             if Logger.level(2):
@@ -441,15 +540,14 @@ class BMC(MCSolver):
             if Logger.level(2):
                 Logger.get_timer(timer)
 
-        propt = FALSE()
-        formula = And(init, invar)
-        formula = self.at_time(formula, 0)
+        n_prop_t = FALSE()
+        init_0 = self.at_time(And(init, invar), 0)
         Logger.log("Add init and invar", 2)
-        self._add_assertion(self.solver, formula)
+        self._add_assertion(self.solver, init_0)
 
         if self.config.prove:
             # add invariants at time 0, but not init
-            self._add_assertion(self.solver_2, self.at_time(invar, 0))
+            self._add_assertion(self.solver_2, self.at_time(invar, 0), "invar")
 
         next_prop = TS.has_next(prop)
         if next_prop:
@@ -461,22 +559,21 @@ class BMC(MCSolver):
         while (t < k+1):
             self._push(self.solver)
 
+            t_prop = t-1 if next_prop else t
+            
             if k_min > 0:
-                t_prop = t-1 if next_prop else t
                 if (not next_prop) or (next_prop and t>0):
-                    propt = Or(propt, self.at_time(Not(prop), t_prop))
+                    n_prop_t = Or(n_prop_t, self.at_time(Not(prop), t_prop))
             else:
-                propt = self.at_time(Not(prop), t)
+                n_prop_t = self.at_time(Not(prop), t)
 
             Logger.log("Add not property at time %d"%t, 2)
-            self._add_assertion(self.solver, propt)
+            self._add_assertion(self.solver, n_prop_t)
 
             if t >= k_min:
                 Logger.log("\nSolving for k=%s"%(t), 1)
 
-                res = self._solve(self.solver)
-
-                if res:
+                if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(self.solver)
                     Logger.log("", 0, not(Logger.level(1)))
@@ -489,41 +586,61 @@ class BMC(MCSolver):
                 Logger.msg(".", 0, not(Logger.level(1)))
 
             self._pop(self.solver)
-
-            trans_t = self.unroll(trans, invar, t+1, t)
-            self._add_assertion(self.solver, trans_t)
-
+            
             if self.config.prove:
-                self._add_assertion(self.solver_2, trans_t)
-                self._add_assertion(self.solver_2, self.simple_path(self.hts.vars, t))
+                if t > k_min:
+                    loop_free = self.loop_free(relevant_vars, t, t-1)
 
-                self._push(self.solver_2)
-                self._add_assertion(self.solver_2, self.at_time(Not(prop), t))
+                    # Checking I & T & loopFree
+                    acc_init = And(acc_init, self.at_time(Not(init), t))
+                    acc_loop_free = And(acc_loop_free, loop_free)
+                    
+                    self._push(self.solver)
 
-                if t >= k_min:
-                    res = self._solve(self.solver_2)
-
-                    if res:
-                        Logger.log("Induction failed with k=%s"%(t), 1)
+                    self._add_assertion(self.solver, acc_init)
+                    self._add_assertion(self.solver, acc_loop_free)
+                    
+                    if self._solve(self.solver):
+                        Logger.log("Induction (I & lF) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
-                self._pop(self.solver_2)
-                self._add_assertion(self.solver_2, self.at_time(prop, t))
+                    self._pop(self.solver)
 
-            if self.assert_property:
-                prop_t = self.unroll(TRUE(), prop, t, t-1)
-                self._add_assertion(self.solver, prop_t)
-                Logger.log("Add property at time %d"%t, 2)
+                    # Checking T & loopFree & !P
+                    self._add_assertion(self.solver_2, trans_t, comment="trans")
+                    self._add_assertion(self.solver_2, loop_free, comment="loop_free")
+                    
+                    self._push(self.solver_2)
 
+                    self._add_assertion(self.solver_2, self.at_time(Not(prop), t_prop))
+
+                    if self._solve(self.solver_2):
+                        Logger.log("Induction (lF & !P) failed with k=%s"%(t), 1)
+                    else:
+                        Logger.log("Induction holds with k=%s"%(t), 1)
+                        Logger.log("", 0, not(Logger.level(1)))
+                        return (t, True)
+
+                    self._pop(self.solver_2)
+
+                    self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
+                else:
+                    if not next_prop:
+                        self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
+
+            trans_t = self.unroll(trans, invar, t+1, t)
+            self._add_assertion(self.solver, trans_t)
+                    
             t += 1
+            
         Logger.log("", 0, not(Logger.level(1)))
 
         return (-1, None)
 
-    def solve_inc_bwd(self, hts, prop, k):
+    def solve_inc_bwd(self, hts, prop, k, assert_property=False):
         self._reset_assertions(self.solver)
 
         if TS.has_next(prop):
@@ -545,9 +662,7 @@ class BMC(MCSolver):
             Logger.log("Add init at time %d"%t, 2)
             self._add_assertion(self.solver, pinit)
 
-            res = self._solve(self.solver)
-
-            if res:
+            if self._solve(self.solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
@@ -561,7 +676,7 @@ class BMC(MCSolver):
             trans_t = self.unroll(trans, invar, t, t+1)
             self._add_assertion(self.solver, trans_t)
 
-            if self.assert_property and t > 0:
+            if assert_property and t > 0:
                 prop_t = self.unroll(TRUE(), prop, t-1, t)
                 self._add_assertion(self.solver, prop_t)
                 Logger.log("Add property at time %d"%t, 2)
@@ -603,9 +718,7 @@ class BMC(MCSolver):
             Logger.log("Add equivalence time %d"%t, 2)
             self._add_assertion(self.solver, eq)
 
-            res = self._solve(self.solver)
-
-            if res:
+            if self._solve(self.solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
                 Logger.log("", 0, not(Logger.level(1)))
@@ -628,6 +741,7 @@ class BMC(MCSolver):
 
         return (-1, None)
 
+    
     def safety(self, prop, k, k_min):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
@@ -652,7 +766,7 @@ class BMC(MCSolver):
         if self.config.strategy == ZZ:
             return self._remap_model_zz(vars, model, k)
 
-        if self.config.strategy in [FWD, NU]:
+        if self.config.strategy in [FWD, NU, INT]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
@@ -671,9 +785,9 @@ class BMC(MCSolver):
         full_model = {}
         
         if all_vars:
-            relevant_vars = self.hts.vars
+            relevant_vars = hts.vars
         else:
-            relevant_vars = self.hts.state_vars | self.hts.inputs | self.hts.outputs
+            relevant_vars = hts.state_vars | hts.inputs | hts.outputs
         
         relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]
@@ -685,9 +799,8 @@ class BMC(MCSolver):
         # Picking Initial State
         Logger.log("\nSolving for k=0", 1)
         self._add_assertion(self.solver, And(init_0, invar_0))
-        res = self._solve(self.solver)
 
-        if res:
+        if self._solve(self.solver):
             init_model =  self._get_model(self.solver, relevant_vars_0)
             init_0 = And([EqualsOrIff(v, init_model[v]) for v in relevant_vars_0])
 

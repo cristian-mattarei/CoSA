@@ -8,7 +8,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from six.moves import cStringIO
+
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
+from pysmt.rewritings import conjunctive_partition
+from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.utils.logger import Logger
 from cosa.transition_systems import TS, HTS
@@ -18,6 +22,7 @@ FWD = "FWD"
 BWD = "BWD"
 ZZ  = "ZZ"
 NU  = "NU"
+INT  = "INT"
 
 class MCConfig(object):
 
@@ -53,6 +58,7 @@ class MCConfig(object):
         strategies.append((FWD, "Forward reachability"))
         strategies.append((BWD, "Backward reachability"))
         strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((INT, "Interpolation"))
         strategies.append((NU,  "States picking without unrolling (only for simulation)"))
 
         return strategies
@@ -158,7 +164,7 @@ class MCSolver(object):
 
         if solver.trace_file is not None:
             if comment:
-                self._write_smt2_comment(solver, comment)
+                self._write_smt2_comment(solver, "%s: START"%comment)
 
             formula_fv = get_free_variables(formula)
                 
@@ -195,6 +201,9 @@ class MCSolver(object):
                 printer.printer(formula)
                 self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
 
+            if comment:
+                self._write_smt2_comment(solver, "%s: END"%comment)
+                                
 
     def _push(self, solver):
         if not self.config.skip_solving:
