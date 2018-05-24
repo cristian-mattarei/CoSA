@@ -643,6 +643,8 @@ class ModuleSymbols(object):
 
     @staticmethod
     def Const(out, value):
+        if value is None:
+            return None
         if out.symbol_type() == BOOL:
             const = TRUE() if value == 1 else FALSE()
         else:
