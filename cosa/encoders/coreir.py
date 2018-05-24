@@ -13,7 +13,7 @@ import sys
 
 from six.moves import cStringIO
 
-from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract
+from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract, BVConcat
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
@@ -604,6 +604,18 @@ class CoreIRParser(ModelParser):
                     new_conns.append(((first, single_conn[0]),(second, single_conn[1])))
             else:
                 ((min_1, max_1), (min_2, max_2)) = new_conn
+
+                symlen_1 = first.symbol_type().width if first.is_symbol() else first.bv_width()
+                symlen_2 = second.symbol_type().width if second.is_symbol() else second.bv_width()
+
+                if (max_1-min_1)+1 == symlen_1:
+                    min_1 = None
+                    max_1 = None
+
+                if (max_2-min_2)+1 == symlen_2:
+                    min_2 = None
+                    max_2 = None
+                
                 new_conns.append(((first, min_1, max_1),(second, min_2, max_2)))
                 
         return new_conns
@@ -632,10 +644,20 @@ class CoreIRParser(ModelParser):
             if (min_1 == inds_1[0]) and (min_2 == inds_2[0]) and (max_1 == inds_1[-1]) and (max_2 == inds_2[-1]) \
                and (d_min == d_max) and (len(inds_1) == len(inds_2)):
                 return (first, second, ((min_1, max_1), (min_2, max_2)))
+
+            # Transposed and inverted set e.g., [0,1,2,3] = [8,7,6,5]
+            if (min_1 == inds_1[0]) and (min_2 == inds_2[-1]) and (max_1 == inds_1[-1]) and (max_2 == inds_2[0]) \
+               and (d_min == d_max) and (len(inds_1) == len(inds_2)):
+                second = self.__get_reverse_encoding(second)
+                return (first, second, ((min_1, max_1), (min_1, max_1)))
             
         return (first, second, None)
     
-
+    def __get_reverse_encoding(self, bvin):
+        ret = BVExtract(bvin, 0, 0)
+        for i in range(bvin.symbol_type().width-1):
+            ret = BVConcat(ret, BVExtract(bvin, i+1, i+1))
+        return ret
     
     def __recombine_constants(self, first, second, zeros, ones):
 

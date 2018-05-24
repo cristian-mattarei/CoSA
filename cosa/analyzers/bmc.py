@@ -601,7 +601,7 @@ class BMC(MCSolver):
                     self._add_assertion(self.solver, acc_loop_free)
                     
                     if self._solve(self.solver):
-                        Logger.log("Induction 1 failed with k=%s"%(t), 1)
+                        Logger.log("Induction (I & lF) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
@@ -618,7 +618,7 @@ class BMC(MCSolver):
                     self._add_assertion(self.solver_2, self.at_time(Not(prop), t_prop))
 
                     if self._solve(self.solver_2):
-                        Logger.log("Induction 2 failed with k=%s"%(t), 1)
+                        Logger.log("Induction (lF & !P) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
