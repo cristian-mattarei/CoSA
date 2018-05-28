@@ -172,17 +172,24 @@ class HTS(object):
 
         def type_vars(varset, prefix=""):
             ret = {}
+            totbits = 0
             for v in varset:
                 stype = v.symbol_type()
                 if stype not in ret:
                     ret[stype] = 0
                 ret[stype] += 1
+
+                if stype.is_bv_type():
+                    totbits += stype.width
+                
             rlist = [(ret[t], str(t)) for t in ret]
             rlist.sort()
             rlist.reverse()
             rstr = []
             for rtype in rlist:
                 rstr.append("%s%s:\t%d"%(prefix, rtype[1], rtype[0]))
+
+            rstr.append("%sBits:\t%d"%(prefix, totbits))
             return "\n".join(rstr)
         
         stat = []
