@@ -179,9 +179,8 @@ class HTS(object):
                     ret[stype] = 0
                 ret[stype] += 1
 
-            for stype in ret:
                 if stype.is_bv_type():
-                    totbits += (stype.width*ret[stype])
+                    totbits += stype.width
                 
             rlist = [(ret[t], str(t)) for t in ret]
             rlist.sort()
