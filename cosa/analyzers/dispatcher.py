@@ -159,7 +159,7 @@ class ProblemSolver(object):
             Logger.error("Filetype \"%s\" unsupported"%filetype)
 
         if Logger.level(1):
-            print(hts.print_statistics(name))
+            print(hts.print_statistics(name, Logger.level(2)))
 
         return hts
 

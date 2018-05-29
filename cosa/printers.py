@@ -215,6 +215,8 @@ class SMVPrinter(HRPrinter):
 
     def walk_bv_ult(self, formula): return self.walk_nary(formula, " < ")
 
+    def walk_bv_ule(self, formula): return self.walk_nary(formula, " <= ")
+    
     def walk_symbol(self, formula):
         self.write("\"%s\""%formula.symbol_name())
 

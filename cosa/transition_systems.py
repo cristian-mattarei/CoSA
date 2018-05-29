@@ -168,13 +168,44 @@ class HTS(object):
         new_hts.sub = list(new_hts.sub)
         return new_hts
 
-    def print_statistics(self, name=None):
+    def print_statistics(self, name=None, detailed=False):
+
+        def type_vars(varset, prefix=""):
+            ret = {}
+            totbits = 0
+            for v in varset:
+                stype = v.symbol_type()
+                if stype not in ret:
+                    ret[stype] = 0
+                ret[stype] += 1
+
+                if stype.is_bv_type():
+                    totbits += stype.width
+                
+            rlist = [(ret[t], str(t)) for t in ret]
+            rlist.sort()
+            rlist.reverse()
+            rstr = []
+            for rtype in rlist:
+                rstr.append("%s%s:\t%d"%(prefix, rtype[1], rtype[0]))
+
+            rstr.append("%sBits:\t%d"%(prefix, totbits))
+            return "\n".join(rstr)
+        
         stat = []
         stat.append("Statistics (%s):"%(self.name if name is None else name))
         stat.append("  Variables:\t%s"%(len(self.vars)))
+        if detailed:
+            stat.append(type_vars(self.vars, "   - "))
         stat.append("  StateVars:\t%s"%(len(self.state_vars)))
+        if detailed:
+            stat.append(type_vars(self.state_vars, "   - "))
         stat.append("  Inputs:\t%s"%(len(self.inputs)))
+        if detailed:
+            stat.append(type_vars(self.inputs, "   - "))
         stat.append("  Outputs:\t%s"%(len(self.outputs)))
+        if detailed:
+            stat.append(type_vars(self.outputs, "   - "))
         return "\n".join(stat)
     
 class TS(object):

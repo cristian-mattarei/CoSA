@@ -293,7 +293,7 @@ def run_verification(config):
         Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
 
         if Logger.level(1):
-            print(hts2.print_statistics("System 2"))
+            print(hts2.print_statistics("System 2", Logger.level(2)))
 
         # TODO: Make incremental solving optional
         htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)

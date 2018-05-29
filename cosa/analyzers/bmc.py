@@ -509,7 +509,7 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=True):
+    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=False):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
@@ -581,6 +581,7 @@ class BMC(MCSolver):
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
+                    #self._add_assertion(self.solver, Not(n_prop_t))
             else:
                 Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
