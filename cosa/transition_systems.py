@@ -135,7 +135,7 @@ class HTS(object):
         self.init = None
         self.invar = None
         self.trans = None
-    
+
     def combine(self, other_hts):
         for ts in other_hts.tss:
             self.add_ts(ts)
@@ -189,7 +189,7 @@ class HTS(object):
             for rtype in rlist:
                 rstr.append("%s%s:\t%d"%(prefix, rtype[1], rtype[0]))
 
-            rstr.append("%sBits:\t%d"%(prefix, totbits))
+            rstr.append("%sTotal Bits: %d"%(prefix, totbits))
             return "\n".join(rstr)
         
         stat = []

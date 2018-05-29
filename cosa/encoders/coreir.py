@@ -464,11 +464,11 @@ class CoreIRParser(ModelParser):
             firstvar = first[0]
             secondvar = second[0]
 
-            if (firstvar is None) and (firstname in sym_map):
-                firstvar = sym_map[firstname][1]
+            if (firstvar is None) and (self.remap_or2an(firstname) in sym_map):
+                firstvar = sym_map[self.remap_or2an(firstname)][1]
                 
-            if (secondvar is None) and (secondname in sym_map):
-                secondvar = sym_map[secondname][1]
+            if (secondvar is None) and (self.remap_or2an(secondname) in sym_map):
+                secondvar = sym_map[self.remap_or2an(secondname)][1]
             
             if (firstvar is None) and (secondvar is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)

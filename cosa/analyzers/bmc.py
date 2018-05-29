@@ -145,90 +145,6 @@ class BMC(MCSolver):
 
         return (hr_trace, vcd_trace)
 
-    def fsm_check(self):
-        (htseq, t, model) = self.combined_system(self.hts, 1, True, False)
-
-        self._init_at_time(htseq.vars, k)
-
-        if t > -1:
-            Logger.log("FSM is NOT deterministic", 0)
-            self.print_trace(htseq, model, t, None, False, map_function=self.config.map_function)
-        else:
-            Logger.log("FSM is deterministic", 0)
-
-
-    # TODO: Deprecate this entirely. Need to update fsm_check
-    def combined_system(self, hts2, k, symbolic_init, inc=True):
-        htseq = HTS("eq")
-
-        map1 = dict([(v, TS.get_prefix(v, S1)) for v in self.hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S1)) for v in self.hts.vars])
-        map2 = dict([(v, TS.get_prefix(v, S2)) for v in self.hts.vars]+[(TS.get_prime(v), TS.get_prefix(TS.get_prime(v), S2)) for v in self.hts.vars])
-
-        ts1_init = TRUE()
-        ts2_init = TRUE()
-
-        if not symbolic_init:
-            ts1_init = self.hts.single_init().substitute(map1)
-            ts2_init = hts2.single_init().substitute(map2)
-
-        ts1 = TS(set([TS.get_prefix(v, S1) for v in self.hts.vars]),\
-                 ts1_init,\
-                 self.hts.single_trans().substitute(map1),\
-                 self.hts.single_invar().substitute(map1))
-        ts1.state_vars = set([TS.get_prefix(v, S1) for v in self.hts.state_vars])
-
-        ts2 = TS(set([TS.get_prefix(v, S2) for v in hts2.vars]),\
-                 ts2_init,\
-                 hts2.single_trans().substitute(map2),\
-                 hts2.single_invar().substitute(map2))
-        ts2.state_vars = set([TS.get_prefix(v, S2) for v in hts2.state_vars])
-
-        htseq.add_ts(ts1)
-        htseq.add_ts(ts2)
-
-        inputs = self.hts.inputs.intersection(hts2.inputs)
-        outputs = self.hts.outputs.intersection(hts2.outputs)
-
-        htseq.inputs = set([TS.get_prefix(v, S1) for v in self.hts.inputs]).union(set([TS.get_prefix(v, S2) for v in hts2.inputs]))
-        htseq.outputs = set([TS.get_prefix(v, S1) for v in self.hts.outputs]).union(set([TS.get_prefix(v, S2) for v in hts2.outputs]))
-
-        if symbolic_init:
-            states = self.hts.state_vars.intersection(hts2.state_vars)
-        else:
-            states = []
-
-        eqinputs = TRUE()
-        eqoutputs = TRUE()
-        eqstates = TRUE()
-
-        for inp in inputs:
-            eqinputs = And(eqinputs, EqualsOrIff(TS.get_prefix(inp, S1), TS.get_prefix(inp, S2)))
-
-        for out in outputs:
-            eqoutputs = And(eqoutputs, EqualsOrIff(TS.get_prefix(out, S1), TS.get_prefix(out, S2)))
-
-        for svar in states:
-            eqstates = And(eqstates, EqualsOrIff(TS.get_prefix(svar, S1), TS.get_prefix(svar, S2)))
-
-        miter_out = Symbol("eq_S1_S2", BOOL)
-
-        if symbolic_init:
-            eqmiteroutputs = Iff(miter_out, Implies(eqstates, eqoutputs))
-        else:
-            eqmiteroutputs = Iff(miter_out, eqoutputs)
-
-        htseq.add_ts(TS(set([miter_out]), TRUE(), TRUE(), And(eqinputs, eqmiteroutputs)))
-        self._init_at_time(htseq.vars, k)
-
-        if inc:
-            (t, model) = self.solve(htseq, miter_out, k)
-            model = self._remap_model(htseq.vars, model, k)
-        else:
-            (t, model) = self.solve_fwd(htseq, miter_out, k, False)
-
-        return (htseq, t, model)
-
-
     def simulate(self, prop, k):
         if self.config.strategy == NU:
             self._init_at_time(self.hts.vars, 1)
@@ -361,7 +277,7 @@ class BMC(MCSolver):
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
 
-        return (-1, None)
+        return (t-1, None)
     
     def solve_fwd(self, hts, prop, k, shortest=True):
 
@@ -399,7 +315,7 @@ class BMC(MCSolver):
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
 
-        return (-1, None)
+        return (t-1, None)
     
     def _check_lemma(self, hts, lemma, init, trans):
 
@@ -639,7 +555,7 @@ class BMC(MCSolver):
             
         Logger.log("", 0, not(Logger.level(1)))
 
-        return (-1, None)
+        return (t-1, None)
 
     def solve_inc_bwd(self, hts, prop, k, assert_property=False):
         self._reset_assertions(self.solver)
@@ -685,7 +601,7 @@ class BMC(MCSolver):
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
 
-        return (-1, None)
+        return (t-1, None)
 
     def solve_inc_zz(self, hts, prop, k):
         self._reset_assertions(self.solver)
@@ -740,7 +656,7 @@ class BMC(MCSolver):
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
 
-        return (-1, None)
+        return (t-1, None)
 
     
     def safety(self, prop, k, k_min):
@@ -750,7 +666,7 @@ class BMC(MCSolver):
 
         if model == True:
             return (VerificationStatus.TRUE, None, t)
-        elif t > -1:
+        elif model is not None:
             model = self._remap_model(self.hts.vars, model, t)
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
             return (VerificationStatus.FALSE, trace, t)
