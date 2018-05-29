@@ -296,8 +296,8 @@ def run_verification(config):
 
             if Logger.level(1):
                 print(hts2.print_statistics("System 2", Logger.level(2)))
-
-        hts2 = hts
+        else:
+            hts2 = hts
                 
         # TODO: Make incremental solving optional
         htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)
