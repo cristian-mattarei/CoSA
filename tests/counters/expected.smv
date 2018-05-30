@@ -138,7 +138,7 @@ INIT
 ("self.clk" = 0ud1_0);
 
 TRANS
-((("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)) & (("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)));
+((("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)) & (("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)));
 
 ---------------------------
 
@@ -147,6 +147,6 @@ TRANS
 --------------
 
 INVAR
-(("count1.r.clrMux.sel" = "count1.r.reg0.out"[4:4]) & ("count0.a.in0" = 0ud16_1) & ("count0.r.clrMux.sel" = "count1.r.reg0.out"[8:8]) & ("count1.r.clrMux.out" = "count1.r.reg0.in") & ("count1.a.in0" = 0ud16_1) & ("count0.r.clrMux.in1" = 0ud16_0) & ("count1.a.out" = "count1.r.clrMux.in0") & ("count0.r.reg0.clk" = "self.clk") & ("count1.a.in1" = "count1.r.reg0.out") & ("count0.a.out" = "count0.r.clrMux.in0") & ("count0.a.in1" = "count0.r.reg0.out") & ("count1.r.clrMux.in1" = 0ud16_0) & ("count1.r.reg0.clk" = "self.clk") & ("count0.r.clrMux.out" = "count0.r.reg0.in"));
+(("count1.r.clrMux.sel" = "count1.r.reg0.out"[4:4]) & ("count1.a.in1" = "count1.r.reg0.out") & ("count1.r.clrMux.in1" = 0ud16_0) & ("count1.a.in0" = 0ud16_1) & ("count0.a.out" = "count0.r.clrMux.in0") & ("count0.r.clrMux.sel" = "count1.r.reg0.out"[8:8]) & ("count0.r.clrMux.out" = "count0.r.reg0.in") & ("count1.r.clrMux.out" = "count1.r.reg0.in") & ("count1.a.out" = "count1.r.clrMux.in0") & ("count0.a.in0" = 0ud16_1) & ("count0.a.in1" = "count0.r.reg0.out") & ("count0.r.clrMux.in1" = 0ud16_0) & ("count1.r.reg0.clk" = "self.clk") & ("count0.r.reg0.clk" = "self.clk"));
 
 --------------

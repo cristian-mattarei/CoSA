@@ -58,7 +58,7 @@ INIT
 ("r.reg0.out" = 0ud16_0);
 
 TRANS
-("r.reg0.out_N" = ((("r.reg0.clk" = 0ud1_0) & ("r.reg0.clk_N" = 0ud1_1)) ? "r.reg0.in" : "r.reg0.out"));
+("r.reg0.out_N" = ((("r.reg0.clk_N" = 0ud1_1) & ("r.reg0.clk" = 0ud1_0)) ? "r.reg0.in" : "r.reg0.out"));
 
 ---------------------------------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ INIT
 ("self.clk" = 0ud1_0);
 
 TRANS
-((("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)) & (("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)));
+((("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)) & (("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)));
 
 ---------------------------
 
@@ -93,6 +93,6 @@ DEFINE
 "self.out_N" := next("self.out");
 
 INVAR
-(("r.clrMux.in1" = 0ud16_0) & ("r.reg0.out" = "self.out") & ("a.out" = "r.clrMux.in0") & ("a.in1" = "r.reg0.out") & ("r.reg0.clk" = "self.clk") & ("a.in0" = 0ud16_1) & ("r.clrMux.sel" = "self.clr") & ("r.clrMux.out" = "r.reg0.in"));
+(("a.out" = "r.clrMux.in0") & ("r.clrMux.out" = "r.reg0.in") & ("r.reg0.out" = "self.out") & ("r.clrMux.in1" = 0ud16_0) & ("a.in0" = 0ud16_1) & ("r.clrMux.sel" = "self.clr") & ("a.in1" = "r.reg0.out") & ("r.reg0.clk" = "self.clk"));
 
 --------------

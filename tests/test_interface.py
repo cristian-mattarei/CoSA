@@ -11,6 +11,7 @@
 import os
 
 from CoSA import Config, run_verification
+from pysmt.shortcuts import reset_env
 
 abspath = os.path.abspath(__file__)
 path = ("/".join(abspath.split("/")[:-1]))
@@ -29,6 +30,7 @@ def files_eq(file1, file2):
     return strf1 == strf2
 
 def runtest(test):
+    reset_env()
     (path, example) = test
     config = Config()
     status = True
@@ -44,8 +46,8 @@ def runtest(test):
 
     run_verification(config)
 
-    # status = files_eq(path+EXPECTED, path+GENERATED)
-    # assert status
+    status = files_eq(path+EXPECTED, path+GENERATED)
+    assert status
     return status
     
 def test_problem():
