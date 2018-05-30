@@ -23,6 +23,7 @@ def runtest(example):
     config.verbosity = 3
     config.solver_name = "msat"
     config.prove = True
+    config.vcd = True
 
     list_status = run_problems("%s/problem.txt"%example, config)
 

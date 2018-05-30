@@ -67,6 +67,7 @@ class Config(object):
     vcd = False
     prove = False
     incremental = True
+    deterministic = False
 
     def __init__(self):
         PrintersFactory.init_printers()
@@ -101,8 +102,8 @@ class Config(object):
         self.vcd = False
         self.prove = False
         self.incremental = True
-
-
+        self.deterministic = False
+        
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
     if vcd_trace:
@@ -150,7 +151,7 @@ def run_verification(config):
 
     if config.strfiles[0][-4:] != ".pkl":
         ps = ProblemSolver()
-        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init)
+        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic)
         config.parser = ps.parser
 
         if config.pickle_file:
