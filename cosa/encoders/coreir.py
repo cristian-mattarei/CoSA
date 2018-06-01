@@ -13,7 +13,7 @@ import sys
 
 from six.moves import cStringIO
 
-from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract, BVConcat
+from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract, BVConcat, Ite
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 

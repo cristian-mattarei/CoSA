@@ -92,7 +92,7 @@ INIT
 ("reg3.out" = 0ud16_0);
 
 TRANS
-("reg3.out_N" = ((("reg3.clk" = 0ud1_1) & ("reg3.clk_N" = 0ud1_0)) ? "reg3.in" : "reg3.out"));
+("reg3.out_N" = ((("reg3.clk_N" = 0ud1_0) & ("reg3.clk" = 0ud1_1)) ? "reg3.in" : "reg3.out"));
 
 --------------------------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ INIT
 ("reg4.out" = 0ud16_0);
 
 TRANS
-("reg4.out_N" = ((("reg4.clk_N" = 0ud1_1) & ("reg4.clk" = 0ud1_0)) ? "reg4.in" : "reg4.out"));
+("reg4.out_N" = ((("reg4.clk" = 0ud1_0) & ("reg4.clk_N" = 0ud1_1)) ? "reg4.in" : "reg4.out"));
 
 ---------------------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ INIT
 ("self.clk" = 0ud1_0);
 
 TRANS
-((("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)) & (("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)));
+((("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)) & (("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)));
 
 ---------------------------
 
@@ -176,6 +176,6 @@ DEFINE
 "self.out4_N" := next("self.out4");
 
 INVAR
-(("reg2.arst" = "rstwrap.out") & ("reg3.arst" = "rstwrap.out") & ("reg2.clk" = "self.clk") & ("reg3.clk" = "self.clk") & ("reg0.clk" = "self.clk") & ("reg4.in" = "self.in") & ("reg1.in" = "self.in") & ("reg0.out" = "self.out0") & ("reg2.out" = "self.out2") & ("reg1.clk" = "self.clk") & ("reg3.in" = "self.in") & ("reg2.in" = "self.in") & ("reg1.out" = "self.out1") & ("reg4.out" = "self.out4") & ("reg3.out" = "self.out3") & ("rstwrap.in" = "self.arst") & ("reg0.in" = "self.in") & ("reg0.arst" = "rstwrap.out") & ("reg1.arst" = "rstwrap.out") & ("reg4.clk" = "self.clk"));
+(("reg0.in" = "self.in") & ("reg1.clk" = "self.clk") & ("reg2.out" = "self.out2") & ("reg1.in" = "self.in") & ("reg4.clk" = "self.clk") & ("reg3.clk" = "self.clk") & ("reg4.out" = "self.out4") & ("reg3.in" = "self.in") & ("reg0.clk" = "self.clk") & ("reg0.out" = "self.out0") & ("reg1.out" = "self.out1") & ("rstwrap.in" = "self.arst") & ("reg3.arst" = "rstwrap.out") & ("reg0.arst" = "rstwrap.out") & ("reg3.out" = "self.out3") & ("reg4.in" = "self.in") & ("reg2.clk" = "self.clk") & ("reg2.arst" = "rstwrap.out") & ("reg1.arst" = "rstwrap.out") & ("reg2.in" = "self.in"));
 
 --------------

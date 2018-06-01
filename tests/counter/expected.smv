@@ -1,5 +1,12 @@
 MODULE main
 
+INVARSPEC ("self.out" < 0ud16_4);
+
+INVARSPEC ("self.out" = 0ud16_4);
+
+-- ASSUMPTIONS
+INVAR (("en_clr" = 0ud1_0) -> ("self.clr" = 0ud1_0));
+
 ------------------------------------------------
 -- BVAdd (in0, in1, out) = (a.in0, a.in1, a.out)
 ------------------------------------------------
@@ -58,7 +65,7 @@ INIT
 ("r.reg0.out" = 0ud16_0);
 
 TRANS
-("r.reg0.out_N" = ((("r.reg0.clk_N" = 0ud1_1) & ("r.reg0.clk" = 0ud1_0)) ? "r.reg0.in" : "r.reg0.out"));
+("r.reg0.out_N" = ((("r.reg0.clk" = 0ud1_0) & ("r.reg0.clk_N" = 0ud1_1)) ? "r.reg0.in" : "r.reg0.out"));
 
 ---------------------------------------------------------------------------------------------
 
@@ -93,6 +100,45 @@ DEFINE
 "self.out_N" := next("self.out");
 
 INVAR
-(("a.out" = "r.clrMux.in0") & ("r.clrMux.out" = "r.reg0.in") & ("r.reg0.out" = "self.out") & ("r.clrMux.in1" = 0ud16_0) & ("a.in0" = 0ud16_1) & ("r.clrMux.sel" = "self.clr") & ("a.in1" = "r.reg0.out") & ("r.reg0.clk" = "self.clk"));
+(("a.in1" = "r.reg0.out") & ("r.reg0.out" = "self.out") & ("a.out" = "r.clrMux.in0") & ("r.clrMux.out" = "r.reg0.in") & ("r.reg0.clk" = "self.clk") & ("r.clrMux.in1" = 0ud16_0) & ("r.clrMux.sel" = "self.clr") & ("a.in0" = 0ud16_1));
 
 --------------
+
+--------------------
+-- Additional system
+--------------------
+
+VAR
+"en_clr" : word[1];
+
+DEFINE
+"en_clr_N" := next("en_clr");
+
+INIT
+("en_clr" = 0ud1_0);
+
+TRANS
+((("en_clr" = 0ud1_1) -> ("en_clr_N" = 0ud1_1)) & (("en_clr" = 0ud1_0) -> ((0ud16_5 < "self.out") <-> ("en_clr_N" = 0ud1_1))));
+
+--------------------
+
+--------------------
+-- Additional system
+--------------------
+
+VAR
+"_-_state_id_-_" : word[2];
+
+DEFINE
+"_-_state_id_-__N" := next("_-_state_id_-_");
+
+INIT
+(("_-_state_id_-_" = 0ud2_0) & ("en_clr" = 0ud1_0));
+
+INVAR
+(("_-_state_id_-_" <= 0ud2_3) & (("_-_state_id_-_" = 0ud2_3) -> ("en_clr" = 0ud1_0)) & (("_-_state_id_-_" = 0ud2_2) -> ("en_clr" = 0ud1_0)) & (("_-_state_id_-_" = 0ud2_0) -> ("en_clr" = 0ud1_0)));
+
+TRANS
+((("_-_state_id_-_" = 0ud2_3) -> (("_-_state_id_-__N" = 0ud2_1) | ("_-_state_id_-__N" = 0ud2_3))) & (("_-_state_id_-_" = 0ud2_0) -> ("_-_state_id_-__N" = 0ud2_2)) & (("_-_state_id_-_" = 0ud2_1) -> ("_-_state_id_-__N" = 0ud2_1)) & (("_-_state_id_-_" = 0ud2_2) -> ("_-_state_id_-__N" = 0ud2_3)));
+
+--------------------

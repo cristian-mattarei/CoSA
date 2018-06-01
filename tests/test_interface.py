@@ -15,7 +15,7 @@ from pysmt.shortcuts import reset_env
 
 abspath = os.path.abspath(__file__)
 path = ("/".join(abspath.split("/")[:-1]))
-testmodels = [(d[0], d[0]+"/"+[f for f in d[2] if ".json" in f][0]) for d in os.walk(path) if d[0] != path and "__" not in d[0]]
+testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
 
 EXPECTED = "/expected.smv"
 GENERATED = "/test.smv"
@@ -29,9 +29,9 @@ def files_eq(file1, file2):
 
     return strf1 == strf2
 
-def runtest(test):
+def run_translation(path):
     reset_env()
-    (path, example) = test
+
     config = Config()
     status = True
     
@@ -39,21 +39,46 @@ def runtest(test):
     config.verbosity = 3
     config.solver_name = "msat"
     config.prove = True
-    config.strfiles = example
     config.translate = path+GENERATED
     config.printer = "SMV"
     config.deterministic = True
 
+    if os.path.isfile("%s/assumptions.txt"%path):
+        config.assumptions = "%s/assumptions.txt"%path
+
+    if os.path.isfile("%s/properties.txt"%path):
+        config.properties = "%s/properties.txt"%path
+
+    if os.path.isfile("%s/lemmas.txt"%path):
+        config.lemmas = "%s/lemmas.txt"%path
+
+    models = list(os.walk(path))[-1][-1]
+    j_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] == "json"]
+    s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["ets","sts"]]
+    
+    config.strfiles = ",".join(j_files+s_files)
+        
+    parsing_defs = [config.properties, config.lemmas, config.assumptions]
+    for i in range(len(parsing_defs)):
+        if parsing_defs[i] is not None:
+            if os.path.isfile(parsing_defs[i]):
+                with open(parsing_defs[i]) as f:
+                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
+            else:
+                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+
+    [config.properties, config.lemmas, config.assumptions] = parsing_defs
+        
     run_verification(config)
 
     # status = files_eq(path+EXPECTED, path+GENERATED)
     # assert status
     return status
     
-def test_problem():
-    for test in testmodels:
-        yield runtest, test
+def test_translation():
+    for test in testdirs:
+        yield run_translation, test
 
 if __name__ == "__main__":
-    for test in testmodels:
-        runtest(test)
+    for test in testdirs:
+        run_translation(test)

@@ -33,8 +33,7 @@ from cosa.encoders.miter import Miter
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.transition_systems import HTS
 
-from pysmt.shortcuts import TRUE
-
+from pysmt.shortcuts import TRUE, reset_env
 
 class Config(object):
     parser = None
@@ -141,6 +140,7 @@ def get_file_flags(strfile):
     return (strfile, flags)
                         
 def run_verification(config):
+    reset_env()
     Logger.verbosity = config.verbosity
 
     coreir_parser = None
@@ -151,7 +151,7 @@ def run_verification(config):
 
     if config.strfiles[0][-4:] != ".pkl":
         ps = ProblemSolver()
-        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic)
+        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean)
         config.parser = ps.parser
 
         if config.pickle_file:
@@ -327,6 +327,7 @@ def run_verification(config):
             Logger.log(msg%("")+" up to k=%i"%t, 0)
 
 def run_problems(problems, config):
+    reset_env()
     Logger.verbosity = config.verbosity
     pbms = Problems()
     psol = ProblemSolver()
