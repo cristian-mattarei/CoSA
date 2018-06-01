@@ -15,7 +15,6 @@ from six.moves import cStringIO
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.shortcuts import Interpolator
 from pysmt.oracles import get_logic
-from pysmt.typing import _BVType, ArrayType
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.utils.logger import Logger

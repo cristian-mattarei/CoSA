@@ -14,7 +14,7 @@ import sys
 from six.moves import cStringIO
 
 from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract, BVConcat, Ite
-from pysmt.typing import BOOL, _BVType
+from pysmt.typing import BOOL, BVType
 from pysmt.smtlib.printers import SmtPrinter
 
 from cosa.transition_systems import TS, HTS, L_BV, L_ABV
@@ -126,7 +126,7 @@ class CoreIRParser(ModelParser):
         if self.boolean and (width == 1):
             return Symbol(name, BOOL)
 
-        return Symbol(name, _BVType(width))
+        return Symbol(name, BVType(width))
 
         
     def __init_attrnames(self):

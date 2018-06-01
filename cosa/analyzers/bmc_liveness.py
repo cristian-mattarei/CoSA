@@ -13,7 +13,7 @@ import math
 
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.typing import BOOL, _BVType
+from pysmt.typing import BOOL
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
