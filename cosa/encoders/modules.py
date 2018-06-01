@@ -14,7 +14,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
     BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
     Array, Select, Store
-from pysmt.typing import BOOL, _BVType, ArrayType
+from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.transition_systems import TS, HTS, L_BV, L_ABV
 from cosa.utils.logger import Logger
@@ -348,7 +348,7 @@ class Modules(object):
             if out.symbol_type() == BOOL:
                 initvar = Symbol(initname, BOOL)
             else:
-                initvar = Symbol(initname, _BVType(out.symbol_type().width))
+                initvar = Symbol(initname, BVType(out.symbol_type().width))
 
             trans = And(trans, EqualsOrIff(initvar, TS.get_prime(initvar)))
             vars_.append(initvar)

@@ -10,7 +10,7 @@
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
-from pysmt.typing import BOOL, _BVType
+from pysmt.typing import BOOL, BVType
 
 from cosa.transition_systems import HTS, TS
 from cosa.encoders.formulae import StringParser
@@ -132,7 +132,7 @@ class SymbolicTSParser(object):
     def _define_var(self, var):
         varname, vartype, size = var
         if vartype == T_BV:
-            return Symbol(varname, _BVType(int(size)))
+            return Symbol(varname, BVType(int(size)))
 
         Logger.error("Unsupported type: %s"%vartype)
     

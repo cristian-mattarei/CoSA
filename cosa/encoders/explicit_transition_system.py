@@ -10,7 +10,7 @@
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
-from pysmt.typing import BOOL, _BVType
+from pysmt.typing import BOOL, BVType
 
 from cosa.transition_systems import HTS, TS
 from cosa.printers import HIDDEN
@@ -119,7 +119,7 @@ class ExplicitTSParser(object):
                 continue
             if line.init:
                 (value, width) = self.__get_bv_value(line.init.value)
-                ivar = Symbol(line.init.varname, _BVType(width))
+                ivar = Symbol(line.init.varname, BVType(width))
 
                 if T_I not in states:
                     states[T_I] = TRUE()
@@ -132,7 +132,7 @@ class ExplicitTSParser(object):
                 sname = T_S + line.state.id
                 if line.state.value != T_TRUE:
                     (value, width) = self.__get_bv_value(line.state.value)
-                    ivar = Symbol(line.state.varname, _BVType(width))
+                    ivar = Symbol(line.state.varname, BVType(width))
                     state = EqualsOrIff(ivar, BV(value, width))
 
                     assval = (sname, line.state.varname)
@@ -147,7 +147,7 @@ class ExplicitTSParser(object):
                 states[sname] = And(states[sname], state)
                 
         stateid_width = math.ceil(math.log(len(states))/math.log(2))
-        stateid_var = Symbol(STATE_ID, _BVType(stateid_width))
+        stateid_var = Symbol(STATE_ID, BVType(stateid_width))
 
         init = And(init, EqualsOrIff(stateid_var, BV(0, stateid_width)))
         invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(0, stateid_width)), states[T_I]))
