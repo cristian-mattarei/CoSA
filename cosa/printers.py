@@ -136,7 +136,10 @@ class SMVHTSPrinter(HTSPrinter):
         for ts in hts.tss:
             printed_vars = self.__print_single_hts(ts, printed_vars)
 
-        return self.stream.getvalue()
+        ret = self.stream.getvalue()
+        self.stream.truncate(0)
+        self.stream.seek(0)
+        return ret
 
     def names(self, name):
         return "\"%s\""%name

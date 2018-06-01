@@ -123,7 +123,7 @@ class ProblemSolver(object):
         (strfile, flags) = (strfile[:strfile.index(FLAG_SR)], strfile[strfile.index(FLAG_SR)+1:strfile.index(FLAG_ST)].split(FLAG_SP))
         return (strfile, flags)
         
-    def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None):
+    def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None, deterministic=False, boolean=False):
         hts = HTS("System 1")
 
         models = model_files.split(MODEL_SP)
@@ -131,12 +131,14 @@ class ProblemSolver(object):
         for strfile in models:
             (strfile, flags) = self.get_file_flags(strfile)
             filetype = strfile.split(".")[-1]
-            strfile = relative_path+strfile
+            if strfile[0] != "/":
+                strfile = relative_path+strfile
             parser = None
 
             if filetype == CoreIRParser.get_extension():
                 parser = CoreIRParser(abstract_clock, symbolic_init)
-                parser.boolean = False
+                parser.boolean = boolean
+                parser.deterministic = deterministic
                 self.parser = parser
 
             if filetype == ExplicitTSParser.get_extension():
@@ -167,10 +169,10 @@ class ProblemSolver(object):
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
-            systems[('hts', si)] = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1")
+            systems[('hts', si)] = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1", boolean=problems.boolean)
 
         if problems.equivalence is not None:
-            systems[('hts2', si)] = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2")
+            systems[('hts2', si)] = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean)
         else:
             systems[('hts2', si)] = None
 

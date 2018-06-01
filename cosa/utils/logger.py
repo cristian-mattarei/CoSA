@@ -38,8 +38,8 @@ class Logger(object):
             lmsg = len(msg)
             Logger._last_inline = lmsg
             sys.stdout.write(msg)
-            sys.stdout.flush()
             sys.stdout.write('\b'*lmsg)
+            sys.stdout.flush()
 
     @staticmethod        
     def clear_inline(level, condition=True, max_level=10):

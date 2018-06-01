@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: counter.json,counter_live.sts
+model_file: counter.json,counter_live.sts,counter_live.ets
 
 [DEFAULT]
 bmc_length: 40

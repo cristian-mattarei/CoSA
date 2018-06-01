@@ -1,0 +1,144 @@
+MODULE main
+
+INVARSPEC ("self.out" < 0ud16_4);
+
+INVARSPEC ("self.out" = 0ud16_4);
+
+-- ASSUMPTIONS
+INVAR (("en_clr" = 0ud1_0) -> ("self.clr" = 0ud1_0));
+
+------------------------------------------------
+-- BVAdd (in0, in1, out) = (a.in0, a.in1, a.out)
+------------------------------------------------
+
+VAR
+"a.in0" : word[16];
+"a.in1" : word[16];
+"a.out" : word[16];
+
+DEFINE
+"a.in0_N" := next("a.in0");
+"a.in1_N" := next("a.in1");
+"a.out_N" := next("a.out");
+
+INVAR
+(("a.in0" + "a.in1") = "a.out");
+
+------------------------------------------------
+
+--------------------------------------------------------------------------------------
+-- Mux (in0, in1, sel, out) = (r.clrMux.in0, r.clrMux.in1, r.clrMux.sel, r.clrMux.out)
+--------------------------------------------------------------------------------------
+
+VAR
+"r.clrMux.in0" : word[16];
+"r.clrMux.in1" : word[16];
+"r.clrMux.out" : word[16];
+"r.clrMux.sel" : word[1];
+
+DEFINE
+"r.clrMux.in0_N" := next("r.clrMux.in0");
+"r.clrMux.in1_N" := next("r.clrMux.in1");
+"r.clrMux.out_N" := next("r.clrMux.out");
+"r.clrMux.sel_N" := next("r.clrMux.sel");
+
+INVAR
+("r.clrMux.out" = (("r.clrMux.sel" = 0ud1_0) ? "r.clrMux.in0" : "r.clrMux.in1"));
+
+--------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------------------
+-- Reg (in, clk, clr, rst, arst, out) = (r.reg0.in, r.reg0.clk, None, None, None, r.reg0.out)
+---------------------------------------------------------------------------------------------
+
+VAR
+"r.reg0.in" : word[16];
+"r.reg0.clk" : word[1];
+"r.reg0.out" : word[16];
+
+DEFINE
+"r.reg0.in_N" := next("r.reg0.in");
+"r.reg0.clk_N" := next("r.reg0.clk");
+"r.reg0.out_N" := next("r.reg0.out");
+
+INIT
+("r.reg0.out" = 0ud16_0);
+
+TRANS
+("r.reg0.out_N" = ((("r.reg0.clk" = 0ud1_0) & ("r.reg0.clk_N" = 0ud1_1)) ? "r.reg0.in" : "r.reg0.out"));
+
+---------------------------------------------------------------------------------------------
+
+---------------------------
+-- Clock (clk) = (self.clk)
+---------------------------
+
+VAR
+"self.clk" : word[1];
+
+DEFINE
+"self.clk_N" := next("self.clk");
+
+INIT
+("self.clk" = 0ud1_0);
+
+TRANS
+((("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)) & (("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)));
+
+---------------------------
+
+--------------
+-- Connections
+--------------
+
+VAR
+"self.clr" : word[1];
+"self.out" : word[16];
+
+DEFINE
+"self.clr_N" := next("self.clr");
+"self.out_N" := next("self.out");
+
+INVAR
+(("a.in1" = "r.reg0.out") & ("r.reg0.out" = "self.out") & ("a.out" = "r.clrMux.in0") & ("r.clrMux.out" = "r.reg0.in") & ("r.reg0.clk" = "self.clk") & ("r.clrMux.in1" = 0ud16_0) & ("r.clrMux.sel" = "self.clr") & ("a.in0" = 0ud16_1));
+
+--------------
+
+--------------------
+-- Additional system
+--------------------
+
+VAR
+"en_clr" : word[1];
+
+DEFINE
+"en_clr_N" := next("en_clr");
+
+INIT
+("en_clr" = 0ud1_0);
+
+TRANS
+((("en_clr" = 0ud1_1) -> ("en_clr_N" = 0ud1_1)) & (("en_clr" = 0ud1_0) -> ((0ud16_5 < "self.out") <-> ("en_clr_N" = 0ud1_1))));
+
+--------------------
+
+--------------------
+-- Additional system
+--------------------
+
+VAR
+"_-_state_id_-_" : word[2];
+
+DEFINE
+"_-_state_id_-__N" := next("_-_state_id_-_");
+
+INIT
+(("_-_state_id_-_" = 0ud2_0) & ("en_clr" = 0ud1_0));
+
+INVAR
+(("_-_state_id_-_" <= 0ud2_3) & (("_-_state_id_-_" = 0ud2_3) -> ("en_clr" = 0ud1_0)) & (("_-_state_id_-_" = 0ud2_2) -> ("en_clr" = 0ud1_0)) & (("_-_state_id_-_" = 0ud2_0) -> ("en_clr" = 0ud1_0)));
+
+TRANS
+((("_-_state_id_-_" = 0ud2_3) -> (("_-_state_id_-__N" = 0ud2_1) | ("_-_state_id_-__N" = 0ud2_3))) & (("_-_state_id_-_" = 0ud2_0) -> ("_-_state_id_-__N" = 0ud2_2)) & (("_-_state_id_-_" = 0ud2_1) -> ("_-_state_id_-__N" = 0ud2_1)) & (("_-_state_id_-_" = 0ud2_2) -> ("_-_state_id_-__N" = 0ud2_3)));
+
+--------------------

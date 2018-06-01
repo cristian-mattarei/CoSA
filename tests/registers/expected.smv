@@ -1,0 +1,181 @@
+MODULE main
+
+--------------------------------------------------------------------------------------------
+-- Reg (in, clk, clr, rst, arst, out) = (reg0.in, reg0.clk, None, None, reg0.arst, reg0.out)
+--------------------------------------------------------------------------------------------
+
+VAR
+"reg0.in" : word[16];
+"reg0.clk" : word[1];
+"reg0.arst" : word[1];
+"reg0.out" : word[16];
+
+DEFINE
+"reg0.in_N" := next("reg0.in");
+"reg0.clk_N" := next("reg0.clk");
+"reg0.arst_N" := next("reg0.arst");
+"reg0.out_N" := next("reg0.out");
+
+INIT
+("reg0.out" = 0ud16_0);
+
+TRANS
+("reg0.out_N" = ((("reg0.clk_N" = 0ud1_1) & ("reg0.clk" = 0ud1_0)) ? "reg0.in" : "reg0.out"));
+
+--------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------
+-- Reg (in, clk, clr, rst, arst, out) = (reg1.in, reg1.clk, None, None, reg1.arst, reg1.out)
+--------------------------------------------------------------------------------------------
+
+VAR
+"reg1.in" : word[16];
+"reg1.clk" : word[1];
+"reg1.arst" : word[1];
+"reg1.out" : word[16];
+
+DEFINE
+"reg1.in_N" := next("reg1.in");
+"reg1.clk_N" := next("reg1.clk");
+"reg1.arst_N" := next("reg1.arst");
+"reg1.out_N" := next("reg1.out");
+
+INIT
+("reg1.out" = 0ud16_0);
+
+TRANS
+("reg1.out_N" = ((("reg1.clk_N" = 0ud1_1) & ("reg1.clk" = 0ud1_0)) ? "reg1.in" : "reg1.out"));
+
+--------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------
+-- Reg (in, clk, clr, rst, arst, out) = (reg2.in, reg2.clk, None, None, reg2.arst, reg2.out)
+--------------------------------------------------------------------------------------------
+
+VAR
+"reg2.in" : word[16];
+"reg2.clk" : word[1];
+"reg2.arst" : word[1];
+"reg2.out" : word[16];
+
+DEFINE
+"reg2.in_N" := next("reg2.in");
+"reg2.clk_N" := next("reg2.clk");
+"reg2.arst_N" := next("reg2.arst");
+"reg2.out_N" := next("reg2.out");
+
+INIT
+("reg2.out" = 0ud16_0);
+
+TRANS
+("reg2.out_N" = ((("reg2.clk_N" = 0ud1_0) & ("reg2.clk" = 0ud1_1)) ? "reg2.in" : "reg2.out"));
+
+--------------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------
+-- Reg (in, clk, clr, rst, arst, out) = (reg3.in, reg3.clk, None, None, reg3.arst, reg3.out)
+--------------------------------------------------------------------------------------------
+
+VAR
+"reg3.in" : word[16];
+"reg3.clk" : word[1];
+"reg3.arst" : word[1];
+"reg3.out" : word[16];
+
+DEFINE
+"reg3.in_N" := next("reg3.in");
+"reg3.clk_N" := next("reg3.clk");
+"reg3.arst_N" := next("reg3.arst");
+"reg3.out_N" := next("reg3.out");
+
+INIT
+("reg3.out" = 0ud16_0);
+
+TRANS
+("reg3.out_N" = ((("reg3.clk_N" = 0ud1_0) & ("reg3.clk" = 0ud1_1)) ? "reg3.in" : "reg3.out"));
+
+--------------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------------
+-- Reg (in, clk, clr, rst, arst, out) = (reg4.in, reg4.clk, None, None, None, reg4.out)
+---------------------------------------------------------------------------------------
+
+VAR
+"reg4.in" : word[16];
+"reg4.clk" : word[1];
+"reg4.out" : word[16];
+
+DEFINE
+"reg4.in_N" := next("reg4.in");
+"reg4.clk_N" := next("reg4.clk");
+"reg4.out_N" := next("reg4.out");
+
+INIT
+("reg4.out" = 0ud16_0);
+
+TRANS
+("reg4.out_N" = ((("reg4.clk" = 0ud1_0) & ("reg4.clk_N" = 0ud1_1)) ? "reg4.in" : "reg4.out"));
+
+---------------------------------------------------------------------------------------
+
+---------------------------------------------
+-- Wrap (in, out) = (rstwrap.in, rstwrap.out)
+---------------------------------------------
+
+VAR
+"rstwrap.out" : word[1];
+"rstwrap.in" : word[1];
+
+DEFINE
+"rstwrap.out_N" := next("rstwrap.out");
+"rstwrap.in_N" := next("rstwrap.in");
+
+INVAR
+("rstwrap.in" = "rstwrap.out");
+
+---------------------------------------------
+
+---------------------------
+-- Clock (clk) = (self.clk)
+---------------------------
+
+VAR
+"self.clk" : word[1];
+
+DEFINE
+"self.clk_N" := next("self.clk");
+
+INIT
+("self.clk" = 0ud1_0);
+
+TRANS
+((("self.clk" = 0ud1_0) -> ("self.clk_N" = 0ud1_1)) & (("self.clk" = 0ud1_1) -> ("self.clk_N" = 0ud1_0)));
+
+---------------------------
+
+--------------
+-- Connections
+--------------
+
+VAR
+"self.arst" : word[1];
+"self.in" : word[16];
+"self.out0" : word[16];
+"self.out1" : word[16];
+"self.out2" : word[16];
+"self.out3" : word[16];
+"self.out4" : word[16];
+
+DEFINE
+"self.arst_N" := next("self.arst");
+"self.in_N" := next("self.in");
+"self.out0_N" := next("self.out0");
+"self.out1_N" := next("self.out1");
+"self.out2_N" := next("self.out2");
+"self.out3_N" := next("self.out3");
+"self.out4_N" := next("self.out4");
+
+INVAR
+(("reg0.in" = "self.in") & ("reg1.clk" = "self.clk") & ("reg2.out" = "self.out2") & ("reg1.in" = "self.in") & ("reg4.clk" = "self.clk") & ("reg3.clk" = "self.clk") & ("reg4.out" = "self.out4") & ("reg3.in" = "self.in") & ("reg0.clk" = "self.clk") & ("reg0.out" = "self.out0") & ("reg1.out" = "self.out1") & ("rstwrap.in" = "self.arst") & ("reg3.arst" = "rstwrap.out") & ("reg0.arst" = "rstwrap.out") & ("reg3.out" = "self.out3") & ("reg4.in" = "self.in") & ("reg2.clk" = "self.clk") & ("reg2.arst" = "rstwrap.out") & ("reg1.arst" = "rstwrap.out") & ("reg2.in" = "self.in"));
+
+--------------

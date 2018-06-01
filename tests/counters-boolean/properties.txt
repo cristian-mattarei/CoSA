@@ -1,0 +1,3 @@
+count0.r.reg0.out < 18_16
+count0.r.reg0.out = count1.r.reg0.out
+count0.r.reg0.out = 5_16

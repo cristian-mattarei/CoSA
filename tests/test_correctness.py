@@ -11,19 +11,23 @@
 import os
 
 from CoSA import Config, run_verification, run_problems
+from pysmt.shortcuts import Symbol, reset_env
 
 abspath = os.path.abspath(__file__)
 path = ("/".join(abspath.split("/")[:-1]))
 testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
 
 def runtest(example):
+    reset_env()
+    
     config = Config()
 
     config.safety = True
-    config.verbosity = 1
+    config.verbosity = 3
     config.solver_name = "msat"
     config.prove = True
-
+    config.vcd = True
+    
     list_status = run_problems("%s/problem.txt"%example, config)
 
     with open("%s/expected_results.txt"%example, "r") as f:
@@ -37,6 +41,5 @@ def test_problem():
         yield runtest, test
 
 if __name__ == "__main__":
-    print(testdirs)
     for test in testdirs:
         runtest(test)

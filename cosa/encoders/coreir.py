@@ -13,7 +13,7 @@ import sys
 
 from six.moves import cStringIO
 
-from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract, BVConcat
+from pysmt.shortcuts import Symbol, BV, TRUE, FALSE, And, EqualsOrIff, BVExtract, BVConcat, Ite
 from pysmt.typing import BOOL, _BVType
 from pysmt.smtlib.printers import SmtPrinter
 
@@ -46,6 +46,8 @@ class CoreIRParser(ModelParser):
     map_an2or = None
     map_or2an = None
     idvars = 0
+
+    deterministic = False
     
     def __init__(self, abstract_clock, symbolic_init, *libs):
         self.context = coreir.Context()
@@ -72,6 +74,7 @@ class CoreIRParser(ModelParser):
 
         Logger.time = True
 
+        self.deterministic = False
         
     @staticmethod        
     def get_extension():
@@ -305,10 +308,8 @@ class CoreIRParser(ModelParser):
 
         Logger.msg("Starting encoding... ", 1)
 
-        totalinst = len(top_def.instances)
         count = 0
-        top_def_instances = list(top_def.instances)
-
+        
         def extract_value(x, modname, inst_intr, inst_conf, inst_mod):
             if x in inst_intr:
                 return self.BVVar(modname+x, inst_intr[x].size)
@@ -336,7 +337,16 @@ class CoreIRParser(ModelParser):
 
         if Logger.level(2):
             ttimer = Logger.start_timer("Convertion", False)
+
+        if self.deterministic:
+            td_instances = top_def.instances
+            top_def_instances = [(inst.selectpath, inst.config, inst.module) for inst in td_instances]
+            top_def_instances.sort()
+        else:
+            top_def_instances = list(top_def.instances)
             
+        totalinst = len(top_def_instances)
+
         for inst in top_def_instances:
             if Logger.level(1):
                 count += 1
@@ -352,10 +362,14 @@ class CoreIRParser(ModelParser):
                         Logger.get_timer(timer, False)
             
             ts = None
+
+            if self.deterministic:
+                (inst_name, inst_conf, inst_mod) = inst
+            else:
+                inst_name = inst.selectpath
+                inst_conf = inst.config
+                inst_mod  = inst.module
             
-            inst_name = inst.selectpath
-            inst_conf = inst.config
-            inst_mod  = inst.module
             inst_type = inst_mod.name
             inst_intr = dict(inst_mod.type.items())
             modname = (SEP.join(inst_name))+SEP
@@ -402,7 +416,10 @@ class CoreIRParser(ModelParser):
                     not_defined_mods.append(inst_type)
 
         Logger.clear_inline(1)
-            
+
+        if self.deterministic:
+            interface.sort()
+
         for var in interface:
             varname = SELF+SEP+var[0]
             bvvar = self.BVVar(varname, var[1].size)
@@ -437,10 +454,21 @@ class CoreIRParser(ModelParser):
         eq_conns = []
         eq_vars = set([])
 
-        for conn in top_def.connections:
+        if self.deterministic:
+            td_connections = top_def.connections
+            top_def_connections = [((conn.first.selectpath, conn.second.selectpath) if conn.first.selectpath < conn.second.selectpath else (conn.second.selectpath, conn.first.selectpath), conn) for conn in td_connections]
+            top_def_connections.sort()
+        else:
+            top_def_connections = list(top_def.connections)
+            
+        for conn in top_def_connections:
 
-            first_selectpath = split_paths(conn.first.selectpath)
-            second_selectpath = split_paths(conn.second.selectpath)
+            if self.deterministic:
+                first_selectpath = split_paths(conn[0][0])
+                second_selectpath = split_paths(conn[0][1])
+            else:
+                first_selectpath = split_paths(conn.first.selectpath)
+                second_selectpath = split_paths(conn.second.selectpath)
             
             first = SEP.join(first_selectpath)
             second = SEP.join(second_selectpath)
@@ -464,11 +492,11 @@ class CoreIRParser(ModelParser):
             firstvar = first[0]
             secondvar = second[0]
 
-            if (firstvar is None) and (firstname in sym_map):
-                firstvar = sym_map[firstname][1]
+            if (firstvar is None) and (self.remap_or2an(firstname) in sym_map):
+                firstvar = sym_map[self.remap_or2an(firstname)][1]
                 
-            if (secondvar is None) and (secondname in sym_map):
-                secondvar = sym_map[secondname][1]
+            if (secondvar is None) and (self.remap_or2an(secondname) in sym_map):
+                secondvar = sym_map[self.remap_or2an(secondname)][1]
             
             if (firstvar is None) and (secondvar is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
@@ -715,8 +743,6 @@ class CoreIRParser(ModelParser):
                 bvval = val if val == 0 else (2**bvlen)-1
                 new_second = BV(bvval, bvlen)
                 return (first, new_second, ((min_1, max_1),(0, bvlen-1)))
-            else:
-                print(first, second, inds_1, inds_2)
             
         return (first, second, None)
     

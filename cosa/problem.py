@@ -45,6 +45,7 @@ class Problems(object):
     abstract_clock = False
     equivalence = None
     relative_path = None
+    boolean = None
 
     def __init__(self):
         self.problems = []

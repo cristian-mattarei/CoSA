@@ -33,8 +33,7 @@ from cosa.encoders.miter import Miter
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.transition_systems import HTS
 
-from pysmt.shortcuts import TRUE
-
+from pysmt.shortcuts import TRUE, reset_env
 
 class Config(object):
     parser = None
@@ -67,6 +66,7 @@ class Config(object):
     vcd = False
     prove = False
     incremental = True
+    deterministic = False
 
     def __init__(self):
         PrintersFactory.init_printers()
@@ -101,8 +101,8 @@ class Config(object):
         self.vcd = False
         self.prove = False
         self.incremental = True
-
-
+        self.deterministic = False
+        
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
     if vcd_trace:
@@ -140,6 +140,7 @@ def get_file_flags(strfile):
     return (strfile, flags)
                         
 def run_verification(config):
+    reset_env()
     Logger.verbosity = config.verbosity
 
     coreir_parser = None
@@ -150,7 +151,7 @@ def run_verification(config):
 
     if config.strfiles[0][-4:] != ".pkl":
         ps = ProblemSolver()
-        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init)
+        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean)
         config.parser = ps.parser
 
         if config.pickle_file:
@@ -278,23 +279,27 @@ def run_verification(config):
 
         return list_status
     
-    if config.equivalence:
-        parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init)
+    if config.equivalence or config.fsm_check:
 
-        if config.run_passes:
-            Logger.log("Running passes:", 0)
-            parser2.run_passes()
+        if config.equivalence:
+            parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init)
 
-        Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
-        hts2 = parser2.parse_file(config.equivalence)
-        Logger.log("DONE", 0)
+            if config.run_passes:
+                Logger.log("Running passes:", 0)
+                parser2.run_passes()
 
-        symb = " (symbolic init)" if config.symbolic_init else ""
-        Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
+            Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
+            hts2 = parser2.parse_file(config.equivalence)
+            Logger.log("DONE", 0)
 
-        if Logger.level(1):
-            print(hts2.print_statistics("System 2", Logger.level(2)))
+            symb = " (symbolic init)" if config.symbolic_init else ""
+            Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
 
+            if Logger.level(1):
+                print(hts2.print_statistics("System 2", Logger.level(2)))
+        else:
+            hts2 = hts
+                
         # TODO: Make incremental solving optional
         htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)
 
@@ -307,26 +312,22 @@ def run_verification(config):
         bmcseq = BMC(htseq, mc_config)
         res, trace, t = bmcseq.safety(miter_out, config.bmc_length, config.bmc_length_min)
 
+        msg = "Systems are %s equivalent" if config.equivalence else "System is%s deterministic"
+        
         if res == VerificationStatus.FALSE:
-            Logger.log("Systems are not equivalent", 0)
+            Logger.log(msg%(" not"), 0)
             print_trace("Counterexample", trace, 1, config.prefix)
         elif res == VerificationStatus.UNK:
             if config.symbolic_init:
                 # strong equivalence with symbolic initial state
-                Logger.log("Systems are equivalent.", 0)
+                Logger.log(msg%(""), 0)
             else:
-                Logger.log("Systems are sequentially equivalent up to k=%i"%t, 0)
+                Logger.log(msg%("")+" up to k=%i"%t, 0)
         else:
-            Logger.log("Systems are equivalent at k=%i"%t, 0)
-
-
-    if config.fsm_check:
-        Logger.log("Checking FSM:", 0)
-
-        bmc.fsm_check()
-
+            Logger.log(msg%("")+" up to k=%i"%t, 0)
 
 def run_problems(problems, config):
+    reset_env()
     Logger.verbosity = config.verbosity
     pbms = Problems()
     psol = ProblemSolver()

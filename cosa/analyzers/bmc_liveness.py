@@ -193,7 +193,7 @@ class BMCLiveness(BMC):
             t += 1
         Logger.log("", 0, not(Logger.level(1)))
                 
-        return (-1, None)
+        return (t-1, None)
 
     def all_loopbacks(self, vars, k, heqvar=None):
         lvars = list(vars)
@@ -234,7 +234,7 @@ class BMCLiveness(BMC):
 
         if model == True:
             return (VerificationStatus.TRUE, None)
-        elif t > -1:
+        elif model is not None:
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
             return (VerificationStatus.FALSE, trace)
         else:
@@ -249,7 +249,7 @@ class BMCLiveness(BMC):
 
         if model == True:
             return (VerificationStatus.TRUE, None)
-        elif t > -1:
+        elif model is not None:
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
             return (VerificationStatus.FALSE, trace)
         else:
