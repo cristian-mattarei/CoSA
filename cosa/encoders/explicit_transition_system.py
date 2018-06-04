@@ -9,7 +9,7 @@
 # limitations under the License.
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
-from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
+from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
 from pysmt.typing import BOOL, BVType
 
 from cosa.transition_systems import HTS, TS
@@ -85,7 +85,7 @@ class ExplicitTSParser(object):
         hexvalue = Word(nums + T_A + T_B + T_C + T_D + T_E + T_F)
         bvvalue = Combine(ivalue + T_US + ivalue)
         
-        value = (bvvalue | hexvalue)(P_VALUE)
+        value = (boolvalue | bvvalue | hexvalue)(P_VALUE)
 
         comment = (T_COM + restOfLine + LineEnd())(P_COMMENT)
         emptyline = (ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
@@ -99,9 +99,7 @@ class ExplicitTSParser(object):
         trans = (sname(P_START) + Literal(T_ARROW) + sname(P_END) + restOfLine)(P_TRANS)
         transs = OneOrMore(trans)
         
-        
         ets = OneOrMore(comment | inits | states | transs | emptyline)
-
 
         return ets
 
@@ -118,22 +116,22 @@ class ExplicitTSParser(object):
             if line.comment:
                 continue
             if line.init:
-                (value, width) = self.__get_bv_value(line.init.value)
-                ivar = Symbol(line.init.varname, BVType(width))
+                (value, typev) = self.__get_value(line.init.value)
+                ivar = Symbol(line.init.varname, typev)
 
                 if T_I not in states:
                     states[T_I] = TRUE()
 
-                states[T_I] = And(states[T_I], EqualsOrIff(ivar, BV(value, width)))
-                init = And(init, EqualsOrIff(ivar, BV(value, width)))
+                states[T_I] = And(states[T_I], EqualsOrIff(ivar, value))
+                init = And(init, EqualsOrIff(ivar, value))
                 
             if line.state:
                 state = TRUE()
                 sname = T_S + line.state.id
                 if line.state.value != T_TRUE:
-                    (value, width) = self.__get_bv_value(line.state.value)
-                    ivar = Symbol(line.state.varname, BVType(width))
-                    state = EqualsOrIff(ivar, BV(value, width))
+                    (value, typev) = self.__get_value(line.state.value)
+                    ivar = Symbol(line.state.varname, typev)
+                    state = EqualsOrIff(ivar, value)
 
                     assval = (sname, line.state.varname)
                     if assval not in assigns:
@@ -191,7 +189,13 @@ class ExplicitTSParser(object):
         
         return hts
                 
-    def __get_bv_value(self, value):
+    def __get_value(self, value):
+        if value == T_FALSE:
+            return (FALSE(), BOOL)
+
+        if value == T_TRUE:
+            return (TRUE(), BOOL)
+        
         if T_US in value:
             width = int(value.split(T_US)[1])
             value = int(value.split(T_US)[0])
@@ -199,7 +203,7 @@ class ExplicitTSParser(object):
             width = len(value)*4
             value = int(("0x%s"%value).lower(), 0)
 
-        return (value, width)
+        return (BV(value, width), BVType(width))
             
     def remap_an2or(self, name):
         return name

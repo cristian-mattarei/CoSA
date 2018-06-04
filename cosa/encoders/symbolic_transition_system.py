@@ -34,6 +34,7 @@ T_SP = " "
 T_IMPL = "->"
 T_BOOLSYM = "|&"
 T_ITE = "?:"
+T_NEG = "!"
 
 T_OP = "("
 T_CP = ")"
@@ -86,7 +87,8 @@ class SymbolicTSParser(object):
         
         vardefs = list(dict(pstring.var)[P_VARDEFS])
         for i in range(0, len(vardefs), 7):
-            var_str.append((vardefs[i], vardefs[i+2], vardefs[i+4]))
+            size = vardefs[i+4] if vardefs[i+2] == T_BV else None
+            var_str.append((vardefs[i], vardefs[i+2], size))
 
         inits = list(dict(pstring.init)[P_FORMULAE])
         for i in range(0, len(inits), 2):
@@ -112,12 +114,12 @@ class SymbolicTSParser(object):
         emptyline = (ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
 
         varsize = (Word(nums))(P_VARSIZE)
-        vartype = (Literal(T_BV))(P_VARTYPE)
-        vartypedef = (vartype + Literal(T_OP) + varsize + Literal(T_CP))(P_VARTYPEDEF)
+        vartype = ((Literal(T_BV) + Literal(T_OP) + varsize + Literal(T_CP)) | Literal(T_BOOL))(P_VARTYPE)
+        vartypedef = (vartype)(P_VARTYPEDEF)
         vardef = varname + Literal(T_CL) + vartypedef + Literal(T_SC)
         vardefs = (Literal(T_VAR) + (OneOrMore(vardef)(P_VARDEFS)))(P_VARS)
         
-        operators = T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
+        operators = T_NEG+T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
         formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+operators) + Literal(T_SC))(P_FORMULA)
         
         inits = (Literal(T_INIT) + (OneOrMore(formula))(P_FORMULAE))(P_INIT)
@@ -131,9 +133,13 @@ class SymbolicTSParser(object):
 
     def _define_var(self, var):
         varname, vartype, size = var
+        
         if vartype == T_BV:
             return Symbol(varname, BVType(int(size)))
 
+        if vartype == T_BOOL:
+            return Symbol(varname, BOOL)
+        
         Logger.error("Unsupported type: %s"%vartype)
     
     def generate_STS(self, var_str, init_str, invar_str, trans_str):

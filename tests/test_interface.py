@@ -43,6 +43,9 @@ def run_translation(path):
     config.printer = "SMV"
     config.deterministic = True
 
+    if "-boolean" in path:
+        config.boolean = True
+    
     if os.path.isfile("%s/assumptions.txt"%path):
         config.assumptions = "%s/assumptions.txt"%path
 
@@ -54,7 +57,7 @@ def run_translation(path):
 
     models = list(os.walk(path))[-1][-1]
     j_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] == "json"]
-    s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["ets","sts"]]
+    s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["sts","ets"]]
     
     config.strfiles = ",".join(j_files+s_files)
         
