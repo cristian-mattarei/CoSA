@@ -1,0 +1,9 @@
+VAR
+en_clr: Bool;
+
+INIT
+!en_clr;
+
+TRANS
+(en_clr) -> (next(en_clr));
+(! en_clr) -> ((self.out > 5_16) <-> (next(en_clr)));

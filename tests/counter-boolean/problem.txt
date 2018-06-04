@@ -1,0 +1,27 @@
+[GENERAL]
+model_file: counter.json,counter_live.sts,counter_live.ets
+boolean: True
+
+[DEFAULT]
+bmc_length: 40
+
+[Globally]
+description: "Globally Check"
+formula: self.out < 4_16
+assumptions: (! en_clr) -> (! self.clr)
+verification: safety
+prove: True
+
+[Finally]
+description: "Finally Check"
+formula: self.out = 4_16
+assumptions: (! en_clr) -> (! self.clr)
+verification: eventually
+prove: True
+
+[Liveness]
+description: "Liveness Check"
+formula: self.out = 4_16 
+assumptions: (! en_clr) -> (! self.clr)
+verification: liveness
+prove: True
