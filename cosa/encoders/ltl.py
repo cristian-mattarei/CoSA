@@ -236,7 +236,6 @@ class LTLEncoder(object):
         self.mgr = get_env().formula_manager
 
     def encode(self, formula, t_i, t_k):
-        print(formula)
         if formula.is_constant():
             return formula
         
@@ -274,7 +273,6 @@ class LTLEncoder(object):
             return FALSE()
 
         if formula.node_type() == LTL_F:
-            print(formula.args()[0])
             return Or([self.encode(formula.args()[0], j, t_k) for j in range(t_i, t_k+1, 1)])
 
         if formula.node_type() == LTL_U:
@@ -405,35 +403,4 @@ class LTLParser(object):
                 formulae.append((strform, formula, (nextvars, prevvars)))
 
         return formulae
-
-    
-        
-if __name__ == "__main__":
-
-    ltl_reset_env()
-    
-    Symbol("a", BVType(4))
-    Symbol("b", BVType(4))
-
-    ltlparser = LTLParser()
-    
-    #f = parser.parse("(a = 1_4) U (b = 2_4)")
-    f = ltlparser.parse_string("GF(a = 1_4)")
-    print(f)
-
-    enc = LTLEncoder()
-    newf = enc.encode(f, 0, 4)
-
-    print(newf)
-    
-    # with EnvironmentLTL() as env:
-    #     parser = PrattParser(LTLLexer, env=env)
-
-    #     f = parser.parse("F(G(ciao = 2_4))")
-    #     print(f)
-        
-        # f = mgr.X(mgr.Symbol("x"))
-        # g = mgr.G(f)
-        # print(g)
-        # print(g.get_free_variables())
 
