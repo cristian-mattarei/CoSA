@@ -235,6 +235,59 @@ class LTLEncoder(object):
     def __init__(self):
         self.mgr = get_env().formula_manager
 
+    def to_nnf(self, formula):
+        if formula.is_constant():
+            return formula
+        
+        if formula.is_symbol():
+            return formula
+
+        if formula.is_equals():
+            return self.mgr.Equals(self.to_nnf(formula.args()[0]), self.to_nnf(formula.args()[1]))
+
+        if formula.is_and():
+            return self.mgr.And(self.to_nnf(formula.args()[0]), self.to_nnf(formula.args()[1]))
+        
+        if formula.is_implies():
+            return self.mgr.Or(self.mgr.Not(self.to_nnf(formula.args()[0])), self.to_nnf(formula.args()[1]))
+
+        if formula.is_or():
+            return self.mgr.Or(self.to_nnf(formula.args()[0]), self.to_nnf(formula.args()[1]))
+        
+        if formula.is_not():
+            if formula.args()[0].is_symbol():
+                return self.mgr.Not(formula.args()[0])
+
+            if formula.args()[0].node_type() == LTL_X:
+                return self.mgr.X(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
+            
+            if formula.args()[0].node_type() == LTL_F:
+                return self.mgr.G(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
+
+            if formula.args()[0].node_type() == LTL_G:
+                return self.mgr.F(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
+
+            if formula.args()[0].is_and():
+                l = formula.args()[0].args()[0]
+                r = formula.args()[0].args()[1]
+                return self.mgr.Or(self.to_nnf(self.mgr.Not(l)), self.to_nnf(self.mgr.Not(r)))
+
+            if formula.args()[0].is_or():
+                l = formula.args()[0].args()[0]
+                r = formula.args()[0].args()[1]
+                return self.mgr.And(self.to_nnf(self.mgr.Not(l)), self.to_nnf(self.mgr.Not(r)))
+
+            if formula.args()[0].is_implies():
+                l = formula.args()[0].args()[0]
+                r = formula.args()[0].args()[1]
+                                
+                return self.mgr.And(self.to_nnf(l), self.to_nnf(self.mgr.Not(r)))
+
+            
+            return self.mgr.Not(self.to_nnf(formula.args()[0]))
+
+        return formula
+        
     def encode(self, formula, t_i, t_k):
         if formula.is_constant():
             return formula
@@ -250,24 +303,24 @@ class LTLEncoder(object):
             return self.mgr.And(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
 
         if formula.is_implies():
-            return self.mgr.Implies(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+            return self.mgr.Or(self.mgr.Not(self.encode(formula.args()[0], t_i, t_k)), self.encode(formula.args()[1], t_i, t_k))
         
         if formula.is_not():
-            if formula.args()[0].node_type() == LTL_F:
-                return self.encode(self.mgr.G(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k)
-
-            if formula.args()[0].node_type() == LTL_G:
-                return self.encode(self.mgr.F(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k)
-            
             return self.mgr.Not(self.encode(formula.args()[0], t_i, t_k))
+
+        if formula.is_lt():
+            return self.mgr.LT(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+
+        if formula.is_bv_ult():
+            return self.mgr.BVULT(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
 
         if formula.is_or():
             return self.mgr.Or(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
         
         if formula.node_type() == LTL_X:
-            if t_i >= t_k:
-                return FALSE()
-            return self.encode(formula.args()[0], t_i+1, t_k)
+            if t_i < t_k:
+                return self.encode(formula.args()[0], t_i+1, t_k)
+            return FALSE()
 
         if formula.node_type() == LTL_G:
             return FALSE()
@@ -290,6 +343,7 @@ class LTLEncoder(object):
                            And([self.encode(formula_g, n, t_k) for n in range(t_i, j+1, 1)])) for j in range(t_i, t_k+1, 1)])
 
 
+        print(formula)
         Logger.error("Invalid LTL operator")
         
     def encode_l(self, formula, t_i, t_k, t_l):
@@ -310,22 +364,22 @@ class LTLEncoder(object):
         if formula.is_or():
             return self.mgr.Or(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
 
+        if formula.is_lt():
+            return self.mgr.LT(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
+
+        if formula.is_bv_ult():
+            return self.mgr.BVULT(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
+        
         if formula.is_implies():
-            return self.mgr.Implies(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+            return self.mgr.Implies(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
         
         if formula.is_not():
-            if formula.args()[0].node_type() == LTL_F:
-                return self.encode_l(self.mgr.G(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k, t_l)
-
-            if formula.args()[0].node_type() == LTL_G:
-                return self.encode_l(self.mgr.F(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k, t_l)
-            
             return self.mgr.Not(self.encode_l(formula.args()[0], t_i, t_k, t_l))
         
         if formula.node_type() == LTL_X:
-            if t_i >= t_k:
-                return self.encode_l(formula.args()[0], t_l, t_k, t_l)
-            return self.encode_l(formula.args()[0], t_i+1, t_k, t_l)
+            if t_i < t_k:
+                return self.encode_l(formula.args()[0], t_i+1, t_k, t_l)
+            return self.encode_l(formula.args()[0], t_l, t_k, t_l)
 
         if formula.node_type() == LTL_G:
             return And([self.encode_l(formula.args()[0], j, t_k, t_l) for j in range(min(t_i, t_l), t_k+1, 1)])

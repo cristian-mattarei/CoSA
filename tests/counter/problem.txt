@@ -24,3 +24,27 @@ formula: self.out = 4_16
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: liveness
 prove: True
+
+[Globally-LTL]
+description: "Globally Check"
+formula: G(self.out < 4_16)
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+
+[Finally-LTL]
+description: "Finally Check"
+formula: F(self.out = 4_16)
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+
+[Liveness-LTL]
+description: "Liveness Check"
+formula: G(F(self.out = 4_16))
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+
+[Globally-Next-LTL]
+description: "Globally Next Check"
+formula: G((self.out = 4_16) -> X (self.out = 5_16))
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl

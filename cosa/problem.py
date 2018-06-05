@@ -21,6 +21,7 @@ VERIFICATION = "verification"
 LIVENESS = "liveness"
 EVENTUALLY = "eventually"
 SAFETY = "safety"
+LTL = "ltl"
 EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
 FORMULA = "formula"
@@ -37,6 +38,7 @@ class VerificationType(object):
     EVENTUALLY = 2
     EQUIVALENCE = 3
     SIMULATION = 4
+    LTL = 5
 
 class Problems(object):
     problems = None
@@ -154,6 +156,10 @@ class Problem(object):
 
         if value == SIMULATION:
             self.verification = VerificationType.SIMULATION
+            return
+
+        if value == LTL:
+            self.verification = VerificationType.LTL
             return
         
         Logger.error("Unknown verification type \"%s\""%value)

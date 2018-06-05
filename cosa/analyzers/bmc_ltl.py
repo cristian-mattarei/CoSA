@@ -9,26 +9,16 @@
 # limitations under the License.
 
 import re
-import copy
-from six.moves import cStringIO
 
-from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
-from pysmt.shortcuts import Interpolator
-from pysmt.oracles import get_logic
-from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
-from cosa.utils.generic import status_bar
-from cosa.transition_systems import TS, HTS
-from cosa.encoders.coreir import CoreIRParser, SEP
+from cosa.transition_systems import TS
 from cosa.encoders.ltl import LTLEncoder
 
-from cosa.printers import TextTracePrinter, VCDTracePrinter
 from cosa.problem import VerificationStatus
 from cosa.analyzers.bmc import BMC
-
-from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU, INT
 
 class BMCLTL(BMC):
 
@@ -41,17 +31,7 @@ class BMCLTL(BMC):
     tracefile = None
 
     def __init__(self, hts, config):
-        self.hts = hts
-        self.config = config
-
-        Logger.time = True
-        self.total_time = 0.0
-
-        self.solver = TraceSolver(config.solver_name)
-        self._reset_smt2_tracefile()
-
-        self.varmapf_t = None
-        self.varmapb_t = None
+        BMC.__init__(self, hts, config)
 
     def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
@@ -82,6 +62,16 @@ class BMCLTL(BMC):
 
         return substitute(trans, dict(cur+nex))
 
+    def all_loop_free(self, vars_, trans, k_end, k_start=0):
+        Logger.log("All loop free from %s to %s"%(k_start, k_end), 2)
+
+        loops = []
+        
+        for i in range(k_start, k_end+1, 1):
+            loops.append(self.loop_free(vars_, trans, i, k_end))
+
+        return loops
+    
     def _init_v_time(self, vars, k):
         self.vars_time = []
         
@@ -138,7 +128,7 @@ class BMCLTL(BMC):
         loopback.append(FALSE())
         return loopback
     
-    def solve_inc(self, hts, prop, k, all_vars=False):
+    def solve_inc(self, hts, prop, k, all_vars=True):
 
         if all_vars:
             relevant_vars = hts.vars
@@ -154,12 +144,12 @@ class BMCLTL(BMC):
         
         enc = LTLEncoder()
 
-        nprop = Not(prop)
+        nprop = enc.to_nnf(Not(prop))
 
         self._reset_assertions(self.solver)
         self._add_assertion(self.solver, init_0)
         
-        for t in range(k+1):
+        for t in range(1, k+1, 1):
             
             trans_t = self.unroll(trans, invar, t)
             self._add_assertion(self.solver, trans_t)
@@ -186,7 +176,7 @@ class BMCLTL(BMC):
                 nprop_l = enc.encode_l(nprop, 0, t, l)
                 nltlprop.append(And(lb[l], nprop_l))
 
-            self._add_assertion(self.solver, simplify(Or(nltlprop)))
+            self._add_assertion(self.solver, Or(nltlprop))
 
             if self._solve(self.solver):
                 Logger.log("Counterexample (with-loop) found with k=%s"%(t), 1)
@@ -199,6 +189,6 @@ class BMCLTL(BMC):
 
             self._pop(self.solver)
                 
-                
+        Logger.log("", 0, not(Logger.level(1)))                
         return (k-1, None)
     
