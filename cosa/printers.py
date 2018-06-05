@@ -295,14 +295,15 @@ class TextTracePrinter(TracePrinter):
         if find_loop:
             last_state = [(var[0], modeldic[TS.get_timed(var[1], length)]) for var in strvarlist]
             last_state.sort()
-            loop_id = 0
+            loop_id = -1
             for i in range(length):
                 state_i = [(var[0], modeldic[TS.get_timed(var[1], i)]) for var in strvarlist]
                 state_i.sort()
                 if state_i == last_state:
                     loop_id = i
                     break
-            trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
+            if loop_id >= 0: 
+                trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
 
 
         trace = NL.join(trace)

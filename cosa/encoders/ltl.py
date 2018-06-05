@@ -8,6 +8,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
+
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, get_env
 from pysmt.typing import BOOL, BVType
@@ -24,6 +26,12 @@ from cosa.utils.formula_mngm import get_free_variables, substitute
 
 from pysmt.operators import new_node_type
 
+KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R"]
+OPERATORS = [(" < "," u< "), \
+             (" > "," u> "), \
+             (" >= "," u>= "), \
+             (" <= "," u<= ")]
+
 LTL_X = new_node_type(node_str="LTL_X")
 LTL_Y = new_node_type(node_str="LTL_Y")
 LTL_Z = new_node_type(node_str="LTL_Z")
@@ -32,11 +40,10 @@ LTL_G = new_node_type(node_str="LTL_G")
 LTL_O = new_node_type(node_str="LTL_O")
 LTL_H = new_node_type(node_str="LTL_H")
 LTL_U = new_node_type(node_str="LTL_U")
-LTL_S = new_node_type(node_str="LTL_S")
+LTL_R = new_node_type(node_str="LTL_R")
 ALL_LTL = (LTL_X, LTL_Y, LTL_Z,
            LTL_F, LTL_G, LTL_O, LTL_H,
-           LTL_U, LTL_S)
-
+           LTL_U, LTL_R)
 
 class FormulaManager(pysmt.formula.FormulaManager):
     """Extension of FormulaManager to handle LTL Operators."""
@@ -62,7 +69,7 @@ class FormulaManager(pysmt.formula.FormulaManager):
         return self.create_node(node_type=LTL_H, args=(formula,))
 
     def S(self, left, right):
-        return self.create_node(node_type=LTL_S, args=(left, right))
+        return self.create_node(node_type=LTL_R, args=(left, right))
 
     def U(self, left, right):
         return self.create_node(node_type=LTL_U, args=(left, right))
@@ -154,8 +161,8 @@ LTL_TYPE_TO_STR = { LTL_X: "X", LTL_Y: "Y", LTL_Z: "Z",
                     LTL_F: "F", LTL_G: "G", LTL_O: "O", LTL_H: "H"}
 
 class HRPrinter(pysmt.printers.HRPrinter):
-    def walk_ltl_s(self, formula):
-        return self.walk_nary(formula, " S ")
+    def walk_ltl_r(self, formula):
+        return self.walk_nary(formula, " R ")
 
     def walk_ltl_u(self, formula):
         return self.walk_nary(formula, " U ")
@@ -182,7 +189,7 @@ from pysmt.walkers import IdentityDagWalker
 def walk_ltl_x(self, formula, args, **kwargs): return self.mgr.X(args[0])
 def walk_ltl_y(self, formula, args, **kwargs): return self.mgr.Y(args[0])
 def walk_ltl_u(self, formula, args, **kwargs): return self.mgr.U(args[0], args[1])
-def walk_ltl_s(self, formula, args, **kwargs): return self.mgr.S(args[0], args[1])
+def walk_ltl_r(self, formula, args, **kwargs): return self.mgr.S(args[0], args[1])
 def walk_ltl_f(self, formula, args, **kwargs): return self.mgr.F(args[0])
 def walk_ltl_g(self, formula, args, **kwargs): return self.mgr.G(args[0])
 def walk_ltl_o(self, formula, args, **kwargs): return self.mgr.O(args[0])
@@ -191,7 +198,7 @@ def walk_ltl_h(self, formula, args, **kwargs): return self.mgr.H(args[0])
 IdentityDagWalker.set_handler(walk_ltl_x, LTL_X)
 IdentityDagWalker.set_handler(walk_ltl_y, LTL_Y)
 IdentityDagWalker.set_handler(walk_ltl_u, LTL_U)
-IdentityDagWalker.set_handler(walk_ltl_s, LTL_S)
+IdentityDagWalker.set_handler(walk_ltl_r, LTL_R)
 IdentityDagWalker.set_handler(walk_ltl_f, LTL_F)
 IdentityDagWalker.set_handler(walk_ltl_g, LTL_G)
 IdentityDagWalker.set_handler(walk_ltl_o, LTL_O)
@@ -216,7 +223,7 @@ def push_env(env=None):
         env = EnvironmentLTL()
     return pysmt_push_env(env=env)
 
-def reset_env():
+def ltl_reset_env():
     """Overload reset_env to use the new push_env()."""
     pop_env()
     push_env()
@@ -229,19 +236,31 @@ class LTLEncoder(object):
         self.mgr = get_env().formula_manager
 
     def encode(self, formula, t_i, t_k):
-
+        print(formula)
         if formula.is_constant():
             return formula
         
         if formula.is_symbol():
             assert (t_i >= 0)
-            return TS.get_timed(formula, min(t_i, t_k))
+            return TS.get_timed(formula, t_i)
 
         if formula.is_equals():
             return self.mgr.Equals(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
 
         if formula.is_and():
             return self.mgr.And(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+
+        if formula.is_implies():
+            return self.mgr.Implies(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+        
+        if formula.is_not():
+            if formula.args()[0].node_type() == LTL_F:
+                return self.encode(self.mgr.G(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k)
+
+            if formula.args()[0].node_type() == LTL_G:
+                return self.encode(self.mgr.F(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k)
+            
+            return self.mgr.Not(self.encode(formula.args()[0], t_i, t_k))
 
         if formula.is_or():
             return self.mgr.Or(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
@@ -255,15 +274,8 @@ class LTLEncoder(object):
             return FALSE()
 
         if formula.node_type() == LTL_F:
+            print(formula.args()[0])
             return Or([self.encode(formula.args()[0], j, t_k) for j in range(t_i, t_k+1, 1)])
-
-        if formula.node_type() == LTL_U:
-            return Or([And(self.encode(formula.args()[1], j, t_k), \
-                           And([self.encode(formula.args()[0], j, t_k) for n in range(t_i, j, 1)])) for j in range(t_i, t_k+1, 1)])
-
-        if formula.node_type() == LTL_R:
-            return Or([And(self.encode(formula.args()[0], j, t_k), \
-                           And([self.encode(formula.args()[1], j, t_k) for n in range(t_i, j+1, 1)])) for j in range(t_i, t_k+1, 1)])
 
         if formula.node_type() == LTL_U:
             formula_h = formula.args()[0]
@@ -278,6 +290,9 @@ class LTLEncoder(object):
             
             return Or([And(self.encode(formula_h, j, t_k), \
                            And([self.encode(formula_g, n, t_k) for n in range(t_i, j+1, 1)])) for j in range(t_i, t_k+1, 1)])
+
+
+        Logger.error("Invalid LTL operator")
         
     def encode_l(self, formula, t_i, t_k, t_l):
 
@@ -286,7 +301,7 @@ class LTLEncoder(object):
         
         if formula.is_symbol():
             assert (t_i >= 0)
-            return TS.get_timed(formula, min(t_i, t_k))
+            return TS.get_timed(formula, t_i)
 
         if formula.is_equals():
             return self.mgr.Equals(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
@@ -296,11 +311,23 @@ class LTLEncoder(object):
 
         if formula.is_or():
             return self.mgr.Or(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
+
+        if formula.is_implies():
+            return self.mgr.Implies(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+        
+        if formula.is_not():
+            if formula.args()[0].node_type() == LTL_F:
+                return self.encode_l(self.mgr.G(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k, t_l)
+
+            if formula.args()[0].node_type() == LTL_G:
+                return self.encode_l(self.mgr.F(self.mgr.Not(formula.args()[0].args()[0])), t_i, t_k, t_l)
+            
+            return self.mgr.Not(self.encode_l(formula.args()[0], t_i, t_k, t_l))
         
         if formula.node_type() == LTL_X:
             if t_i >= t_k:
-                return FALSE()
-            return self.encode_l(formula.args()[0], t_i, t_k, t_l)
+                return self.encode_l(formula.args()[0], t_l, t_k, t_l)
+            return self.encode_l(formula.args()[0], t_i+1, t_k, t_l)
 
         if formula.node_type() == LTL_G:
             return And([self.encode_l(formula.args()[0], j, t_k, t_l) for j in range(min(t_i, t_l), t_k+1, 1)])
@@ -336,16 +363,62 @@ class LTLEncoder(object):
 
             return Or(r1, r2, r3)
 
+        Logger.error("Invalid LTL operator")
+
+
+class LTLParser(object):
+
+    def __init__(self):
+        pass
+    
+    def parse_string(self, string):
+        return PrattParser(LTLLexer).parse(string)
+
+    def remap_or2an(self, literal):
+        return literal
+    
+    def parse_formula(self, strformula):
+        if strformula is None:
+            return None
+        
+        formula = strformula.replace("\\","")
+        for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
+            if lit in KEYWORDS:
+                continue
+            formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
+        for op in OPERATORS:
+            formula = formula.replace(op[0], op[1])
+        return self.parse_string(formula)
+
+    def parse_formulae(self, strforms):
+        formulae = []
+
+        if strforms is None:
+            return formulae
+
+        for strform in strforms:
+            if ("#" not in strform) and (strform != ""):
+                formula = self.parse_formula(strform)
+                formula_fv = get_free_variables(formula)
+                nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
+                prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
+                formulae.append((strform, formula, (nextvars, prevvars)))
+
+        return formulae
+
+    
         
 if __name__ == "__main__":
 
-    reset_env()
+    ltl_reset_env()
     
     Symbol("a", BVType(4))
     Symbol("b", BVType(4))
+
+    ltlparser = LTLParser()
     
-    parser = PrattParser(LTLLexer)
-    f = parser.parse("(a = 1_4) U (b = 2_4)")
+    #f = parser.parse("(a = 1_4) U (b = 2_4)")
+    f = ltlparser.parse_string("GF(a = 1_4)")
     print(f)
 
     enc = LTLEncoder()

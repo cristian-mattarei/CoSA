@@ -254,3 +254,82 @@ class MCSolver(object):
 
         return r
                 
+
+    def _check_lemma(self, hts, lemma, init, trans):
+
+        def check_init():
+            self._reset_assertions(self.solver)
+            self._add_assertion(self.solver, self.at_time(And(init, Not(lemma)), 0), comment="Init check")
+            res = self._solve(self.solver)
+
+            prefix = None
+            if self.config.prefix is not None:
+                prefix = self.config.prefix+"-ind"
+
+            if res:
+                if Logger.level(2):
+                    Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
+                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 0, prefix=prefix, map_function=self.config.map_function)
+                    Logger.log("", 2)
+                    if hr_trace:
+                        Logger.log("Counterexample: \n%s"%(hr_trace), 2)
+                    else:
+                        Logger.log("", 2)
+                return False
+            else:
+                Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
+
+            return True
+
+    
+    def _suff_lemmas(self, prop, lemmas):
+        self._reset_assertions(self.solver)
+
+        self._add_assertion(self.solver, And(And(lemmas), Not(prop)))
+        
+        if self._solve(self.solver):
+            return False
+
+        return True
+
+    def add_lemmas(self, hts, prop, lemmas):
+        if len(lemmas) == 0:
+            return (hts, False)
+
+        self._reset_assertions(self.solver)
+
+        h_init = hts.single_init()
+        h_trans = hts.single_trans()
+        
+        holding_lemmas = []
+        lindex = 1
+        nlemmas = len(lemmas)
+        tlemmas = 0
+        flemmas = 0
+        for lemma in lemmas:
+            Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
+            invar = hts.single_invar()
+            init = And(h_init, invar)
+            trans = And(invar, h_trans, TS.to_next(invar))
+            if self._check_lemma(hts, lemma, init, trans):
+                holding_lemmas.append(lemma)
+                hts.add_assumption(lemma)
+                hts.reset_formulae()
+                
+                Logger.log("Lemma %s holds"%(lindex), 1)
+                tlemmas += 1
+                if self._suff_lemmas(prop, holding_lemmas):
+                    return (hts, True)
+            else:
+                Logger.log("Lemma %s does not hold"%(lindex), 1)
+                flemmas += 1
+                
+            msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
+            Logger.inline(msg, 0, not(Logger.level(1))) 
+            lindex += 1
+            
+        Logger.clear_inline(0, not(Logger.level(1)))
+        
+        hts.assumptions = And(holding_lemmas)
+        return (hts, False)
+    

@@ -1,0 +1,204 @@
+# Copyright 2018 Cristian Mattarei
+#
+# Licensed under the modified BSD (3-clause BSD) License.
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import re
+import copy
+from six.moves import cStringIO
+
+from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
+from pysmt.shortcuts import Interpolator
+from pysmt.oracles import get_logic
+from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+
+from cosa.utils.logger import Logger
+from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.utils.generic import status_bar
+from cosa.transition_systems import TS, HTS
+from cosa.encoders.coreir import CoreIRParser, SEP
+from cosa.encoders.ltl import LTLEncoder
+
+from cosa.printers import TextTracePrinter, VCDTracePrinter
+from cosa.problem import VerificationStatus
+from cosa.analyzers.bmc import BMC
+
+from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU, INT
+
+class BMCLTL(BMC):
+
+    hts = None
+    config = None
+
+    TraceID = 0
+
+    total_time = 0.0
+    tracefile = None
+
+    def __init__(self, hts, config):
+        self.hts = hts
+        self.config = config
+
+        Logger.time = True
+        self.total_time = 0.0
+
+        self.solver = TraceSolver(config.solver_name)
+        self._reset_smt2_tracefile()
+
+        self.varmapf_t = None
+        self.varmapb_t = None
+
+    def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
+        Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
+
+        fwd = k_start <= k_end
+        time_function = self.at_time if fwd else self.at_ptime
+        (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
+
+        formula = []
+        t = k_start
+        while t < k_end:
+            to_t = t+1 if fwd else t
+            formula.append(time_function(trans, t))
+            formula.append(time_function(invar, to_t))
+            Logger.log("Add trans, k=%s"%t, 2)
+            t += 1
+
+        if gen_list:
+            return formula
+            
+        return And(formula)
+
+    def loop_free(self, vars_, trans, k_end, k_start=0):
+        Logger.log("Loop free from %s to %s"%(k_start, k_end), 2)
+
+        cur = [(v.symbol_name(), self.vars_time[k_start][v]) for v in vars_]
+        nex = [(TS.get_prime_name(v), self.vars_time[k_end][v]) for v in vars_]
+
+        return substitute(trans, dict(cur+nex))
+
+    def _init_v_time(self, vars, k):
+        self.vars_time = []
+        
+        for t in range(k+1):
+            vars_at_t = []
+            for v in vars:
+                vars_at_t.append((v, TS.get_timed_name(v, t)))
+            self.vars_time.append((t, dict(vars_at_t)))
+            
+        self.vars_time = dict(self.vars_time)
+    
+    def ltl(self, prop, k):
+        lemmas = self.hts.lemmas
+        self._init_at_time(self.hts.vars, k)
+        self._init_v_time(self.hts.vars, k)
+        (t, model) = self.solve(self.hts, prop, k, lemmas)
+
+        if model == True:
+            return (VerificationStatus.TRUE, None, t)
+        elif model is not None:
+            model = self._remap_model(self.hts.vars, model, t)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
+            return (VerificationStatus.FALSE, trace, t)
+        else:
+            return (VerificationStatus.UNK, None, t)
+    
+    def solve(self, hts, prop, k, lemmas=None):
+        if lemmas is not None:
+            (hts, res) = self.add_lemmas(hts, prop, lemmas)
+            if res:
+                Logger.log("Lemmas imply the property", 1)
+                Logger.log("", 0, not(Logger.level(1)))
+                return (0, True)
+
+        hts.reset_formulae()
+        
+        return self.solve_inc(hts, prop, k)
+
+    def all_loopbacks(self, vars, k):
+        lvars = list(vars)
+        vars_k = [TS.get_timed(v, k) for v in lvars]
+        loopback = []
+        eqvar = None
+        heqvars = None
+
+        peqvars = FALSE()
+            
+        for i in range(k):
+            vars_i = [TS.get_timed(v, i) for v in lvars]
+            eq_k_i = And([EqualsOrIff(vars_k[j], vars_i[j]) for j in range(len(lvars))])
+                
+            loopback.append(eq_k_i)
+
+        loopback.append(FALSE())
+        return loopback
+    
+    def solve_inc(self, hts, prop, k, all_vars=False):
+
+        if all_vars:
+            relevant_vars = hts.vars
+        else:
+            relevant_vars = hts.state_vars | hts.inputs | hts.outputs
+        
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+
+        init = And(init, invar)
+        init_0 = self.at_time(init, 0)
+        
+        enc = LTLEncoder()
+
+        nprop = Not(prop)
+
+        self._reset_assertions(self.solver)
+        self._add_assertion(self.solver, init_0)
+        
+        for t in range(k+1):
+            
+            trans_t = self.unroll(trans, invar, t)
+            self._add_assertion(self.solver, trans_t)
+                
+            lb = self.all_loopbacks(relevant_vars, t)
+
+            self._push(self.solver)
+            self._push(self.solver)
+            
+            nprop_k = enc.encode(nprop, 0, t)
+            self._add_assertion(self.solver, And(nprop_k, Not(Or(lb))))
+
+            if self._solve(self.solver):
+                Logger.log("Counterexample (no-loop) found with k=%s"%(t), 1)
+                model = self._get_model(self.solver)
+                Logger.log("", 0, not(Logger.level(1)))
+                return (t, model)
+
+            nltlprop = []
+
+            self._pop(self.solver)
+
+            for l in range(t+1):
+                nprop_l = enc.encode_l(nprop, 0, t, l)
+                nltlprop.append(And(lb[l], nprop_l))
+
+            self._add_assertion(self.solver, simplify(Or(nltlprop)))
+
+            if self._solve(self.solver):
+                Logger.log("Counterexample (with-loop) found with k=%s"%(t), 1)
+                model = self._get_model(self.solver)
+                Logger.log("", 0, not(Logger.level(1)))
+                return (t, model)
+            else:
+                Logger.log("No counterexample found with k=%s"%(t), 1)
+                Logger.msg(".", 0, not(Logger.level(1)))
+
+            self._pop(self.solver)
+                
+                
+        return (k-1, None)
+    

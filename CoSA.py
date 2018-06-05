@@ -23,6 +23,7 @@ from cosa.analyzers.dispatcher import ProblemSolver
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc import BMC
 from cosa.analyzers.bmc_liveness import BMCLiveness
+from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.utils.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
@@ -30,10 +31,12 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
+from cosa.encoders.ltl import ltl_reset_env, LTLParser
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.transition_systems import HTS
 
-from pysmt.shortcuts import TRUE, reset_env
+from pysmt.shortcuts import TRUE, reset_env, get_env
+
 
 class Config(object):
     parser = None
@@ -43,6 +46,7 @@ class Config(object):
     bmc_length = 10
     bmc_length_min = 0
     safety = None
+    ltl = None
     liveness = None
     eventually = None
     properties = None
@@ -78,6 +82,7 @@ class Config(object):
         self.bmc_length = 10
         self.bmc_length_min = 0
         self.safety = None
+        self.ltl = None
         self.liveness = None
         self.eventually = None
         self.properties = None
@@ -147,6 +152,9 @@ def run_verification(config):
     ets_parser = None
     sts_parser = None
 
+    if config.ltl:
+        ltl_reset_env()
+    
     hts = HTS("Top level")
 
     if config.strfiles[0][-4:] != ".pkl":
@@ -207,6 +215,8 @@ def run_verification(config):
 
     if config.liveness or config.eventually:
         bmc_liveness = BMCLiveness(hts, mc_config)
+    elif config.ltl:
+        bmc_ltl = BMCLTL(hts, mc_config)
     else:
         bmc = BMC(hts, mc_config)
 
@@ -326,6 +336,23 @@ def run_verification(config):
         else:
             Logger.log(msg%("")+" up to k=%i"%t, 0)
 
+    if config.ltl:
+        count = 0
+        list_status = []
+        ltlparser = LTLParser()
+
+        for (strprop, prop, types) in ltlparser.parse_formulae(config.properties):
+            Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
+            res, trace, t = bmc_ltl.ltl(prop, config.bmc_length)
+            Logger.log("Property is %s"%res, 0)
+            if res == VerificationStatus.FALSE:
+                count += 1
+                print_trace("Counterexample", trace, count, config.prefix)
+
+            list_status.append(res)
+
+        return list_status
+            
 def run_problems(problems, config):
     reset_env()
     Logger.verbosity = config.verbosity
@@ -386,6 +413,10 @@ if __name__ == "__main__":
     ver_options.add_argument('--eventually', dest='eventually', action='store_true',
                        help='eventually (F) verification using BMC.')
 
+    ver_options.set_defaults(ltl=False)
+    ver_options.add_argument('--ltl', dest='ltl', action='store_true',
+                       help='ltl verification using BMC.')
+    
     ver_options.set_defaults(simulate=False)
     ver_options.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC.')
@@ -519,6 +550,7 @@ if __name__ == "__main__":
     config.strfiles = args.input_files
     config.simulate = args.simulate
     config.safety = args.safety
+    config.ltl = args.ltl
     config.liveness = args.liveness
     config.eventually = args.eventually
     config.properties = args.properties
@@ -574,6 +606,7 @@ if __name__ == "__main__":
 
     if not(config.simulate or \
            (config.safety) or \
+           (config.ltl) or \
            (config.liveness) or \
            (config.eventually) or \
            (config.equivalence is not None) or\
@@ -584,8 +617,8 @@ if __name__ == "__main__":
     if config.safety and (config.properties is None):
         Logger.error("Safety verification requires at least a property")
 
-    if config.safety and (config.properties is None):
-        Logger.error("Safety verification requires at least a property")
+    if config.ltl and (config.properties is None):
+        Logger.error("LTL verification requires at least a property")
 
     if config.liveness and (config.properties is None):
         Logger.error("Liveness verification requires at least a property")
