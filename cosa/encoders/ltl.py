@@ -33,28 +33,16 @@ OPERATORS = [(" < "," u< "), \
              (" <= "," u<= ")]
 
 LTL_X = new_node_type(node_str="LTL_X")
-LTL_Y = new_node_type(node_str="LTL_Y")
-LTL_Z = new_node_type(node_str="LTL_Z")
 LTL_F = new_node_type(node_str="LTL_F")
 LTL_G = new_node_type(node_str="LTL_G")
-LTL_O = new_node_type(node_str="LTL_O")
-LTL_H = new_node_type(node_str="LTL_H")
 LTL_U = new_node_type(node_str="LTL_U")
 LTL_R = new_node_type(node_str="LTL_R")
-ALL_LTL = (LTL_X, LTL_Y, LTL_Z,
-           LTL_F, LTL_G, LTL_O, LTL_H,
-           LTL_U, LTL_R)
+ALL_LTL = (LTL_X, LTL_F, LTL_G, LTL_U, LTL_R)
 
 class FormulaManager(pysmt.formula.FormulaManager):
     """Extension of FormulaManager to handle LTL Operators."""
     def X(self, formula):
         return self.create_node(node_type=LTL_X, args=(formula,))
-
-    def Y(self, formula):
-        return self.create_node(node_type=LTL_Y, args=(formula,))
-
-    def Z(self, formula):
-        return self.create_node(node_type=LTL_Z, args=(formula,))
 
     def F(self, formula):
         return self.create_node(node_type=LTL_F, args=(formula,))
@@ -62,63 +50,31 @@ class FormulaManager(pysmt.formula.FormulaManager):
     def G(self, formula):
         return self.create_node(node_type=LTL_G, args=(formula,))
 
-    def O(self, formula):
-        return self.create_node(node_type=LTL_O, args=(formula,))
-
-    def H(self, formula):
-        return self.create_node(node_type=LTL_H, args=(formula,))
-
-    def S(self, left, right):
-        return self.create_node(node_type=LTL_R, args=(left, right))
-
     def U(self, left, right):
         return self.create_node(node_type=LTL_U, args=(left, right))
 
-    # We can also add syntactic sugar, by creating constructors that
-    # are not mapped directly to a new node type. For example X^n:
-    def Xn(self, n, formula):
-        X_ = self.X
-        res = formula
-        for _ in range(n):
-            res = X_(res)
-        return res
-
-
+    def R(self, left, right):
+        return self.create_node(node_type=LTL_R, args=(left, right))
+    
 class LTLLexer(HRLexer):
     def __init__(self, env=None):
         HRLexer.__init__(self, env=env)
         self.rules.insert(0, Rule(r"(!=)", InfixOpAdapter(self.NEquals, 60), False))
         self.rules.insert(0, Rule(r"(X)", UnaryOpAdapter(self.X, 100), False))
-        self.rules.insert(0, Rule(r"(Y)", UnaryOpAdapter(self.Y, 100), False))
-        self.rules.insert(0, Rule(r"(Z)", UnaryOpAdapter(self.Z, 100), False))
-        self.rules.insert(0, Rule(r"(G)", UnaryOpAdapter(self.G, 100), False))
         self.rules.insert(0, Rule(r"(F)", UnaryOpAdapter(self.F, 100), False))
-        self.rules.insert(0, Rule(r"(H)", UnaryOpAdapter(self.H, 100), False))
-        self.rules.insert(0, Rule(r"(O)", UnaryOpAdapter(self.O, 100), False))
+        self.rules.insert(0, Rule(r"(G)", UnaryOpAdapter(self.G, 100), False))
         self.rules.insert(0, Rule(r"(U)", InfixOpAdapter(self.U, 100), False))
         self.rules.insert(0, Rule(r"(R)", InfixOpAdapter(self.R, 100), False))
         self.compile()
 
     def X(self, x):
         return self.mgr.X(x)
-
-    def Y(self, x):
-        return self.mgr.Y(x)
-
-    def Z(self, x):
-        return self.mgr.Z(x)
-    
-    def G(self, x):
-        return self.mgr.G(x)
-
-    def O(self, x):
-        return self.mgr.O(x)
-
-    def H(self, x):
-        return self.mgr.H(x)
     
     def F(self, x):
         return self.mgr.F(x)
+    
+    def G(self, x):
+        return self.mgr.G(x)
 
     def U(self, l, r):
         return self.mgr.U(l, r)
@@ -130,35 +86,16 @@ class LTLLexer(HRLexer):
         return self.mgr.Not(self.mgr.Equals(l, r))
 
     
-#
-# For the system to work, we need to extend a few walkers.
-#
-
-# The first extension is the TypeChecker. The typechecker provides
-# several convenience methods for many types of operators. In this
-# case, all the LTL operators have boolean argument and boolean return
-# value, therefore we map them all to walk_bool_to_bool.
-#
-# This is an example of how to extend an existing class
-# (SimpleTypeChecker) in order to deal with new node-types, by calling
-# an existing method (walk_bool_to_bool).
 from pysmt.type_checker import SimpleTypeChecker
 SimpleTypeChecker.set_handler(SimpleTypeChecker.walk_bool_to_bool, *ALL_LTL)
 
 from pysmt.oracles import FreeVarsOracle
 FreeVarsOracle.set_handler(FreeVarsOracle.walk_simple_args, *ALL_LTL)
 
-# An alternative approach is to subclass the walker that we are
-# interested in. For example, the HRPrinter has utility methods for
-# the nary operators. For the unary operators, we define a unique
-# function.  The walk_* method that we override needs to have the same
-# name as the string used in new_node_type (lowercase): for LTL_G, we
-# override walk_ltl_g.
 
 import pysmt.printers
 from pysmt.walkers.generic import handles
-LTL_TYPE_TO_STR = { LTL_X: "X", LTL_Y: "Y", LTL_Z: "Z",
-                    LTL_F: "F", LTL_G: "G", LTL_O: "O", LTL_H: "H"}
+LTL_TYPE_TO_STR = { LTL_X: "X", LTL_F: "F", LTL_G: "G"}
 
 class HRPrinter(pysmt.printers.HRPrinter):
     def walk_ltl_r(self, formula):
@@ -167,7 +104,7 @@ class HRPrinter(pysmt.printers.HRPrinter):
     def walk_ltl_u(self, formula):
         return self.walk_nary(formula, " U ")
 
-    @handles(LTL_X, LTL_Y, LTL_Z, LTL_F, LTL_G, LTL_O, LTL_H)
+    @handles(LTL_X, LTL_F, LTL_G)
     def walk_ltl(self, formula):
         node_type = formula.node_type()
         op_symbol = LTL_TYPE_TO_STR[node_type]
@@ -182,27 +119,19 @@ class HRSerializer(pysmt.printers.HRSerializer):
 
 # EOC HRSerialize
 
-# Finally, a third option is to define new methods and attach them to
-# existing classes. We do so for the IdentityDagWalker
 from pysmt.walkers import IdentityDagWalker
 
 def walk_ltl_x(self, formula, args, **kwargs): return self.mgr.X(args[0])
-def walk_ltl_y(self, formula, args, **kwargs): return self.mgr.Y(args[0])
-def walk_ltl_u(self, formula, args, **kwargs): return self.mgr.U(args[0], args[1])
-def walk_ltl_r(self, formula, args, **kwargs): return self.mgr.S(args[0], args[1])
 def walk_ltl_f(self, formula, args, **kwargs): return self.mgr.F(args[0])
 def walk_ltl_g(self, formula, args, **kwargs): return self.mgr.G(args[0])
-def walk_ltl_o(self, formula, args, **kwargs): return self.mgr.O(args[0])
-def walk_ltl_h(self, formula, args, **kwargs): return self.mgr.H(args[0])
+def walk_ltl_u(self, formula, args, **kwargs): return self.mgr.U(args[0], args[1])
+def walk_ltl_r(self, formula, args, **kwargs): return self.mgr.R(args[0], args[1])
 
 IdentityDagWalker.set_handler(walk_ltl_x, LTL_X)
-IdentityDagWalker.set_handler(walk_ltl_y, LTL_Y)
-IdentityDagWalker.set_handler(walk_ltl_u, LTL_U)
-IdentityDagWalker.set_handler(walk_ltl_r, LTL_R)
 IdentityDagWalker.set_handler(walk_ltl_f, LTL_F)
 IdentityDagWalker.set_handler(walk_ltl_g, LTL_G)
-IdentityDagWalker.set_handler(walk_ltl_o, LTL_O)
-IdentityDagWalker.set_handler(walk_ltl_h, LTL_H)
+IdentityDagWalker.set_handler(walk_ltl_u, LTL_U)
+IdentityDagWalker.set_handler(walk_ltl_r, LTL_R)
 # EOC IdentityDagWalker
 
 from pysmt.environment import Environment, pop_env, get_env
@@ -210,8 +139,6 @@ from pysmt.environment import push_env as pysmt_push_env
 
 class EnvironmentLTL(Environment):
     """Extension of pySMT environment."""
-    # Only specify new classes. Classes that have been extended
-    # directly do not need to be redefined here (e.g., TypeChecker)
     FormulaManagerClass = FormulaManager
     HRSerializerClass = HRSerializer
 
@@ -267,6 +194,12 @@ class LTLEncoder(object):
             if formula.args()[0].node_type() == LTL_G:
                 return self.mgr.F(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
 
+            if formula.args()[0].node_type() == LTL_U:
+                return self.mgr.R(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])), self.to_nnf(self.mgr.Not(formula.args()[0].args()[1])))
+
+            if formula.args()[0].node_type() == LTL_R:
+                return self.mgr.U(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])), self.to_nnf(self.mgr.Not(formula.args()[0].args()[1])))
+            
             if formula.args()[0].is_and():
                 l = formula.args()[0].args()[0]
                 r = formula.args()[0].args()[1]
@@ -343,7 +276,6 @@ class LTLEncoder(object):
                            And([self.encode(formula_g, n, t_k) for n in range(t_i, j+1, 1)])) for j in range(t_i, t_k+1, 1)])
 
 
-        print(formula)
         Logger.error("Invalid LTL operator")
         
     def encode_l(self, formula, t_i, t_k, t_l):
