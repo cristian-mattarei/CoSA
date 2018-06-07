@@ -22,11 +22,11 @@ from cosa.transition_systems import HTS, TS
 from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables, substitute
-
+from cosa.problem import VerificationType
 
 from pysmt.operators import new_node_type
 
-KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R"]
+KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \
@@ -37,13 +37,15 @@ LTL_F = new_node_type(node_str="LTL_F")
 LTL_G = new_node_type(node_str="LTL_G")
 LTL_U = new_node_type(node_str="LTL_U")
 LTL_R = new_node_type(node_str="LTL_R")
-ALL_LTL = (LTL_X, LTL_F, LTL_G, LTL_U, LTL_R)
+LTL_O = new_node_type(node_str="LTL_O")
+LTL_H = new_node_type(node_str="LTL_H")
+ALL_LTL = (LTL_X, LTL_F, LTL_G, LTL_U, LTL_R, LTL_O, LTL_H)
 
 class FormulaManager(pysmt.formula.FormulaManager):
     """Extension of FormulaManager to handle LTL Operators."""
     def X(self, formula):
         return self.create_node(node_type=LTL_X, args=(formula,))
-
+    
     def F(self, formula):
         return self.create_node(node_type=LTL_F, args=(formula,))
 
@@ -55,6 +57,12 @@ class FormulaManager(pysmt.formula.FormulaManager):
 
     def R(self, left, right):
         return self.create_node(node_type=LTL_R, args=(left, right))
+
+    def O(self, formula):
+        return self.create_node(node_type=LTL_O, args=(formula,))
+
+    def H(self, formula):
+        return self.create_node(node_type=LTL_H, args=(formula,))
     
 class LTLLexer(HRLexer):
     def __init__(self, env=None):
@@ -65,6 +73,8 @@ class LTLLexer(HRLexer):
         self.rules.insert(0, Rule(r"(G)", UnaryOpAdapter(self.G, 100), False))
         self.rules.insert(0, Rule(r"(U)", InfixOpAdapter(self.U, 100), False))
         self.rules.insert(0, Rule(r"(R)", InfixOpAdapter(self.R, 100), False))
+        self.rules.insert(0, Rule(r"(O)", UnaryOpAdapter(self.O, 100), False))
+        self.rules.insert(0, Rule(r"(H)", UnaryOpAdapter(self.H, 100), False))
         self.compile()
 
     def X(self, x):
@@ -81,6 +91,12 @@ class LTLLexer(HRLexer):
 
     def R(self, l, r):
         return self.mgr.R(l, r)
+
+    def O(self, x):
+        return self.mgr.O(x)
+
+    def H(self, x):
+        return self.mgr.H(x)
     
     def NEquals(self, l, r):
         return self.mgr.Not(self.mgr.Equals(l, r))
@@ -95,7 +111,7 @@ FreeVarsOracle.set_handler(FreeVarsOracle.walk_simple_args, *ALL_LTL)
 
 import pysmt.printers
 from pysmt.walkers.generic import handles
-LTL_TYPE_TO_STR = { LTL_X: "X", LTL_F: "F", LTL_G: "G"}
+LTL_TYPE_TO_STR = { LTL_X: "X", LTL_F: "F", LTL_G: "G", LTL_O: "O", LTL_H: "H"}
 
 class HRPrinter(pysmt.printers.HRPrinter):
     def walk_ltl_r(self, formula):
@@ -104,7 +120,7 @@ class HRPrinter(pysmt.printers.HRPrinter):
     def walk_ltl_u(self, formula):
         return self.walk_nary(formula, " U ")
 
-    @handles(LTL_X, LTL_F, LTL_G)
+    @handles(LTL_X, LTL_F, LTL_G, LTL_O, LTL_H)
     def walk_ltl(self, formula):
         node_type = formula.node_type()
         op_symbol = LTL_TYPE_TO_STR[node_type]
@@ -126,12 +142,16 @@ def walk_ltl_f(self, formula, args, **kwargs): return self.mgr.F(args[0])
 def walk_ltl_g(self, formula, args, **kwargs): return self.mgr.G(args[0])
 def walk_ltl_u(self, formula, args, **kwargs): return self.mgr.U(args[0], args[1])
 def walk_ltl_r(self, formula, args, **kwargs): return self.mgr.R(args[0], args[1])
+def walk_ltl_o(self, formula, args, **kwargs): return self.mgr.O(args[0])
+def walk_ltl_h(self, formula, args, **kwargs): return self.mgr.H(args[0])
 
 IdentityDagWalker.set_handler(walk_ltl_x, LTL_X)
 IdentityDagWalker.set_handler(walk_ltl_f, LTL_F)
 IdentityDagWalker.set_handler(walk_ltl_g, LTL_G)
 IdentityDagWalker.set_handler(walk_ltl_u, LTL_U)
 IdentityDagWalker.set_handler(walk_ltl_r, LTL_R)
+IdentityDagWalker.set_handler(walk_ltl_o, LTL_O)
+IdentityDagWalker.set_handler(walk_ltl_h, LTL_H)
 # EOC IdentityDagWalker
 
 from pysmt.environment import Environment, pop_env, get_env
@@ -156,12 +176,49 @@ def ltl_reset_env():
     push_env()
     return get_env()
 
+def has_ltl_operators(formula):
+
+    if formula.is_symbol():
+        return False
+
+    if formula.is_constant():
+        return False
+
+    if formula.node_type() in ALL_LTL:
+        return True
+
+    for child in formula.args():
+        if has_ltl_operators(child):
+            return True
+
+    return False
+
+def verification_type(formula):
+    print(formula)
+    
+    top = formula
+    chd1 = formula.args()[0] if len(formula.args()) > 0 else None
+    chd2 = None
+
+    if chd1 is not None:
+        chd2 = chd1.args()[0] if len(chd1.args()) > 0 else None
+
+    if (top.node_type() == LTL_G) and (not has_ltl_operators(chd1)):
+        return (VerificationType.SAFETY, chd1)
+
+    if (top.node_type() == LTL_F) and (not has_ltl_operators(chd1)):
+        return (VerificationType.EVENTUALLY, chd1)
+
+    if (top.node_type() == LTL_G) and (chd1.node_type() == LTL_F) and (not has_ltl_operators(chd2)):
+        return (VerificationType.LIVENESS, chd2)
+
+    return (VerificationType.LTL, formula)
 
 class LTLEncoder(object):
 
     def __init__(self):
         self.mgr = get_env().formula_manager
-
+        
     def to_nnf(self, formula):
         if formula.is_constant():
             return formula
@@ -187,7 +244,7 @@ class LTLEncoder(object):
 
             if formula.args()[0].node_type() == LTL_X:
                 return self.mgr.X(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
-            
+
             if formula.args()[0].node_type() == LTL_F:
                 return self.mgr.G(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
 
@@ -199,6 +256,12 @@ class LTLEncoder(object):
 
             if formula.args()[0].node_type() == LTL_R:
                 return self.mgr.U(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])), self.to_nnf(self.mgr.Not(formula.args()[0].args()[1])))
+
+            if formula.args()[0].node_type() == LTL_O:
+                return self.mgr.H(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
+
+            if formula.args()[0].node_type() == LTL_H:
+                return self.mgr.O(self.to_nnf(self.mgr.Not(formula.args()[0].args()[0])))
             
             if formula.args()[0].is_and():
                 l = formula.args()[0].args()[0]
@@ -247,6 +310,9 @@ class LTLEncoder(object):
         if formula.is_bv_ult():
             return self.mgr.BVULT(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
 
+        if formula.is_bv_ule():
+            return self.mgr.BVULE(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
+        
         if formula.is_or():
             return self.mgr.Or(self.encode(formula.args()[0], t_i, t_k), self.encode(formula.args()[1], t_i, t_k))
         
@@ -275,6 +341,12 @@ class LTLEncoder(object):
             return Or([And(self.encode(formula_h, j, t_k), \
                            And([self.encode(formula_g, n, t_k) for n in range(t_i, j+1, 1)])) for j in range(t_i, t_k+1, 1)])
 
+        if formula.node_type() == LTL_O:
+            return Or([self.encode(formula.args()[0], j, t_k) for j in range(t_i, t_k+1, 1)])
+
+        if formula.node_type() == LTL_H:
+            return And([self.encode(formula.args()[0], j, t_k) for j in range(t_i, t_k+1, 1)])
+        
 
         Logger.error("Invalid LTL operator")
         
@@ -301,6 +373,9 @@ class LTLEncoder(object):
 
         if formula.is_bv_ult():
             return self.mgr.BVULT(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
+
+        if formula.is_bv_ule():
+            return self.mgr.BVULE(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
         
         if formula.is_implies():
             return self.mgr.Implies(self.encode_l(formula.args()[0], t_i, t_k, t_l), self.encode_l(formula.args()[1], t_i, t_k, t_l))
@@ -347,6 +422,12 @@ class LTLEncoder(object):
 
             return Or(r1, r2, r3)
 
+        if formula.node_type() == LTL_O:
+            return Or([self.encode_l(formula.args()[0], j, t_k, t_l) for j in range(t_i, t_k+1, 1)])
+
+        if formula.node_type() == LTL_H:
+            return And([self.encode_l(formula.args()[0], j, t_k, t_l) for j in range(t_i, t_k+1, 1)])
+        
         Logger.error("Invalid LTL operator")
 
 

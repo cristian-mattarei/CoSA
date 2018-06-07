@@ -23,17 +23,16 @@ from cosa.utils.generic import status_bar
 from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
-from cosa.printers import TextTracePrinter, VCDTracePrinter
 from cosa.problem import VerificationStatus
 
-from cosa.analyzers.mcsolver import TraceSolver, MCSolver, FWD, BWD, ZZ, NU, INT
+from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, FWD, BWD, ZZ, NU, INT
 
 NL = "\n"
 
 S1 = "sys1"+SEP
 S2 = "sys2"+SEP
 
-class BMC(MCSolver):
+class BMCSafety(BMCSolver):
 
     hts = None
     config = None
@@ -44,43 +43,7 @@ class BMC(MCSolver):
     tracefile = None
 
     def __init__(self, hts, config):
-        self.hts = hts
-        self.config = config
-
-        self.assert_property = False
-
-        Logger.time = True
-        self.total_time = 0.0
-
-        self.solver = TraceSolver(config.solver_name)
-        if self.config.prove:
-            self.solver_2 = TraceSolver(config.solver_name)
-
-        self._reset_smt2_tracefile()
-
-        self.varmapf_t = None
-        self.varmapb_t = None
-
-    def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
-        Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
-
-        fwd = k_start <= k_end
-        time_function = self.at_time if fwd else self.at_ptime
-        (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
-
-        formula = []
-        t = k_start
-        while t < k_end:
-            to_t = t+1 if fwd else t
-            formula.append(time_function(trans, t))
-            formula.append(time_function(invar, to_t))
-            Logger.log("Add trans, k=%s"%t, 2)
-            t += 1
-
-        if gen_list:
-            return formula
-            
-        return And(formula)
+        BMCSolver.__init__(self, hts, config)
 
     def loop_free(self, vars_, k_end, k_start=0):
         Logger.log("Simple path from %s to %s"%(k_start, k_end), 2)
@@ -104,46 +67,6 @@ class BMC(MCSolver):
 
         return And(formula)
 
-    def print_trace(self, hts, model, length, \
-                    xvars=None, \
-                    diff_only=True, \
-                    map_function=None, \
-                    prefix=None, \
-                    write_to_file=True, \
-                    find_loop=False):
-        trace = []
-        prevass = []
-
-        if prefix is None:
-            prefix = self.config.prefix
-
-        full_trace = self.config.full_trace
-
-        if write_to_file:
-            diff_only = False
-
-        if Logger.level(1):
-            diff_only = False
-            full_trace = True
-
-        # Human Readable Format
-        hr_printer = TextTracePrinter()
-        hr_printer.extra_vars = xvars
-        hr_printer.diff_only = diff_only
-        hr_printer.full_trace = full_trace
-        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loop)
-
-        # VCD format
-        vcd_trace = None
-        if self.config.vcd_trace:
-            vcd_printer = VCDTracePrinter()
-            vcd_trace = vcd_printer.print_trace(hts, model, length, map_function)
-
-        vcd_trace_file = None
-        hr_trace_file = None
-
-        return (hr_trace, vcd_trace)
-
     def simulate(self, prop, k):
         if self.config.strategy == NU:
             self._init_at_time(self.hts.vars, 1)
@@ -152,9 +75,9 @@ class BMC(MCSolver):
             self._init_at_time(self.hts.vars, k)
             if prop == TRUE():
                 self.config.incremental = False
-                (t, model) = self.solve_fwd(self.hts, Not(prop), k, False)
+                (t, model) = self.solve_safety_fwd(self.hts, Not(prop), k, False)
             else:
-                (t, model) = self.solve(self.hts, Not(prop), k)
+                (t, model) = self.solve_safety(self.hts, Not(prop), k)
 
         model = self._remap_model(self.hts.vars, model, t)
 
@@ -166,7 +89,7 @@ class BMC(MCSolver):
             Logger.log("Deadlock wit k=%s"%k, 1)
             return (VerificationStatus.FALSE, None)
 
-    def solve(self, hts, prop, k, k_min=0, lemmas=None):
+    def solve_safety(self, hts, prop, k, k_min=0, lemmas=None):
         if lemmas is not None:
             (hts, res) = self.add_lemmas(hts, prop, lemmas)
             if res:
@@ -177,36 +100,36 @@ class BMC(MCSolver):
         hts.reset_formulae()
             
         if self.config.incremental:
-            return self.solve_inc(hts, prop, k, k_min)
+            return self.solve_safety_inc(hts, prop, k, k_min)
 
-        return self.solve_ninc(hts, prop, k)
+        return self.solve_safety_ninc(hts, prop, k)
 
-    def solve_ninc(self, hts, prop, k):
+    def solve_safety_ninc(self, hts, prop, k):
         if self.config.strategy == FWD:
-            return self.solve_fwd(hts, prop, k)
+            return self.solve_safety_fwd(hts, prop, k)
 
         if self.config.strategy == INT:
-            return self.solve_int(hts, prop, k)
+            return self.solve_safety_int(hts, prop, k)
         
         Logger.error("Invalid configuration strategy")
 
         return None
     
-    def solve_inc(self, hts, prop, k, k_min):
+    def solve_safety_inc(self, hts, prop, k, k_min):
         if self.config.strategy == FWD:
-            return self.solve_inc_fwd(hts, prop, k, k_min)
+            return self.solve_safety_inc_fwd(hts, prop, k, k_min)
 
         if self.config.strategy == BWD:
-            return self.solve_inc_bwd(hts, prop, k)
+            return self.solve_safety_inc_bwd(hts, prop, k)
 
         if self.config.strategy == ZZ:
-            return self.solve_inc_zz(hts, prop, k)
+            return self.solve_safety_inc_zz(hts, prop, k)
         
         Logger.error("Invalid configuration strategy")
 
         return None
 
-    def solve_int(self, hts, prop, k):
+    def solve_safety_int(self, hts, prop, k):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
@@ -278,7 +201,7 @@ class BMC(MCSolver):
 
         return (t-1, None)
     
-    def solve_fwd(self, hts, prop, k, shortest=True):
+    def solve_safety_fwd(self, hts, prop, k, shortest=True):
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -424,7 +347,7 @@ class BMC(MCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_inc_fwd(self, hts, prop, k, k_min, all_vars=False):
+    def solve_safety_inc_fwd(self, hts, prop, k, k_min, all_vars=False):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
@@ -556,7 +479,7 @@ class BMC(MCSolver):
 
         return (t-1, None)
 
-    def solve_inc_bwd(self, hts, prop, k, assert_property=False):
+    def solve_safety_inc_bwd(self, hts, prop, k, assert_property=False):
         self._reset_assertions(self.solver)
 
         if TS.has_next(prop):
@@ -602,7 +525,7 @@ class BMC(MCSolver):
 
         return (t-1, None)
 
-    def solve_inc_zz(self, hts, prop, k):
+    def solve_safety_inc_zz(self, hts, prop, k):
         self._reset_assertions(self.solver)
 
         if TS.has_next(prop):
@@ -661,7 +584,7 @@ class BMC(MCSolver):
     def safety(self, prop, k, k_min):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve(self.hts, prop, k, k_min, lemmas)
+        (t, model) = self.solve_safety(self.hts, prop, k, k_min, lemmas)
 
         if model == True:
             return (VerificationStatus.TRUE, None, t)
@@ -671,22 +594,6 @@ class BMC(MCSolver):
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)
-
-    def _remap_model(self, vars, model, k):
-        if model is None:
-            return model
-
-        if self.config.strategy == BWD:
-            return self._remap_model_bwd(vars, model, k)
-
-        if self.config.strategy == ZZ:
-            return self._remap_model_zz(vars, model, k)
-
-        if self.config.strategy in [FWD, NU, INT]:
-            return self._remap_model_fwd(vars, model, k)
-
-        Logger.error("Invalid configuration strategy")
-        return None
 
     def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=False):
         init = hts.single_init()
@@ -800,23 +707,3 @@ class BMC(MCSolver):
         return (t, full_model)
 
 
-    def _remap_model_fwd(self, vars, model, k):
-        return model
-
-    def _remap_model_bwd(self, vars, model, k):
-        retmodel = dict()
-
-        for var in vars:
-            for t in range(k+1):
-                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
-
-        return retmodel
-
-    def _remap_model_zz(self, vars, model, k):
-        retmodel = dict(model)
-
-        for var in vars:
-            for t in range(int(k/2)+1, k+1, 1):
-                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
-
-        return retmodel

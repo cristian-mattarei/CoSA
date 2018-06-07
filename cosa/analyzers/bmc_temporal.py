@@ -22,17 +22,16 @@ from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
 from cosa.analyzers.mcsolver import MCConfig, FWD
-from cosa.analyzers.bmc import BMC
 from cosa.problem import VerificationStatus
 
-from cosa.analyzers.mcsolver import TraceSolver, MCSolver
+from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
 
 NL = "\n"
 
 EQVAR = HIDDEN+"eq_var"+HIDDEN
 HEQVAR = HIDDEN+"heq_var"+HIDDEN
 
-class BMCLiveness(BMC):
+class BMCTemporal(BMCSolver):
 
     hts = None
     config = None
@@ -42,7 +41,7 @@ class BMCLiveness(BMC):
     total_time = 0.0
 
     def __init__(self, hts, config):
-        BMC.__init__(self, hts, config)
+        BMCSolver.__init__(self, hts, config)
 
     def solve_liveness(self, hts, prop, k, k_min=0, eventually=False, lemmas=None):
         if lemmas is not None:
@@ -233,12 +232,12 @@ class BMCLiveness(BMC):
         model = self._remap_model(self.hts.vars, model, t)
 
         if model == True:
-            return (VerificationStatus.TRUE, None)
+            return (VerificationStatus.TRUE, None, t)
         elif model is not None:
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
-            return (VerificationStatus.FALSE, trace)
+            return (VerificationStatus.FALSE, trace, t)
         else:
-            return (VerificationStatus.UNK, None)
+            return (VerificationStatus.UNK, None, t)
 
     def eventually(self, prop, k, k_min):
         lemmas = self.hts.lemmas
@@ -248,10 +247,10 @@ class BMCLiveness(BMC):
         model = self._remap_model(self.hts.vars, model, t)
 
         if model == True:
-            return (VerificationStatus.TRUE, None)
+            return (VerificationStatus.TRUE, None, t)
         elif model is not None:
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
             return (VerificationStatus.FALSE, trace)
         else:
-            return (VerificationStatus.UNK, None)
+            return (VerificationStatus.UNK, None, t)
         

@@ -17,6 +17,7 @@ from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from cosa.utils.logger import Logger
 from cosa.transition_systems import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.printers import TextTracePrinter, VCDTracePrinter
 
 FWD = "FWD"
 BWD = "BWD"
@@ -82,12 +83,63 @@ class TraceSolver(object):
         self.solver.exit()
         self.solver = Solver(self.name)
 
-class MCSolver(object):
+class BMCSolver(object):
 
     def __init__(self, hts, config):
-        pass
+        self.hts = hts
+        self.config = config
 
+        self.assert_property = False
 
+        Logger.time = True
+        self.total_time = 0.0
+
+        self.solver = TraceSolver(config.solver_name)
+        if self.config.prove:
+            self.solver_2 = TraceSolver(config.solver_name)
+
+        self._reset_smt2_tracefile()
+
+        self.varmapf_t = None
+        self.varmapb_t = None
+
+    def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
+        Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
+
+        fwd = k_start <= k_end
+        time_function = self.at_time if fwd else self.at_ptime
+        (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
+
+        formula = []
+        t = k_start
+        while t < k_end:
+            to_t = t+1 if fwd else t
+            formula.append(time_function(trans, t))
+            formula.append(time_function(invar, to_t))
+            Logger.log("Add trans, k=%s"%t, 2)
+            t += 1
+
+        if gen_list:
+            return formula
+            
+        return And(formula)
+        
+    def _remap_model(self, vars, model, k):
+        if model is None:
+            return model
+
+        if self.config.strategy == BWD:
+            return self._remap_model_bwd(vars, model, k)
+
+        if self.config.strategy == ZZ:
+            return self._remap_model_zz(vars, model, k)
+
+        if self.config.strategy in [FWD, NU, INT]:
+            return self._remap_model_fwd(vars, model, k)
+
+        Logger.error("Invalid configuration strategy")
+        return None
+        
     def _init_at_time(self, vars, maxtime):
 
         previous = self.config.strategy != FWD
@@ -332,4 +384,65 @@ class MCSolver(object):
         
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
+    
+    def _remap_model_fwd(self, vars, model, k):
+        return model
+
+    def _remap_model_bwd(self, vars, model, k):
+        retmodel = dict()
+
+        for var in vars:
+            for t in range(k+1):
+                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+
+        return retmodel
+
+    def _remap_model_zz(self, vars, model, k):
+        retmodel = dict(model)
+
+        for var in vars:
+            for t in range(int(k/2)+1, k+1, 1):
+                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+
+        return retmodel
+
+    def print_trace(self, hts, model, length, \
+                    xvars=None, \
+                    diff_only=True, \
+                    map_function=None, \
+                    prefix=None, \
+                    write_to_file=True, \
+                    find_loop=False):
+        trace = []
+        prevass = []
+
+        if prefix is None:
+            prefix = self.config.prefix
+
+        full_trace = self.config.full_trace
+
+        if write_to_file:
+            diff_only = False
+
+        if Logger.level(1):
+            diff_only = False
+            full_trace = True
+
+        # Human Readable Format
+        hr_printer = TextTracePrinter()
+        hr_printer.extra_vars = xvars
+        hr_printer.diff_only = diff_only
+        hr_printer.full_trace = full_trace
+        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loop)
+
+        # VCD format
+        vcd_trace = None
+        if self.config.vcd_trace:
+            vcd_printer = VCDTracePrinter()
+            vcd_trace = vcd_printer.print_trace(hts, model, length, map_function)
+
+        vcd_trace_file = None
+        hr_trace_file = None
+
+        return (hr_trace, vcd_trace)
     

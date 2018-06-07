@@ -15,12 +15,14 @@ from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Impl
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.transition_systems import TS
-from cosa.encoders.ltl import LTLEncoder
+from cosa.encoders.ltl import LTLEncoder, verification_type
 
-from cosa.problem import VerificationStatus
-from cosa.analyzers.bmc import BMC
+from cosa.problem import VerificationStatus, VerificationType
+from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
+from cosa.analyzers.bmc_temporal import BMCTemporal
+from cosa.analyzers.bmc_safety import BMCSafety
 
-class BMCLTL(BMC):
+class BMCLTL(BMCTemporal, BMCSafety):
 
     hts = None
     config = None
@@ -31,7 +33,7 @@ class BMCLTL(BMC):
     tracefile = None
 
     def __init__(self, hts, config):
-        BMC.__init__(self, hts, config)
+        BMCSolver.__init__(self, hts, config)
 
     def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
@@ -54,24 +56,6 @@ class BMCLTL(BMC):
             
         return And(formula)
 
-    def loop_free(self, vars_, trans, k_end, k_start=0):
-        Logger.log("Loop free from %s to %s"%(k_start, k_end), 2)
-
-        cur = [(v.symbol_name(), self.vars_time[k_start][v]) for v in vars_]
-        nex = [(TS.get_prime_name(v), self.vars_time[k_end][v]) for v in vars_]
-
-        return substitute(trans, dict(cur+nex))
-
-    def all_loop_free(self, vars_, trans, k_end, k_start=0):
-        Logger.log("All loop free from %s to %s"%(k_start, k_end), 2)
-
-        loops = []
-        
-        for i in range(k_start, k_end+1, 1):
-            loops.append(self.loop_free(vars_, trans, i, k_end))
-
-        return loops
-    
     def _init_v_time(self, vars, k):
         self.vars_time = []
         
@@ -83,10 +67,27 @@ class BMCLTL(BMC):
             
         self.vars_time = dict(self.vars_time)
     
-    def ltl(self, prop, k):
+    def ltl(self, prop, k, k_min=0, force_generic=False):
+        if not force_generic:
+            (vtype, prop) = verification_type(prop)
+
+            if vtype == VerificationType.SAFETY:
+                return self.safety(prop, k, k_min)
+
+            if vtype == VerificationType.LIVENESS:
+                return self.liveness(prop, k, k_min)
+
+            if vtype == VerificationType.EVENTUALLY:
+                return self.eventually(prop, k, k_min)
+
+        return self.ltl_generic(prop, k, k_min)
+        
+    def ltl_generic(self, prop, k, k_min=0):
         lemmas = self.hts.lemmas
+        
         self._init_at_time(self.hts.vars, k)
         self._init_v_time(self.hts.vars, k)
+
         (t, model) = self.solve(self.hts, prop, k, lemmas)
 
         if model == True:
@@ -97,7 +98,7 @@ class BMCLTL(BMC):
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)
-    
+        
     def solve(self, hts, prop, k, lemmas=None):
         if lemmas is not None:
             (hts, res) = self.add_lemmas(hts, prop, lemmas)
@@ -110,7 +111,7 @@ class BMCLTL(BMC):
         
         return self.solve_inc(hts, prop, k)
 
-    def all_loopbacks(self, vars, k):
+    def all_simple_loopbacks(self, vars, k):
         lvars = list(vars)
         vars_k = [TS.get_timed(v, k) for v in lvars]
         loopback = []
@@ -154,7 +155,7 @@ class BMCLTL(BMC):
             trans_t = self.unroll(trans, invar, t)
             self._add_assertion(self.solver, trans_t)
                 
-            lb = self.all_loopbacks(relevant_vars, t)
+            lb = self.all_simple_loopbacks(relevant_vars, t)
 
             self._push(self.solver)
             self._push(self.solver)

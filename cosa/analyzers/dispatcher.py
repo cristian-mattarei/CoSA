@@ -15,8 +15,7 @@ from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
 from cosa.encoders.coreir import CoreIRParser
 from cosa.analyzers.mcsolver import MCConfig
-from cosa.analyzers.bmc import BMC
-from cosa.analyzers.bmc_liveness import BMCLiveness
+from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
@@ -45,8 +44,7 @@ class ProblemSolver(object):
         lparser = LTLParser()
 
         mc_config = self.problem2mc_config(problem, config)
-        bmc = BMC(problem.hts, mc_config)
-        bmc_liveness = BMCLiveness(problem.hts, mc_config)
+        bmc_safety = BMCSafety(problem.hts, mc_config)
         bmc_ltl = BMCLTL(problem.hts, mc_config)
         res = VerificationStatus.UNK
         bmc_length = max(problem.bmc_length, config.bmc_length)
@@ -82,19 +80,13 @@ class ProblemSolver(object):
                 (strprop, prop, types) = lparser.parse_formulae(mc_config.properties)[0]
 
         if problem.verification == VerificationType.SAFETY:
-            res, trace, _ = bmc.safety(prop, bmc_length, bmc_length_min)
+            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.LTL:
-            res, trace, _ = bmc_ltl.ltl(prop, bmc_length)
-            
-        if problem.verification == VerificationType.LIVENESS:
-            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min)
-
-        if problem.verification == VerificationType.EVENTUALLY:
-            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min)
+            res, trace, _ = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.SIMULATION:
-            res, trace = bmc.simulate(prop, bmc_length)
+            res, trace = bmc_safety.simulate(prop, bmc_length)
             
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
