@@ -19,11 +19,14 @@ from cosa.transition_systems import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.printers import TextTracePrinter, VCDTracePrinter
 
-FWD = "FWD"
-BWD = "BWD"
-ZZ  = "ZZ"
-NU  = "NU"
-INT  = "INT"
+
+class VerificationStrategy(object):
+    FWD = "FWD"
+    BWD = "BWD"
+    ZZ  = "ZZ"
+    NU  = "NU"
+    INT  = "INT"
+    AUTO = "AUTO"
 
 class MCConfig(object):
 
@@ -41,7 +44,7 @@ class MCConfig(object):
 
     def __init__(self):
         self.incremental = True
-        self.strategy = FWD
+        self.strategy = VerificationStrategy.AUTO
         self.solver_name = "msat"
         self.full_trace = False
         self.prefix = None
@@ -56,11 +59,12 @@ class MCConfig(object):
     @staticmethod
     def get_strategies():
         strategies = []
-        strategies.append((FWD, "Forward reachability"))
-        strategies.append((BWD, "Backward reachability"))
-        strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((INT, "Interpolation"))
-        strategies.append((NU,  "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
+        strategies.append((VerificationStrategy.FWD, "Forward reachability"))
+        strategies.append((VerificationStrategy.BWD, "Backward reachability"))
+        strategies.append((VerificationStrategy.ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((VerificationStrategy.INT, "Interpolation"))
+        strategies.append((VerificationStrategy.NU,  "States picking without unrolling (only for simulation)"))
 
         return strategies
 
@@ -127,13 +131,13 @@ class BMCSolver(object):
         if model is None:
             return model
 
-        if self.config.strategy == BWD:
+        if self.config.strategy == VerificationStrategy.BWD:
             return self._remap_model_bwd(vars, model, k)
 
-        if self.config.strategy == ZZ:
+        if self.config.strategy == VerificationStrategy.ZZ:
             return self._remap_model_zz(vars, model, k)
 
-        if self.config.strategy in [FWD, NU, INT]:
+        if self.config.strategy in [VerificationStrategy.AUTO, VerificationStrategy.FWD, VerificationStrategy.NU, VerificationStrategy.INT]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
@@ -141,7 +145,7 @@ class BMCSolver(object):
         
     def _init_at_time(self, vars, maxtime):
 
-        previous = self.config.strategy != FWD
+        previous = self.config.strategy != VerificationStrategy.FWD
 
         if self.varmapf_t is not None:
             del(self.varmapf_t)

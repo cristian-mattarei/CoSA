@@ -24,8 +24,7 @@ from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.problem import VerificationStatus
-
-from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, FWD, BWD, ZZ, NU, INT
+from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
 NL = "\n"
 
@@ -68,7 +67,7 @@ class BMCSafety(BMCSolver):
         return And(formula)
 
     def simulate(self, prop, k):
-        if self.config.strategy == NU:
+        if self.config.strategy == VerificationStrategy.NU:
             self._init_at_time(self.hts.vars, 1)
             (t, model) = self.sim_no_unroll(self.hts, prop, k)
         else:
@@ -105,10 +104,10 @@ class BMCSafety(BMCSolver):
         return self.solve_safety_ninc(hts, prop, k)
 
     def solve_safety_ninc(self, hts, prop, k):
-        if self.config.strategy == FWD:
+        if self.config.strategy in [VerificationStrategy.FWD, VerificationStrategy.AUTO]:
             return self.solve_safety_fwd(hts, prop, k)
 
-        if self.config.strategy == INT:
+        if self.config.strategy == VerificationStrategy.INT:
             return self.solve_safety_int(hts, prop, k)
         
         Logger.error("Invalid configuration strategy")
@@ -116,13 +115,13 @@ class BMCSafety(BMCSolver):
         return None
     
     def solve_safety_inc(self, hts, prop, k, k_min):
-        if self.config.strategy == FWD:
+        if self.config.strategy in [VerificationStrategy.FWD, VerificationStrategy.AUTO]:
             return self.solve_safety_inc_fwd(hts, prop, k, k_min)
 
-        if self.config.strategy == BWD:
+        if self.config.strategy == VerificationStrategy.BWD:
             return self.solve_safety_inc_bwd(hts, prop, k)
 
-        if self.config.strategy == ZZ:
+        if self.config.strategy == VerificationStrategy.ZZ:
             return self.solve_safety_inc_zz(hts, prop, k)
         
         Logger.error("Invalid configuration strategy")

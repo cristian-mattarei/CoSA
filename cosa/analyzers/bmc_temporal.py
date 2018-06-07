@@ -21,7 +21,7 @@ from cosa.transition_systems import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
-from cosa.analyzers.mcsolver import MCConfig, FWD
+from cosa.analyzers.mcsolver import MCConfig, VerificationStrategy
 from cosa.problem import VerificationStatus
 
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
@@ -57,7 +57,7 @@ class BMCTemporal(BMCSolver):
         return self.solve_liveness_fwd(hts, prop, k)
             
     def solve_liveness_inc(self, hts, prop, k, k_min, eventually=False):
-        if self.config.strategy == FWD:
+        if self.config.strategy in [VerificationStrategy.FWD, VerificationStrategy.AUTO]:
             return self.solve_liveness_inc_fwd(hts, prop, k, k_min, eventually)
 
         Logger.error("Invalid configuration strategy")
