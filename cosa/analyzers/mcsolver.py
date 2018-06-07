@@ -64,7 +64,6 @@ class MCConfig(object):
 
         return strategies
 
-
 class TraceSolver(object):
 
     name = None

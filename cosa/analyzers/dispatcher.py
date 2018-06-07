@@ -108,7 +108,7 @@ class ProblemSolver(object):
                 for lemma in lemmas:
                     htseq.add_lemma(lemma)
 
-            bmcseq = BMC(htseq, mc_config)
+            bmcseq = BMCSafety(htseq, mc_config)
             res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
             
         problem.status = res

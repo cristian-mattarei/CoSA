@@ -35,6 +35,8 @@ class BMCLTL(BMCTemporal, BMCSafety):
     def __init__(self, hts, config):
         BMCSolver.__init__(self, hts, config)
 
+        self.enc = LTLEncoder()
+
     def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
         Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
 
@@ -69,7 +71,7 @@ class BMCLTL(BMCTemporal, BMCSafety):
     
     def ltl(self, prop, k, k_min=0, force_generic=False):
         if not force_generic:
-            (vtype, prop) = verification_type(prop)
+            (vtype, prop) = verification_type(self.enc.to_nnf(prop))
 
             if vtype == VerificationType.SAFETY:
                 return self.safety(prop, k, k_min)
@@ -143,9 +145,7 @@ class BMCLTL(BMCTemporal, BMCSafety):
         init = And(init, invar)
         init_0 = self.at_time(init, 0)
         
-        enc = LTLEncoder()
-
-        nprop = enc.to_nnf(Not(prop))
+        nprop = self.enc.to_nnf(Not(prop))
 
         self._reset_assertions(self.solver)
         self._add_assertion(self.solver, init_0)
@@ -160,7 +160,7 @@ class BMCLTL(BMCTemporal, BMCSafety):
             self._push(self.solver)
             self._push(self.solver)
             
-            nprop_k = enc.encode(nprop, 0, t)
+            nprop_k = self.enc.encode(nprop, 0, t)
             self._add_assertion(self.solver, And(nprop_k, Not(Or(lb))))
 
             if self._solve(self.solver):
@@ -174,7 +174,7 @@ class BMCLTL(BMCTemporal, BMCSafety):
             self._pop(self.solver)
 
             for l in range(t+1):
-                nprop_l = enc.encode_l(nprop, 0, t, l)
+                nprop_l = self.enc.encode_l(nprop, 0, t, l)
                 nltlprop.append(And(lb[l], nprop_l))
 
             self._add_assertion(self.solver, Or(nltlprop))

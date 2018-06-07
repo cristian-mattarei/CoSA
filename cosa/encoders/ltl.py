@@ -19,18 +19,12 @@ import pysmt.environment
 import pysmt.formula
 
 from cosa.transition_systems import HTS, TS
-from cosa.encoders.formulae import StringParser
+from cosa.encoders.formulae import StringParser, KEYWORDS, OPERATORS
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables, substitute
 from cosa.problem import VerificationType
 
 from pysmt.operators import new_node_type
-
-KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H"]
-OPERATORS = [(" < "," u< "), \
-             (" > "," u> "), \
-             (" >= "," u>= "), \
-             (" <= "," u<= ")]
 
 LTL_X = new_node_type(node_str="LTL_X")
 LTL_F = new_node_type(node_str="LTL_F")
@@ -194,8 +188,6 @@ def has_ltl_operators(formula):
     return False
 
 def verification_type(formula):
-    print(formula)
-    
     top = formula
     chd1 = formula.args()[0] if len(formula.args()) > 0 else None
     chd2 = None
