@@ -188,7 +188,10 @@ class ProblemSolver(object):
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
             problem.abstract_clock = problems.abstract_clock
             problem.relative_path = problems.relative_path
+
+            timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             self.solve_problem(problem, config)
+            problem.time = Logger.get_timer(timer_solve, False)
 
     def problem2mc_config(self, problem, config):
         mc_config = MCConfig()

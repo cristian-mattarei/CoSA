@@ -68,6 +68,7 @@ class Config(object):
     prove = False
     incremental = True
     deterministic = False
+    time = False
 
     def __init__(self):
         PrintersFactory.init_printers()
@@ -102,6 +103,7 @@ class Config(object):
         self.prove = False
         self.incremental = True
         self.deterministic = False
+        self.time = False
         
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
@@ -180,6 +182,7 @@ def run_verification(config):
 
     sparser = StringParser()
     sparser.remap_or2an = config.parser.remap_or2an
+    ltlparser = LTLParser()
 
     # if equivalence checking wait to add assumptions to combined system
     if config.assumptions is not None and config.equivalence is None:
@@ -219,7 +222,10 @@ def run_verification(config):
 
         properties = None
         if config.properties:
-            properties = sparser.parse_formulae(config.properties)
+            if config.ltl:
+                properties = ltlparser.parse_formulae(config.properties)
+            else:
+                properties = sparser.parse_formulae(config.properties)
 
         with open(config.translate, "w") as f:
             f.write(printer.print_hts(hts, properties))
@@ -302,7 +308,6 @@ def run_verification(config):
     if config.ltl:
         count = 0
         list_status = []
-        ltlparser = LTLParser()
 
         for (strprop, prop, types) in ltlparser.parse_formulae(config.properties):
             Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
@@ -333,12 +338,16 @@ def run_problems(problems, config):
         Logger.log("\n** Problem %s **"%(pbm.name), 0)
         Logger.log("Description: %s"%(pbm.description), 0)
         Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+        
         list_status.append(pbm.status)
         if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
 
         if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
             print_trace("Execution", pbm.trace, pbm.name, config.prefix)
+
+        if pbm.time is not None:
+            Logger.log("Time: %.2f sec"%(pbm.time), 0)
             
     return list_status
             
@@ -500,6 +509,10 @@ if __name__ == "__main__":
     deb_params.add_argument('--debug', dest='debug', action='store_true',
                        help='enables debug mode.')
 
+    deb_params.set_defaults(time=False)
+    deb_params.add_argument('--time', dest='time', action='store_true',
+                       help='prints time for every verification.')
+    
     args = parser.parse_args()
 
     config.strfiles = args.input_files
@@ -528,6 +541,7 @@ if __name__ == "__main__":
     config.prove = args.prove
     config.solver_name = args.solver_name
     config.incremental = not args.ninc
+    config.time = args.time
 
     if len(sys.argv)==1:
         parser.print_help()

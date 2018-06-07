@@ -107,7 +107,7 @@ import pysmt.printers
 from pysmt.walkers.generic import handles
 LTL_TYPE_TO_STR = { LTL_X: "X", LTL_F: "F", LTL_G: "G", LTL_O: "O", LTL_H: "H"}
 
-class HRPrinter(pysmt.printers.HRPrinter):
+class HRLTLPrinter(pysmt.printers.HRPrinter):
     def walk_ltl_r(self, formula):
         return self.walk_nary(formula, " R ")
 
@@ -125,7 +125,7 @@ class HRPrinter(pysmt.printers.HRPrinter):
 # EOC HRPrinter
 
 class HRSerializer(pysmt.printers.HRSerializer):
-    PrinterClass = HRPrinter
+    PrinterClass = HRLTLPrinter
 
 # EOC HRSerialize
 

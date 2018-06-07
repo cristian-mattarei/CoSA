@@ -124,6 +124,7 @@ class Problem(object):
     relative_path = None
     name = None
     trace = None
+    time = None
 
     vcd = False
     skip_solving = False
