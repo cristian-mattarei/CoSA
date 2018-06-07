@@ -18,7 +18,7 @@ from cosa.transition_systems import TS
 from cosa.encoders.ltl import LTLEncoder, verification_type
 
 from cosa.problem import VerificationStatus, VerificationType
-from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
+from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 from cosa.analyzers.bmc_temporal import BMCTemporal
 from cosa.analyzers.bmc_safety import BMCSafety
 
@@ -69,8 +69,8 @@ class BMCLTL(BMCTemporal, BMCSafety):
             
         self.vars_time = dict(self.vars_time)
     
-    def ltl(self, prop, k, k_min=0, force_generic=False):
-        if not force_generic:
+    def ltl(self, prop, k, k_min=0):
+        if self.config.strategy != VerificationStrategy.LTL:
             (vtype, prop) = verification_type(self.enc.to_nnf(prop))
 
             if vtype == VerificationType.SAFETY:

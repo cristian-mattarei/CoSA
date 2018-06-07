@@ -30,24 +30,28 @@ description: "Globally Check"
 formula: G(self.out < 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+strategy: LTL
 
 [Finally-LTL]
 description: "Finally Check"
 formula: F(self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+strategy: LTL
 
 [Liveness-LTL]
 description: "Liveness Check"
 formula: G(F(self.out = 4_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+strategy: LTL
 
 [Globally-Next-LTL]
 description: "Globally Next Check"
 formula: G((self.out = 4_16) -> X (self.out = 5_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+strategy: LTL
 
 [Globally-Next2-LTL]
 description: "Globally Next2 Check"

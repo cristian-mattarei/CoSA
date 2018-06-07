@@ -26,6 +26,7 @@ class VerificationStrategy(object):
     ZZ  = "ZZ"
     NU  = "NU"
     INT  = "INT"
+    LTL  = "LTL"
     AUTO = "AUTO"
 
 class MCConfig(object):
@@ -59,12 +60,13 @@ class MCConfig(object):
     @staticmethod
     def get_strategies():
         strategies = []
-        strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
-        strategies.append((VerificationStrategy.FWD, "Forward reachability"))
-        strategies.append((VerificationStrategy.BWD, "Backward reachability"))
-        strategies.append((VerificationStrategy.ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((VerificationStrategy.INT, "Interpolation"))
-        strategies.append((VerificationStrategy.NU,  "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.AUTO, "Automatic selection"))
+        strategies.append((VerificationStrategy.FWD,  "Forward reachability"))
+        strategies.append((VerificationStrategy.BWD,  "Backward reachability"))
+        strategies.append((VerificationStrategy.ZZ,   "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((VerificationStrategy.INT,  "Interpolation"))
+        strategies.append((VerificationStrategy.NU,   "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.LTL,  "Pure LTL verification (without optimizations)"))
 
         return strategies
 
@@ -137,7 +139,11 @@ class BMCSolver(object):
         if self.config.strategy == VerificationStrategy.ZZ:
             return self._remap_model_zz(vars, model, k)
 
-        if self.config.strategy in [VerificationStrategy.AUTO, VerificationStrategy.FWD, VerificationStrategy.NU, VerificationStrategy.INT]:
+        if self.config.strategy in [VerificationStrategy.AUTO, \
+                                    VerificationStrategy.FWD, \
+                                    VerificationStrategy.NU, \
+                                    VerificationStrategy.INT, \
+                                    VerificationStrategy.LTL]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
