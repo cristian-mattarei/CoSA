@@ -8,6 +8,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
+
 from six.moves import cStringIO
 
 from pysmt.printers import HRPrinter
@@ -18,9 +20,7 @@ from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 from cosa.transition_systems import TS
 from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex
-
-import datetime
-
+from cosa.encoders.ltl import has_ltl_operators, HRLTLPrinter
 
 NL = "\n"
 VCD_SEP = "-"
@@ -121,7 +121,10 @@ class SMVHTSPrinter(HTSPrinter):
 
         if properties is not None:
             for strprop, prop, _ in properties:
-                self.write("\nINVARSPEC ")
+                if has_ltl_operators:
+                    self.write("\nLTLSPEC ")
+                else:
+                    self.write("\nINVARSPEC ")
                 self.printer(prop)
                 self.write(";\n")
 
@@ -183,7 +186,7 @@ class SMVHTSPrinter(HTSPrinter):
         return printed_vars
 
 
-class SMVPrinter(HRPrinter):
+class SMVPrinter(HRLTLPrinter):
 
     # Override walkers for SMV specific syntax
 
@@ -295,14 +298,15 @@ class TextTracePrinter(TracePrinter):
         if find_loop:
             last_state = [(var[0], modeldic[TS.get_timed(var[1], length)]) for var in strvarlist]
             last_state.sort()
-            loop_id = 0
+            loop_id = -1
             for i in range(length):
                 state_i = [(var[0], modeldic[TS.get_timed(var[1], i)]) for var in strvarlist]
                 state_i.sort()
                 if state_i == last_state:
                     loop_id = i
                     break
-            trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
+            if loop_id >= 0: 
+                trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
 
 
         trace = NL.join(trace)

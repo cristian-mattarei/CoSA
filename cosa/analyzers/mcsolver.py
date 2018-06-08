@@ -17,12 +17,17 @@ from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from cosa.utils.logger import Logger
 from cosa.transition_systems import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
+from cosa.printers import TextTracePrinter, VCDTracePrinter
 
-FWD = "FWD"
-BWD = "BWD"
-ZZ  = "ZZ"
-NU  = "NU"
-INT  = "INT"
+
+class VerificationStrategy(object):
+    FWD = "FWD"
+    BWD = "BWD"
+    ZZ  = "ZZ"
+    NU  = "NU"
+    INT  = "INT"
+    LTL  = "LTL"
+    AUTO = "AUTO"
 
 class MCConfig(object):
 
@@ -40,7 +45,7 @@ class MCConfig(object):
 
     def __init__(self):
         self.incremental = True
-        self.strategy = FWD
+        self.strategy = VerificationStrategy.AUTO
         self.solver_name = "msat"
         self.full_trace = False
         self.prefix = None
@@ -55,14 +60,15 @@ class MCConfig(object):
     @staticmethod
     def get_strategies():
         strategies = []
-        strategies.append((FWD, "Forward reachability"))
-        strategies.append((BWD, "Backward reachability"))
-        strategies.append((ZZ,  "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((INT, "Interpolation"))
-        strategies.append((NU,  "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.AUTO, "Automatic selection"))
+        strategies.append((VerificationStrategy.FWD,  "Forward reachability"))
+        strategies.append((VerificationStrategy.BWD,  "Backward reachability"))
+        strategies.append((VerificationStrategy.ZZ,   "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((VerificationStrategy.INT,  "Interpolation"))
+        strategies.append((VerificationStrategy.NU,   "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.LTL,  "Pure LTL verification (without optimizations)"))
 
         return strategies
-
 
 class TraceSolver(object):
 
@@ -82,15 +88,70 @@ class TraceSolver(object):
         self.solver.exit()
         self.solver = Solver(self.name)
 
-class MCSolver(object):
+class BMCSolver(object):
 
     def __init__(self, hts, config):
-        pass
+        self.hts = hts
+        self.config = config
 
+        self.assert_property = False
 
+        Logger.time = True
+        self.total_time = 0.0
+
+        self.solver = TraceSolver(config.solver_name)
+        if self.config.prove:
+            self.solver_2 = TraceSolver(config.solver_name)
+
+        self._reset_smt2_tracefile()
+
+        self.varmapf_t = None
+        self.varmapb_t = None
+
+    def unroll(self, trans, invar, k_end, k_start=0, gen_list=False):
+        Logger.log("Unroll from %s to %s"%(k_start, k_end), 2)
+
+        fwd = k_start <= k_end
+        time_function = self.at_time if fwd else self.at_ptime
+        (k_start, k_end) = (min(k_start, k_end), max(k_start, k_end))
+
+        formula = []
+        t = k_start
+        while t < k_end:
+            to_t = t+1 if fwd else t
+            formula.append(time_function(trans, t))
+            formula.append(time_function(invar, to_t))
+            Logger.log("Add trans, k=%s"%t, 2)
+            t += 1
+
+        if gen_list:
+            return formula
+            
+        return And(formula)
+        
+    def _remap_model(self, vars, model, k):
+        if model is None:
+            return model
+
+        if self.config.strategy == VerificationStrategy.BWD:
+            return self._remap_model_bwd(vars, model, k)
+
+        if self.config.strategy == VerificationStrategy.ZZ:
+            return self._remap_model_zz(vars, model, k)
+
+        if self.config.strategy in [VerificationStrategy.AUTO, \
+                                    VerificationStrategy.FWD, \
+                                    VerificationStrategy.NU, \
+                                    VerificationStrategy.INT, \
+                                    VerificationStrategy.LTL]:
+            return self._remap_model_fwd(vars, model, k)
+
+        Logger.error("Invalid configuration strategy")
+        return None
+        
     def _init_at_time(self, vars, maxtime):
 
-        previous = self.config.strategy != FWD
+        previous = self.config.strategy != VerificationStrategy.FWD
 
         if self.varmapf_t is not None:
             del(self.varmapf_t)
@@ -254,3 +315,143 @@ class MCSolver(object):
 
         return r
                 
+
+    def _check_lemma(self, hts, lemma, init, trans):
+
+        def check_init():
+            self._reset_assertions(self.solver)
+            self._add_assertion(self.solver, self.at_time(And(init, Not(lemma)), 0), comment="Init check")
+            res = self._solve(self.solver)
+
+            prefix = None
+            if self.config.prefix is not None:
+                prefix = self.config.prefix+"-ind"
+
+            if res:
+                if Logger.level(2):
+                    Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
+                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 0, prefix=prefix, map_function=self.config.map_function)
+                    Logger.log("", 2)
+                    if hr_trace:
+                        Logger.log("Counterexample: \n%s"%(hr_trace), 2)
+                    else:
+                        Logger.log("", 2)
+                return False
+            else:
+                Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
+
+            return True
+
+    
+    def _suff_lemmas(self, prop, lemmas):
+        self._reset_assertions(self.solver)
+
+        self._add_assertion(self.solver, And(And(lemmas), Not(prop)))
+        
+        if self._solve(self.solver):
+            return False
+
+        return True
+
+    def add_lemmas(self, hts, prop, lemmas):
+        if len(lemmas) == 0:
+            return (hts, False)
+
+        self._reset_assertions(self.solver)
+
+        h_init = hts.single_init()
+        h_trans = hts.single_trans()
+        
+        holding_lemmas = []
+        lindex = 1
+        nlemmas = len(lemmas)
+        tlemmas = 0
+        flemmas = 0
+        for lemma in lemmas:
+            Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
+            invar = hts.single_invar()
+            init = And(h_init, invar)
+            trans = And(invar, h_trans, TS.to_next(invar))
+            if self._check_lemma(hts, lemma, init, trans):
+                holding_lemmas.append(lemma)
+                hts.add_assumption(lemma)
+                hts.reset_formulae()
+                
+                Logger.log("Lemma %s holds"%(lindex), 1)
+                tlemmas += 1
+                if self._suff_lemmas(prop, holding_lemmas):
+                    return (hts, True)
+            else:
+                Logger.log("Lemma %s does not hold"%(lindex), 1)
+                flemmas += 1
+                
+            msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
+            Logger.inline(msg, 0, not(Logger.level(1))) 
+            lindex += 1
+            
+        Logger.clear_inline(0, not(Logger.level(1)))
+        
+        hts.assumptions = And(holding_lemmas)
+        return (hts, False)
+    
+    def _remap_model_fwd(self, vars, model, k):
+        return model
+
+    def _remap_model_bwd(self, vars, model, k):
+        retmodel = dict()
+
+        for var in vars:
+            for t in range(k+1):
+                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+
+        return retmodel
+
+    def _remap_model_zz(self, vars, model, k):
+        retmodel = dict(model)
+
+        for var in vars:
+            for t in range(int(k/2)+1, k+1, 1):
+                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+
+        return retmodel
+
+    def print_trace(self, hts, model, length, \
+                    xvars=None, \
+                    diff_only=True, \
+                    map_function=None, \
+                    prefix=None, \
+                    write_to_file=True, \
+                    find_loop=False):
+        trace = []
+        prevass = []
+
+        if prefix is None:
+            prefix = self.config.prefix
+
+        full_trace = self.config.full_trace
+
+        if write_to_file:
+            diff_only = False
+
+        if Logger.level(1):
+            diff_only = False
+            full_trace = True
+
+        # Human Readable Format
+        hr_printer = TextTracePrinter()
+        hr_printer.extra_vars = xvars
+        hr_printer.diff_only = diff_only
+        hr_printer.full_trace = full_trace
+        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loop)
+
+        # VCD format
+        vcd_trace = None
+        if self.config.vcd_trace:
+            vcd_printer = VCDTracePrinter()
+            vcd_trace = vcd_printer.print_trace(hts, model, length, map_function)
+
+        vcd_trace_file = None
+        hr_trace_file = None
+
+        return (hr_trace, vcd_trace)
+    

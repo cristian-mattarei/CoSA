@@ -15,7 +15,7 @@ from cosa.transition_systems import TS
 from cosa.utils.formula_mngm import get_free_variables
 from cosa.utils.logger import Logger
 
-KEYWORDS = ["not","False","True","next","prev"]
+KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \

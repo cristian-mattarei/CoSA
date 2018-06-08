@@ -15,13 +15,14 @@ from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
 from cosa.encoders.coreir import CoreIRParser
 from cosa.analyzers.mcsolver import MCConfig
-from cosa.analyzers.bmc import BMC
-from cosa.analyzers.bmc_liveness import BMCLiveness
+from cosa.analyzers.bmc_safety import BMCSafety
+from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
 from cosa.transition_systems import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
+from cosa.encoders.ltl import ltl_reset_env, LTLParser
 
 FLAG_SR = "["
 FLAG_ST = "]"
@@ -38,11 +39,13 @@ class ProblemSolver(object):
     def solve_problem(self, problem, config):
         Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
         Logger.msg("%s "%problem.name, 0, not(Logger.level(1)))
+        
         sparser = StringParser()
+        lparser = LTLParser()
 
         mc_config = self.problem2mc_config(problem, config)
-        bmc = BMC(problem.hts, mc_config)
-        bmc_liveness = BMCLiveness(problem.hts, mc_config)
+        bmc_safety = BMCSafety(problem.hts, mc_config)
+        bmc_ltl = BMCLTL(problem.hts, mc_config)
         res = VerificationStatus.UNK
         bmc_length = max(problem.bmc_length, config.bmc_length)
         bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
@@ -71,19 +74,19 @@ class ProblemSolver(object):
                 problem.hts.add_assumption(ass)
             for lemma in lemmas:
                 problem.hts.add_lemma(lemma)
-            (strprop, prop, types) = sparser.parse_formulae(mc_config.properties)[0]
+            if problem.verification != VerificationType.LTL:
+                (strprop, prop, types) = sparser.parse_formulae(mc_config.properties)[0]
+            else:
+                (strprop, prop, types) = lparser.parse_formulae(mc_config.properties)[0]
 
         if problem.verification == VerificationType.SAFETY:
-            res, trace, _ = bmc.safety(prop, bmc_length, bmc_length_min)
+            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min)
 
-        if problem.verification == VerificationType.LIVENESS:
-            res, trace = bmc_liveness.liveness(prop, bmc_length, bmc_length_min)
-
-        if problem.verification == VerificationType.EVENTUALLY:
-            res, trace = bmc_liveness.eventually(prop, bmc_length, bmc_length_min)
+        if problem.verification == VerificationType.LTL:
+            res, trace, _ = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.SIMULATION:
-            res, trace = bmc.simulate(prop, bmc_length)
+            res, trace = bmc_safety.simulate(prop, bmc_length)
             
         if problem.verification == VerificationType.EQUIVALENCE:
             if problem.equivalence:
@@ -105,7 +108,7 @@ class ProblemSolver(object):
                 for lemma in lemmas:
                     htseq.add_lemma(lemma)
 
-            bmcseq = BMC(htseq, mc_config)
+            bmcseq = BMCSafety(htseq, mc_config)
             res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
             
         problem.status = res
@@ -166,6 +169,10 @@ class ProblemSolver(object):
         return hts
 
     def solve_problems(self, problems, config):
+
+        if VerificationType.LTL in [problem.verification for problem in problems.problems]:
+            ltl_reset_env()
+        
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
@@ -175,13 +182,16 @@ class ProblemSolver(object):
             systems[('hts2', si)] = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean)
         else:
             systems[('hts2', si)] = None
-
+            
         for problem in problems.problems:
             problem.hts = systems[('hts', problem.symbolic_init)]
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
             problem.abstract_clock = problems.abstract_clock
             problem.relative_path = problems.relative_path
+
+            timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             self.solve_problem(problem, config)
+            problem.time = Logger.get_timer(timer_solve, False)
 
     def problem2mc_config(self, problem, config):
         mc_config = MCConfig()

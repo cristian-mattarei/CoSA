@@ -54,11 +54,13 @@ P_INIT = "init"
 P_TRANS = "trans"
 P_ID = "id"
 
-STATE_ID = HIDDEN+"state_id"+HIDDEN
+STATE_ID = "state_id"
 
 class ExplicitTSParser(object):
     parser = None
     extension = "ets"
+
+    state_id = 0
 
     def __init__(self):
         self.parser = self.__init_parser()
@@ -74,7 +76,11 @@ class ExplicitTSParser(object):
             lines.append(pline)
 
         return self.generate_STS(lines)
-        
+
+    def new_state_id(self):
+        ExplicitTSParser.state_id += 1
+        return HIDDEN+STATE_ID+str(ExplicitTSParser.state_id)+HIDDEN
+
     def __init_parser(self):
 
         varname = Word(alphas+nums+T_US+T_MIN+T_DOT)(P_VARNAME)
@@ -145,7 +151,7 @@ class ExplicitTSParser(object):
                 states[sname] = And(states[sname], state)
                 
         stateid_width = math.ceil(math.log(len(states))/math.log(2))
-        stateid_var = Symbol(STATE_ID, BVType(stateid_width))
+        stateid_var = Symbol(self.new_state_id(), BVType(stateid_width))
 
         init = And(init, EqualsOrIff(stateid_var, BV(0, stateid_width)))
         invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(0, stateid_width)), states[T_I]))

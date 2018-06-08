@@ -21,8 +21,8 @@ from argparse import RawTextHelpFormatter
 
 from cosa.analyzers.dispatcher import ProblemSolver
 from cosa.analyzers.mcsolver import MCConfig
-from cosa.analyzers.bmc import BMC
-from cosa.analyzers.bmc_liveness import BMCLiveness
+from cosa.analyzers.bmc_safety import BMCSafety
+from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.utils.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
@@ -30,10 +30,12 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
+from cosa.encoders.ltl import ltl_reset_env, LTLParser
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.transition_systems import HTS
 
-from pysmt.shortcuts import TRUE, reset_env
+from pysmt.shortcuts import TRUE, reset_env, get_env
+
 
 class Config(object):
     parser = None
@@ -43,8 +45,7 @@ class Config(object):
     bmc_length = 10
     bmc_length_min = 0
     safety = None
-    liveness = None
-    eventually = None
+    ltl = None
     properties = None
     lemmas = None
     assumptions = None
@@ -67,6 +68,7 @@ class Config(object):
     prove = False
     incremental = True
     deterministic = False
+    time = False
 
     def __init__(self):
         PrintersFactory.init_printers()
@@ -78,8 +80,7 @@ class Config(object):
         self.bmc_length = 10
         self.bmc_length_min = 0
         self.safety = None
-        self.liveness = None
-        self.eventually = None
+        self.ltl = None
         self.properties = None
         self.lemmas = None
         self.assumptions = None
@@ -102,6 +103,7 @@ class Config(object):
         self.prove = False
         self.incremental = True
         self.deterministic = False
+        self.time = False
         
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
@@ -147,6 +149,9 @@ def run_verification(config):
     ets_parser = None
     sts_parser = None
 
+    if config.ltl:
+        ltl_reset_env()
+    
     hts = HTS("Top level")
 
     if config.strfiles[0][-4:] != ".pkl":
@@ -177,6 +182,7 @@ def run_verification(config):
 
     sparser = StringParser()
     sparser.remap_or2an = config.parser.remap_or2an
+    ltlparser = LTLParser()
 
     # if equivalence checking wait to add assumptions to combined system
     if config.assumptions is not None and config.equivalence is None:
@@ -205,10 +211,10 @@ def run_verification(config):
     mc_config.prove = config.prove
     mc_config.incremental = config.incremental
 
-    if config.liveness or config.eventually:
-        bmc_liveness = BMCLiveness(hts, mc_config)
+    if config.ltl:
+        bmc_ltl = BMCLTL(hts, mc_config)
     else:
-        bmc = BMC(hts, mc_config)
+        bmc_safety = BMCSafety(hts, mc_config)
 
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
@@ -216,7 +222,10 @@ def run_verification(config):
 
         properties = None
         if config.properties:
-            properties = sparser.parse_formulae(config.properties)
+            if config.ltl:
+                properties = ltlparser.parse_formulae(config.properties)
+            else:
+                properties = sparser.parse_formulae(config.properties)
 
         with open(config.translate, "w") as f:
             f.write(printer.print_hts(hts, properties))
@@ -229,7 +238,7 @@ def run_verification(config):
             props = sparser.parse_formulae(config.properties)
         for (strprop, prop, types) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
-            res, trace = bmc.simulate(prop, config.bmc_length)
+            res, trace = bmc_safety.simulate(prop, config.bmc_length)
             if res == VerificationStatus.TRUE:
                 count += 1
                 print_trace("Execution", trace, count, config.prefix)
@@ -239,37 +248,7 @@ def run_verification(config):
         list_status = []
         for (strprop, prop, types) in sparser.parse_formulae(config.properties):
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            res, trace, t = bmc.safety(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("Property is %s"%res, 0)
-            if res == VerificationStatus.FALSE:
-                count += 1
-                print_trace("Counterexample", trace, count, config.prefix)
-
-            list_status.append(res)
-
-        return list_status
-
-    if config.liveness:
-        count = 0
-        list_status = []
-        for (strprop, prop, types) in sparser.parse_formulae(config.properties):
-            Logger.log("Liveness verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.liveness(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("Property is %s"%res, 0)
-            if res == VerificationStatus.FALSE:
-                count += 1
-                print_trace("Counterexample", trace, count, config.prefix)
-
-            list_status.append(res)
-
-        return list_status
-
-    if config.eventually:
-        count = 0
-        list_status = []
-        for (strprop, prop, types) in sparser.parse_formulae(config.properties):
-            Logger.log("Eventually verification for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_liveness.eventually(prop, config.bmc_length, config.bmc_length_min)
+            res, trace, t = bmc_safety.safety(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
@@ -326,6 +305,22 @@ def run_verification(config):
         else:
             Logger.log(msg%("")+" up to k=%i"%t, 0)
 
+    if config.ltl:
+        count = 0
+        list_status = []
+
+        for (strprop, prop, types) in ltlparser.parse_formulae(config.properties):
+            Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
+            res, trace, t = bmc_ltl.ltl(prop, config.bmc_length, config.bmc_length_min)
+            Logger.log("Property is %s"%res, 0)
+            if res == VerificationStatus.FALSE:
+                count += 1
+                print_trace("Counterexample", trace, count, config.prefix)
+
+            list_status.append(res)
+
+        return list_status
+            
 def run_problems(problems, config):
     reset_env()
     Logger.verbosity = config.verbosity
@@ -343,12 +338,16 @@ def run_problems(problems, config):
         Logger.log("\n** Problem %s **"%(pbm.name), 0)
         Logger.log("Description: %s"%(pbm.description), 0)
         Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+        
         list_status.append(pbm.status)
         if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
             print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
 
         if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
             print_trace("Execution", pbm.trace, pbm.name, config.prefix)
+
+        if pbm.time is not None:
+            Logger.log("Time: %.2f sec"%(pbm.time), 0)
             
     return list_status
             
@@ -376,16 +375,12 @@ if __name__ == "__main__":
     
     ver_options.set_defaults(safety=False)
     ver_options.add_argument('--safety', dest='safety', action='store_true',
-                       help='safety (G) verification using BMC.')
+                       help='safety verification using BMC.')
 
-    ver_options.set_defaults(liveness=False)
-    ver_options.add_argument('--liveness', dest='liveness', action='store_true',
-                       help='liveness (GF) verification using BMC.')
-
-    ver_options.set_defaults(eventually=False)
-    ver_options.add_argument('--eventually', dest='eventually', action='store_true',
-                       help='eventually (F) verification using BMC.')
-
+    ver_options.set_defaults(ltl=False)
+    ver_options.add_argument('--ltl', dest='ltl', action='store_true',
+                       help='ltl verification using BMC.')
+    
     ver_options.set_defaults(simulate=False)
     ver_options.add_argument('--simulate', dest='simulate', action='store_true',
                        help='simulate system using BMC.')
@@ -514,13 +509,16 @@ if __name__ == "__main__":
     deb_params.add_argument('--debug', dest='debug', action='store_true',
                        help='enables debug mode.')
 
+    deb_params.set_defaults(time=False)
+    deb_params.add_argument('--time', dest='time', action='store_true',
+                       help='prints time for every verification.')
+    
     args = parser.parse_args()
 
     config.strfiles = args.input_files
     config.simulate = args.simulate
     config.safety = args.safety
-    config.liveness = args.liveness
-    config.eventually = args.eventually
+    config.ltl = args.ltl
     config.properties = args.properties
     config.lemmas = args.lemmas
     config.assumptions = args.assumptions
@@ -531,7 +529,6 @@ if __name__ == "__main__":
     config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
     config.prefix = args.prefix
-    # config.run_passes = args.run_passes
     config.translate = args.translate
     config.smt2file = args.smt2
     config.strategy = args.strategy
@@ -544,6 +541,7 @@ if __name__ == "__main__":
     config.prove = args.prove
     config.solver_name = args.solver_name
     config.incremental = not args.ninc
+    config.time = args.time
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -574,8 +572,7 @@ if __name__ == "__main__":
 
     if not(config.simulate or \
            (config.safety) or \
-           (config.liveness) or \
-           (config.eventually) or \
+           (config.ltl) or \
            (config.equivalence is not None) or\
            (config.translate is not None) or\
            (config.fsm_check)):
@@ -584,14 +581,8 @@ if __name__ == "__main__":
     if config.safety and (config.properties is None):
         Logger.error("Safety verification requires at least a property")
 
-    if config.safety and (config.properties is None):
-        Logger.error("Safety verification requires at least a property")
-
-    if config.liveness and (config.properties is None):
-        Logger.error("Liveness verification requires at least a property")
-
-    if config.eventually and (config.properties is None):
-        Logger.error("Eventually verification requires at least a property")
+    if config.ltl and (config.properties is None):
+        Logger.error("LTL verification requires at least a property")
         
     parsing_defs = [config.properties, config.lemmas, config.assumptions]
     for i in range(len(parsing_defs)):
