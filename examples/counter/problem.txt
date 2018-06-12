@@ -13,14 +13,14 @@ prove: True
 
 [Finally]
 description: "Finally Check"
-formula: self.out = 4_16
+formula: F(self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
-verification: eventually
+verification: ltl
 prove: True
 
 [Liveness]
 description: "Liveness Check"
-formula: self.out = 4_16 
+formula: F(G(self.out = 4_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
-verification: liveness
+verification: ltl
 prove: True

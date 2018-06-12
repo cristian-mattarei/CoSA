@@ -67,6 +67,8 @@ class ProblemSolver(object):
         assumps = None
         lemmas = None
 
+        accepted_ver = False
+        
         if problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
@@ -80,15 +82,19 @@ class ProblemSolver(object):
                 (strprop, prop, types) = lparser.parse_formulae(mc_config.properties)[0]
 
         if problem.verification == VerificationType.SAFETY:
+            accepted_ver = True
             res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.LTL:
+            accepted_ver = True
             res, trace, _ = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.SIMULATION:
+            accepted_ver = True
             res, trace = bmc_safety.simulate(prop, bmc_length)
             
         if problem.verification == VerificationType.EQUIVALENCE:
+            accepted_ver = True
             if problem.equivalence:
                 problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
 
@@ -110,6 +116,9 @@ class ProblemSolver(object):
 
             bmcseq = BMCSafety(htseq, mc_config)
             res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
+
+        if not accepted_ver:
+            Logger.error("Invalid verification type")
             
         problem.status = res
         problem.trace = trace
@@ -189,9 +198,11 @@ class ProblemSolver(object):
             problem.abstract_clock = problems.abstract_clock
             problem.relative_path = problems.relative_path
 
-            timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
+            if config.time or problems.time:
+                timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             self.solve_problem(problem, config)
-            problem.time = Logger.get_timer(timer_solve, False)
+            if config.time or problems.time:
+                problem.time = Logger.get_timer(timer_solve, False)
 
     def problem2mc_config(self, problem, config):
         mc_config = MCConfig()

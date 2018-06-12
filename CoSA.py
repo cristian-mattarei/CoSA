@@ -346,7 +346,7 @@ def run_problems(problems, config):
         if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
             print_trace("Execution", pbm.trace, pbm.name, config.prefix)
 
-        if pbm.time is not None:
+        if pbm.time:
             Logger.log("Time: %.2f sec"%(pbm.time), 0)
             
     return list_status

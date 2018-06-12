@@ -48,6 +48,7 @@ class Problems(object):
     equivalence = None
     relative_path = None
     boolean = None
+    time = False
 
     def __init__(self):
         self.problems = []
