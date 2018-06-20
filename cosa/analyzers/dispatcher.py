@@ -46,7 +46,7 @@ class ProblemSolver(object):
         mc_config = self.problem2mc_config(problem, config)
         bmc_safety = BMCSafety(problem.hts, mc_config)
         bmc_ltl = BMCLTL(problem.hts, mc_config)
-        res = VerificationStatus.UNK
+        res = VerificationStatus.UNC
         bmc_length = max(problem.bmc_length, config.bmc_length)
         bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
 
@@ -200,9 +200,14 @@ class ProblemSolver(object):
 
             if config.time or problems.time:
                 timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
-            self.solve_problem(problem, config)
-            if config.time or problems.time:
-                problem.time = Logger.get_timer(timer_solve, False)
+            try:
+                self.solve_problem(problem, config)
+                
+                if config.time or problems.time:
+                    problem.time = Logger.get_timer(timer_solve, False)
+                
+            except KeyboardInterrupt as e:
+                Logger.warning("Skipped")
 
     def problem2mc_config(self, problem, config):
         mc_config = MCConfig()

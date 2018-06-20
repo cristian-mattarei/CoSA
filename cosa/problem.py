@@ -28,6 +28,7 @@ FORMULA = "formula"
 MODEL_FILE = "model_file"
 
 class VerificationStatus(object):
+    UNC = "UNCHECKED"
     UNK = "UNKNOWN"
     TRUE = "TRUE"
     FALSE = "FALSE"
@@ -112,7 +113,7 @@ class Problem(object):
     verbosity = None
     description = None
 
-    status = VerificationStatus.UNK
+    status = VerificationStatus.UNC
     verification = None
     formula = None
     prove = False
@@ -133,7 +134,7 @@ class Problem(object):
     solver_name = None
     
     def __init__(self):
-        self.status = VerificationStatus.UNK
+        self.status = VerificationStatus.UNC
         self.description = ""
 
     def __repr__(self):
