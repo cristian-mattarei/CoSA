@@ -207,7 +207,7 @@ class ProblemSolver(object):
                     problem.time = Logger.get_timer(timer_solve, False)
                 
             except KeyboardInterrupt as e:
-                Logger.warning("Skipped")
+                Logger.msg("\b\b Skipped!\n", 0)
 
     def problem2mc_config(self, problem, config):
         mc_config = MCConfig()
