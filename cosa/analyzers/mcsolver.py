@@ -81,14 +81,15 @@ class TraceSolver(object):
     smt2vars = None
     smt2vars_inc = None
     
-    def __init__(self, solver_name, name, basename):
+    def __init__(self, solver_name, name, basename=None):
         self.solver_name = solver_name
         self.name = name
         self.basename = basename
         self.smt2vars = set([])
         self.solver = Solver(name=solver_name, logic=QF_ABV)
         self.smt2vars_inc = []
-        self.trace_file = "%s-%s.smt2"%(basename, name)
+        if basename is not None:
+            self.trace_file = "%s-%s.smt2"%(basename, name)
 
     def clear(self):
         self.solver.exit()
@@ -108,7 +109,9 @@ class BMCSolver(object):
         Logger.time = True
         self.total_time = 0.0
 
-        basename = ".".join(self.config.smt2file.split(".")[:-1])
+        basename = None
+        if self.config.smt2file is not None:
+            basename = ".".join(self.config.smt2file.split(".")[:-1])
         self.solver = TraceSolver(config.solver_name, "main", basename)
 
         self.varmapf_t = None
