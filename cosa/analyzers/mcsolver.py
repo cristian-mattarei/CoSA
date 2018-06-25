@@ -13,6 +13,7 @@ from six.moves import cStringIO
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.rewritings import conjunctive_partition
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+from pysmt.logics import QF_ABV
 
 from cosa.utils.logger import Logger
 from cosa.transition_systems import TS, HTS
@@ -85,13 +86,13 @@ class TraceSolver(object):
         self.name = name
         self.basename = basename
         self.smt2vars = set([])
-        self.solver = Solver(name=solver_name)
+        self.solver = Solver(name=solver_name, logic=QF_ABV)
         self.smt2vars_inc = []
         self.trace_file = "%s-%s.smt2"%(basename, name)
 
     def clear(self):
         self.solver.exit()
-        self.solver = Solver(name=self.solver_name)
+        self.solver = Solver(name=self.solver_name, logic=QF_ABV)
 
     def copy(self, name=None):
         return TraceSolver(self.solver_name, self.name if name is None else name, self.basename)
