@@ -350,7 +350,8 @@ class BMCSafety(BMCSolver):
         self._reset_assertions(self.solver)
 
         if self.config.prove:
-            self._reset_assertions(self.solver_2)
+            self.solver_ind = self.solver.copy("ind")
+            self._reset_assertions(self.solver_ind)
 
             if all_vars:
                 relevant_vars = hts.vars
@@ -384,7 +385,7 @@ class BMCSafety(BMCSolver):
 
         if self.config.prove:
             # add invariants at time 0, but not init
-            self._add_assertion(self.solver_2, self.at_time(invar, 0), "invar")
+            self._add_assertion(self.solver_ind, self.at_time(invar, 0), "invar")
 
         next_prop = TS.has_next(prop)
         if next_prop:
@@ -448,26 +449,26 @@ class BMCSafety(BMCSolver):
                     self._pop(self.solver)
 
                     # Checking T & loopFree & !P
-                    self._add_assertion(self.solver_2, trans_t, comment="trans")
-                    self._add_assertion(self.solver_2, loop_free, comment="loop_free")
+                    self._add_assertion(self.solver_ind, trans_t, comment="trans")
+                    self._add_assertion(self.solver_ind, loop_free, comment="loop_free")
                     
-                    self._push(self.solver_2)
+                    self._push(self.solver_ind)
 
-                    self._add_assertion(self.solver_2, self.at_time(Not(prop), t_prop))
+                    self._add_assertion(self.solver_ind, self.at_time(Not(prop), t_prop))
 
-                    if self._solve(self.solver_2):
+                    if self._solve(self.solver_ind):
                         Logger.log("Induction (lF & !P) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
-                    self._pop(self.solver_2)
+                    self._pop(self.solver_ind)
 
-                    self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
+                    self._add_assertion(self.solver_ind, self.at_time(prop, t_prop), "prop")
                 else:
                     if not next_prop:
-                        self._add_assertion(self.solver_2, self.at_time(prop, t_prop), "prop")
+                        self._add_assertion(self.solver_ind, self.at_time(prop, t_prop), "prop")
 
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)
