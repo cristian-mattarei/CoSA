@@ -184,7 +184,6 @@ class HTS(object):
                 local_var = ".".join(path+[actual[i]])
                 module_var = ".".join(path+[instance]+[str(formal[i]).replace(module.name, "")[1:]])
                 links = And(links, EqualsOrIff(vardic[local_var], vardic[module_var]))
-                print(EqualsOrIff(vardic[local_var], vardic[module_var]))
 
         s_init = self.single_init()
         s_invar = self.single_invar()
