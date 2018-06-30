@@ -19,7 +19,7 @@ from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
-from cosa.transition_systems import HTS
+from cosa.representation import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.ltl import ltl_reset_env, LTLParser
@@ -156,9 +156,15 @@ class ProblemSolver(object):
             if filetype == ExplicitTSParser.get_extension():
                 parser = ExplicitTSParser()
 
+                if not self.parser:
+                    self.parser = parser
+                
             if filetype == SymbolicTSParser.get_extension():
                 parser = SymbolicTSParser()
 
+                if not self.parser:
+                    self.parser = parser
+                
             if parser is not None:
                 if not os.path.isfile(strfile):
                     Logger.error("File \"%s\" does not exist"%strfile)

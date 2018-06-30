@@ -8,6 +8,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
+
 from pysmt.walkers.identitydag import IdentityDagWalker
 
 class SubstituteWalker(IdentityDagWalker):
@@ -46,3 +48,20 @@ def get_free_variables(formula):
     symwalker.reset_symbols()
     symwalker.walk(formula)
     return symwalker.symbols
+
+KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H"]
+OPERATORS = [(" < "," u< "), \
+             (" > "," u> "), \
+             (" >= "," u>= "), \
+             (" <= "," u<= ")]
+
+def quote_names(strformula, prefix=None):
+    strformula = strformula.replace("\\","")
+    for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", strformula)):
+        if lit in KEYWORDS:
+            continue
+        strformula = strformula.replace(lit, "\'%s\'"%(prefix+"."+lit if prefix is not None else lit))
+    for op in OPERATORS:
+        strformula = strformula.replace(op[0], op[1])
+
+    return strformula

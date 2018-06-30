@@ -11,15 +11,10 @@
 import re
 
 from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
-from cosa.transition_systems import TS
+from cosa.representation import TS
 from cosa.utils.formula_mngm import get_free_variables
 from cosa.utils.logger import Logger
-
-KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H"]
-OPERATORS = [(" < "," u< "), \
-             (" > "," u> "), \
-             (" >= "," u>= "), \
-             (" <= "," u<= ")]
+from cosa.utils.formula_mngm import quote_names
 
 class ExtLexer(HRLexer):
     def __init__(self, env=None):
@@ -52,18 +47,14 @@ class StringParser(object):
     def remap_or2an(self, literal):
         return literal
     
-    def parse_formula(self, strformula):
+    def parse_formula(self, strformula, quote=True):
         if strformula is None:
             return None
-        
-        formula = strformula.replace("\\","")
-        for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
-            if lit in KEYWORDS:
-                continue
-            formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
-        for op in OPERATORS:
-            formula = formula.replace(op[0], op[1])
-        return self.parse_string(formula)
+
+        if quote:
+            strformula = quote_names(strformula)
+
+        return self.parse_string(strformula)
 
     def parse_formulae(self, strforms):
         formulae = []

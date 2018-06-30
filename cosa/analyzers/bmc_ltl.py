@@ -14,7 +14,7 @@ from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Impl
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
-from cosa.transition_systems import TS
+from cosa.representation import TS
 from cosa.encoders.ltl import LTLEncoder, verification_type
 
 from cosa.problem import VerificationStatus, VerificationType

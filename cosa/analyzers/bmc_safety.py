@@ -20,7 +20,7 @@ from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.utils.generic import status_bar
-from cosa.transition_systems import TS, HTS
+from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.problem import VerificationStatus

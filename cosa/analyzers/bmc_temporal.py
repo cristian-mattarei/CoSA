@@ -17,7 +17,7 @@ from pysmt.typing import BOOL
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
-from cosa.transition_systems import TS, HTS
+from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
