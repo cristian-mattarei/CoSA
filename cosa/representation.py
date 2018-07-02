@@ -167,7 +167,12 @@ class HTS(object):
             for lemma in other_hts.lemmas:
                 self.add_lemma(lemma)
 
+
+    def newname(self, varname, path=[]):
+        return varname.replace(self.name, ".".join(path))
+                
     def flatten(self, path=[]):
+        
         vardic = dict([(v.symbol_name(), v) for v in self.vars])
         for sub in self.subs:
             instance, actual, module = sub
@@ -182,18 +187,15 @@ class HTS(object):
             
             for i in range(len(actual)):
                 local_var = ".".join(path+[actual[i]])
-                module_var = ".".join(path+[instance]+[str(formal[i]).replace(module.name, "")[1:]])
+                module_var = sub[2].newname(formal[i].symbol_name(), path+[sub[0]])
                 links = And(links, EqualsOrIff(vardic[local_var], vardic[module_var]))
 
         s_init = self.single_init()
         s_invar = self.single_invar()
         s_trans = self.single_trans()
-
-        def newname(varname):
-            return varname.replace(self.name, ".".join(path))
         
-        replace_dic = dict([(v.symbol_name(), newname(v.symbol_name())) for v in self.vars] + \
-                           [(TS.get_prime_name(v.symbol_name()), newname(TS.get_prime_name(v.symbol_name()))) for v in self.vars])
+        replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
+                           [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) for v in self.vars])
 
         s_init = substitute(s_init, replace_dic)
         s_invar = substitute(s_invar, replace_dic)

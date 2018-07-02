@@ -56,11 +56,14 @@ OPERATORS = [(" < "," u< "), \
              (" <= "," u<= ")]
 
 def quote_names(strformula, prefix=None):
+    lst_names = []
+    if (prefix is not None) and (prefix != ""):
+        lst_names.append(prefix)
     strformula = strformula.replace("\\","")
     for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", strformula)):
         if lit in KEYWORDS:
             continue
-        strformula = strformula.replace(lit, "\'%s\'"%(prefix+"."+lit if prefix is not None else lit))
+        strformula = strformula.replace(lit, "\'%s\'"%(".".join(lst_names+[lit])))
     for op in OPERATORS:
         strformula = strformula.replace(op[0], op[1])
 
