@@ -11,6 +11,7 @@
 import re
 
 from pysmt.walkers.identitydag import IdentityDagWalker
+from cosa.utils.generic import new_string
 
 class SubstituteWalker(IdentityDagWalker):
 
@@ -60,10 +61,19 @@ def quote_names(strformula, prefix=None):
     if (prefix is not None) and (prefix != ""):
         lst_names.append(prefix)
     strformula = strformula.replace("\\","")
-    for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", strformula)):
-        if lit in KEYWORDS:
-            continue
-        strformula = strformula.replace(lit, "\'%s\'"%(".".join(lst_names+[lit])))
+
+    lits = [x for x in list(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", strformula)) if x not in KEYWORDS]
+    lits.sort()
+
+    repl_lst = []
+    
+    for lit in lits:
+        newlit = new_string()
+        strformula = strformula.replace(lit, newlit)
+        repl_lst.append((newlit, lit))
+    
+    for (newlit, lit) in repl_lst:
+        strformula = strformula.replace(newlit, "\'%s\'"%(".".join(lst_names+[lit])))
     for op in OPERATORS:
         strformula = strformula.replace(op[0], op[1])
 

@@ -242,6 +242,8 @@ def run_verification(config):
             if res == VerificationStatus.TRUE:
                 count += 1
                 print_trace("Execution", trace, count, config.prefix)
+            else:
+                Logger.log("No execution found", 0)
 
     if config.safety:
         count = 0

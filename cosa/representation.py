@@ -184,11 +184,14 @@ class HTS(object):
             self.add_ts(ts)
 
             links = TRUE()
-            
             for i in range(len(actual)):
                 local_var = ".".join(path+[actual[i]])
                 module_var = sub[2].newname(formal[i].symbol_name(), path+[sub[0]])
                 links = And(links, EqualsOrIff(vardic[local_var], vardic[module_var]))
+                
+            ts = TS(set([]), TRUE(), TRUE(), links)
+            ts.comment = "LINKS"
+            self.add_ts(ts)
 
         s_init = self.single_init()
         s_invar = self.single_invar()
@@ -201,7 +204,7 @@ class HTS(object):
         s_invar = substitute(s_invar, replace_dic)
         s_trans = substitute(s_trans, replace_dic)
         
-        return (s_init, s_invar, s_trans)
+        return (s_init, s_trans, s_invar)
                 
     def __copy__(self):
         cls = self.__class__

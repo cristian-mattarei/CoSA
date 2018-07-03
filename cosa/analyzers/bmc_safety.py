@@ -79,8 +79,7 @@ class BMCSafety(BMCSolver):
                 (t, model) = self.solve_safety(self.hts, Not(prop), k)
 
         model = self._remap_model(self.hts.vars, model, t)
-
-        if t > -1:
+        if (t > -1) and (model is not None):
             Logger.log("Execution found", 1)
             trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
             return (VerificationStatus.TRUE, trace)

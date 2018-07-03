@@ -10,6 +10,9 @@
 
 import math
 
+STRING_PATTERN = "___STRING_%d___"
+string_id = 0
+
 def is_number(strnum):
     try:
         int(strnum)
@@ -47,3 +50,9 @@ def dec_to_hex(val, width):
 
 def bin_to_dec(val):
     return int(val, 2)
+
+def new_string():
+    global string_id
+    
+    string_id += 1
+    return STRING_PATTERN%string_id

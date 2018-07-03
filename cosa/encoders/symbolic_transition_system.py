@@ -234,7 +234,6 @@ class SymbolicTSParser(object):
     def _define_var(self, var, prefix=""):
         varname, (vartype, size) = var
         fullname = self._concat_names(prefix, varname)    
-        #print(fullname)
         
         if vartype == T_BV:
             return Symbol(fullname, BVType(int(size[0])))
