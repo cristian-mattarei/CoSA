@@ -17,6 +17,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import TS, HTS, L_BV, L_ABV
+from cosa.utils.formula_mngm import B2BV, BV2B
 from cosa.utils.logger import Logger
 
 SEP = "."
@@ -24,12 +25,6 @@ CSEP = "$"
 
 SELF = "self"
 INIT = "init"
-
-def B2BV(var):
-    return Ite(var, BV(1,1), BV(0,1))
-    
-def BV2B(var):
-    return EqualsOrIff(var, BV(1,1))
 
 class Modules(object):
 

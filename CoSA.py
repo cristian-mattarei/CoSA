@@ -156,7 +156,7 @@ def run_verification(config):
 
     if config.strfiles[0][-4:] != ".pkl":
         ps = ProblemSolver()
-        hts = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean)
+        (hts, invar_props, ltl_props) = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean)
         config.parser = ps.parser
 
         if config.pickle_file:
@@ -236,7 +236,7 @@ def run_verification(config):
             props = [("True", TRUE(), None)]
         else:
             props = sparser.parse_formulae(config.properties)
-        for (strprop, prop, types) in props:
+        for (strprop, prop, _) in props:
             Logger.log("Simulation for property \"%s\":"%(strprop), 0)
             res, trace = bmc_safety.simulate(prop, config.bmc_length)
             if res == VerificationStatus.TRUE:
@@ -248,7 +248,9 @@ def run_verification(config):
     if config.safety:
         count = 0
         list_status = []
-        for (strprop, prop, types) in sparser.parse_formulae(config.properties):
+        props = sparser.parse_formulae(config.properties)
+        props += [(str(p), p, None) for p in invar_props]
+        for (strprop, prop, _) in props:
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             res, trace, t = bmc_safety.safety(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
@@ -311,7 +313,10 @@ def run_verification(config):
         count = 0
         list_status = []
 
-        for (strprop, prop, types) in ltlparser.parse_formulae(config.properties):
+        props = ltlparser.parse_formulae(config.properties)
+        props += [(str(p), p, None) for p in ltl_props]
+        
+        for (strprop, prop, _) in props:
             Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
             res, trace, t = bmc_ltl.ltl(prop, config.bmc_length, config.bmc_length_min)
             Logger.log("Property is %s"%res, 0)
@@ -580,8 +585,8 @@ if __name__ == "__main__":
            (config.fsm_check)):
         Logger.error("Analysis selection is necessary")
 
-    if config.safety and (config.properties is None):
-        Logger.error("Safety verification requires at least a property")
+    # if config.safety and (config.properties is None):
+    #     Logger.error("Safety verification requires at least a property")
 
     if config.ltl and (config.properties is None):
         Logger.error("LTL verification requires at least a property")

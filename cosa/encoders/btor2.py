@@ -8,18 +8,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import TRUE, And, BVAdd, Or, Symbol, BV, EqualsOrIff, Implies
+from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, Implies, BVMul, BVExtract, BVUGT, Ite
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import HTS, TS
 from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
-from cosa.utils.formula_mngm import quote_names
+from cosa.utils.formula_mngm import quote_names, B2BV, BV2B
 
 NL = "\n"
 
 SN="N%s"
 
+COM=";"
 SORT="sort"
 BITVEC="bitvec"
 ARRAY="array"
@@ -27,12 +28,25 @@ ZERO="zero"
 ONE="one"
 ONES="ones"
 STATE="state"
+INPUT="input"
 ADD="add"
 EQ="eq"
+MUL="mul"
+SLICE="slice"
+CONST="const"
+CONSTD="constd"
+UGT="ugt"
+AND="and"
+IMPLIES="implies"
+OR="or"
+ITE="ite"
+NOT="not"
+
 INIT="init"
 NEXT="next"
-EQ="eq"
+CONSTRAINT="constraint"
 BAD="bad"
+
 
 class BTOR2Parser(object):
     parser = None
@@ -61,16 +75,29 @@ class BTOR2Parser(object):
     def parse_string(self, strinput):
 
         hts = HTS("")
-        
+
         nodemap = {}
 
         translist = []
         initlist = []
+        invarlist = []
         vars = set([])
+
+        invar_props = []
+        ltl_props = []
+
+        def getnode(nid):
+            if int(nid) < 0:
+                return Ite(BV2B(nodemap[str(-int(nid))]), BV(0,1), BV(1,1))
+            return nodemap[nid]
         
         for line in strinput.split(NL):
             linetok = line.split()
-
+            if len(linetok) == 0:
+                continue
+            if linetok[0] == COM:
+                continue
+            
             (nid, ntype, *nids) = linetok
 
             if ntype == SORT:
@@ -81,37 +108,76 @@ class BTOR2Parser(object):
                     assert False
                     
             if ntype == ZERO:
-                nodemap[nid] = BV(0, nodemap[nids[0]].width)
+                nodemap[nid] = BV(0, getnode(nids[0]).width)
 
             if ntype == ONE:
-                nodemap[nid] = BV(1, nodemap[nids[0]].width)
+                nodemap[nid] = BV(1, getnode(nids[0]).width)
                 
             if ntype == ONES:
-                width = nodemap[nids[0]].width
+                width = getnode(nids[0]).width
                 nodemap[nid] = BV((2**width)-1, width)
 
-            if ntype == STATE:
-                nodemap[nid] = Symbol((SN%nid), nodemap[nids[0]])
+            if ntype in [CONST, CONSTD]:
+                width = getnode(nids[0]).width
+                nodemap[nid] = BV(int(nids[1]), width)
+                
+            if ntype in [STATE, INPUT]:
+                nodemap[nid] = Symbol((SN%nid), getnode(nids[0]))
                 vars.add(nodemap[nid])
 
+            if ntype == AND:
+                nodemap[nid] = BVAnd(getnode(nids[1]), getnode(nids[2]))
+
+            if ntype == IMPLIES:
+                nodemap[nid] = Implies(BV2B(getnode(nids[1])), BV2B(getnode(nids[2])))
+
+            if ntype == NOT:
+                nodemap[nid] = BVNot(getnode(nids[1]))
+                
+            if ntype == OR:
+                nodemap[nid] = BVOr(getnode(nids[1]), getnode(nids[2]))
+                
             if ntype == ADD:
-                nodemap[nid] = BVAdd(nodemap[nids[1]], nodemap[nids[2]])
+                nodemap[nid] = BVAdd(getnode(nids[1]), getnode(nids[2]))
 
+            if ntype == UGT:
+                nodemap[nid] = B2BV(BVUGT(getnode(nids[1]), getnode(nids[2])))
+                
             if ntype == EQ:
-                nodemap[nid] = EqualsOrIff(nodemap[nids[1]], nodemap[nids[2]])
+                nodemap[nid] = B2BV(EqualsOrIff(getnode(nids[1]), getnode(nids[2])))
 
+            if ntype == MUL:
+                nodemap[nid] = BVMul(getnode(nids[1]), getnode(nids[2]))
+
+            if ntype == SLICE:
+                nodemap[nid] = BVExtract(getnode(nids[1]), int(nids[2]), int(nids[3]))
+
+            if ntype == ITE:
+                nodemap[nid] = Ite(BV2B(getnode(nids[1])), getnode(nids[2]), getnode(nids[3]))
+                
             if ntype == NEXT:
-                nodemap[nid] = EqualsOrIff(TS.get_prime(nodemap[nids[1]]), nodemap[nids[2]])
+                nodemap[nid] = EqualsOrIff(TS.get_prime(getnode(nids[1])), getnode(nids[2]))
                 translist.append(nid)
 
             if ntype == INIT:
-                nodemap[nid] = EqualsOrIff(nodemap[nids[1]], nodemap[nids[2]])
+                nodemap[nid] = EqualsOrIff(getnode(nids[1]), getnode(nids[2]))
                 initlist.append(nid)
+
+            if ntype == CONSTRAINT:
+                nodemap[nid] = getnode(nids[0])
+                invarlist.append(nid)
+                
+            if ntype == BAD:
+                nodemap[nid] = getnode(nids[0])
+                invar_props.append(Not(BV2B(nodemap[nid])))
+
+            if nid not in nodemap:
+                Logger.error("Unknown node type \"%s\""%ntype)
                 
         init = And([nodemap[x] for x in initlist])
         trans = And([nodemap[x] for x in translist])
-        invar = TRUE()
+        invar = And([nodemap[x] for x in invarlist])
 
         hts.add_ts(TS(vars, init, trans, invar))
-            
-        return hts
+
+        return (hts, invar_props, ltl_props)

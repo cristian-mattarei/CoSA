@@ -305,6 +305,8 @@ class CoreIRParser(ModelParser):
         not_defined_mods = []
 
         hts = HTS(top_module.name)
+        invar_props = []
+        ltl_props = []
 
         Logger.msg("Starting encoding... ", 1)
 
@@ -583,7 +585,7 @@ class CoreIRParser(ModelParser):
         if Logger.level(2):
             Logger.get_timer(ttimer)
 
-        return hts
+        return (hts, invar_props, ltl_props)
 
 
     def __pack_connections(self, connections):
