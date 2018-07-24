@@ -22,6 +22,7 @@ from cosa.encoders.miter import Miter
 from cosa.representation import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
+from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import ltl_reset_env, LTLParser
 
 FLAG_SR = "["
@@ -164,7 +165,13 @@ class ProblemSolver(object):
 
                 if not self.parser:
                     self.parser = parser
-                
+
+            if filetype == BTOR2Parser.get_extension():
+                parser = BTOR2Parser()
+
+                if not self.parser:
+                    self.parser = parser
+                    
             if parser is not None:
                 if not os.path.isfile(strfile):
                     Logger.error("File \"%s\" does not exist"%strfile)
