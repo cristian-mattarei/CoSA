@@ -16,6 +16,7 @@ from pysmt.printers import HRPrinter
 from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
+from pysmt.rewritings import conjunctive_partition
 
 from cosa.representation import TS
 from cosa.encoders.coreir import SEP
@@ -121,7 +122,7 @@ class SMVHTSPrinter(HTSPrinter):
 
         if properties is not None:
             for strprop, prop, _ in properties:
-                if has_ltl_operators:
+                if has_ltl_operators(prop):
                     self.write("\nLTLSPEC ")
                 else:
                     self.write("\nINVARSPEC ")
@@ -149,11 +150,14 @@ class SMVHTSPrinter(HTSPrinter):
 
     def __print_single_hts(self, hts, printed_vars):
 
-        lenstr = len(hts.comment)+3
+        has_comment = len(hts.comment) > 0
+        
+        if has_comment:
+            lenstr = len(hts.comment)+3
 
-        self.write("\n%s\n"%("-"*lenstr))
-        self.write("-- %s\n"%hts.comment)
-        self.write("%s\n"%("-"*lenstr))
+            self.write("\n%s\n"%("-"*lenstr))
+            self.write("-- %s\n"%hts.comment)
+            self.write("%s\n"%("-"*lenstr))
 
         locvars = [v for v in hts.vars if v not in printed_vars]
 
@@ -177,11 +181,16 @@ class SMVHTSPrinter(HTSPrinter):
         for (formula, keyword) in sections:
             if formula not in [TRUE(), FALSE()]:
                 self.write("\n%s\n"%keyword)
-                self.printer(formula)
+                cp = list(conjunctive_partition(formula))
+                for i in range(len(cp)):
+                    f = cp[i]
+                    self.printer(f)
+                    if i < len(cp)-1:
+                        self.write(" &\n")
                 self.write(";\n")
 
-
-        self.write("\n%s\n"%("-"*lenstr))
+        if has_comment:
+            self.write("\n%s\n"%("-"*lenstr))
 
         return printed_vars
 
