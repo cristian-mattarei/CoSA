@@ -251,7 +251,7 @@ def run_verification(config):
         props = sparser.parse_formulae(config.properties)
         props += [(str(p), p, None) for p in invar_props]
         if len(props) == 0:
-            Logger.error("Safety verification requires at least a property")
+            Logger.warning("Safety verification requires at least a property")
             
         for (strprop, prop, _) in props:
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
@@ -318,7 +318,7 @@ def run_verification(config):
         props = ltlparser.parse_formulae(config.properties)
         props += [(str(p), p, None) for p in ltl_props]
         if len(props) == 0:
-            Logger.error("LTL verification requires at least a property")
+            Logger.warning("LTL verification requires at least a property")
             
         for (strprop, prop, _) in props:
             Logger.log("LTL verification for property \"%s\":"%(strprop), 0)

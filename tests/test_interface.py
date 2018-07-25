@@ -35,7 +35,6 @@ def run_translation(path):
     config = Config()
     status = True
     
-    config.safety = True
     config.verbosity = 3
     config.solver_name = "msat"
     config.prove = True
