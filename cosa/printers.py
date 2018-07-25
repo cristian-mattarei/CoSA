@@ -150,11 +150,14 @@ class SMVHTSPrinter(HTSPrinter):
 
     def __print_single_hts(self, hts, printed_vars):
 
-        lenstr = len(hts.comment)+3
+        has_comment = len(hts.comment) > 0
+        
+        if has_comment:
+            lenstr = len(hts.comment)+3
 
-        self.write("\n%s\n"%("-"*lenstr))
-        self.write("-- %s\n"%hts.comment)
-        self.write("%s\n"%("-"*lenstr))
+            self.write("\n%s\n"%("-"*lenstr))
+            self.write("-- %s\n"%hts.comment)
+            self.write("%s\n"%("-"*lenstr))
 
         locvars = [v for v in hts.vars if v not in printed_vars]
 
@@ -186,8 +189,8 @@ class SMVHTSPrinter(HTSPrinter):
                         self.write(" &\n")
                 self.write(";\n")
 
-
-        self.write("\n%s\n"%("-"*lenstr))
+        if has_comment:
+            self.write("\n%s\n"%("-"*lenstr))
 
         return printed_vars
 
