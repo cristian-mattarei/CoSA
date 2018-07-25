@@ -13,7 +13,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
     BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
-    Array, Select, Store
+    BVComp, Array, Select, Store
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.transition_systems import TS, HTS, L_BV, L_ABV
@@ -36,7 +36,9 @@ class Modules(object):
     symbolic_init=False
     abstract_clock=False
     # control if encoding is functional
-    functional = True 
+    functional = True
+    # control whether encoding pushes ITE in array or bv theory
+    array_ite = False
     
     @staticmethod
     def Uop(bvop, bop, in_, out):
@@ -473,16 +475,21 @@ class Modules(object):
         vars_ = [in0,in1,out]
         comment = "Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 3)
-        eq = EqualsOrIff(in0, in1)
 
-        if out.symbol_type() == BOOL:
-            out0 = Not(out)
-            out1 = out
+        if Modules.functional:
+            if out.symbol_type() == BOOL:
+                invar = EqualsOrIff(out, EqualsOrIff(in0, in1))
+            else:
+                invar = EqualsOrIff(out, BVComp(in0, in1))
         else:
-            out0 = EqualsOrIff(out, BV(0, 1))
-            out1 = EqualsOrIff(out, BV(1, 1))
-
-        invar = And(Implies(eq, out1), Implies(Not(eq), out0))
+            eq = EqualsOrIff(in0, in1)
+            if out.symbol_type() == BOOL:
+                out0 = Not(out)
+                out1 = out
+            else:
+                out0 = EqualsOrIff(out, BV(0, 1))
+                out1 = EqualsOrIff(out, BV(1, 1))
+            invar = And(Implies(eq, out1), Implies(Not(eq), out0))
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
@@ -493,16 +500,25 @@ class Modules(object):
         vars_ = [in0,in1,out]
         comment = "Eq (in0, in1, out) = (%s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 3)
-        eq = EqualsOrIff(in0, in1)
 
-        if out.symbol_type() == BOOL:
-            out0 = Not(out)
-            out1 = out
+        # TODO: Create functional encoding
+        if Modules.functional:
+            if out.symbol_type() == BOOL:
+                invar = EqualsOrIff(out, Not(EqualsOrIff(in0, in1)))
+            else:
+                invar = EqualsOrIff(out, BVNot(BVComp(in0, in1)))
         else:
-            out0 = EqualsOrIff(out, BV(0, 1))
-            out1 = EqualsOrIff(out, BV(1, 1))
+            eq = EqualsOrIff(in0, in1)
 
-        invar = And(Implies(Not(eq), out1), Implies(eq, out0))
+            if out.symbol_type() == BOOL:
+                out0 = Not(out)
+                out1 = out
+            else:
+                out0 = EqualsOrIff(out, BV(0, 1))
+                out1 = EqualsOrIff(out, BV(1, 1))
+
+            invar = And(Implies(Not(eq), out1), Implies(eq, out0))
+
         ts = TS(set(vars_), TRUE(), TRUE(), invar)
         ts.comment = comment
         return ts
@@ -612,10 +628,15 @@ class Modules(object):
 
         invar = EqualsOrIff(rdata, Select(arr, raddr))
 
-        if Modules.functional:
-            trans = EqualsOrIff(TS.to_next(arr), Ite(do_clk, Ite(wen1, Store(arr, waddr, wdata), arr), arr))
+        if Modules.array_ite:
+            next_arr = Ite(wen1, Store(arr, waddr, wdata), arr)
         else:
-            act_trans = EqualsOrIff(TS.to_next(arr), Ite(wen1, Store(arr, waddr, wdata), arr))
+            next_arr = Store(arr, waddr, Ite(wen1, wdata, Select(arr, waddr)))
+
+        if Modules.functional:
+            trans = EqualsOrIff(TS.to_next(arr), Ite(do_clk, next_arr, arr))
+        else:
+            act_trans = EqualsOrIff(TS.to_next(arr), next_arr)
             pas_trans = EqualsOrIff(TS.to_next(arr), arr)
             trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
 

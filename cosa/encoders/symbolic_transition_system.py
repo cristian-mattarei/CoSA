@@ -38,6 +38,8 @@ T_NEG = "!"
 
 T_OP = "("
 T_CP = ")"
+T_OB = "["
+T_CB = "]"
 
 T_VAR = "VAR"
 T_INIT = "INIT"
@@ -120,8 +122,8 @@ class SymbolicTSParser(object):
         vardefs = (Literal(T_VAR) + (OneOrMore(vardef)(P_VARDEFS)))(P_VARS)
         
         operators = T_NEG+T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
-        formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+operators) + Literal(T_SC))(P_FORMULA)
-        
+        formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+T_OB+T_CB+operators) + Literal(T_SC))(P_FORMULA)
+
         inits = (Literal(T_INIT) + (OneOrMore(formula))(P_FORMULAE))(P_INIT)
         transs = (Literal(T_TRANS) + (OneOrMore(formula))(P_FORMULAE))(P_TRANS)
         invars = (Literal(T_INVAR) + (OneOrMore(formula))(P_FORMULAE))(P_INVAR)
