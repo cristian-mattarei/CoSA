@@ -220,15 +220,16 @@ def run_verification(config):
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
         printer = PrintersFactory.printer_by_name(config.printer)
 
-        properties = None
-        if config.properties:
-            if config.ltl:
-                properties = ltlparser.parse_formulae(config.properties)
-            else:
-                properties = sparser.parse_formulae(config.properties)
+        props = []
+        if config.ltl:
+            props += ltlparser.parse_formulae(config.properties)
+            props += [(str(p), p, None) for p in ltl_props]
+        else:
+            props += sparser.parse_formulae(config.properties)
+            props += [(str(p), p, None) for p in invar_props]
 
         with open(config.translate, "w") as f:
-            f.write(printer.print_hts(hts, properties))
+            f.write(printer.print_hts(hts, props))
 
     if config.simulate:
         count = 0

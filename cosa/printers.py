@@ -121,7 +121,7 @@ class SMVHTSPrinter(HTSPrinter):
 
         if properties is not None:
             for strprop, prop, _ in properties:
-                if has_ltl_operators:
+                if has_ltl_operators(prop):
                     self.write("\nLTLSPEC ")
                 else:
                     self.write("\nINVARSPEC ")
