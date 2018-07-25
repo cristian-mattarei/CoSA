@@ -18,11 +18,12 @@ from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAd
 import pysmt.environment
 import pysmt.formula
 
-from cosa.transition_systems import HTS, TS
-from cosa.encoders.formulae import StringParser, KEYWORDS, OPERATORS
+from cosa.representation import HTS, TS
+from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables, substitute
 from cosa.problem import VerificationType
+from cosa.utils.formula_mngm import quote_names
 
 from pysmt.operators import new_node_type
 
@@ -437,15 +438,7 @@ class LTLParser(object):
     def parse_formula(self, strformula):
         if strformula is None:
             return None
-        
-        formula = strformula.replace("\\","")
-        for lit in set(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", formula)):
-            if lit in KEYWORDS:
-                continue
-            formula = formula.replace(lit, "\'%s\'"%self.remap_or2an(lit))
-        for op in OPERATORS:
-            formula = formula.replace(op[0], op[1])
-        return self.parse_string(formula)
+        return self.parse_string(quote_names(strformula))
 
     def parse_formulae(self, strforms):
         formulae = []

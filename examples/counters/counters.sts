@@ -1,0 +1,34 @@
+VAR
+clk: BV(1);
+counter_1: Counter(clk);
+counter_2: Counter(clk);
+adder: Adder(counter_1.output, counter_2.output);
+output: BV(16);
+
+INIT
+clk = 0_1;
+
+TRANS
+(clk = 0_1) <-> (next(clk) = 1_1);
+
+INVAR
+output = adder.output;
+
+
+DEF Adder(in1: BV(16), in2: BV(16)):
+  VAR
+  output: BV(16);
+
+  INVAR
+  output = (in1 + in2);
+  
+DEF Counter(clk: BV(1)):
+  VAR
+  output: BV(16);
+
+  INIT
+  output = 0_16;
+
+  TRANS
+  ((next(clk) = 1_1) & (clk = 0_1)) -> (next(output) = (output + 1_16));
+  ((next(clk) = 0_1) & (clk = 1_1)) -> (next(output) = (output));

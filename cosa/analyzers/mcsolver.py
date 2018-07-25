@@ -13,9 +13,10 @@ from six.moves import cStringIO
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.rewritings import conjunctive_partition
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+from pysmt.logics import QF_ABV
 
 from cosa.utils.logger import Logger
-from cosa.transition_systems import TS, HTS
+from cosa.representation import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.printers import TextTracePrinter, VCDTracePrinter
 
@@ -72,22 +73,31 @@ class MCConfig(object):
 
 class TraceSolver(object):
 
+    solver_name = None
     name = None
+    basename = None
     trace_file = None
     solver = None
     smt2vars = None
     smt2vars_inc = None
     
-    def __init__(self, name):
+    def __init__(self, solver_name, name, basename=None):
+        self.solver_name = solver_name
         self.name = name
+        self.basename = basename
         self.smt2vars = set([])
-        self.solver = Solver(name=self.name)
+        self.solver = Solver(name=solver_name, logic=QF_ABV)
         self.smt2vars_inc = []
+        if basename is not None:
+            self.trace_file = "%s-%s.smt2"%(basename, name)
 
     def clear(self):
         self.solver.exit()
-        self.solver = Solver(self.name)
+        self.solver = Solver(name=self.solver_name, logic=QF_ABV)
 
+    def copy(self, name=None):
+        return TraceSolver(self.solver_name, self.name if name is None else name, self.basename)
+        
 class BMCSolver(object):
 
     def __init__(self, hts, config):
@@ -99,11 +109,10 @@ class BMCSolver(object):
         Logger.time = True
         self.total_time = 0.0
 
-        self.solver = TraceSolver(config.solver_name)
-        if self.config.prove:
-            self.solver_2 = TraceSolver(config.solver_name)
-
-        self._reset_smt2_tracefile()
+        basename = None
+        if self.config.smt2file is not None:
+            basename = ".".join(self.config.smt2file.split(".")[:-1])
+        self.solver = TraceSolver(config.solver_name, "main", basename)
 
         self.varmapf_t = None
         self.varmapb_t = None
@@ -197,13 +206,6 @@ class BMCSolver(object):
     def at_ptime(self, formula, t):
         return substitute(formula, self.varmapb_t[t])
     
-    def _reset_smt2_tracefile(self):
-        if self.config.smt2file is not None:
-            basename = ".".join(self.config.smt2file.split(".")[:-1])
-            self.solver.trace_file = "%s.smt2"%basename
-            if self.config.prove:
-                self.solver_2.trace_file = "%s-ind.smt2"%basename
-
     def _write_smt2_log(self, solver, line):
         tracefile = solver.trace_file
         if tracefile is not None:

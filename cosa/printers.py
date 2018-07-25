@@ -17,7 +17,7 @@ from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
 
-from cosa.transition_systems import TS
+from cosa.representation import TS
 from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex
 from cosa.encoders.ltl import has_ltl_operators, HRLTLPrinter

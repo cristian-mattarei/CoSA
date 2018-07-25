@@ -17,7 +17,7 @@ from pysmt.typing import BOOL
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
-from cosa.transition_systems import TS, HTS
+from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
@@ -89,11 +89,13 @@ class BMCTemporal(BMCSolver):
             self._init_at_time(hts.vars.union(set([heqvar])), k)
 
         if self.config.prove:
-            self._reset_assertions(self.solver_2)
-            self._add_assertion(self.solver_2, self.at_time(invar, 0))
+            self.solver_klive = self.solver.copy("klive")
+            
+            self._reset_assertions(self.solver_klive)
+            self._add_assertion(self.solver_klive, self.at_time(invar, 0))
 
             if eventually:
-                self._add_assertion(self.solver_2, self.at_time(init, 0))
+                self._add_assertion(self.solver_klive, self.at_time(init, 0))
         
         propt = FALSE()
         formula = And(init, invar)
@@ -151,8 +153,8 @@ class BMCTemporal(BMCSolver):
             if self.config.prove:
                 
                 if t > 0:
-                    self._add_assertion(self.solver_2, trans_t)
-                    self._write_smt2_comment(self.solver_2, "Solving for k=%s"%(t))
+                    self._add_assertion(self.solver_klive, trans_t)
+                    self._write_smt2_comment(self.solver_klive, "Solving for k=%s"%(t))
 
                     if next_prop:
                         if t > 0:
@@ -160,11 +162,11 @@ class BMCTemporal(BMCSolver):
                     else:
                         propt = self.at_time(Not(prop), t)
                     
-                    self._add_assertion(self.solver_2, propt)
+                    self._add_assertion(self.solver_klive, propt)
 
 
                     if t >= k_min:
-                        if self._solve(self.solver_2):
+                        if self._solve(self.solver_klive):
                             Logger.log("K-Liveness failed with k=%s"%(t), 1)
                         else:
                             Logger.log("K-Liveness holds with k=%s"%(t), 1)
@@ -172,14 +174,14 @@ class BMCTemporal(BMCSolver):
                             return (t, True)
 
                 else:
-                    self._push(self.solver_2)
-                    self._add_assertion(self.solver_2, self.at_time(prop, 0))
-                    res = self._solve(self.solver_2)
-                    self._pop(self.solver_2)
+                    self._push(self.solver_klive)
+                    self._add_assertion(self.solver_klive, self.at_time(prop, 0))
+                    res = self._solve(self.solver_klive)
+                    self._pop(self.solver_klive)
                     if res:
-                        self._add_assertion(self.solver_2, self.at_time(prop, 0))
+                        self._add_assertion(self.solver_klive, self.at_time(prop, 0))
                     else:
-                        self._add_assertion(self.solver_2, self.at_time(Not(prop), 0))
+                        self._add_assertion(self.solver_klive, self.at_time(Not(prop), 0))
                         
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(self.solver, trans_t)

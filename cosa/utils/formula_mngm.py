@@ -8,7 +8,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
+
 from pysmt.walkers.identitydag import IdentityDagWalker
+from cosa.utils.generic import new_string
 
 class SubstituteWalker(IdentityDagWalker):
 
@@ -46,3 +49,32 @@ def get_free_variables(formula):
     symwalker.reset_symbols()
     symwalker.walk(formula)
     return symwalker.symbols
+
+KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H"]
+OPERATORS = [(" < "," u< "), \
+             (" > "," u> "), \
+             (" >= "," u>= "), \
+             (" <= "," u<= ")]
+
+def quote_names(strformula, prefix=None):
+    lst_names = []
+    if (prefix is not None) and (prefix != ""):
+        lst_names.append(prefix)
+    strformula = strformula.replace("\\","")
+
+    lits = [x for x in list(re.findall("([a-zA-Z][a-zA-Z_$\.0-9]*)+", strformula)) if x not in KEYWORDS]
+    lits.sort()
+
+    repl_lst = []
+    
+    for lit in lits:
+        newlit = new_string()
+        strformula = strformula.replace(lit, newlit)
+        repl_lst.append((newlit, lit))
+    
+    for (newlit, lit) in repl_lst:
+        strformula = strformula.replace(newlit, "\'%s\'"%(".".join(lst_names+[lit])))
+    for op in OPERATORS:
+        strformula = strformula.replace(op[0], op[1])
+
+    return strformula

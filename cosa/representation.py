@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Symbol, And, TRUE, simplify
+from pysmt.shortcuts import Symbol, And, TRUE, simplify, EqualsOrIff
 from cosa.utils.formula_mngm import get_free_variables, substitute
 
 NEXT = "_N"
@@ -22,10 +22,12 @@ L_BV = "QF_BV"
 class HTS(object):
 
     tss = None
-    sub = None
+    subs = None
     name = None
     inputs = None
     outputs = None
+    vars = None
+    params = None
     state_vars = None
     assumptions = None
     lemmas = None
@@ -38,9 +40,10 @@ class HTS(object):
     en_simplify = False
     
     def __init__(self, name):
-        self.tss = []
-        self.sub = []
+        self.tss = set([])
+        self.subs = set([])
         self.vars = set([])
+        self.params = []
         self.state_vars = set([])
         self.name = name
         self.inputs = set([])
@@ -55,12 +58,16 @@ class HTS(object):
         self.logic = L_BV
         self.en_simplify = False
         
-    def add_sub(self, sub):
-        self.sub.append(sub)
+    def add_sub(self, name, sub, parameters):
+        self.subs.add((name, parameters, sub))
 
     def add_var(self, var):
         self.vars.add(var)
 
+    def add_param(self, param):
+        self.params.append(param)
+        self.vars.add(param)
+        
     def add_state_var(self, var):
         self.state_vars.add(var)
 
@@ -74,7 +81,7 @@ class HTS(object):
             ts.invar = simplify(ts.invar)
             ts.trans = simplify(ts.trans)
         
-        self.tss.append(ts)
+        self.tss.add(ts)
         for v in ts.vars:
             self.vars.add(v)
         for v in ts.state_vars:
@@ -84,15 +91,15 @@ class HTS(object):
 
     def add_assumption(self, assumption):
         if self.assumptions is None:
-            self.assumptions = []
+            self.assumptions = set([])
 
-        self.assumptions.append(assumption)
+        self.assumptions.add(assumption)
 
     def add_lemma(self, lemma):
         if self.lemmas is None:
-            self.lemmas = []
+            self.lemmas = set([])
 
-        self.lemmas.append(lemma)
+        self.lemmas.add(lemma)
         
     def is_input(self, var):
         return var in self.inputs
@@ -159,15 +166,63 @@ class HTS(object):
         if other_hts.lemmas is not None:
             for lemma in other_hts.lemmas:
                 self.add_lemma(lemma)
+
+
+    def newname(self, varname, path=[]):
+        return varname.replace(self.name, ".".join(path))
+                
+    def flatten(self, path=[]):
+        
+        vardic = dict([(v.symbol_name(), v) for v in self.vars])
+        for sub in self.subs:
+            instance, actual, module = sub
+            formal = module.params
             
+            (init, trans, invar) = module.flatten(path+[instance])
+            ts = TS(set([]), init, trans, invar)
+            ts.comment = "FLATTEN"
+            self.add_ts(ts)
+
+            links = TRUE()
+            for i in range(len(actual)):
+                local_var = ".".join(path+[actual[i]])
+                module_var = sub[2].newname(formal[i].symbol_name(), path+[sub[0]])
+                links = And(links, EqualsOrIff(vardic[local_var], vardic[module_var]))
+                
+            ts = TS(set([]), TRUE(), TRUE(), links)
+            ts.comment = "LINKS"
+            self.add_ts(ts)
+
+        s_init = self.single_init()
+        s_invar = self.single_invar()
+        s_trans = self.single_trans()
+        
+        replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
+                           [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) for v in self.vars])
+
+        s_init = substitute(s_init, replace_dic)
+        s_invar = substitute(s_invar, replace_dic)
+        s_trans = substitute(s_trans, replace_dic)
+        
+        return (s_init, s_trans, s_invar)
+                
     def __copy__(self):
         cls = self.__class__
         new_hts = cls.__new__(cls)
         new_hts.__dict__.update(self.__dict__)
         new_hts.tss = list(new_hts.tss)
-        new_hts.sub = list(new_hts.sub)
+        new_hts.subs = list(new_hts.subs)
         return new_hts
 
+    def __repr__(self):
+        ret = []
+
+        ret.append("Name: %s"%self.name)
+        ret.append("Vars: %s"%str(self.vars))
+        ret.append("Subs: %s"%str(self.subs))
+
+        return "; ".join(ret)
+    
     def print_statistics(self, name=None, detailed=False):
 
         def type_vars(varset, prefix=""):

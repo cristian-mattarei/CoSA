@@ -16,7 +16,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     BVComp, Array, Select, Store
 from pysmt.typing import BOOL, BVType, ArrayType
 
-from cosa.transition_systems import TS, HTS, L_BV, L_ABV
+from cosa.representation import TS, HTS, L_BV, L_ABV
 from cosa.utils.logger import Logger
 
 SEP = "."

@@ -12,7 +12,7 @@ from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOf
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
 from pysmt.typing import BOOL, BVType
 
-from cosa.transition_systems import HTS, TS
+from cosa.representation import HTS, TS
 from cosa.printers import HIDDEN
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables

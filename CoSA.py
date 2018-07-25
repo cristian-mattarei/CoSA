@@ -32,7 +32,7 @@ from cosa.encoders.formulae import StringParser
 from cosa.encoders.miter import Miter
 from cosa.encoders.ltl import ltl_reset_env, LTLParser
 from cosa.problem import Problems, VerificationStatus, VerificationType
-from cosa.transition_systems import HTS
+from cosa.representation import HTS
 
 from pysmt.shortcuts import TRUE, reset_env, get_env
 
@@ -242,6 +242,8 @@ def run_verification(config):
             if res == VerificationStatus.TRUE:
                 count += 1
                 print_trace("Execution", trace, count, config.prefix)
+            else:
+                Logger.log("No execution found", 0)
 
     if config.safety:
         count = 0
