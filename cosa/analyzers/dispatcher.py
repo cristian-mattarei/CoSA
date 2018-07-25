@@ -22,6 +22,7 @@ from cosa.encoders.miter import Miter
 from cosa.representation import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
+from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import ltl_reset_env, LTLParser
 
 FLAG_SR = "["
@@ -96,7 +97,7 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
             if problem.equivalence:
-                problem.hts2 = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
+                (problem.hts2, _, _) = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
 
             htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, bmc_length, problem.symbolic_init, mc_config.properties, True)
 
@@ -137,6 +138,8 @@ class ProblemSolver(object):
         
     def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None, deterministic=False, boolean=False):
         hts = HTS("System 1")
+        invar_props = []
+        ltl_props = []
 
         models = model_files.split(MODEL_SP)
 
@@ -164,15 +167,24 @@ class ProblemSolver(object):
 
                 if not self.parser:
                     self.parser = parser
-                
+
+            if filetype == BTOR2Parser.get_extension():
+                parser = BTOR2Parser()
+
+                if not self.parser:
+                    self.parser = parser
+                    
             if parser is not None:
                 if not os.path.isfile(strfile):
                     Logger.error("File \"%s\" does not exist"%strfile)
 
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                hts_a = parser.parse_file(strfile, flags)
+                (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, flags)
                 hts.combine(hts_a)
 
+                invar_props += inv_a
+                ltl_props += ltl_a
+                
                 Logger.log("DONE", 0)
                 continue
 
@@ -181,7 +193,7 @@ class ProblemSolver(object):
         if Logger.level(1):
             print(hts.print_statistics(name, Logger.level(2)))
 
-        return hts
+        return (hts, invar_props, ltl_props)
 
     def solve_problems(self, problems, config):
 
@@ -191,10 +203,10 @@ class ProblemSolver(object):
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
-            systems[('hts', si)] = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1", boolean=problems.boolean)
+            (systems[('hts', si)], _, _) = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1", boolean=problems.boolean)
 
         if problems.equivalence is not None:
-            systems[('hts2', si)] = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean)
+            (systems[('hts2', si)], _, _) = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean)
         else:
             systems[('hts2', si)] = None
             

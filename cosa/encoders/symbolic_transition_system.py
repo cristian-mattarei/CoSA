@@ -131,6 +131,8 @@ class SymbolicTSParser(object):
         pstring = self.parser.parseString(strinput, parseAll=True)
 
         hts = HTS("STS")
+        invar_props = []
+        ltl_props = []
         
         modules = []
         modulesdic = {}
@@ -200,7 +202,7 @@ class SymbolicTSParser(object):
 
         hts = self.generate_HTS(mainmodule, modulesdic)
         hts.flatten()
-        return hts
+        return (hts, invar_props, ltl_props)
         
     def __init_parser(self):
 

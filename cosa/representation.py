@@ -70,7 +70,16 @@ class HTS(object):
         
     def add_state_var(self, var):
         self.state_vars.add(var)
+        self.vars.add(var)
 
+    def add_input_var(self, var):
+        self.inputs.add(var)
+        self.vars.add(var)
+
+    def add_output_var(self, var):
+        self.outputs.add(var)
+        self.vars.add(var)
+        
     def update_logic(self, logic):
         if (self.logic == L_BV) and (logic == L_ABV):
             self.logic = L_ABV

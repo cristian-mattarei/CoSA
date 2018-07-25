@@ -190,10 +190,12 @@ class ExplicitTSParser(object):
 
         hts = HTS("ETS")
         hts.add_ts(ts)
+        invar_props = []
+        ltl_props = []
 
         hts.state_vars = set([stateid_var])
         
-        return hts
+        return (hts, invar_props, ltl_props)
                 
     def __get_value(self, value):
         if value == T_FALSE:
