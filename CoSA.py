@@ -250,6 +250,9 @@ def run_verification(config):
         list_status = []
         props = sparser.parse_formulae(config.properties)
         props += [(str(p), p, None) for p in invar_props]
+        if len(props) == 0:
+            Logger.error("Safety verification requires at least a property")
+            
         for (strprop, prop, _) in props:
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             res, trace, t = bmc_safety.safety(prop, config.bmc_length, config.bmc_length_min)
@@ -312,10 +315,11 @@ def run_verification(config):
     if config.ltl:
         count = 0
         list_status = []
-
         props = ltlparser.parse_formulae(config.properties)
         props += [(str(p), p, None) for p in ltl_props]
-        
+        if len(props) == 0:
+            Logger.error("LTL verification requires at least a property")
+            
         for (strprop, prop, _) in props:
             Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
             res, trace, t = bmc_ltl.ltl(prop, config.bmc_length, config.bmc_length_min)
@@ -584,12 +588,6 @@ if __name__ == "__main__":
            (config.translate is not None) or\
            (config.fsm_check)):
         Logger.error("Analysis selection is necessary")
-
-    # if config.safety and (config.properties is None):
-    #     Logger.error("Safety verification requires at least a property")
-
-    if config.ltl and (config.properties is None):
-        Logger.error("LTL verification requires at least a property")
         
     parsing_defs = [config.properties, config.lemmas, config.assumptions]
     for i in range(len(parsing_defs)):
