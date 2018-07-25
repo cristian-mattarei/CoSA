@@ -92,7 +92,6 @@ class BTOR2Parser(object):
         translist = []
         initlist = []
         invarlist = []
-        vars = set([])
 
         invar_props = []
         ltl_props = []
@@ -148,7 +147,10 @@ class BTOR2Parser(object):
                 
             if ntype in [STATE, INPUT]:
                 nodemap[nid] = Symbol((SN%nid), getnode(nids[0]))
-                vars.add(nodemap[nid])
+                if ntype == INPUT:
+                    hts.add_input_var(nodemap[nid])
+                else:
+                    hts.add_state_var(nodemap[nid])
 
             if ntype == AND:
                 nodemap[nid] = BVAnd(getnode(nids[1]), getnode(nids[2]))
@@ -206,15 +208,15 @@ class BTOR2Parser(object):
                 
             if ntype == NEXT:
                 nodemap[nid] = EqualsOrIff(TS.get_prime(getnode(nids[1])), getnode(nids[2]))
-                translist.append(nid)
+                translist.append(nodemap[nid])
 
             if ntype == INIT:
                 nodemap[nid] = EqualsOrIff(getnode(nids[1]), getnode(nids[2]))
-                initlist.append(nid)
+                initlist.append(nodemap[nid])
 
             if ntype == CONSTRAINT:
                 nodemap[nid] = BV2B(getnode(nids[0]))
-                invarlist.append(nid)
+                invarlist.append(nodemap[nid])
                 
             if ntype == BAD:
                 nodemap[nid] = getnode(nids[0])
@@ -223,10 +225,10 @@ class BTOR2Parser(object):
             if nid not in nodemap:
                 Logger.error("Unknown node type \"%s\""%ntype)
                 
-        init = And([nodemap[x] for x in initlist])
-        trans = And([nodemap[x] for x in translist])
-        invar = And([nodemap[x] for x in invarlist])
+        init = And(initlist)
+        trans = And(translist)
+        invar = And(invarlist)
 
-        hts.add_ts(TS(vars, init, trans, invar))
+        hts.add_ts(TS(set([]), init, trans, invar))
 
         return (hts, invar_props, ltl_props)

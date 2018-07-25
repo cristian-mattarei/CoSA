@@ -441,7 +441,7 @@ class BMCSafety(BMCSolver):
                     if self._solve(self.solver):
                         Logger.log("Induction (I & lF) failed with k=%s"%(t), 1)
                     else:
-                        Logger.log("Induction holds with k=%s"%(t), 1)
+                        Logger.log("Induction (I & lF) holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
@@ -458,7 +458,7 @@ class BMCSafety(BMCSolver):
                     if self._solve(self.solver_ind):
                         Logger.log("Induction (lF & !P) failed with k=%s"%(t), 1)
                     else:
-                        Logger.log("Induction holds with k=%s"%(t), 1)
+                        Logger.log("Induction (lF & !P) holds with k=%s"%(t), 1)
                         Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
