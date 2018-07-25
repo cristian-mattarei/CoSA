@@ -16,6 +16,7 @@ from pysmt.printers import HRPrinter
 from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
 from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL
+from pysmt.rewritings import conjunctive_partition
 
 from cosa.representation import TS
 from cosa.encoders.coreir import SEP
@@ -177,7 +178,12 @@ class SMVHTSPrinter(HTSPrinter):
         for (formula, keyword) in sections:
             if formula not in [TRUE(), FALSE()]:
                 self.write("\n%s\n"%keyword)
-                self.printer(formula)
+                cp = list(conjunctive_partition(formula))
+                for i in range(len(cp)):
+                    f = cp[i]
+                    self.printer(f)
+                    if i < len(cp)-1:
+                        self.write(" &\n")
                 self.write(";\n")
 
 

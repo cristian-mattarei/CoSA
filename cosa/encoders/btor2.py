@@ -229,6 +229,6 @@ class BTOR2Parser(object):
         trans = And(translist)
         invar = And(invarlist)
 
-        hts.add_ts(TS(set([]), init, trans, invar))
+        hts.add_ts(TS(hts.vars, init, trans, invar))
 
         return (hts, invar_props, ltl_props)
