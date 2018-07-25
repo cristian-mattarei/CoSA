@@ -12,7 +12,6 @@ import re
 
 from pysmt.walkers.identitydag import IdentityDagWalker
 from cosa.utils.generic import new_string
-
 from pysmt.shortcuts import Ite, EqualsOrIff, BV
 
 def B2BV(var):
