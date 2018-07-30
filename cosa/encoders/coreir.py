@@ -28,6 +28,8 @@ CR = "_const_replacement"
 RCR = "_reg_const_replacement"
 SELF = "self"
 
+NEW_VERSION = True
+
 class CoreIRModelFlags(ModelFlags):
     FC_LEMMAS = "FC-LEMMAS"
 
@@ -257,7 +259,9 @@ class CoreIRParser(ModelParser):
             (enc, formal) = self.enc_map[enc_val]
             remap = dict(join(formal, actual))
             self.subwalker.set_substitute_map(remap)
-            ts = TS(set_remap(enc.vars, remap), self.subwalker.walk(enc.init), self.subwalker.walk(enc.trans), self.subwalker.walk(enc.invar))
+            ts = TS()
+            ts.vars = set_remap(enc.vars, remap)
+            ts.set_behavior(self.subwalker.walk(enc.init), self.subwalker.walk(enc.trans), self.subwalker.walk(enc.invar))
             return ts
 
         ret = self.mod_map[inst_type][0](*args)
@@ -322,7 +326,10 @@ class CoreIRParser(ModelParser):
                     xval = 1 if xval else 0
                 else:
                     if type(xval) != int:
-                        xval = xval.unsigned_value
+                        if NEW_VERSION:
+                            xval = xval.unsigned_value
+                        else:
+                            xval = xval.val
 
                 return xval
 
@@ -425,11 +432,10 @@ class CoreIRParser(ModelParser):
         for var in interface:
             varname = SELF+SEP+var[0]
             bvvar = self.BVVar(varname, var[1].size)
-            hts.add_var(bvvar)
             if(var[1].is_input()):
-                hts.inputs.add(bvvar)
+                hts.add_input_var(bvvar)
             else:
-                hts.outputs.add(bvvar)
+                hts.add_output_var(bvvar)
 
             # Adding clock behavior
             if (self.CLK in var[0].lower()) and (var[1].is_input()):
@@ -574,8 +580,9 @@ class CoreIRParser(ModelParser):
 
             Logger.log(str(EqualsOrIff(first, second)), 3)
 
-        ts = TS(eq_vars, TRUE(), TRUE(), eq_formula)
-        ts.comment = "Connections" # (%s, %s)"%(SEP.join(first_selectpath), SEP.join(second_selectpath))
+        ts = TS("Connections")
+        ts.invar = eq_formula
+        ts.vars = eq_vars
 
         hts.add_ts(ts)
 

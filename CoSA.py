@@ -257,7 +257,7 @@ def run_verification(config):
         for (strprop, prop, _) in props:
             Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
             res, trace, t = bmc_safety.safety(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("Property is %s"%res, 0)
+            Logger.log("\nProperty is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
                 print_trace("Counterexample", trace, count, config.prefix)
@@ -324,7 +324,7 @@ def run_verification(config):
         for (strprop, prop, _) in props:
             Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
             res, trace, t = bmc_ltl.ltl(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("Property is %s"%res, 0)
+            Logger.log("\nProperty is %s"%res, 0)
             if res == VerificationStatus.FALSE:
                 count += 1
                 print_trace("Counterexample", trace, count, config.prefix)

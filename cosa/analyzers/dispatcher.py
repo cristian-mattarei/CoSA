@@ -39,7 +39,7 @@ class ProblemSolver(object):
 
     def solve_problem(self, problem, config):
         Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
-        Logger.msg("%s "%problem.name, 0, not(Logger.level(1)))
+        Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
         
         sparser = StringParser()
         lparser = LTLParser()
@@ -209,7 +209,7 @@ class ProblemSolver(object):
             (systems[('hts2', si)], _, _) = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean)
         else:
             systems[('hts2', si)] = None
-            
+
         for problem in problems.problems:
             problem.hts = systems[('hts', problem.symbolic_init)]
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
@@ -220,6 +220,7 @@ class ProblemSolver(object):
                 timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             try:
                 self.solve_problem(problem, config)
+                Logger.msg(" %s\n"%problem.status, 0)
                 
                 if config.time or problems.time:
                     problem.time = Logger.get_timer(timer_solve, False)

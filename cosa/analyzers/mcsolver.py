@@ -65,7 +65,7 @@ class MCConfig(object):
         strategies.append((VerificationStrategy.FWD,  "Forward reachability"))
         strategies.append((VerificationStrategy.BWD,  "Backward reachability"))
         strategies.append((VerificationStrategy.ZZ,   "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((VerificationStrategy.INT,  "Interpolation"))
+        strategies.append((VerificationStrategy.INT,  "Interpolation (not incremental only)"))
         strategies.append((VerificationStrategy.NU,   "States picking without unrolling (only for simulation)"))
         strategies.append((VerificationStrategy.LTL,  "Pure LTL verification (without optimizations)"))
 

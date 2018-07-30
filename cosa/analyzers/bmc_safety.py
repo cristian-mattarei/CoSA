@@ -167,7 +167,6 @@ class BMCSafety(BMCSolver):
                     if R == init_0:
                         Logger.log("Counterexample found with k=%s"%(t), 1)
                         model = self._get_model(self.solver)
-                        Logger.log("", 0, not(Logger.level(1)))
                         return (t, model)
                     else:
                         Logger.log("No counterexample or proof found with k=%s"%(t), 1)
@@ -195,7 +194,6 @@ class BMCSafety(BMCSolver):
                     Logger.log("Extending initial states (%s)"%int_c, 1)
 
             t += 1
-        Logger.log("", 0, not(Logger.level(1)))
 
         return (t-1, None)
     
@@ -226,14 +224,12 @@ class BMCSafety(BMCSolver):
             if self._solve(self.solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
-                Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
             t += 1
-        Logger.log("", 0, not(Logger.level(1)))
 
         return (t-1, None)
     
@@ -355,7 +351,7 @@ class BMCSafety(BMCSolver):
             if all_vars:
                 relevant_vars = hts.vars
             else:
-                relevant_vars = hts.state_vars | hts.inputs | hts.outputs
+                relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -413,7 +409,6 @@ class BMCSafety(BMCSolver):
                 if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(self.solver)
-                    Logger.log("", 0, not(Logger.level(1)))
                     return (t, model)
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
@@ -442,7 +437,6 @@ class BMCSafety(BMCSolver):
                         Logger.log("Induction (I & lF) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction (I & lF) holds with k=%s"%(t), 1)
-                        Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
                     self._pop(self.solver)
@@ -459,7 +453,6 @@ class BMCSafety(BMCSolver):
                         Logger.log("Induction (lF & !P) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction (lF & !P) holds with k=%s"%(t), 1)
-                        Logger.log("", 0, not(Logger.level(1)))
                         return (t, True)
 
                     self._pop(self.solver_ind)
@@ -474,8 +467,6 @@ class BMCSafety(BMCSolver):
                     
             t += 1
             
-        Logger.log("", 0, not(Logger.level(1)))
-
         return (t-1, None)
 
     def solve_safety_inc_bwd(self, hts, prop, k, assert_property=False):
@@ -503,7 +494,6 @@ class BMCSafety(BMCSolver):
             if self._solve(self.solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
-                Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
@@ -520,7 +510,6 @@ class BMCSafety(BMCSolver):
                 Logger.log("Add property at time %d"%t, 2)
 
             t += 1
-        Logger.log("", 0, not(Logger.level(1)))
 
         return (t-1, None)
 
@@ -559,7 +548,6 @@ class BMCSafety(BMCSolver):
             if self._solve(self.solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
-                Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
@@ -575,7 +563,6 @@ class BMCSafety(BMCSolver):
             self._add_assertion(self.solver, trans_t)
 
             t += 1
-        Logger.log("", 0, not(Logger.level(1)))
 
         return (t-1, None)
 
@@ -609,7 +596,7 @@ class BMCSafety(BMCSolver):
         if all_vars:
             relevant_vars = hts.vars
         else:
-            relevant_vars = hts.state_vars | hts.inputs | hts.outputs
+            relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
         
         relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]

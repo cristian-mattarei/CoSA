@@ -42,16 +42,18 @@ class Miter(object):
             ts1_init = substitute(hts.single_init(), map1)
             ts2_init = substitute(hts2.single_init(), map2)
 
-        ts1 = TS(set([TS.get_prefix(v, S1) for v in hts.vars]),\
-                 ts1_init,\
-                 substitute(hts.single_trans(), map1),\
-                 substitute(hts.single_invar(), map1))
+        ts1 = TS()
+        ts1.vars = set([TS.get_prefix(v, S1) for v in hts.vars])
+        ts1.set_behavior(ts1_init,\
+                         substitute(hts.single_trans(), map1),\
+                         substitute(hts.single_invar(), map1))
         ts1.state_vars = set([TS.get_prefix(v, S1) for v in hts.state_vars])
 
-        ts2 = TS(set([TS.get_prefix(v, S2) for v in hts2.vars]),\
-                 ts2_init,\
-                 substitute(hts2.single_trans(), map2),\
-                 substitute(hts2.single_invar(), map2))
+        ts2 = TS()
+        ts2.vars = set([TS.get_prefix(v, S2) for v in hts2.vars])
+        ts2.set_behavior(ts2_init,\
+                         substitute(hts2.single_trans(), map2),\
+                         substitute(hts2.single_invar(), map2))
         ts2.state_vars = set([TS.get_prefix(v, S2) for v in hts2.state_vars])
 
         htseq.add_ts(ts1)
@@ -108,11 +110,11 @@ class Miter(object):
                 
         miter_out = Symbol(EQS, BOOL)
 
-        inputs = hts.inputs.intersection(hts2.inputs)
-        outputs = hts.outputs.intersection(hts2.outputs)
+        inputs = hts.input_vars.intersection(hts2.input_vars)
+        outputs = hts.output_vars.intersection(hts2.output_vars)
 
-        htseq.inputs = set([TS.get_prefix(v, S1) for v in hts.inputs]).union(set([TS.get_prefix(v, S2) for v in hts2.inputs]))
-        htseq.outputs = set([TS.get_prefix(v, S1) for v in hts.outputs]).union(set([TS.get_prefix(v, S2) for v in hts2.outputs]))
+        htseq.input_vars = set([TS.get_prefix(v, S1) for v in hts.input_vars]).union(set([TS.get_prefix(v, S2) for v in hts2.input_vars]))
+        htseq.output_vars = set([TS.get_prefix(v, S1) for v in hts.output_vars]).union(set([TS.get_prefix(v, S2) for v in hts2.output_vars]))
 
         if symbolic_init or (not non_deterministic):
             states = hts.state_vars.intersection(hts2.state_vars)
@@ -148,6 +150,9 @@ class Miter(object):
             invar = Iff(miter_out, eqprop)
             Logger.log('Using provided equivalence property: {}'.format(invar), 2)
 
-        htseq.add_ts(TS(set([miter_out]), TRUE(), TRUE(), invar))
+        tsmo = TS()
+        tsmo.vars = set([miter_out])
+        tsmo.invar = invar
+        htseq.add_ts(tsmo)
 
         return (htseq, miter_out)

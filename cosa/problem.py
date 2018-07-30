@@ -83,8 +83,11 @@ class Problems(object):
         with open(problems_file, "r") as f:
             config.read_string(u""+f.read())
 
-        self.relative_path = ("/".join(problems_file.split("/")[:-1]))+"/"
-        
+        self.relative_path = ("/".join(problems_file.split("/")[:-1]))
+
+        if self.relative_path !="":
+            self.relative_path += "/"
+            
         for value in config:
             problem = dict(config[value])
             if DEFAULT == value:

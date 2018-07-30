@@ -42,7 +42,7 @@ class Logger(object):
             sys.stdout.write(msg)
             sys.stdout.write('\b'*lmsg)
             sys.stdout.flush()
-            Logger.newline = "\n" in lmsg
+            Logger.newline = "\n" in msg
 
     @staticmethod        
     def clear_inline(level, condition=True, max_level=10):

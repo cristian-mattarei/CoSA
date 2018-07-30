@@ -65,8 +65,8 @@ class Modules(object):
                     invar = EqualsOrIff(bop(in_), BV2B(out))
                 
                 
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -80,8 +80,8 @@ class Modules(object):
         comment = ("Wrap (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 3)
         invar = EqualsOrIff(in_, out)
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
     
     @staticmethod
@@ -127,8 +127,8 @@ class Modules(object):
                 if not outB:
                     invar = EqualsOrIff(B2BV(bop(in0, in1)), out)
                 
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -144,8 +144,8 @@ class Modules(object):
             bout = EqualsOrIff(out, BV(1, 1))
     
         invar = Iff(op(in0,in1), bout)
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -247,8 +247,8 @@ class Modules(object):
             else:
                 invar = EqualsOrIff(BVZExt(in_, length), out)
                 
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
     
     @staticmethod
@@ -263,8 +263,8 @@ class Modules(object):
             
         comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(value) + ")"
         Logger.log(comment, 3)
-        ts = TS(set([out]), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -297,9 +297,9 @@ class Modules(object):
             init = TRUE()
             trans = TRUE()
             
-        ts = TS(set([clk]), init, trans, invar)
-        ts.state_vars = set([clk])
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.state_vars = set([clk]), set([clk])
+        ts.set_behavior(init, trans, invar)
         return ts
 
     @staticmethod
@@ -433,9 +433,9 @@ class Modules(object):
                                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar))))
         
         trans = simplify(trans)
-        ts = TS([v for v in vars_ if v is not None], init, trans, invar)
-        ts.state_vars = set([out])
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.state_vars = set([v for v in vars_ if v is not None]), set([out])
+        ts.set_behavior(init, trans, invar)
         return ts
 
     @staticmethod
@@ -460,8 +460,8 @@ class Modules(object):
         else:
             invar = And(Implies(sel0, EqualsOrIff(in0, out)), Implies(sel1, EqualsOrIff(in1, out)))
 
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -485,8 +485,8 @@ class Modules(object):
                 out0 = EqualsOrIff(out, BV(0, 1))
                 out1 = EqualsOrIff(out, BV(1, 1))
             invar = And(Implies(eq, out1), Implies(Not(eq), out0))
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -514,8 +514,8 @@ class Modules(object):
 
             invar = And(Implies(Not(eq), out1), Implies(eq, out0))
 
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -541,8 +541,8 @@ class Modules(object):
             
             invar = And(true_res, false_res)
             
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -556,8 +556,8 @@ class Modules(object):
         true_res = Implies(eq_all_ones, EqualsOrIff(out, BV(1,1)))
         false_res = Implies(Not(eq_all_ones), EqualsOrIff(out, BV(0,1)))
         invar = And(true_res, false_res)
-        ts = TS(set(vars_), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set(vars_), invar
         return ts
 
     @staticmethod
@@ -568,8 +568,8 @@ class Modules(object):
         comment = "Mux (in, out, low, high) = (%s, %s, %s, %s)"%(tuple([str(x) for x in vars_]))
         Logger.log(comment, 3)
         invar = EqualsOrIff(BVExtract(in_, low, high), out)
-        ts = TS(set([in_, out]), TRUE(), TRUE(), invar)
-        ts.comment = comment
+        ts = TS(comment)
+        ts.vars, ts.invar = set([in_, out]), invar
         return ts
 
     @staticmethod
@@ -636,10 +636,9 @@ class Modules(object):
             trans = And(Implies(do_clk, act_trans), Implies(Not(do_clk), pas_trans))
 
         trans = simplify(trans)
-        ts = TS([v for v in vars_ if v is not None], init, trans, invar)
-        ts.state_vars = set([arr])
-        ts.comment = comment
-        ts.logic = L_ABV
+        ts = TS(comment)
+        ts.vars, ts.state_vars, ts.logic = set([v for v in vars_ if v is not None]), set([arr]), L_ABV
+        ts.set_behavior(init, trans, invar)
         return ts
 
     def Term(_in):
@@ -647,12 +646,7 @@ class Modules(object):
         Term is a no-op. Just terminates a coreir wireable
         '''
         vars_ = [_in]
-        init = TRUE()
-        trans = TRUE()
-        invar = TRUE()
-        ts = TS(vars_, init, trans, invar)
-        ts.state_vars = set()
-        ts.comment = "Terminate wire"
+        ts = TS("Terminate wire")
         return ts
 
 class ModuleSymbols(object):

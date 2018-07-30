@@ -12,13 +12,19 @@ import re
 
 from pysmt.walkers.identitydag import IdentityDagWalker
 from cosa.utils.generic import new_string
-from pysmt.shortcuts import Ite, EqualsOrIff, BV
+from pysmt.shortcuts import Ite, EqualsOrIff, BV, get_type
+from pysmt.typing import BOOL, BVType, ArrayType
 
-def B2BV(var):
-    return Ite(var, BV(1,1), BV(0,1))
+
+def B2BV(f):
+    if get_type(f).is_bv_type():
+        return f
+    return Ite(f, BV(1,1), BV(0,1))
     
-def BV2B(var):
-    return EqualsOrIff(var, BV(1,1))
+def BV2B(f):
+    if get_type(f).is_bool_type():
+        return f
+    return EqualsOrIff(f, BV(1,1))
 
 class SubstituteWalker(IdentityDagWalker):
 

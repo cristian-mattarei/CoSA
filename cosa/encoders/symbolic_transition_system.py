@@ -284,19 +284,19 @@ class SymbolicTSParser(object):
     
     def generate_HTS(self, module, modulesdic):
         hts = HTS(module.name)
+        ts = TS("TS %s"%module.name)
         
         init = []
         trans = []
         invar = []
-        vars_ = []
         params = []
 
         sparser = StringParser()
 
         for var in self._collect_sub_variables(module, modulesdic, path=[], varlist=[]):
-            vars_.append(self._define_var(var, module.name))
+            ts.add_state_var(self._define_var(var, module.name))
 
-        self._check_parameters(module, modulesdic, vars_)
+        self._check_parameters(module, modulesdic, ts.vars)
 
         for par in module.pars:
             hts.add_param(self._define_var((par[0], tuple(par[1:])), module.name))
@@ -316,27 +316,24 @@ class SymbolicTSParser(object):
         for sub in module.subs:
             hts.add_sub(sub[0], self.generate_HTS(modulesdic[sub[1]], modulesdic), tuple([v[0] for v in sub[2]]))
             
-        init = And(init)
-        invar = And(invar)
-        trans = And(trans)
-
-        ts = TS(set(vars_), init, trans, invar)
-        ts.comment = "TS %s"%module.name
+        ts.init = And(init)
+        ts.invar = And(invar)
+        ts.trans = And(trans)
 
         hts.add_ts(ts)
         
         return hts
         
     def generate_STS(self, var_str, init_str, invar_str, trans_str):
+        ts = TS("Additional system")
         init = []
         trans = []
         invar = []
-        vars_ = []
 
         sparser = StringParser()
 
         for var in var_str:
-            vars_.append(self._define_var(var))
+            ts.add_state_var(self._define_var(var))
 
         for init_s in init_str:
             init.append(sparser.parse_formula(init_s))
@@ -347,12 +344,9 @@ class SymbolicTSParser(object):
         for trans_s in trans_str:
             trans.append(sparser.parse_formula(trans_s))
             
-        init = And(init)
-        invar = And(invar)
-        trans = And(trans)
-
-        ts = TS(set(vars_), init, trans, invar)
-        ts.comment = "Additional system"
+        ts.init = And(init)
+        ts.invar = And(invar)
+        ts.trans = And(trans)
         
         return ts
     

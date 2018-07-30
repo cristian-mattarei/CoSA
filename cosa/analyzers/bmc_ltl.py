@@ -136,7 +136,7 @@ class BMCLTL(BMCTemporal, BMCSafety):
         if all_vars:
             relevant_vars = hts.vars
         else:
-            relevant_vars = hts.state_vars | hts.inputs | hts.outputs
+            relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
         
         init = hts.single_init()
         trans = hts.single_trans()
@@ -166,7 +166,6 @@ class BMCLTL(BMCTemporal, BMCSafety):
             if self._solve(self.solver):
                 Logger.log("Counterexample (no-loop) found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
-                Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
 
             nltlprop = []
@@ -182,7 +181,6 @@ class BMCLTL(BMCTemporal, BMCSafety):
             if self._solve(self.solver):
                 Logger.log("Counterexample (with-loop) found with k=%s"%(t), 1)
                 model = self._get_model(self.solver)
-                Logger.log("", 0, not(Logger.level(1)))
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
@@ -190,6 +188,5 @@ class BMCLTL(BMCTemporal, BMCSafety):
 
             self._pop(self.solver)
                 
-        Logger.log("", 0, not(Logger.level(1)))                
         return (k-1, None)
     
