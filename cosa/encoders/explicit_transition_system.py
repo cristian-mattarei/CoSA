@@ -111,19 +111,28 @@ class ExplicitTSParser(object):
 
 
     def generate_STS(self, lines):
+        ts = TS("Additional system")
         init = TRUE()
         trans = TRUE()
         invar = TRUE()
 
         states = {}
         assigns = set([])
+        varsmap = {}
+
+        def def_var(name, vtype):
+            if name in varsmap:
+                return varsmap[name]
+            var = Symbol(name, vtype)
+            ts.add_state_var(var)
+            return var
         
         for line in lines:
             if line.comment:
                 continue
             if line.init:
                 (value, typev) = self.__get_value(line.init.value)
-                ivar = Symbol(line.init.varname, typev)
+                ivar = def_var(line.init.varname, typev)
 
                 if T_I not in states:
                     states[T_I] = TRUE()
@@ -136,7 +145,7 @@ class ExplicitTSParser(object):
                 sname = T_S + line.state.id
                 if line.state.value != T_TRUE:
                     (value, typev) = self.__get_value(line.state.value)
-                    ivar = Symbol(line.state.varname, typev)
+                    ivar = def_var(line.state.varname, typev)
                     state = EqualsOrIff(ivar, value)
 
                     assval = (sname, line.state.varname)
@@ -185,7 +194,6 @@ class ExplicitTSParser(object):
         vars_ += get_free_variables(invar)
 
         invar = And(invar, BVULE(stateid_var, BV(count-1, stateid_width)))
-        ts = TS("Additional system")
         ts.set_behavior(init, trans, invar)
         ts.add_state_var(stateid_var)
 
@@ -193,7 +201,6 @@ class ExplicitTSParser(object):
         hts.add_ts(ts)
         invar_props = []
         ltl_props = []
-
         
         return (hts, invar_props, ltl_props)
                 

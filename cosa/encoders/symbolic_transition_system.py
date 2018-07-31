@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, restOfLine, LineEnd, Combine, White, Group
+from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, restOfLine, LineEnd, Combine, White, Group, SkipTo, lineEnd
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, BVType
 
@@ -106,6 +106,7 @@ class SymbolicTSParser(object):
     
     def __init__(self):
         self.parser = self.__init_parser()
+        self.parser.ignore("#" + SkipTo(lineEnd))
 
     def parse_file(self, strfile, flags=None):
         with open(strfile, "r") as f:
@@ -208,8 +209,8 @@ class SymbolicTSParser(object):
 
         varname = Word(alphas+nums+T_US+T_MIN+T_DOT)(P_VARNAME)
 
-        comment = (T_COM + restOfLine + LineEnd())(P_COMMENT)
-        emptyline = (ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
+        comment = Group(T_COM + restOfLine + LineEnd())(P_COMMENT)
+        emptyline = Group(ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
 
         varsize = (Word(nums))(P_VARSIZE)
         parlist = (ZeroOrMore(varname)+ZeroOrMore((Literal(T_CM) + varname)))
@@ -218,7 +219,6 @@ class SymbolicTSParser(object):
         vartype = (basictype | modtype)(P_VARTYPE)
         vartypedef = (vartype)(P_VARTYPEDEF)
         vardef = varname + Literal(T_CL) + vartypedef + Literal(T_SC)
-        vardefs = (Literal(T_VAR) + (OneOrMore(vardef)(P_VARDEFS)))(P_VARS)
 
         basicvardef = (varname + Literal(T_CL) + basictype)(P_VARTYPEDEF)
         parlistdef = (ZeroOrMore(basicvardef)+ZeroOrMore((Literal(T_CM) + basicvardef)))(P_PARDEF)
@@ -227,11 +227,12 @@ class SymbolicTSParser(object):
         operators = T_NEG+T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
         formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+T_OB+T_CB+operators) + Literal(T_SC))(P_FORMULA)
 
+        vardefs = (Literal(T_VAR) + (OneOrMore(vardef)(P_VARDEFS)))(P_VARS)
         inits = (Literal(T_INIT) + (OneOrMore(formula))(P_FORMULAE))(P_INIT)
         transs = (Literal(T_TRANS) + (OneOrMore(formula))(P_FORMULAE))(P_TRANS)
         invars = (Literal(T_INVAR) + (OneOrMore(formula))(P_FORMULAE))(P_INVAR)
         
-        sts = Group((Optional(moddef) + OneOrMore(comment | vardefs | inits | transs | invars | emptyline)))(P_STS)
+        sts = Group((Optional(moddef) + OneOrMore(vardefs | inits | transs | invars | emptyline)))(P_STS)
 
         return (OneOrMore(sts))(P_STSS)
 
