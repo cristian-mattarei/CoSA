@@ -174,10 +174,21 @@ class HTS(object):
             for lemma in other_hts.lemmas:
                 self.add_lemma(lemma)
 
-
     def newname(self, varname, path=[]):
         return varname.replace(self.name, ".".join(path))
-                
+
+    def get_TS(self):
+        ts = TS()
+        ts.vars = self.vars
+        ts.state_vars = self.state_vars
+        ts.input_vars = self.input_vars
+        ts.output_vars = self.output_vars
+        ts.init = self.single_init()
+        ts.invar = self.single_invar()
+        ts.trans = self.single_trans()
+
+        return ts
+    
     def flatten(self, path=[]):
         
         vardic = dict([(v.symbol_name(), v) for v in self.vars])
@@ -308,6 +319,9 @@ class TS(object):
         self.init = init
         self.trans = trans
         self.invar = invar
+
+    def add_var(self, var):
+        self.vars.add(var)
         
     def add_state_var(self, var):
         self.state_vars.add(var)

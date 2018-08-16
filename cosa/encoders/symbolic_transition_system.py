@@ -44,6 +44,9 @@ T_OB = "["
 T_CB = "]"
 
 T_VAR = "VAR"
+T_STATE = "STATE"
+T_INPUT = "INPUT"
+T_OUTPUT = "OUTPUT"
 T_INIT = "INIT"
 T_TRANS = "TRANS"
 T_INVAR = "INVAR"
@@ -62,7 +65,13 @@ P_VARNAME = "varname"
 P_FORMULA = "formula"
 P_FORMULAE = "formulae"
 P_VARDEFS = "vardefs"
+P_STATEDEFS = "statedefs"
+P_INPUTDEFS = "inputdefs"
+P_OUTPUTDEFS = "outputdefs"
 P_VARS = "var"
+P_STATES = "state"
+P_INPUTS = "input"
+P_OUTPUTS = "output"
 P_INIT = "init"
 P_TRANS = "trans"
 P_INVAR = "invar"
@@ -82,15 +91,21 @@ count = 0
 class STSModule(object):
 
     vars = None
+    states = None
+    inputs = None
+    outputs = None
     pars = None
     init = None
     invar = None
     trans = None
     subs = None
 
-    def __init__(self, name, vars, pars, init, invar, trans, subs=[]):
+    def __init__(self, name, vars, states, inputs, outputs, pars, init, invar, trans, subs=[]):
         self.name = name
         self.vars = vars
+        self.states = states
+        self.inputs = inputs
+        self.outputs = outputs
         self.init = init
         self.invar = invar
         self.trans = trans
@@ -102,7 +117,7 @@ class STSModule(object):
 
 class SymbolicTSParser(object):
     parser = None
-    extension = "sts"
+    extensions = ["sts"]
     
     def __init__(self):
         self.parser = self.__init_parser()
@@ -144,6 +159,9 @@ class SymbolicTSParser(object):
         for psts in pstring.stss:
 
             var_str = []
+            state_str = []
+            input_str = []
+            output_str = []
             sub_str = []
             par_str = []
             init_str = []
@@ -168,6 +186,9 @@ class SymbolicTSParser(object):
 
                 for vardef in self._split_list(vardefs, T_SC):
                     varname = vardef[0]
+                    if varname[0] == "'":
+                         varname = varname[1:-1]
+
                     vartype = vardef[2]
                     varpar = vardef[4:-1] if vartype != T_BOOL else None
 
@@ -176,6 +197,45 @@ class SymbolicTSParser(object):
                     else:
                         sub_str.append((varname, vartype, self._split_list(varpar, T_CM)))
 
+            if P_STATEDEFS in dict(psts):
+                statedefs = list(dict(psts.state)[P_STATEDEFS])
+
+                for statedef in self._split_list(statedefs, T_SC):
+                    statename = statedef[0]
+                    if statename[0] == "'":
+                         statename = statename[1:-1]
+
+                    statetype = statedef[2]
+                    statepar = statedef[4:-1] if statetype != T_BOOL else None
+
+                    state_str.append((statename, statetype, statepar))
+
+            if P_INPUTDEFS in dict(psts):
+                inputdefs = list(dict(psts.input)[P_INPUTDEFS])
+
+                for inputdef in self._split_list(inputdefs, T_SC):
+                    inputname = inputdef[0]
+                    if inputname[0] == "'":
+                         inputname = inputname[1:-1]
+
+                    inputtype = inputdef[2]
+                    inputpar = inputdef[4:-1] if inputtype != T_BOOL else None
+
+                    input_str.append((inputname, inputtype, inputpar))
+
+            if P_OUTPUTDEFS in dict(psts):
+                outputdefs = list(dict(psts.output)[P_OUTPUTDEFS])
+
+                for outputdef in self._split_list(outputdefs, T_SC):
+                    outputname = outputdef[0]
+                    if outputname[0] == "'":
+                         outputname = outputname[1:-1]
+
+                    outputtype = outputdef[2]
+                    outputpar = outputdef[4:-1] if outputtype != T_BOOL else None
+
+                    output_str.append((outputname, outputtype, outputpar))
+                    
             if P_INIT in dict(psts):
                 inits = list(dict(psts.init)[P_FORMULAE])
                 for i in range(0, len(inits), 2):
@@ -191,7 +251,7 @@ class SymbolicTSParser(object):
                 for i in range(0, len(invars), 2):
                     invar_str.append(invars[i])
 
-            module = STSModule(name, var_str, par_str, init_str, invar_str, trans_str, sub_str)
+            module = STSModule(name, var_str, state_str, input_str, output_str, par_str, init_str, invar_str, trans_str, sub_str)
             modules.append(module)
 
             if name == MAIN:
@@ -207,7 +267,7 @@ class SymbolicTSParser(object):
         
     def __init_parser(self):
 
-        varname = Word(alphas+nums+T_US+T_MIN+T_DOT)(P_VARNAME)
+        varname = (Combine(Literal("'")+Word(alphas+nums+T_US+T_MIN+T_DOT+"$"+"["+"]"+":")+Literal("'")) | Word(alphas+nums+T_US+T_MIN+T_DOT))(P_VARNAME)
 
         comment = Group(T_COM + restOfLine + LineEnd())(P_COMMENT)
         emptyline = Group(ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
@@ -225,14 +285,17 @@ class SymbolicTSParser(object):
         moddef = (Literal(T_DEF) + Word(alphas+T_US+nums) + Literal(T_OP) + parlistdef + Literal(T_CP) + Literal(T_CL))(P_MODDEF)
         
         operators = T_NEG+T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
-        formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+T_OB+T_CB+operators) + Literal(T_SC))(P_FORMULA)
+        formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+T_OB+T_CB+"'"+operators) + Literal(T_SC))(P_FORMULA)
 
         vardefs = (Literal(T_VAR) + (OneOrMore(vardef)(P_VARDEFS)))(P_VARS)
+        statedefs = (Literal(T_STATE) + (OneOrMore(vardef)(P_STATEDEFS)))(P_STATES)
+        inputdefs = (Literal(T_INPUT) + (OneOrMore(vardef)(P_INPUTDEFS)))(P_INPUTS)
+        outputdefs = (Literal(T_OUTPUT) + (OneOrMore(vardef)(P_OUTPUTDEFS)))(P_OUTPUTS)
         inits = (Literal(T_INIT) + (OneOrMore(formula))(P_FORMULAE))(P_INIT)
         transs = (Literal(T_TRANS) + (OneOrMore(formula))(P_FORMULAE))(P_TRANS)
         invars = (Literal(T_INVAR) + (OneOrMore(formula))(P_FORMULAE))(P_INVAR)
         
-        sts = Group((Optional(moddef) + OneOrMore(vardefs | inits | transs | invars | emptyline)))(P_STS)
+        sts = Group((Optional(moddef) + OneOrMore(vardefs | statedefs | inputdefs | outputdefs | inits | transs | invars | emptyline)))(P_STS)
 
         return (OneOrMore(sts))(P_STSS)
 
@@ -262,15 +325,24 @@ class SymbolicTSParser(object):
     def _concat_names(self, prefix, name):
         return ".".join([x for x in [prefix,name] if x != ""])
         
-    def _collect_sub_variables(self, module, modulesdic, path=[], varlist=[]):
+    def _collect_sub_variables(self, module, modulesdic, path=[], varlist=[], statelist=[], inputlist=[], outputlist=[]):
         
         for var in module.vars+module.pars:
             varlist.append((".".join(path+[str(var[0])]), var[1:]))
+
+        for var in module.states:
+            statelist.append((".".join(path+[str(var[0])]), var[1:]))
+
+        for var in module.inputs:
+            inputlist.append((".".join(path+[str(var[0])]), var[1:]))
+
+        for var in module.outputs:
+            outputlist.append((".".join(path+[str(var[0])]), var[1:]))
             
         for sub in module.subs:
-            varlist = self._collect_sub_variables(modulesdic[sub[1]], modulesdic, path + [sub[0]], varlist)
+            (varlist, statelist, inputlist, outputlist) = self._collect_sub_variables(modulesdic[sub[1]], modulesdic, path + [sub[0]], varlist, statelist, inputlist, outputlist)
 
-        return varlist
+        return (varlist, statelist, inputlist, outputlist)
 
     def _check_parameters(self, module, modulesdic, vars_):
 
@@ -294,14 +366,25 @@ class SymbolicTSParser(object):
 
         sparser = StringParser()
 
-        for var in self._collect_sub_variables(module, modulesdic, path=[], varlist=[]):
-            ts.add_state_var(self._define_var(var, module.name))
+        (vars, states, inputs, outputs) = self._collect_sub_variables(module, modulesdic, path=[], varlist=[])
 
+        for var in vars:
+            ts.add_var(self._define_var(var, module.name))
+
+        for var in states:
+            ts.add_state_var(self._define_var(var, module.name))
+            
+        for var in inputs:
+            ts.add_input_var(self._define_var(var, module.name))
+
+        for var in outputs:
+            ts.add_output_var(self._define_var(var, module.name))
+            
         self._check_parameters(module, modulesdic, ts.vars)
 
         for par in module.pars:
             hts.add_param(self._define_var((par[0], tuple(par[1:])), module.name))
-        
+
         for init_s in module.init:
             formula = sparser.parse_formula(quote_names(init_s, module.name), False)
             init.append(formula)
@@ -357,10 +440,137 @@ class SymbolicTSParser(object):
     def remap_or2an(self, name):
         return name
 
-    def get_extension(self):
-        return self.extension
+    def get_extensions(self):
+        return self.extensions
 
     @staticmethod        
-    def get_extension():
-        return SymbolicTSParser.extension
+    def get_extensions():
+        return SymbolicTSParser.extensions
     
+class SymbolicSimpleTSParser(object):
+    parser = None
+    extensions = ["ssts"]
+
+    @staticmethod        
+    def get_extensions():
+        return SymbolicSimpleTSParser.extensions
+    
+    def __init__(self):
+        pass
+
+    def remap_an2or(self, name):
+        return name
+
+    def remap_or2an(self, name):
+        return name
+    
+    def parse_file(self, strfile, flags=None):
+        with open(strfile, "r") as f:
+            return self.parse_string(f.readlines())
+
+    def _define_var(self, varname, vartype):
+        vartype, size = vartype[0], vartype[1]
+        
+        if vartype == T_BV:
+            return Symbol(varname, BVType(int(size)))
+
+        if vartype == T_BOOL:
+            return Symbol(varname, BOOL)
+        
+        Logger.error("Unsupported type: %s"%vartype)
+        
+    def parse_string(self, lines):
+
+        [none, var, state, input, output, init, invar, trans] = range(8)
+        section = none
+        
+        inits = TRUE()
+        invars = TRUE()
+        transs = TRUE()
+
+        sparser = StringParser()
+
+        count = 0
+        vars = set([])
+        states = set([])
+        inputs = set([])
+        outputs = set([])
+        invar_props = []
+        ltl_props = []
+        
+        for line in lines:
+            count += 1
+
+            if line.strip() in ["","\n"]:
+                continue
+            
+            if T_VAR == line[:len(T_VAR)]:
+                section = var
+                continue
+
+            if T_STATE == line[:len(T_STATE)]:
+                section = state
+                continue
+
+            if T_INPUT == line[:len(T_INPUT)]:
+                section = input
+                continue
+
+            if T_OUTPUT == line[:len(T_OUTPUT)]:
+                section = output
+                continue
+            
+            if T_INIT == line[:len(T_INIT)]:
+                section = init
+                continue
+
+            if T_INVAR == line[:len(T_INVAR)]:
+                section = invar
+                continue
+
+            if T_TRANS == line[:len(T_TRANS)]:
+                section = trans
+                continue
+            
+            if section in [var, state, input, output]:
+                line = line[:-2].replace(" ","").split(":")
+                varname, vartype = line[0], (line[1][:-1].split("("))
+                if varname[0] == "'":
+                    varname = varname[1:-1]
+                vardef = self._define_var(varname, vartype)
+
+                vars.add(vardef)
+                if section == state:
+                    states.add(vardef)
+                if section == input:
+                    inputs.add(vardef)
+                if section == output:
+                    outputs.add(vardef)
+
+            if section in [init, invar, trans]:
+                qline = quote_names(line[:-2], replace_ops=False)
+                    
+            if section == init:
+                inits = And(inits, sparser.parse_formula(qline))
+
+            if section == invar:
+                invars = And(invars, sparser.parse_formula(qline))
+
+            if section == trans:
+                transs = And(transs, sparser.parse_formula(qline))
+                
+
+        hts = HTS("STS")
+        ts = TS()
+
+        ts.vars = vars
+        ts.state_vars = states
+        ts.input_vars = inputs
+        ts.output_vars = outputs
+        ts.init = inits
+        ts.invar = invars
+        ts.trans = transs
+        
+        hts.add_ts(ts)
+
+        return (hts, invar_props, ltl_props)

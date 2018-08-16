@@ -58,7 +58,7 @@ STATE_ID = "state_id"
 
 class ExplicitTSParser(object):
     parser = None
-    extension = "ets"
+    extensions = ["ets"]
 
     state_id = 0
 
@@ -227,6 +227,6 @@ class ExplicitTSParser(object):
         return name
 
     @staticmethod        
-    def get_extension():
-        return ExplicitTSParser.extension
+    def get_extensions():
+        return ExplicitTSParser.extensions
     

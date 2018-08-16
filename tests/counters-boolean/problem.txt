@@ -13,6 +13,7 @@ formula: count0.r.reg0.out < 18_16
 verification: safety
 strategy: FWD
 prove: True
+expected: False
 
 [Counters-EQ-FWD-INC]
 description: "Two counters are always equal"
@@ -20,6 +21,7 @@ formula: count0.r.reg0.out = count1.r.reg0.out
 verification: safety
 strategy: FWD
 prove: True
+expected: False
 
 [Counter0-LT18-FWD]
 description: "Counter 0 is always less than 18"
@@ -28,6 +30,7 @@ verification: safety
 incremental: False
 strategy: FWD
 prove: True
+expected: False
 
 [Counters-EQ-FWD]
 description: "Two counters are always equal"
@@ -36,6 +39,7 @@ verification: safety
 incremental: False
 strategy: FWD
 prove: True
+expected: False
 
 [Counter0-LT18-BWD]
 description: "Counter 0 is always less than 18"
@@ -43,6 +47,7 @@ formula: count0.r.reg0.out < 18_16
 verification: safety
 strategy: BWD
 prove: True
+expected: False
 
 [Counters-EQ-BWD]
 description: "Two counters are always equal"
@@ -50,6 +55,7 @@ formula: count0.r.reg0.out = count1.r.reg0.out
 verification: safety
 strategy: BWD
 prove: True
+expected: False
 
 [Counter0-LT18-ZZ]
 description: "Counter 0 is always less than 18"
@@ -57,6 +63,7 @@ formula: count0.r.reg0.out < 18_16
 verification: safety
 strategy: ZZ
 prove: True
+expected: False
 
 [Counters-EQ-ZZ]
 description: "Two counters are always equal"
@@ -64,23 +71,27 @@ formula: count0.r.reg0.out = count1.r.reg0.out
 verification: safety
 strategy: ZZ
 prove: True
+expected: False
 
 [Counters-SIM]
 description: "Simulation"
 formula: count0.r.reg0.out = 5_16
 verification: simulation
+expected: True
 
 [Counters-SIM-NU]
 description: "Simulation with no unrolling"
 formula: count0.r.reg0.out = 5_16
 verification: simulation
 strategy: NU
+expected: True
 
 [Counter1-LT19]
 description: "Counter 1 is always less than 18"
 formula: count1.r.reg0.out < 19_16
 verification: safety
 prove: True
+expected: True
 
 [Counter0-LT18-INT]
 description: "Counter 0 is always less than 18"
@@ -88,6 +99,7 @@ formula: count0.r.reg0.out < 18_16
 verification: safety
 strategy: INT
 incremental: False
+expected: False
 
 [Counters-EQ-INT]
 description: "Two counters are always equal"
@@ -96,6 +108,7 @@ verification: safety
 prove: True
 strategy: INT
 incremental: False
+expected: False
 
 [Counter1-LT19-INT]
 description: "Counter 1 is always less than 18"
@@ -104,3 +117,4 @@ verification: safety
 prove: True
 strategy: INT
 incremental: False
+expected: True

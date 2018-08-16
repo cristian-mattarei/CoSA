@@ -21,9 +21,10 @@ from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
 from cosa.representation import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
-from cosa.encoders.symbolic_transition_system import SymbolicTSParser
+from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import ltl_reset_env, LTLParser
+from cosa.encoders.monitors import MonitorsFactory
 
 FLAG_SR = "["
 FLAG_ST = "]"
@@ -69,7 +70,25 @@ class ProblemSolver(object):
         lemmas = None
 
         accepted_ver = False
-        
+
+        if problem.monitors is not None:
+
+            varsdict = dict([(var.symbol_name(), var) for var in problem.hts.vars])
+            
+            for strmonitor in problem.monitors.split(")"):
+                strmonitor = strmonitor.replace(" ","")
+                if strmonitor == "":
+                    continue
+                instance, mtype = strmonitor.split("=")
+                mtype, pars = mtype.split("(")
+                pars = pars.split(",")
+
+                monitor = MonitorsFactory.monitor_by_name(mtype)
+                pars = [varsdict[v] if v in varsdict else v for v in pars]
+                ts = monitor.get_sts(instance, pars)
+
+                problem.hts.add_ts(ts)
+                
         if problem.verification != VerificationType.EQUIVALENCE:
             assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
@@ -97,7 +116,7 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
             if problem.equivalence:
-                (problem.hts2, _, _) = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2")
+                (problem.hts2, _, _) = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2", no_clock=problem.no_clock)
 
             htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, bmc_length, problem.symbolic_init, mc_config.properties, True)
 
@@ -127,7 +146,7 @@ class ProblemSolver(object):
         if problem.assumptions is not None:
             problem.hts.assumptions = None
 
-        Logger.log("\n*** Result for problem \"%s\" is %s ***"%(problem, res), 1)
+        Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, res), 1)
 
     def get_file_flags(self, strfile):
         if FLAG_SR not in strfile:
@@ -136,7 +155,7 @@ class ProblemSolver(object):
         (strfile, flags) = (strfile[:strfile.index(FLAG_SR)], strfile[strfile.index(FLAG_SR)+1:strfile.index(FLAG_ST)].split(FLAG_SP))
         return (strfile, flags)
         
-    def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None, deterministic=False, boolean=False):
+    def parse_model(self, relative_path, model_files, abstract_clock, symbolic_init, name=None, deterministic=False, boolean=False, no_clock=False):
         hts = HTS("System 1")
         invar_props = []
         ltl_props = []
@@ -146,29 +165,36 @@ class ProblemSolver(object):
         for strfile in models:
             (strfile, flags) = self.get_file_flags(strfile)
             filetype = strfile.split(".")[-1]
+            strfile = strfile.replace("~", os.path.expanduser("~"))
             if strfile[0] != "/":
                 strfile = relative_path+strfile
             parser = None
 
-            if filetype == CoreIRParser.get_extension():
-                parser = CoreIRParser(abstract_clock, symbolic_init)
+            if filetype in CoreIRParser.get_extensions():
+                parser = CoreIRParser(abstract_clock, symbolic_init, no_clock)
                 parser.boolean = boolean
                 parser.deterministic = deterministic
                 self.parser = parser
 
-            if filetype == ExplicitTSParser.get_extension():
+            if filetype in ExplicitTSParser.get_extensions():
                 parser = ExplicitTSParser()
 
                 if not self.parser:
                     self.parser = parser
-                
-            if filetype == SymbolicTSParser.get_extension():
+                                        
+            if filetype in SymbolicTSParser.get_extensions():
                 parser = SymbolicTSParser()
 
                 if not self.parser:
                     self.parser = parser
 
-            if filetype == BTOR2Parser.get_extension():
+            if filetype in SymbolicSimpleTSParser.get_extensions():
+                parser = SymbolicSimpleTSParser()
+
+                if not self.parser:
+                    self.parser = parser
+                    
+            if filetype in BTOR2Parser.get_extensions():
                 parser = BTOR2Parser()
 
                 if not self.parser:
@@ -196,17 +222,19 @@ class ProblemSolver(object):
         return (hts, invar_props, ltl_props)
 
     def solve_problems(self, problems, config):
-
+        if len(problems.problems) == 0:
+            Logger.error("No problems defined")
+            
         if VerificationType.LTL in [problem.verification for problem in problems.problems]:
             ltl_reset_env()
         
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
-            (systems[('hts', si)], _, _) = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1", boolean=problems.boolean)
+            (systems[('hts', si)], _, _) = self.parse_model(problems.relative_path, problems.model_file, problems.abstract_clock, si, "System 1", boolean=problems.boolean, no_clock=problems.no_clock)
 
         if problems.equivalence is not None:
-            (systems[('hts2', si)], _, _) = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean)
+            (systems[('hts2', si)], _, _) = self.parse_model(problems.relative_path, problems.equivalence, problems.abstract_clock, si, "System 2", boolean=problems.boolean, no_clock=problems.no_clock)
         else:
             systems[('hts2', si)] = None
 
@@ -214,13 +242,14 @@ class ProblemSolver(object):
             problem.hts = systems[('hts', problem.symbolic_init)]
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
             problem.abstract_clock = problems.abstract_clock
+            problem.no_clock = problems.no_clock
             problem.relative_path = problems.relative_path
 
             if config.time or problems.time:
                 timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             try:
                 self.solve_problem(problem, config)
-                Logger.msg(" %s\n"%problem.status, 0)
+                Logger.msg(" %s\n"%problem.status, 0, not(Logger.level(1)))
                 
                 if config.time or problems.time:
                     problem.time = Logger.get_timer(timer_solve, False)
@@ -235,6 +264,8 @@ class ProblemSolver(object):
         
         mc_config.smt2file = config_selection(problem.smt2_tracing, config.smt2file)
         mc_config.full_trace = problem.full_trace or config.full_trace
+        mc_config.trace_vars_change = problem.trace_vars_change or config.trace_vars_change
+        mc_config.trace_all_vars = problem.trace_all_vars or config.trace_all_vars
         mc_config.prefix = problem.name
         mc_config.strategy = config_selection(problem.strategy, config.strategy)
         mc_config.incremental = config_selection(problem.incremental, config.incremental)

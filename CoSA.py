@@ -25,6 +25,7 @@ from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.utils.logger import Logger
 from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
+from cosa.encoders.monitors import MonitorsFactory
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser
 from cosa.encoders.coreir import CoreIRParser
@@ -53,6 +54,8 @@ class Config(object):
     symbolic_init = None
     fsm_check = False
     full_trace = False
+    trace_vars_change = False
+    trace_all_vars = False
     prefix = None
     run_passes = False
     printer = None
@@ -61,6 +64,7 @@ class Config(object):
     strategy = None
     boolean = None
     abstract_clock = False
+    no_clock = False
     skip_solving = False
     pickle_file = None
     solver_name = None
@@ -69,6 +73,8 @@ class Config(object):
     incremental = True
     deterministic = False
     time = False
+    monitors = None
+    force_expected = False
 
     def __init__(self):
         PrintersFactory.init_printers()
@@ -88,6 +94,8 @@ class Config(object):
         self.symbolic_init = False
         self.fsm_check = False
         self.full_trace = False
+        self.trace_vars_change = False
+        self.trace_all_vars = False
         self.prefix = None
         self.run_passes = False
         self.printer = PrintersFactory.get_default().get_name()
@@ -96,6 +104,7 @@ class Config(object):
         self.strategy = MCConfig.get_strategies()[0][0]
         self.boolean = False
         self.abstract_clock = False
+        self.no_clock = False        
         self.skip_solving = False
         self.pickle_file = None
         self.solver_name = "msat"
@@ -156,7 +165,7 @@ def run_verification(config):
 
     if config.strfiles[0][-4:] != ".pkl":
         ps = ProblemSolver()
-        (hts, invar_props, ltl_props) = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean)
+        (hts, invar_props, ltl_props) = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean, no_clock=config.no_clock)
         config.parser = ps.parser
 
         if config.pickle_file:
@@ -164,16 +173,13 @@ def run_verification(config):
             sys.setrecursionlimit(50000)
             with open(config.pickle_file, "wb") as f:
                 pickle.dump(hts, f)
-                f.close()
-            sys.setrecursionlimit(1000)
     else:
         if config.pickle_file:
             raise RuntimeError("Don't need to re-pickle the input file %s"%(config.strfile))
 
         Logger.msg("Loading pickle file %s\n"%(config.strfile), 0)
-        f = open(config.strfile, "rb")
-        hts = pickle.load(f)
-        f.close()
+        with open(config.pickle_file, "rb") as f:
+            hts = pickle.load(f)
         Logger.log("DONE", 0)
 
     printsmv = True
@@ -202,6 +208,8 @@ def run_verification(config):
     mc_config.smt2file = config.smt2file
 
     mc_config.full_trace = config.full_trace
+    mc_config.trace_vars_change = config.trace_vars_change
+    mc_config.trace_all_vars = config.trace_all_vars
     mc_config.prefix = config.prefix
     mc_config.strategy = config.strategy
     mc_config.skip_solving = config.skip_solving
@@ -248,7 +256,6 @@ def run_verification(config):
 
     if config.safety:
         count = 0
-        list_status = []
         props = sparser.parse_formulae(config.properties)
         props += [(str(p), p, None) for p in invar_props]
         if len(props) == 0:
@@ -262,9 +269,7 @@ def run_verification(config):
                 count += 1
                 print_trace("Counterexample", trace, count, config.prefix)
 
-            list_status.append(res)
-
-        return list_status
+        return 0
     
     if config.equivalence or config.fsm_check:
 
@@ -315,7 +320,6 @@ def run_verification(config):
 
     if config.ltl:
         count = 0
-        list_status = []
         props = ltlparser.parse_formulae(config.properties)
         props += [(str(p), p, None) for p in ltl_props]
         if len(props) == 0:
@@ -329,9 +333,7 @@ def run_verification(config):
                 count += 1
                 print_trace("Counterexample", trace, count, config.prefix)
 
-            list_status.append(res)
-
-        return list_status
+        return 0
             
 def run_problems(problems, config):
     reset_env()
@@ -341,27 +343,35 @@ def run_problems(problems, config):
     pbms.load_problems(problems)
     psol.solve_problems(pbms, config)
 
+    global_status = 0
+    
     Logger.log("\n*** SUMMARY ***", 0)
 
-    list_status = []
-    
     for pbm in pbms.problems:
         unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
         Logger.log("\n** Problem %s **"%(pbm.name), 0)
         Logger.log("Description: %s"%(pbm.description), 0)
         Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+        if (pbm.expected is not None):
+            expected = VerificationStatus.convert(pbm.expected) == pbm.status
+            Logger.log("Expected: %s"%("OK" if expected else "WRONG"), 0)
+            if not expected:
+                global_status = 1
+
+        assert not(config.force_expected and (pbm.expected is None))
+
+        prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
         
-        list_status.append(pbm.status)
         if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-            print_trace("Counterexample", pbm.trace, pbm.name, config.prefix)
+            print_trace("Counterexample", pbm.trace, pbm.name, prefix)
 
         if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-            print_trace("Execution", pbm.trace, pbm.name, config.prefix)
+            print_trace("Execution", pbm.trace, pbm.name, prefix)
 
         if pbm.time:
             Logger.log("Time: %.2f sec"%(pbm.time), 0)
             
-    return list_status
+    return global_status
             
 if __name__ == "__main__":
 
@@ -429,6 +439,11 @@ if __name__ == "__main__":
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='comma separated list of invariant assumptions.')
 
+    # monitors = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in MonitorsFactory.get_monitors()]
+
+    # ver_params.add_argument('--monitors', metavar='monitors', type=str, nargs='?',
+    #                     help='comma separated list of monitors instantiation. Possible types:\n%s'%("\n".join(monitors)))
+    
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
                        help='use indution to prove the satisfiability of the property.')
@@ -450,6 +465,10 @@ if __name__ == "__main__":
     # Encoding parameters
 
     enc_params = parser.add_argument_group('encoding')
+
+    enc_params.set_defaults(no_clock=False)
+    enc_params.add_argument('--no-clock', dest='no_clock', action='store_true',
+                       help='does not add the clock behavior.')
     
     enc_params.set_defaults(abstract_clock=False)
     enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
@@ -466,14 +485,22 @@ if __name__ == "__main__":
     # enc_params.set_defaults(run_passes=config.run_passes)
     # enc_params.add_argument('--run-passes', dest='run_passes', action='store_true',
     #                     help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
-
-    enc_params.set_defaults(full_trace=config.full_trace)
-    enc_params.add_argument('--full-trace', dest='full_trace', action='store_true',
-                       help="show all variables in the counterexamples. (Default is \"%s\")"%config.full_trace)
-
+    
     # Printing parameters
 
     print_params = parser.add_argument_group('trace printing')
+
+    print_params.set_defaults(trace_vars_change=config.trace_vars_change)
+    print_params.add_argument('--trace-vars-change', dest='trace_vars_change', action='store_true',
+                       help="show variable assignments in the counterexamples even when unchanged. (Default is \"%s\")"%config.trace_vars_change)
+
+    print_params.set_defaults(trace_all_vars=config.trace_all_vars)
+    print_params.add_argument('--trace-all-vars', dest='trace_all_vars', action='store_true',
+                       help="show all variables in the counterexamples. (Default is \"%s\")"%config.trace_all_vars)
+
+    print_params.set_defaults(full_trace=config.full_trace)
+    print_params.add_argument('--full-trace', dest='full_trace', action='store_true',
+                       help="sets trace-vars-unchanged and trace-all-vars to True. (Default is \"%s\")"%config.full_trace)
     
     print_params.set_defaults(prefix=None)
     print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
@@ -540,6 +567,8 @@ if __name__ == "__main__":
     config.bmc_length = args.bmc_length
     config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
+    config.trace_vars_change = args.trace_vars_change
+    config.trace_all_vars = args.trace_all_vars
     config.prefix = args.prefix
     config.translate = args.translate
     config.smt2file = args.smt2
@@ -554,6 +583,8 @@ if __name__ == "__main__":
     config.solver_name = args.solver_name
     config.incremental = not args.ninc
     config.time = args.time
+    config.no_clock = args.no_clock
+    # config.monitors = args.monitors
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -561,13 +592,13 @@ if __name__ == "__main__":
 
     if args.problems:
         if args.debug:
-            run_problems(args.problems, config)
+            sys.exit(run_problems(args.problems, config))
         else:
             try:
-                run_problems(args.problems, config)
+                sys.exit(run_problems(args.problems, config))
             except Exception as e:
                 Logger.msg(str(e), 0)
-        sys.exit(0)
+                sys.exit(1)
 
     Logger.error_raise_exept = False
             
@@ -604,11 +635,12 @@ if __name__ == "__main__":
     Logger.error_raise_exept = True
     
     if args.debug:
-        run_verification(config)
+        sys.exit(run_verification(config))
     else:
         try:
-            run_verification(config)
+            sys.exit(run_verification(config))
         except Exception as e:
             Logger.msg(str(e), 0)
-    
+            sys.exit(1)
+   
 

@@ -96,13 +96,23 @@ class BMCSafety(BMCSolver):
                 return (0, True)
 
         hts.reset_formulae()
-            
+
         if self.config.incremental:
             return self.solve_safety_inc(hts, prop, k, k_min)
 
         return self.solve_safety_ninc(hts, prop, k)
 
     def solve_safety_ninc(self, hts, prop, k):
+        if self.config.strategy == VerificationStrategy.ALL:
+            res = self.solve_safety_fwd(hts, prop, k)
+            if res[1] is not None:
+                return res
+            if self.config.prove:
+                res = self.solve_safety_int(hts, prop, k)
+                if res[1] is not None:
+                    return res
+            return res
+        
         if self.config.strategy in [VerificationStrategy.FWD, VerificationStrategy.AUTO]:
             return self.solve_safety_fwd(hts, prop, k)
 
@@ -114,6 +124,22 @@ class BMCSafety(BMCSolver):
         return None
     
     def solve_safety_inc(self, hts, prop, k, k_min):
+        if self.config.strategy == VerificationStrategy.ALL:
+            res = self.solve_safety_inc_fwd(hts, prop, k, k_min)
+            if res[1] is not None:
+                return res
+            if self.config.prove and not TS.has_next(prop):
+                res = self.solve_safety_int(hts, prop, k)
+                if res[1] is not None:
+                    return res
+            res = self.solve_safety_inc_bwd(hts, prop, k)
+            if res[1] is not None:
+                self.config.strategy == VerificationStrategy.BWD
+                return res
+            res = self.solve_safety_inc_zz(hts, prop, k)
+            self.config.strategy == VerificationStrategy.ZZ
+            return res
+        
         if self.config.strategy in [VerificationStrategy.FWD, VerificationStrategy.AUTO]:
             return self.solve_safety_inc_fwd(hts, prop, k, k_min)
 
@@ -122,7 +148,12 @@ class BMCSafety(BMCSolver):
 
         if self.config.strategy == VerificationStrategy.ZZ:
             return self.solve_safety_inc_zz(hts, prop, k)
-        
+            
+        # Redirecting strategy selection error
+        if self.config.strategy == VerificationStrategy.INT:
+            Logger.warning("Interpolation is not available in incremental mode. Switching to not incremental")
+            return self.solve_safety_ninc(hts, prop, k)
+            
         Logger.error("Invalid configuration strategy")
 
         return None
@@ -653,7 +684,6 @@ class BMCSafety(BMCSolver):
                 model = init_model
             else:
                 Logger.log("System deadlocked at k=%s"%(t), 2)
-                Logger.log("", 0, not(Logger.level(1)))
                 return (-1, full_model)
 
             # Use previous model as initial state for next sat call
@@ -681,7 +711,6 @@ class BMCSafety(BMCSolver):
                 if res_cont:
                     Logger.log('Reached cover in no unroll simulation at k=%s'%(t), 2)
                     model = init_model
-                    Logger.log("", 0, not(Logger.level(1)))
                     return (t, full_model)
                 else:
                     Logger.log('Cover not reached at k=%s'%t, 2)
@@ -689,7 +718,6 @@ class BMCSafety(BMCSolver):
             if inc:
                 self._pop(self.solver)
                 
-        Logger.log("", 0, not(Logger.level(1)))
         return (t, full_model)
 
 

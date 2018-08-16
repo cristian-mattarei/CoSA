@@ -10,6 +10,7 @@ formula: self.out < 4_16
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: safety
 prove: True
+expected: False
 
 [Finally]
 description: "Finally Check"
@@ -17,6 +18,7 @@ formula: F (self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
+expected: True
 
 [Liveness]
 description: "Liveness Check"
@@ -24,6 +26,7 @@ formula: F G(self.out = 4_16 )
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
+expected: False
 
 [Globally-LTL]
 description: "Globally Check"
@@ -31,6 +34,7 @@ formula: G(self.out < 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 strategy: LTL
+expected: False
 
 [Finally-LTL]
 description: "Finally Check"
@@ -38,6 +42,7 @@ formula: F(self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 strategy: LTL
+expected: Unknown
 
 [Liveness-LTL]
 description: "Liveness Check"
@@ -45,6 +50,7 @@ formula: G(F(self.out = 4_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 strategy: LTL
+expected: False
 
 [Globally-Next-LTL]
 description: "Globally Next Check"
@@ -52,21 +58,25 @@ formula: G((self.out = 4_16) -> X (self.out = 5_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 strategy: LTL
+expected: False
 
 [Globally-Next2-LTL]
 description: "Globally Next2 Check"
 formula: G(((self.out = 4_16) & (self.clk = 0_1) & (self.clr = 0_1)) -> X (X (self.out = 5_16)))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+expected: Unknown
 
 [Until-LTL]
 description: "Until Check"
 formula: (self.out < 4_16) U (self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+expected: Unknown
 
 [Release-LTL]
 description: "Release Check"
 formula: (self.out = 4_16) R F(self.out = 0_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
+expected: Unknown

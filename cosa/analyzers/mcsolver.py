@@ -29,13 +29,13 @@ class VerificationStrategy(object):
     INT  = "INT"
     LTL  = "LTL"
     AUTO = "AUTO"
+    ALL = "ALL"
 
 class MCConfig(object):
 
     incremental = True
     strategy = None
     solver = None
-    full_trace = False
     prefix = None
     smt2file = None
     simplify = False
@@ -43,18 +43,23 @@ class MCConfig(object):
     solver_name = None
     vcd_trace = None
     prove = None
+    full_trace = False
+    trace_vars_change = False
+    trace_all_vars = False
 
     def __init__(self):
         self.incremental = True
         self.strategy = VerificationStrategy.AUTO
         self.solver_name = "msat"
-        self.full_trace = False
         self.prefix = None
         self.smt2file = None
         self.simplify = False
         self.map_function = None
         self.vcd_trace = False
         self.prove = False
+        self.full_trace = False
+        self.trace_vars_change = False
+        self.trace_all_vars = False
 
         self.strategies = MCConfig.get_strategies()
 
@@ -68,6 +73,7 @@ class MCConfig(object):
         strategies.append((VerificationStrategy.INT,  "Interpolation (not incremental only)"))
         strategies.append((VerificationStrategy.NU,   "States picking without unrolling (only for simulation)"))
         strategies.append((VerificationStrategy.LTL,  "Pure LTL verification (without optimizations)"))
+        strategies.append((VerificationStrategy.ALL,  "Use all techniques"))
 
         return strategies
 
@@ -152,7 +158,8 @@ class BMCSolver(object):
                                     VerificationStrategy.FWD, \
                                     VerificationStrategy.NU, \
                                     VerificationStrategy.INT, \
-                                    VerificationStrategy.LTL]:
+                                    VerificationStrategy.LTL,
+                                    VerificationStrategy.ALL]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
@@ -245,7 +252,7 @@ class BMCSolver(object):
                 elif v.symbol_type().is_bv_type():
                     self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
                 else:
-                    raise RuntimeError("Unhandled type in smt2 translation")
+                    Logger.error("Unhandled type in smt2 translation")
 
             self._write_smt2_log(solver, "")
 
@@ -430,20 +437,18 @@ class BMCSolver(object):
         if prefix is None:
             prefix = self.config.prefix
 
-        full_trace = self.config.full_trace
+        diff_only = not self.config.trace_vars_change
+        all_vars = self.config.trace_all_vars
 
-        if write_to_file:
+        if self.config.full_trace:
             diff_only = False
-
-        if Logger.level(1):
-            diff_only = False
-            full_trace = True
-
+            all_vars = True
+        
         # Human Readable Format
         hr_printer = TextTracePrinter()
         hr_printer.extra_vars = xvars
         hr_printer.diff_only = diff_only
-        hr_printer.full_trace = full_trace
+        hr_printer.all_vars = all_vars
         hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loop)
 
         # VCD format

@@ -10,3 +10,4 @@ description: "Use the collateral from CoreIR to help the equivalence check go th
 lemmas: eq-lemmas.txt
 verification: equivalence
 prove: True
+expected: True

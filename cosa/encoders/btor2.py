@@ -31,6 +31,7 @@ ONE="one"
 ONES="ones"
 STATE="state"
 INPUT="input"
+OUTPUT="output"
 ADD="add"
 EQ="eq"
 NE="ne"
@@ -62,7 +63,7 @@ BAD="bad"
 
 class BTOR2Parser(object):
     parser = None
-    extension = "btor2"
+    extensions = ["btor2","btor"]
     
     def __init__(self):
         pass
@@ -71,12 +72,12 @@ class BTOR2Parser(object):
         with open(strfile, "r") as f:
             return self.parse_string(f.read())
 
-    def get_extension(self):
-        return self.extension
+    def get_extensions(self):
+        return self.extensions
 
     @staticmethod        
-    def get_extension():
-        return BTOR2Parser.extension
+    def get_extensions():
+        return BTOR2Parser.extensions
 
     def remap_an2or(self, name):
         return name
@@ -90,7 +91,8 @@ class BTOR2Parser(object):
         ts = TS()
 
         nodemap = {}
-
+        node_covered = set([])
+        
         translist = []
         initlist = []
         invarlist = []
@@ -99,6 +101,7 @@ class BTOR2Parser(object):
         ltl_props = []
 
         def getnode(nid):
+            node_covered.add(nid)
             if int(nid) < 0:
                 return Ite(BV2B(nodemap[str(-int(nid))]), BV(0,1), BV(1,1))
             return nodemap[nid]
@@ -126,6 +129,7 @@ class BTOR2Parser(object):
                 (stype, *attr) = nids
                 if stype == BITVEC:
                     nodemap[nid] = BVType(int(attr[0]))
+                    node_covered.add(nid)
                 if stype == ARRAY:
                     assert False
                     
@@ -157,16 +161,31 @@ class BTOR2Parser(object):
                 width = getnode(nids[0]).width
                 nodemap[nid] = BV(bin_to_dec(nids[1]), width)
                 
-            if ntype in [STATE, INPUT]:
+            if ntype == STATE:
                 if len(nids) > 1:
                     nodemap[nid] = Symbol(nids[1], getnode(nids[0]))
                 else:
                     nodemap[nid] = Symbol((SN%nid), getnode(nids[0]))
-                if ntype == INPUT:
-                    ts.add_input_var(nodemap[nid])
-                else:
-                    ts.add_state_var(nodemap[nid])
+                ts.add_state_var(nodemap[nid])
 
+            if ntype == INPUT:
+                if len(nids) > 1:
+                    nodemap[nid] = Symbol(nids[1], getnode(nids[0]))
+                else:
+                    nodemap[nid] = Symbol((SN%nid), getnode(nids[0]))
+                ts.add_input_var(nodemap[nid])
+
+            if ntype == OUTPUT:
+                if len(nids) > 2:
+                    symbol = Symbol(nids[2], getnode(nids[0]))
+                else:
+                    symbol = Symbol((SN%nid), getnode(nids[0]))
+
+                nodemap[nid] = EqualsOrIff(symbol, B2BV(getnode(nids[1])))
+                invarlist.append(nodemap[nid])
+                node_covered.add(nid)
+                ts.add_output_var(symbol)
+                
             if ntype == AND:
                 nodemap[nid] = binary_op(BVAnd, And, getnode(nids[1]), getnode(nids[2]))
 
@@ -219,7 +238,7 @@ class BTOR2Parser(object):
 
             if ntype == SLICE:
                 nodemap[nid] = BVExtract(B2BV(getnode(nids[1])), int(nids[3]), int(nids[2]))
-
+ 
             if ntype == ITE:
                 if (get_type(getnode(nids[2])) == BOOL) or (get_type(getnode(nids[3])) == BOOL):
                     nodemap[nid] = Ite(BV2B(getnode(nids[1])), BV2B(getnode(nids[2])), BV2B(getnode(nids[3])))
@@ -231,26 +250,32 @@ class BTOR2Parser(object):
                     nodemap[nid] = EqualsOrIff(BV2B(TS.get_prime(getnode(nids[1]))), BV2B(getnode(nids[2])))
                 else:
                     nodemap[nid] = EqualsOrIff(TS.get_prime(getnode(nids[1])), getnode(nids[2]))
-                translist.append(nodemap[nid])
+                translist.append(getnode(nid))
 
             if ntype == INIT:
                 if (get_type(getnode(nids[1])) == BOOL) or (get_type(getnode(nids[2])) == BOOL):
                     nodemap[nid] = EqualsOrIff(BV2B(getnode(nids[1])), BV2B(getnode(nids[2])))
                 else:
                     nodemap[nid] = EqualsOrIff(getnode(nids[1]), getnode(nids[2]))
-                initlist.append(nodemap[nid])
+                initlist.append(getnode(nid))
 
             if ntype == CONSTRAINT:
                 nodemap[nid] = BV2B(getnode(nids[0]))
-                invarlist.append(nodemap[nid])
+                invarlist.append(getnode(nid))
                 
             if ntype == BAD:
                 nodemap[nid] = getnode(nids[0])
-                invar_props.append(Not(BV2B(nodemap[nid])))
-
+                invar_props.append(Not(BV2B(getnode(nid))))
+                
             if nid not in nodemap:
                 Logger.error("Unknown node type \"%s\""%ntype)
-                
+
+        if Logger.level(1):
+            name = lambda x: str(nodemap[x]) if nodemap[x].is_symbol() else x
+            uncovered = [name(x) for x in nodemap if x not in node_covered]
+            uncovered.sort()
+            Logger.warning("Unlinked nodes \"%s\""%",".join(uncovered))
+        
         init = And(initlist)
         trans = And(translist)
         invar = And(invarlist)

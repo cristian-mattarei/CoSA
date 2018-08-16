@@ -28,15 +28,14 @@ CR = "_const_replacement"
 RCR = "_reg_const_replacement"
 SELF = "self"
 
-NEW_VERSION = True
-
 class CoreIRModelFlags(ModelFlags):
     FC_LEMMAS = "FC-LEMMAS"
 
 class CoreIRParser(ModelParser):
-    extension = "json"
+    extensions = ["json"]
     
     abstract_clock = None
+    no_clock = None
     symbolic_init = None
 
     context = None
@@ -47,16 +46,18 @@ class CoreIRParser(ModelParser):
     anonimize_names = False
     map_an2or = None
     map_or2an = None
+    bitvec_new_version = True
     idvars = 0
 
     deterministic = False
     
-    def __init__(self, abstract_clock, symbolic_init, *libs):
+    def __init__(self, abstract_clock, symbolic_init, no_clock, *libs):
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
 
         self.abstract_clock = abstract_clock
+        self.no_clock = no_clock
         self.symbolic_init = symbolic_init
 
         self.__init_attrnames()
@@ -79,8 +80,8 @@ class CoreIRParser(ModelParser):
         self.deterministic = False
         
     @staticmethod        
-    def get_extension():
-        return CoreIRParser.extension
+    def get_extensions():
+        return CoreIRParser.extensions
         
     def run_passes(self):
         self.context.run_passes(['rungenerators',\
@@ -114,7 +115,7 @@ class CoreIRParser(ModelParser):
     
     def BVVar(self, name, width):
         if width <= 0 or not isinstance(width, int):
-            raise UndefinedTypeException("Bit Vector undefined for width = {}".format(width))
+            Logger.error("Bit Vector undefined for width = {}".format(width))
 
         orname = name.replace(CSEP, SEP)
 
@@ -326,11 +327,13 @@ class CoreIRParser(ModelParser):
                     xval = 1 if xval else 0
                 else:
                     if type(xval) != int:
-                        if NEW_VERSION:
+                        try:
                             xval = xval.unsigned_value
-                        else:
-                            xval = xval.val
-
+                        except:
+                            try:
+                                xval = xval.val
+                            except:
+                                xval = xval.as_uint()
                 return xval
 
             if inst_mod.generated:
@@ -438,7 +441,7 @@ class CoreIRParser(ModelParser):
                 hts.add_output_var(bvvar)
 
             # Adding clock behavior
-            if (self.CLK in var[0].lower()) and (var[1].is_input()):
+            if (not self.no_clock) and (self.CLK in var[0].lower()) and (var[1].is_input()):
                 Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
                 ts = Modules.Clock(bvvar)
                 

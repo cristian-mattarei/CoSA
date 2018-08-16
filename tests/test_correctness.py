@@ -27,14 +27,12 @@ def runtest(example):
     config.solver_name = "msat"
     config.prove = True
     config.vcd = True
+    config.force_expected = True
     
-    list_status = run_problems("%s/problem.txt"%example, config)
+    status = run_problems("%s/problem.txt"%example, config)
 
-    with open("%s/expected_results.txt"%example, "r") as f:
-        expected_results = f.read().strip().replace(" ","").split(",")
-
-    assert list_status == expected_results
-    return list_status == expected_results
+    assert status == 0
+    return status
     
 def test_problem():
     for test in testdirs:

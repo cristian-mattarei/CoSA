@@ -1,0 +1,23 @@
+[GENERAL]
+model_file: fifo.sts
+
+[DEFAULT]
+bmc_length: 40
+
+[Scoreboard_end]
+description: "Scoreboard does not reach the end value"
+formula: !sb.end
+monitors: sb=Scoreboard(input, 6, clk)
+verification: safety
+prove: True
+expected: False
+
+[FifoCorrectness]
+description: "FIFO correctness with scoreboard"
+formula: sb.end -> (sb.packet = output)
+monitors: sb=Scoreboard(input, 6, clk)
+verification: safety
+strategy: INT
+incremental: False
+prove: True
+expected: True

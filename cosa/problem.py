@@ -33,6 +33,20 @@ class VerificationStatus(object):
     TRUE = "TRUE"
     FALSE = "FALSE"
 
+    @staticmethod        
+    def convert(status):
+        if type(status) == bool:
+            return VerificationStatus.TRUE if status else VerificationStatus.FALSE
+        
+        if status.upper() in [VerificationStatus.TRUE,\
+                              VerificationStatus.FALSE,\
+                              VerificationStatus.UNK,\
+                              VerificationStatus.UNC]:
+            return status.upper()
+        
+        Logger.error("Invalid Verification Status \"%s\""%status)
+
+        
 class VerificationType(object):
     SAFETY = 0
     LIVENESS = 1
@@ -46,6 +60,7 @@ class Problems(object):
     model_file = None
     bmc_length = 10
     abstract_clock = False
+    no_clock = False
     equivalence = None
     relative_path = None
     boolean = None
@@ -109,10 +124,11 @@ class Problem(object):
     symbolic_init = None
     smt2_tracing = None
 
-    trace_all_vars = None
-    trace_diff_vars = None
+    full_trace = False
+    trace_vars_change = False
+    trace_all_vars = False
     trace_prefix = None
-
+    
     verbosity = None
     description = None
 
@@ -120,12 +136,13 @@ class Problem(object):
     verification = None
     formula = None
     prove = False
+    expected = None
     bmc_length = 10
     bmc_length_min = 0
-    full_trace = True
     equivalence = None
     
     model_file = None
+    monitors = None
     relative_path = None
     name = None
     trace = None
@@ -135,7 +152,7 @@ class Problem(object):
     skip_solving = False
 
     solver_name = None
-    
+
     def __init__(self):
         self.status = VerificationStatus.UNC
         self.description = ""

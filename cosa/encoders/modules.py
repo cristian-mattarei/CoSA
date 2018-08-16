@@ -264,7 +264,7 @@ class Modules(object):
         comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(value) + ")"
         Logger.log(comment, 3)
         ts = TS(comment)
-        ts.vars, ts.invar = set(vars_), invar
+        ts.vars, ts.invar = set([out]), invar
         return ts
 
     @staticmethod

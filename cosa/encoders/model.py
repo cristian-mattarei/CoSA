@@ -14,7 +14,7 @@ class ModelFlags(object):
     NO_INIT = "NO-INIT"
 
 class ModelParser(object):
-    extension = None
+    extensions = None
     
     def __init__(self):
         pass
@@ -26,5 +26,5 @@ class ModelParser(object):
         Logger.error("Not implemented")
 
     @staticmethod        
-    def get_extension():
+    def get_extensions():
         Logger.error("Not implemented")

@@ -9,3 +9,4 @@ bmc_length: 10
 description: "Use the collateral from CoreIR to help the equivalence check go through"
 verification: equivalence
 prove: True
+expected: True

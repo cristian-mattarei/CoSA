@@ -10,3 +10,4 @@ bmc_length: 5
 description: "Mul2 PE is equivalent to Mul2 PE Passes"
 verification: equivalence
 prove: True
+expected: Unknown
