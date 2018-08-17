@@ -6,13 +6,17 @@ CoSA: CoreIR Symbolic Analyzer
 Installation
 ========================
 
-1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., PyCoreIR, and PySMT
+1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., `PyCoreIR`_, and `PySMT`_
+
+.. _PyCoreIR: https://github.com/leonardt/pycoreir
+.. _PySMT: https://github.com/pysmt/pysmt
 
 2) ``pysmt-install --msat`` to install MathSAT5 solver (it provides interpolation support), or ``pysmt-install --cvc4/z3`` for other solvers
 
 3) ``pysmt-install --env`` to show the environment variables that need to be exported
 
-- In order to enable the support of CoreIR format, CoreIR needs to be installed: https://github.com/rdaly525/coreir
+- `CoreIR`_ needs to be installed in order to support it as input format
+.. _CoreIR: https://github.com/rdaly525/coreir
 
 ========================
 Usage
