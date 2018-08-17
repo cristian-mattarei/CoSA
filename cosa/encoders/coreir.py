@@ -8,8 +8,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import coreir
 import sys
+
+COREIR = True
+
+try:
+    import coreir
+except:
+    COREIR = False
 
 from six.moves import cStringIO
 
@@ -50,8 +56,13 @@ class CoreIRParser(ModelParser):
     idvars = 0
 
     deterministic = False
+
+    enabled = True
     
     def __init__(self, abstract_clock, symbolic_init, no_clock, *libs):
+        if not COREIR:
+            Logger.error("CoreIR support is not available")
+            
         self.context = coreir.Context()
         for lib in libs:
             self.context.load_library(lib)
