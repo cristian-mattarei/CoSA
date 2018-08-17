@@ -44,7 +44,7 @@ Docker
 Development
 ========================
 
-- ``pip3 install -e .`` to install from the source
+- ``pip3 install -e .`` to install CoSA from the source
   
 - ``nosetests tests`` to run the tests
    
