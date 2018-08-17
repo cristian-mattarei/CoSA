@@ -11,7 +11,6 @@
 # limitations under the License.
 
 import sys
-import coreir
 import argparse
 import os
 import pickle
