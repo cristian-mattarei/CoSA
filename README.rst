@@ -6,7 +6,7 @@ CoSA: CoreIR Symbolic Analyzer
 Installation
 ========================
 
-1) ``pip3 install cosa`` (or ``pip3 install -e .`` to install from the source)
+1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., PyCoreIR, and PySMT
 
 2) ``pysmt-install --msat`` to install MathSAT5 solver (it provides interpolation support), or ``pysmt-install --cvc4/z3`` for other solvers
 
@@ -20,15 +20,15 @@ Usage
 
 To start playing with the tool, you can run:
 
-0) ``CoSA -h`` (shows the helper with command options)
+0) ``CoSA -h`` shows the helper with command options
 
-1) ``CoSA -i examples/counters/counters.json --simulate -k 7`` (generates a system execution with depth 7)
+1) ``CoSA -i examples/counters/counters.json --simulate -k 7`` generates a system execution with depth 7
 
-2) ``CoSA -i examples/counters/counters.json --safety -p "!(count0.a.out = 5_16)" -k 7`` (performs reachability model checking with property count0.a.out != 5 as a 16-bit Bitvector)
+2) ``CoSA -i examples/counters/counters.json --safety -p "!(count0.a.out = 5_16)" -k 7`` performs reachability model checking with property count0.a.out != 5 as a 16-bit Bitvector
 
-3) ``CoSA --problem examples/counter/problem.txt --prefix trace`` (liveness (GF) and finally (F) checking on the counter.json model using the problem definition)
+3) ``CoSA --problem examples/counter/problem.txt --prefix trace`` performs liveness (GF) and finally (F) checking on the counter.json model using the problem definition
 
-4) ``CoSA --problem examples/fold-constants/problem.txt`` (performs equivalence checking using lemmas)
+4) ``CoSA --problem examples/fold-constants/problem.txt`` performs equivalence checking using lemmas
 
 ========================
 Docker
@@ -40,6 +40,14 @@ Docker
 
 3) run the Docker image: ``docker run -i -t ubuntu-cosa /bin/bash``
 
+========================
+Development
+========================
+
+- ``pip3 install -e .`` to install from the source
+  
+- ``nosetests tests`` to run the tests
+   
 ========================
 Build Status
 ========================
