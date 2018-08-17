@@ -14,8 +14,8 @@ Supported Input Formats
 * Symbolic Transition System
 * Explicit Transition System
 
-Supported Verification
-======================
+Supported Verifications
+=======================
 * Invariant Properties
 * LTL Properties
 * Proving capabilities
@@ -29,7 +29,7 @@ For more information visit http://github.com/cristian-mattarei/CoSA
 """
 
 setup(name='CoSA',
-      version='0.1.0',
+      version='0.1.1',
       description='CoreIR Symbolic Analyzer',
       long_description=long_description,
       url='http://github.com/cristian-mattarei/CoSA',
