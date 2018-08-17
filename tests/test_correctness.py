@@ -10,7 +10,7 @@
 
 import os
 
-from CoSA import Config, run_verification, run_problems
+from cosa.shell import Config, run_verification, run_problems
 from pysmt.shortcuts import Symbol, reset_env
 
 abspath = os.path.abspath(__file__)
