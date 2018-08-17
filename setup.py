@@ -14,7 +14,7 @@ Supported Input Formats
 * Symbolic Transition System
 * Explicit Transition System
 
-Supported Verfication
+Supported Verification
 ======================
 * Invariant Properties
 * LTL Properties
