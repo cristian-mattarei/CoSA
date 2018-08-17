@@ -8,7 +8,7 @@ Installation
 
 1) ``pip3 install cosa`` (or ``pip3 install -e .`` to install from the source)
 
-2) ``pysmt-install --msat`` to install MathSAT5 solver (it enables support for interpolation), or ``pysmt-install --cvc4/z3`` for other solvers
+2) ``pysmt-install --msat`` to install MathSAT5 solver (it provides interpolation support), or ``pysmt-install --cvc4/z3`` for other solvers
 
 3) ``pysmt-install --env`` to show the environment variables that need to be exported
 
