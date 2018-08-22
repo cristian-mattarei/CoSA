@@ -338,6 +338,8 @@ class CoreIRParser(ModelParser):
                     xval = 1 if xval else 0
                 else:
                     if type(xval) != int:
+                        if xval.is_x():
+                            return None
                         try:
                             xval = xval.unsigned_value
                         except:
