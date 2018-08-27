@@ -55,7 +55,7 @@ class Config(object):
     trace_vars_change = False
     trace_all_vars = False
     prefix = None
-    run_passes = False
+    run_passes = True
     printer = None
     translate = None
     smt2file = None
@@ -95,7 +95,7 @@ class Config(object):
         self.trace_vars_change = False
         self.trace_all_vars = False
         self.prefix = None
-        self.run_passes = False
+        self.run_passes = True
         self.printer = PrintersFactory.get_default().get_name()
         self.translate = None
         self.smt2file = None
@@ -272,11 +272,7 @@ def run_verification(config):
     if config.equivalence or config.fsm_check:
 
         if config.equivalence:
-            parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init)
-
-            if config.run_passes:
-                Logger.log("Running passes:", 0)
-                parser2.run_passes()
+            parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init, config.run_passes)
 
             Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
             hts2 = parser2.parse_file(config.equivalence)
@@ -479,9 +475,9 @@ def main():
     enc_params.add_argument('--boolean', dest='boolean', action='store_true',
                         help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
 
-    # enc_params.set_defaults(run_passes=config.run_passes)
-    # enc_params.add_argument('--run-passes', dest='run_passes', action='store_true',
-    #                     help='run necessary passes to process the CoreIR file. (Default is \"%s\")'%config.run_passes)
+    enc_params.set_defaults(run_passes=config.run_passes)
+    enc_params.add_argument('--no-run-passes', dest='run_passes', action='store_false',
+                        help='does not run CoreIR passes. (Default is \"%s\")'%config.run_passes)
     
     # Printing parameters
 

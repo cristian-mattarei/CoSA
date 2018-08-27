@@ -61,6 +61,7 @@ class Problems(object):
     bmc_length = 10
     abstract_clock = False
     no_clock = False
+    run_coreir_passes = True
     equivalence = None
     relative_path = None
     boolean = None

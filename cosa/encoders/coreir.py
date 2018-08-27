@@ -8,8 +8,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-
 COREIR = True
 
 try:
@@ -28,11 +26,13 @@ from cosa.utils.generic import is_number, status_bar
 from cosa.utils.logger import Logger
 from cosa.encoders.model import ModelParser, ModelFlags
 from cosa.encoders.modules import Modules, ModuleSymbols, SEP, CSEP
-from cosa.utils.generic import bin_to_dec
+from cosa.utils.generic import bin_to_dec, suppress_output, restore_output
 
 CR = "_const_replacement"
 RCR = "_reg_const_replacement"
 SELF = "self"
+LIBRARIES = []
+LIBRARIES.append("rtlil")
 
 class CoreIRModelFlags(ModelFlags):
     FC_LEMMAS = "FC-LEMMAS"
@@ -59,12 +59,12 @@ class CoreIRParser(ModelParser):
 
     enabled = True
     
-    def __init__(self, abstract_clock, symbolic_init, no_clock, *libs):
+    def __init__(self, abstract_clock, symbolic_init, no_clock, run_passes):
         if not COREIR:
             Logger.error("CoreIR support is not available")
             
         self.context = coreir.Context()
-        for lib in libs:
+        for lib in LIBRARIES:
             self.context.load_library(lib)
 
         self.abstract_clock = abstract_clock
@@ -95,6 +95,11 @@ class CoreIRParser(ModelParser):
         return CoreIRParser.extensions
         
     def run_passes(self):
+        Logger.log("Running CoreIR passes...", 1)
+        print_level = 3
+        if not Logger.level(print_level):
+            saved_stdout = suppress_output()
+            
         self.context.run_passes(['rungenerators',\
                                  'cullgraph',\
                                  'cullzexts',\
@@ -105,6 +110,8 @@ class CoreIRParser(ModelParser):
                                  'flatten',\
                                  'deletedeadinstances'])
 
+        if not Logger.level(print_level):
+            restore_output(saved_stdout)
 
     def __new_var_name(self):
         CoreIRParser.idvars += 1
@@ -305,11 +312,13 @@ class CoreIRParser(ModelParser):
                 sym = self.sym_map[inst_type][0](*args(self.sym_map[inst_type][1]))
             
         return sym
-    
+        
     def parse_file(self, strfile, flags=None):
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
-
+        
+        self.run_passes()
+       
         Modules.abstract_clock = self.abstract_clock
         Modules.symbolic_init = self.symbolic_init
         
