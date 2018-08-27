@@ -11,10 +11,10 @@
 import re
 
 from pysmt.walkers.identitydag import IdentityDagWalker
-from cosa.utils.generic import new_string
 from pysmt.shortcuts import Ite, EqualsOrIff, BV, get_type
 from pysmt.typing import BOOL, BVType, ArrayType
 
+from cosa.utils.generic import new_string
 
 def B2BV(f):
     if get_type(f).is_bv_type():
