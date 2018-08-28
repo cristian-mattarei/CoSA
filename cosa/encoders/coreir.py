@@ -34,6 +34,25 @@ SELF = "self"
 LIBRARIES = []
 LIBRARIES.append("rtlil")
 
+PASSES = []
+PASSES.append("clockifyinterface")
+#PASSES.append("wireclocks")
+#PASSES.append("coreir")
+PASSES.append("rungenerators")
+PASSES.append("removeconstduplicates")
+PASSES.append("deletedeadinstances")
+PASSES.append("rungenerators")
+PASSES.append("cullgraph")
+PASSES.append("removebulkconnections")
+#PASSES.append("removepassthroughs")
+PASSES.append("removeunconnected")
+#PASSES.append("fold")
+#PASSES.append("constants")
+PASSES.append("flatten")
+PASSES.append("flattentypes")
+PASSES.append("packconnections")
+PASSES.append("cullzexts")
+
 class CoreIRModelFlags(ModelFlags):
     FC_LEMMAS = "FC-LEMMAS"
 
@@ -99,16 +118,8 @@ class CoreIRParser(ModelParser):
         print_level = 3
         if not Logger.level(print_level):
             saved_stdout = suppress_output()
-            
-        self.context.run_passes(['rungenerators',\
-                                 'cullgraph',\
-                                 'cullzexts',\
-                                 'removeconstduplicates',\
-                                 'packconnections',\
-                                 'clockifyinterface',
-                                 'flattentypes',\
-                                 'flatten',\
-                                 'deletedeadinstances'])
+
+        self.context.run_passes(PASSES)
 
         if not Logger.level(print_level):
             restore_output(saved_stdout)

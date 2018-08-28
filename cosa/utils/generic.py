@@ -11,7 +11,6 @@
 import math
 import os
 import sys
-from ctypes import *
 
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
@@ -61,11 +60,9 @@ def new_string():
     return STRING_PATTERN%string_id
 
 def suppress_output():
-    libc = CDLL("libc.so.6")
     devnull = open('/dev/null', 'w')
-    oldstdout = os.dup(sys.stdout.fileno())
+    oldstdout = os.dup(1)
     os.dup2(devnull.fileno(), 1)
-
     return (devnull, oldstdout)
 
 def restore_output(saved_status):
