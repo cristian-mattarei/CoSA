@@ -22,7 +22,7 @@ from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
 from cosa.analyzers.mcsolver import MCConfig, VerificationStrategy
-from cosa.problem import VerificationStatus
+from cosa.problem import VerificationStatus, Property
 
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
 
@@ -228,30 +228,34 @@ class BMCTemporal(BMCSolver):
     def liveness(self, prop, k, k_min):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, False, lemmas)
+        (t, model) = self.solve_liveness(self.hts, prop.formula, k, k_min, False, lemmas)
 
         model = self._remap_model(self.hts.vars, model, t)
 
         if model == True:
-            return (VerificationStatus.TRUE, None, t)
+            prop.result, prop.trace, prop.length = (VerificationStatus.TRUE, None, t)
         elif model is not None:
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
-            return (VerificationStatus.FALSE, trace, t)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop.formula), map_function=self.config.map_function, find_loop=True)
+            prop.result, prop.trace, prop.length = (VerificationStatus.FALSE, trace, t)
         else:
-            return (VerificationStatus.UNK, None, t)
+            prop.result, prop.trace, prop.length = (VerificationStatus.UNK, None, t)
+            
+        return prop
 
     def eventually(self, prop, k, k_min):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve_liveness(self.hts, prop, k, k_min, True, lemmas)
+        (t, model) = self.solve_liveness(self.hts, prop.formula, k, k_min, True, lemmas)
 
         model = self._remap_model(self.hts.vars, model, t)
 
         if model == True:
-            return (VerificationStatus.TRUE, None, t)
+            prop.result, prop.trace, prop.length = (VerificationStatus.TRUE, None, t)
         elif model is not None:
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
-            return (VerificationStatus.FALSE, trace, t)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop.formula), map_function=self.config.map_function, find_loop=True)
+            prop.result, prop.trace, prop.length = (VerificationStatus.FALSE, trace, t)
         else:
-            return (VerificationStatus.UNK, None, t)
+            prop.result, prop.trace, prop.length = (VerificationStatus.UNK, None, t)
+            
+        return prop
         

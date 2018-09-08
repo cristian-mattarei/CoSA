@@ -55,6 +55,15 @@ class VerificationType(object):
     SIMULATION = 4
     LTL = 5
 
+class Property(object):
+    formula = None
+    result = VerificationStatus.UNC
+    trace = None
+    length = -1
+
+    def __init__(self, formula):
+        self.formula = formula
+    
 class Problems(object):
     problems = None
     model_file = None
@@ -92,7 +101,10 @@ class Problems(object):
                 Logger.error("Attribute \"%s\" not found"%attr)
 
         return pbm
-        
+
+    def get_problems_by_type(self, verification_type):
+        return [p for p in self.problems if p.verification == verification_type]
+
     def load_problems(self, problems_file):
         config = configparser.ConfigParser()
         config.optionxform=str

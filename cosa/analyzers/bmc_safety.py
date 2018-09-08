@@ -23,7 +23,7 @@ from cosa.utils.generic import status_bar
 from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
-from cosa.problem import VerificationStatus
+from cosa.problem import VerificationStatus, Property
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
 NL = "\n"
@@ -69,23 +69,25 @@ class BMCSafety(BMCSolver):
     def simulate(self, prop, k):
         if self.config.strategy == VerificationStrategy.NU:
             self._init_at_time(self.hts.vars, 1)
-            (t, model) = self.sim_no_unroll(self.hts, prop, k)
+            (t, model) = self.sim_no_unroll(self.hts, prop.formula, k)
         else:
             self._init_at_time(self.hts.vars, k)
-            if prop == TRUE():
+            if prop.formula == TRUE():
                 self.config.incremental = False
-                (t, model) = self.solve_safety_fwd(self.hts, Not(prop), k, False)
+                (t, model) = self.solve_safety_fwd(self.hts, Not(prop.formula), k, False)
             else:
-                (t, model) = self.solve_safety(self.hts, Not(prop), k)
+                (t, model) = self.solve_safety(self.hts, Not(prop.formula), k)
 
         model = self._remap_model(self.hts.vars, model, t)
         if (t > -1) and (model is not None):
             Logger.log("Execution found", 1)
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
-            return (VerificationStatus.TRUE, trace)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop.formula), map_function=self.config.map_function)
+            prop.result, prop.trace = (VerificationStatus.TRUE, trace)
         else:
             Logger.log("Deadlock wit k=%s"%k, 1)
-            return (VerificationStatus.FALSE, None)
+            prop.result, prop.trace = (VerificationStatus.FALSE, None)
+
+        return prop
 
     def solve_safety(self, hts, prop, k, k_min=0, lemmas=None):
         if lemmas is not None:
@@ -601,16 +603,18 @@ class BMCSafety(BMCSolver):
     def safety(self, prop, k, k_min):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve_safety(self.hts, prop, k, k_min, lemmas)
+        (t, model) = self.solve_safety(self.hts, prop.formula, k, k_min, lemmas)
 
         if model == True:
-            return (VerificationStatus.TRUE, None, t)
+            (prop.result, prop.trace, prop.length) = (VerificationStatus.TRUE, None, t)
         elif model is not None:
             model = self._remap_model(self.hts.vars, model, t)
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
-            return (VerificationStatus.FALSE, trace, t)
+            trace = self.print_trace(self.hts, model, t, get_free_variables(prop.formula), map_function=self.config.map_function)
+            (prop.result, prop.trace, prop.length) = (VerificationStatus.FALSE, trace, t)
         else:
-            return (VerificationStatus.UNK, None, t)
+            (prop.result, prop.trace, prop.length) = (VerificationStatus.UNK, None, t)
+            
+        return prop
 
     def sim_no_unroll(self, hts, cover, k, all_vars=True, inc=False):
         init = hts.single_init()

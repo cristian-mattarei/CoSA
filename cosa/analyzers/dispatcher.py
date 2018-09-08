@@ -17,7 +17,7 @@ from cosa.encoders.coreir import CoreIRParser
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
-from cosa.problem import VerificationStatus
+from cosa.problem import VerificationStatus, Property
 from cosa.encoders.miter import Miter
 from cosa.representation import HTS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
@@ -38,6 +38,116 @@ class ProblemSolver(object):
     def __init__(self):
         pass
 
+    def solve_safety_problems(self, problems, config):
+        Logger.log("\n*** Analyzing problems \"%s\" ***"%(problems), 1)
+
+        sparser = StringParser()
+
+        ref_problem = problems[0]
+
+        mc_config = self.problem2mc_config(ref_problem, config)
+        bmc_safety = BMCSafety(ref_problem.hts, mc_config)
+        res = VerificationStatus.UNC
+        bmc_length = max(max([p.bmc_length for p in problems]), config.bmc_length)
+        bmc_length_min = max(min([p.bmc_length_min for p in problems]), config.bmc_length_min)
+
+        parsing_defs = [mc_config.properties, mc_config.lemmas, mc_config.assumptions]
+        for i in range(len(parsing_defs)):
+            if parsing_defs[i] is not None:
+                pdef_file = problem.relative_path+parsing_defs[i]
+                if os.path.isfile(pdef_file):
+                    with open(pdef_file) as f:
+                        parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
+                else:
+                    parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(MODEL_SP)]
+            else:
+                parsing_defs[i] = None
+
+        [mc_config.properties, mc_config.lemmas, mc_config.assumptions] = parsing_defs
+
+        assumps = None
+        lemmas = None
+
+        accepted_ver = False
+        monitors = set([p.monitors for p in problems])
+        
+        if monitors != set([None]):
+
+            varsdict = dict([(var.symbol_name(), var) for var in ref_problem.hts.vars])
+            
+            for strmonitor in monitors.split(")"):
+                strmonitor = strmonitor.replace(" ","")
+                if strmonitor == "":
+                    continue
+                instance, mtype = strmonitor.split("=")
+                mtype, pars = mtype.split("(")
+                pars = pars.split(",")
+
+                monitor = MonitorsFactory.monitor_by_name(mtype)
+                pars = [varsdict[v] if v in varsdict else v for v in pars]
+                ts = monitor.get_sts(instance, pars)
+
+                ref_problem.hts.add_ts(ts)
+                
+        assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
+        lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
+        for ass in assumps:
+            problem.hts.add_assumption(ass)
+        for lemma in lemmas:
+            problem.hts.add_lemma(lemma)
+            
+        (strprop, formula, types) = sparser.parse_formulae(mc_config.properties)[0]
+        
+        prop = Property(formula)
+        
+        if problem.verification == VerificationType.SAFETY:
+            accepted_ver = True
+            prop = bmc_safety.safety(prop, bmc_length, bmc_length_min)
+
+        if problem.verification == VerificationType.LTL:
+            accepted_ver = True
+            prop = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
+
+        if problem.verification == VerificationType.SIMULATION:
+            accepted_ver = True
+            prop = bmc_safety.simulate(prop, bmc_length)
+            
+        if problem.verification == VerificationType.EQUIVALENCE:
+            accepted_ver = True
+            if problem.equivalence:
+                (problem.hts2, _, _) = self.parse_model(problem.relative_path, problem.equivalence, problem.abstract_clock, problem.symbolic_init, "System 2", no_clock=problem.no_clock)
+
+            htseq, miter_out = Miter.combine_systems(problem.hts, problem.hts2, bmc_length, problem.symbolic_init, mc_config.properties, True)
+
+            if mc_config.assumptions is not None:
+                assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
+
+            if mc_config.lemmas is not None:
+                lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
+
+            if assumps is not None:
+                for assumption in assumps:
+                    htseq.add_assumption(assumption)
+
+            if lemmas is not None:
+                for lemma in lemmas:
+                    htseq.add_lemma(lemma)
+
+            bmcseq = BMCSafety(htseq, mc_config)
+            prop = bmcseq.safety(Property(miter_out), bmc_length, bmc_length_min)
+
+        if not accepted_ver:
+            Logger.error("Invalid verification type")
+            
+        problem.status = prop.result
+        problem.trace = prop.trace
+
+        if problem.assumptions is not None:
+            problem.hts.assumptions = None
+
+        Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, problem.status), 1)
+        
+    
     def solve_problem(self, problem, config):
         Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
         Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
@@ -97,21 +207,22 @@ class ProblemSolver(object):
             for lemma in lemmas:
                 problem.hts.add_lemma(lemma)
             if problem.verification != VerificationType.LTL:
-                (strprop, prop, types) = sparser.parse_formulae(mc_config.properties)[0]
+                (strprop, formula, types) = sparser.parse_formulae(mc_config.properties)[0]
             else:
-                (strprop, prop, types) = lparser.parse_formulae(mc_config.properties)[0]
-
+                (strprop, formula, types) = lparser.parse_formulae(mc_config.properties)[0]
+            prop = Property(formula)
+        
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
-            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min)
+            prop = bmc_safety.safety(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.LTL:
             accepted_ver = True
-            res, trace, _ = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
+            prop = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
 
         if problem.verification == VerificationType.SIMULATION:
             accepted_ver = True
-            res, trace = bmc_safety.simulate(prop, bmc_length)
+            prop = bmc_safety.simulate(prop, bmc_length)
             
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
@@ -145,18 +256,18 @@ class ProblemSolver(object):
                     htseq.add_lemma(lemma)
 
             bmcseq = BMCSafety(htseq, mc_config)
-            res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
+            prop = bmcseq.safety(Property(miter_out), bmc_length, bmc_length_min)
 
         if not accepted_ver:
             Logger.error("Invalid verification type")
             
-        problem.status = res
-        problem.trace = trace
+        problem.status = prop.result
+        problem.trace = prop.trace
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
 
-        Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, res), 1)
+        Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, problem.status), 1)
 
     def get_file_flags(self, strfile):
         if FLAG_SR not in strfile:
