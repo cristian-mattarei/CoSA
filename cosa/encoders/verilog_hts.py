@@ -71,6 +71,7 @@ class VerilogHTSParser(ModelParser):
         
         absstrfile = os.path.abspath(strfile)
         ast = self.parse([absstrfile])
+        self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
         hts.flatten()
         return (hts, invar_props, ltl_props)
@@ -133,9 +134,10 @@ class VerilogSTSWalker(VerilogWalker):
     modulesdic = None
     hts = None
     ts = None
-
-    id_vars = 0
+    config = None
     
+    id_vars = 0
+
     def __init__(self):
         self.reset_structures()
 
@@ -311,9 +313,14 @@ class VerilogSTSWalker(VerilogWalker):
         one = BV(1, var.symbol_type().width)
         
         if el.type == POSEDGE:
+            if self.config.abstract_clock:
+                return TRUE()
             return And(EqualsOrIff(var, zero), EqualsOrIff(TS.get_prime(var), one))
 
         if el.type == NEGEDGE:
+            if self.config.abstract_clock:
+                Logger.warning("Unsound clock abstraction: registers with negedge behavior")
+
             return And(EqualsOrIff(var, one), EqualsOrIff(TS.get_prime(var), zero))
 
         if el.type == LEVEL:
@@ -333,9 +340,14 @@ class VerilogSTSWalker(VerilogWalker):
         if type(right) == int:
             right = BV(right, get_type(left).width)
 
-        primedic = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) for v in get_free_variables(left) \
-                         if v not in self.ts.input_vars])
-        return EqualsOrIff(substitute(left, primedic), right)
+        if left.is_symbol():
+            left = TS.to_next(left)
+        else:
+            primedic = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) for v in get_free_variables(left) \
+                             if v not in self.ts.input_vars])
+            left = substitute(left, primedic)
+        
+        return EqualsOrIff(left, right)
 
     def BlockingSubstitution(self, modulename, el, args):
         left, right = args[0], args[1]
@@ -439,7 +451,7 @@ class VerilogSTSWalker(VerilogWalker):
         
         nonblocking = And([s for s in statements if TS.has_next(s)])
         blocking = And([s for s in statements if not TS.has_next(s)])
-        
+
         def gen_formula(statement):
             if statement == TRUE():
                 return TRUE()
@@ -631,6 +643,8 @@ class VerilogSTSWalker(VerilogWalker):
         Logger.error("Unimplemented system call \"%s\", line %d"%(el.syscall, el.lineno))
         
     def Partselect(self, modulename, el, args):
+        if abs(args[1]-args[2])+1 == get_type(args[0]).width:
+            return args[0]
         return BVExtract(args[0], args[2], args[1])
 
     def Assign(self, modulename, el, args):
@@ -716,11 +730,11 @@ class VerilogSTSWalker(VerilogWalker):
 
         instances = []
 
-        # Management of multi instances
+        # Management of multi instances e.g., type instance[k:0] (clk, input[k:0])
         if len(width_idx) > 0:
             formal_args = [p[0] for p in portargs]
             args_width_idx = [formal_args.index(c.portname) for c in el_child if type(c.children()[0]) == Partselect]
-            map_ports = dict([(dict(portargs)[c.portname], dict(portargs)[c.portname].args()[0]) for c in el_child if type(c.children()[0]) == Partselect])
+            map_ports = dict([(dict(portargs)[c.portname], dict(portargs)[c.portname].args()[0]) for c in el_child if type(c.children()[0]) == Partselect and dict(portargs)[c.portname].is_bv_extract()])
             remap_ports = [(p[0], map_ports[p[1]] if p[1] in map_ports else p[1]) for p in portargs]
 
             extract_port = lambda p,i: BVExtract(p, i, i)
@@ -734,6 +748,7 @@ class VerilogSTSWalker(VerilogWalker):
 
         for (instance, actualargs) in instances:
             instancewalker = VerilogSTSWalker()
+            instancewalker.config = self.config
             instancewalker.paramdic = dict(paramargs)
             instancewalker.varmap = varmap
             instancewalker.modulesdic = self.modulesdic
