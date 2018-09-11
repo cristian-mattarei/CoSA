@@ -153,6 +153,12 @@ class VerilogSTSWalker(VerilogWalker):
         VerilogSTSWalker.id_vars += 1
         return "%s__%d"%(name, VerilogSTSWalker.id_vars)
 
+    def add_constraint(self, constraint):
+        if TS.has_next(constraint):
+            self.ts.trans = And(self.ts.trans, constraint)
+        else:
+            self.ts.invar = And(self.ts.invar, constraint)
+            
     def varname(self, modulename, varname):
         if modulename == "":
             return varname
@@ -423,24 +429,26 @@ class VerilogSTSWalker(VerilogWalker):
         return Ite(args[0], args[1], args[2])
     
     def IfStatement(self, modulename, el, args):
-        if type(args[1]) == list:
+        statement, then_b, else_b = args[0], args[1], args[2]
+
+        if type(then_b) == list:
             Logger.error("Not Implemented")
         else:
-            if type(args[0]) == int:
-                condition = self.to_bool(args[0])
-            elif get_type(args[0]) == BOOL:
-                condition = args[0]
+            if type(statement) == int:
+                condition = self.to_bool(statement)
+            elif get_type(statement) == BOOL:
+                condition = statement
             else:
-                one = BV(1, get_type(args[0]).width)
-                condition = EqualsOrIff(args[0], one)
+                one = BV(1, get_type(statement).width)
+                condition = EqualsOrIff(statement, one)
 
             if len(args) == 2:
-                return Implies(condition, args[1])
+                return Implies(condition, then_b)
             else:
-                return Ite(condition, args[1], args[2])
+                return Ite(condition, then_b, else_b)
 
     def Initial(self, modulename, el, args):
-        self.ts.init = And(self.ts.init, And(args))
+        self.ts.init = And(self.ts.init, And([And(a) for a in args]))
         return And(args)
             
     def Always(self, modulename, el, args):
@@ -448,6 +456,12 @@ class VerilogSTSWalker(VerilogWalker):
 
         if type(statements) == FNode:
             statements = [statements]
+
+        # All variables in the senselist are accessed at the primed time
+        sensedict = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) \
+                          for v in get_free_variables(condition) if not TS.is_prime(v)])
+        for i in range(len(statements)):
+            statements[i] = substitute(statements[i], sensedict)
         
         nonblocking = And([s for s in statements if TS.has_next(s)])
         blocking = And([s for s in statements if not TS.has_next(s)])
@@ -792,8 +806,9 @@ class VerilogSTSWalker(VerilogWalker):
             return delay
         Logger.error("Unsupported delay statement != 1, line %d"%(el.lineno))
         return el
-        
+
     def ForeverStatement(self, modulename, el, args):
         statement = And(args)
-        self.ts.trans = And(self.ts.trans, statement)
+        for el in [And(a) for a in args]:
+            self.add_constraint(el)
         return TRUE()

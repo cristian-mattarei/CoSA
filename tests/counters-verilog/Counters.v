@@ -82,6 +82,7 @@ module Reset #(parameter SIZE = 16)
         else
           begin
              rst = 0;
+             rst <= 0;
           end
      end
 
