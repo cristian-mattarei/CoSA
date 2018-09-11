@@ -31,11 +31,12 @@ from cosa.encoders.formulae import StringParser
 from cosa.encoders.factory import ModelParsersFactory
 from cosa.encoders.template import EncoderConfig
 from cosa.encoders.miter import Miter
-from cosa.encoders.ltl import ltl_reset_env, LTLParser
+from cosa.encoders.ltl import LTLParser
+from cosa.environment import reset_env
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.representation import HTS
 
-from pysmt.shortcuts import TRUE, reset_env, get_env
+from pysmt.shortcuts import TRUE, get_env
 
 
 class Config(object):
@@ -160,8 +161,8 @@ def run_verification(config):
     ets_parser = None
     sts_parser = None
 
-    if config.ltl:
-        ltl_reset_env()
+    # if config.ltl:
+    #     ltl_reset_env()
     
     hts = HTS("Top level")
 

@@ -25,7 +25,7 @@ from cosa.representation import HTS, TS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
-from cosa.encoders.ltl import ltl_reset_env, LTLParser
+from cosa.encoders.ltl import LTLParser
 from cosa.encoders.monitors import MonitorsFactory
 from cosa.encoders.factory import ModelParsersFactory
 from cosa.encoders.template import EncoderConfig
@@ -223,9 +223,6 @@ class ProblemSolver(object):
         if len(problems.problems) == 0:
             Logger.error("No problems defined")
             
-        if VerificationType.LTL in [problem.verification for problem in problems.problems]:
-            ltl_reset_env()
-
         encoder_config = self.problems2encoder_config(config, problems)
             
         # generate systems for each problem configuration

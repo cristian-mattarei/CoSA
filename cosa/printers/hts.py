@@ -22,7 +22,8 @@ from pysmt.rewritings import conjunctive_partition
 from cosa.representation import TS
 from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex
-from cosa.encoders.ltl import has_ltl_operators, HRLTLPrinter
+from cosa.encoders.ltl import has_ltl_operators
+from cosa.environment import ExtHRPrinter
 from cosa.utils.formula_mngm import get_free_variables
 from cosa.utils.generic import sort_system_variables
 
@@ -220,7 +221,7 @@ class STSHTSPrinter(HTSPrinter):
             self.write("\n%s\n"%("-"*lenstr))
     
 
-class SMVPrinter(HRLTLPrinter):
+class SMVPrinter(ExtHRPrinter):
 
     # Override walkers for SMV specific syntax
 
@@ -263,7 +264,7 @@ class SMVPrinter(HRLTLPrinter):
         else:
             self.write("\"%s\""%formula.symbol_name())
 
-class STSPrinter(HRLTLPrinter):
+class STSPrinter(ExtHRPrinter):
 
     # Override walkers for STS specific syntax
     def walk_symbol(self, formula):
