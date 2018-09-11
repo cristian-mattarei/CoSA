@@ -66,7 +66,6 @@ class AssignDefineSubstituteWalker(IdentityDagWalker):
     def walk_define(self, formula, args, **kwargs):
         for v in get_free_variables(args[0]):
             self.assign_list.add(v)
-        self.assign_list.add(args[0])
         return self.mgr.EqualsOrIff(args[0], args[1])
     
 def assign_define_substitute(formula):
@@ -504,7 +503,7 @@ class VerilogSTSWalker(VerilogWalker):
 
         (blocking, ass_list_b) = assign_define_substitute(blocking)
         (nonblocking, ass_list_nb) = assign_define_substitute(nonblocking)
-        
+
         framed_vars = set([TS.get_ref_var(v) for v in ass_list_b+ass_list_nb])
         
         def gen_formula(statement):
