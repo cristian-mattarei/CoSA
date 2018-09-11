@@ -59,10 +59,13 @@ class AssignDefineSubstituteWalker(IdentityDagWalker):
         self.assign_list = set([])
     
     def walk_assign(self, formula, args, **kwargs):
-        self.assign_list.add(args[0])
+        for v in get_free_variables(args[0]):
+            self.assign_list.add(v)
         return self.mgr.EqualsOrIff(args[0], args[1])
 
     def walk_define(self, formula, args, **kwargs):
+        for v in get_free_variables(args[0]):
+            self.assign_list.add(v)
         self.assign_list.add(args[0])
         return self.mgr.EqualsOrIff(args[0], args[1])
     
@@ -501,7 +504,7 @@ class VerilogSTSWalker(VerilogWalker):
 
         (blocking, ass_list_b) = assign_define_substitute(blocking)
         (nonblocking, ass_list_nb) = assign_define_substitute(nonblocking)
-
+        
         framed_vars = set([TS.get_ref_var(v) for v in ass_list_b+ass_list_nb])
         
         def gen_formula(statement):
@@ -542,7 +545,6 @@ class VerilogSTSWalker(VerilogWalker):
         args_0 = assign_define_substitute(args[0])[0]
         args_1 = assign_define_substitute(args[1])[0]
         args_2 = assign_define_substitute(args[2])[0]
-        args_3 = assign_define_substitute(args[3])[0]
         
         # Performining the For-loop unrolling
         fv = get_free_variables(args_0)
@@ -553,7 +555,7 @@ class VerilogSTSWalker(VerilogWalker):
         formulae = []
         while True:
             # Evaluate new instance
-            formula = simplify(And(args_3).substitute(state))
+            formula = simplify(And(args[3]).substitute(state))
             formulae.append(formula)
 
             # Compute next step

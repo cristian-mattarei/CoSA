@@ -174,6 +174,40 @@ IdentityDagWalker.set_handler(walk_ltl_h, LTL_H)
 IdentityDagWalker.set_handler(walk_assign, ASSIGN)
 IdentityDagWalker.set_handler(walk_define, DEFINE)
 
+def walk_simplify_assign(self, formula, args, **kwargs):
+    assert len(args) == 2
+
+    sl = args[0]
+    sr = args[1]
+
+    if sl.is_constant() and sr.is_constant():
+        l = sl.constant_value()
+        r = sr.constant_value()
+        return self.manager.Bool(l == r)
+    elif sl == sr:
+        return self.manager.TRUE()
+    else:
+        return self.manager.Assign(sl, sr)
+
+def walk_simplify_define(self, formula, args, **kwargs):
+    assert len(args) == 2
+
+    sl = args[0]
+    sr = args[1]
+
+    if sl.is_constant() and sr.is_constant():
+        l = sl.constant_value()
+        r = sr.constant_value()
+        return self.manager.Bool(l == r)
+    elif sl == sr:
+        return self.manager.TRUE()
+    else:
+        return self.manager.Define(sl, sr)
+    
+from pysmt.simplifier import Simplifier
+Simplifier.set_handler(walk_simplify_assign, ASSIGN)
+Simplifier.set_handler(walk_simplify_define, DEFINE)
+
 # EOC IdentityDagWalker
 
 from pysmt.environment import Environment, pop_env, get_env

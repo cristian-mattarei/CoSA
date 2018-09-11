@@ -77,7 +77,7 @@ class ProblemSolver(object):
         if mc_config.properties is None:
             if problem.verification == VerificationType.SIMULATION:
                 mc_config.properties = ["True"]
-            else:
+            elif problem.verification != VerificationType.EQUIVALENCE:
                 Logger.error("Property not provided")
                 
         accepted_ver = False
