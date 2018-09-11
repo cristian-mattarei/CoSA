@@ -137,7 +137,7 @@ class VerilogYosysParser(ModelParser):
             Logger.error("Error in Verilog conversion")
             
         parser = BTOR2Parser()
-        ret = parser.parse_file(TMPFILE)
+        ret = parser.parse_file(TMPFILE, config)
 
         if not Logger.level(1):
             os.remove(TMPFILE)
