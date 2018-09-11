@@ -4,7 +4,11 @@ assume_if_true: True
 
 [DEFAULT]
 bmc_length: 40
-assumptions: posedge(rst) -> ((counter_1.out > 1_8) & (counter_2.out > 1_8))
+
+[deadlocks]
+description: "No deadlocks"
+verification: simulation
+expected: True
 
 [counter_out]
 description: "Check that the out is always < 12"

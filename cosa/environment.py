@@ -32,6 +32,15 @@ LTL_O = new_node_type(node_str="LTL_O")
 LTL_H = new_node_type(node_str="LTL_H")
 ALL_LTL = (LTL_X, LTL_F, LTL_G, LTL_U, LTL_R, LTL_O, LTL_H)
 
+ASSIGN = new_node_type(node_str="ASSIGN")
+DEFINE = new_node_type(node_str="DEFINE")
+
+def Assign(left, right):
+    return get_env().formula_manager.Assign(left, right)
+
+def Define(left, right):
+    return get_env().formula_manager.Define(left, right)
+
 class FormulaManager(pysmt.formula.FormulaManager):
     """Extension of FormulaManager to handle LTL Operators."""
     def X(self, formula):
@@ -54,6 +63,12 @@ class FormulaManager(pysmt.formula.FormulaManager):
 
     def H(self, formula):
         return self.create_node(node_type=LTL_H, args=(formula,))
+
+    def Assign(self, left, right):
+        return self.create_node(node_type=ASSIGN, args=(left, right), payload=(1,))
+
+    def Define(self, left, right):
+        return self.create_node(node_type=DEFINE, args=(left, right), payload=(1,))
     
 class ExtLexer(HRLexer):
     def __init__(self, env=None):
@@ -95,10 +110,13 @@ class ExtLexer(HRLexer):
     
 from pysmt.type_checker import SimpleTypeChecker
 SimpleTypeChecker.set_handler(SimpleTypeChecker.walk_bool_to_bool, *ALL_LTL)
+SimpleTypeChecker.set_handler(SimpleTypeChecker.walk_bv_to_bool, ASSIGN)
+SimpleTypeChecker.set_handler(SimpleTypeChecker.walk_bv_to_bool, DEFINE)
 
 from pysmt.oracles import FreeVarsOracle
 FreeVarsOracle.set_handler(FreeVarsOracle.walk_simple_args, *ALL_LTL)
-
+FreeVarsOracle.set_handler(FreeVarsOracle.walk_simple_args, ASSIGN)
+FreeVarsOracle.set_handler(FreeVarsOracle.walk_simple_args, DEFINE)
 
 import pysmt.printers
 from pysmt.walkers.generic import handles
@@ -111,6 +129,12 @@ class ExtHRPrinter(pysmt.printers.HRPrinter):
     def walk_ltl_u(self, formula):
         return self.walk_nary(formula, " U ")
 
+    def walk_assign(self, formula):
+        return self.walk_nary(formula, " <= ")
+
+    def walk_define(self, formula):
+        return self.walk_nary(formula, " = ")
+    
     @handles(LTL_X, LTL_F, LTL_G, LTL_O, LTL_H)
     def walk_ltl(self, formula):
         node_type = formula.node_type()
@@ -136,6 +160,9 @@ def walk_ltl_r(self, formula, args, **kwargs): return self.mgr.R(args[0], args[1
 def walk_ltl_o(self, formula, args, **kwargs): return self.mgr.O(args[0])
 def walk_ltl_h(self, formula, args, **kwargs): return self.mgr.H(args[0])
 
+def walk_assign(self, formula, args, **kwargs): return self.mgr.Assign(args[0], args[1])
+def walk_define(self, formula, args, **kwargs): return self.mgr.Define(args[0], args[1])
+
 IdentityDagWalker.set_handler(walk_ltl_x, LTL_X)
 IdentityDagWalker.set_handler(walk_ltl_f, LTL_F)
 IdentityDagWalker.set_handler(walk_ltl_g, LTL_G)
@@ -143,6 +170,10 @@ IdentityDagWalker.set_handler(walk_ltl_u, LTL_U)
 IdentityDagWalker.set_handler(walk_ltl_r, LTL_R)
 IdentityDagWalker.set_handler(walk_ltl_o, LTL_O)
 IdentityDagWalker.set_handler(walk_ltl_h, LTL_H)
+
+IdentityDagWalker.set_handler(walk_assign, ASSIGN)
+IdentityDagWalker.set_handler(walk_define, DEFINE)
+
 # EOC IdentityDagWalker
 
 from pysmt.environment import Environment, pop_env, get_env
