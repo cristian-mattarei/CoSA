@@ -74,6 +74,12 @@ class ProblemSolver(object):
         assumps = None
         lemmas = None
 
+        if mc_config.properties is None:
+            if problem.verification == VerificationType.SIMULATION:
+                mc_config.properties = ["True"]
+            else:
+                Logger.error("Property not provided")
+                
         accepted_ver = False
 
         if problem.monitors is not None:
@@ -107,7 +113,7 @@ class ProblemSolver(object):
                 (strprop, prop, types) = lparser.parse_formulae(mc_config.properties)[0]
 
             problem.formula = prop
-                
+
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)

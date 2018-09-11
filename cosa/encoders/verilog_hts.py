@@ -460,6 +460,8 @@ class VerilogSTSWalker(VerilogWalker):
         # All variables in the senselist are accessed at the primed time
         sensedict = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) \
                           for v in get_free_variables(condition) if not TS.is_prime(v)])
+        senselist = [v for v in get_free_variables(condition) if not TS.is_prime(v)]
+        
         for i in range(len(statements)):
             statements[i] = substitute(statements[i], sensedict)
         
@@ -469,16 +471,19 @@ class VerilogSTSWalker(VerilogWalker):
         def gen_formula(statement):
             if statement == TRUE():
                 return TRUE()
-            fv = [TS.get_ref_var(v) for v in get_free_variables(statement) if TS.is_prime(v)]
+            fv = [TS.get_ref_var(v) for v in get_free_variables(statement) if TS.is_prime(v) and not v in senselist]
             frame_cond = And([EqualsOrIff(v, TS.get_prime(v)) for v in fv])
             active = statement if condition == TRUE() else Implies(condition, statement)
             passive = TRUE() if condition == TRUE() else Implies(Not(condition), frame_cond)
             return And(active, passive)
 
-        self.ts.invar = And(self.ts.invar, gen_formula(blocking))
-        self.ts.trans = And(self.ts.trans, gen_formula(nonblocking))
+        blocking = gen_formula(blocking)
+        nonblocking = gen_formula(nonblocking)
         
-        return gen_formula(And(blocking, nonblocking)) #(condition, blocking, nonblocking)
+        self.ts.invar = And(self.ts.invar, blocking)
+        self.ts.trans = And(self.ts.trans, nonblocking)
+        
+        return And(blocking, nonblocking) #(condition, blocking, nonblocking)
     
     def ForStatement(self, modulename, el, args):
 
