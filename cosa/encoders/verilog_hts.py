@@ -429,7 +429,7 @@ class VerilogSTSWalker(VerilogWalker):
         return Ite(args[0], args[1], args[2])
     
     def IfStatement(self, modulename, el, args):
-        statement, then_b, else_b = args[0], args[1], args[2]
+        statement, then_b, else_b = args[0], args[1], args[2] if len(args) > 2 else None
 
         if type(then_b) == list:
             Logger.error("Not Implemented")
@@ -442,7 +442,7 @@ class VerilogSTSWalker(VerilogWalker):
                 one = BV(1, get_type(statement).width)
                 condition = EqualsOrIff(statement, one)
 
-            if len(args) == 2:
+            if else_b is None:
                 return Implies(condition, then_b)
             else:
                 return Ite(condition, then_b, else_b)
