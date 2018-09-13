@@ -59,18 +59,31 @@ class NoChange(SyntacticSugar):
     def NoChange(self, x):
         return EqualsOrIff(x, TS.to_next(x))
 
-class MaxBvVal(SyntacticSugar):
-    name = "maxbvval"
+class Ones(SyntacticSugar):
+    name = "ones"
     description = "Maximum Bitvector value"
 
     def adapter(self):
-        return UnaryOpAdapter(self.MaxBvVal, 100)
+        return UnaryOpAdapter(self.Ones, 100)
 
-    def MaxBvVal(self, x):
+    def Ones(self, x):
         if type(x) == int:
             return BV((2**x)-1,x)
         size = get_type(x).width
         return BV((2**size)-1,size)
+
+class Zero(SyntacticSugar):
+    name = "zero"
+    description = "Zero value"
+
+    def adapter(self):
+        return UnaryOpAdapter(self.Zero, 100)
+
+    def Zero(self, x):
+        if type(x) == int:
+            return BV(0,x)
+        size = get_type(x).width
+        return BV(0,size)
     
 class MemAccess(SyntacticSugar):
     name = "memacc"

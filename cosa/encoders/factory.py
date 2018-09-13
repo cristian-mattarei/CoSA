@@ -17,14 +17,15 @@ class SyntacticSugarFactory(object):
     # Additional syntactic sugar should be registered here #
     @staticmethod
     def init_sugar():
-        from cosa.encoders.sugar import Posedge, Negedge, Change, NoChange, MemAccess, MaxBvVal
+        from cosa.encoders.sugar import Posedge, Negedge, Change, NoChange, MemAccess, Ones, Zero
     
         SyntacticSugarFactory.register_sugar(MemAccess())
         SyntacticSugarFactory.register_sugar(Posedge())
         SyntacticSugarFactory.register_sugar(Negedge())
         SyntacticSugarFactory.register_sugar(Change())
         SyntacticSugarFactory.register_sugar(NoChange())
-        SyntacticSugarFactory.register_sugar(MaxBvVal())
+        SyntacticSugarFactory.register_sugar(Ones())
+        SyntacticSugarFactory.register_sugar(Zero())
 
         for name in SyntacticSugarFactory.sugar_names():
             if name not in KEYWORDS:
