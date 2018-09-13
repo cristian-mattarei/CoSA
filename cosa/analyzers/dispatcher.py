@@ -26,8 +26,7 @@ from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
-from cosa.encoders.monitors import MonitorsFactory
-from cosa.encoders.factory import ModelParsersFactory
+from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
 from cosa.encoders.template import EncoderConfig
 
 FLAG_SR = "["
@@ -82,21 +81,21 @@ class ProblemSolver(object):
                 
         accepted_ver = False
 
-        if problem.monitors is not None:
+        if problem.generators is not None:
 
             varsdict = dict([(var.symbol_name(), var) for var in problem.hts.vars])
             
-            for strmonitor in problem.monitors.split(")"):
-                strmonitor = strmonitor.replace(" ","")
-                if strmonitor == "":
+            for strgenerator in problem.generators.split(MODEL_SP):
+                strgenerator = strgenerator.replace(" ","")
+                if strgenerator == "":
                     continue
-                instance, mtype = strmonitor.split("=")
+                instance, mtype = strgenerator.split("=")
                 mtype, pars = mtype.split("(")
-                pars = pars.split(",")
+                pars = pars[:-1].split(",")
 
-                monitor = MonitorsFactory.monitor_by_name(mtype)
+                generator = GeneratorsFactory.generator_by_name(mtype)
                 pars = [varsdict[v] if v in varsdict else v for v in pars]
-                ts = monitor.get_sts(instance, pars)
+                ts = generator.get_sts(instance, pars)
 
                 problem.hts.add_ts(ts)
 

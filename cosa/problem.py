@@ -152,7 +152,7 @@ class Problem(object):
     equivalence = None
     
     model_file = None
-    monitors = None
+    generators = None
     relative_path = None
     name = None
     trace = None

@@ -9,6 +9,7 @@
 # limitations under the License.
 
 from cosa.utils.formula_mngm import KEYWORDS
+from cosa.utils.logger import Logger
 
 class SyntacticSugarFactory(object):
     sugars = []
@@ -83,3 +84,31 @@ class ModelParsersFactory(object):
         ModelParsersFactory.init_parsers()
         return [x[1] for x in ModelParsersFactory.parsers]
 
+class GeneratorsFactory(object):
+    generators = []
+
+    # Additional generators should be registered here #
+    @staticmethod
+    def init_generators():
+        from cosa.encoders.generators import ScoreBoardGenerator, RandomGenerator
+        
+        GeneratorsFactory.register_generator(ScoreBoardGenerator())
+        GeneratorsFactory.register_generator(RandomGenerator())
+
+    @staticmethod
+    def register_generator(generator):
+        if generator.get_name() not in dict(GeneratorsFactory.generators):
+            GeneratorsFactory.generators.append((generator.get_name(), generator))
+
+    @staticmethod
+    def generator_by_name(name):
+        GeneratorsFactory.init_generators()
+        dgenerator = dict(GeneratorsFactory.generators)
+        if name not in dgenerator:
+            Logger.error("Generator \"%s\" is not registered"%name)
+        return dgenerator[name]
+
+    @staticmethod
+    def get_generators():
+        GeneratorsFactory.init_generators()
+        return [x[1] for x in GeneratorsFactory.generators]

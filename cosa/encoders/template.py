@@ -69,4 +69,22 @@ class SyntacticSugar(object):
     def adapter(self):
         Logger.error("Adapter not implemented")
         
-        
+class STSGenerator(object):
+    name = "GENERATOR"
+    description = "MISSING DESCRIPTION!"
+    interface = "MISSING INTERFACE!"
+
+    def __init__(self):
+        pass
+
+    def get_sts(self, name, params):
+        pass
+
+    def get_name(self):
+        return self.name
+
+    def get_desc(self):
+        return self.description
+
+    def get_interface(self):
+        return self.interface

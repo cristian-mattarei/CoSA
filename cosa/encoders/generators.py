@@ -10,65 +10,17 @@
 
 import math
 
-from pysmt.shortcuts import And, Or, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, BV, BVAdd
+from pysmt.shortcuts import And, Or, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, BV, BVAdd, get_type
 from pysmt.typing import BOOL, BVType, ArrayType
+from pysmt.fnode import FNode
 
+from cosa.encoders.template import STSGenerator
 from cosa.representation import TS
 from cosa.utils.logger import Logger
 
-class NotRegisteredMonitorException(Exception):
-    pass
-
-class MonitorsFactory(object):
-    monitors = []
-
-    # Additional monitors should be registered here #
-    @staticmethod
-    def init_monitors():
-        MonitorsFactory.register_monitor(ScoreBoardMonitor())
-
-    @staticmethod
-    def register_monitor(monitor):
-        if monitor.get_name() not in dict(MonitorsFactory.monitors):
-            MonitorsFactory.monitors.append((monitor.get_name(), monitor))
-
-    @staticmethod
-    def monitor_by_name(name):
-        MonitorsFactory.init_monitors()
-        dmonitor = dict(MonitorsFactory.monitors)
-        if name not in dmonitor:
-            Logger.error("Monitor \"%s\" is not registered"%name)
-        return dmonitor[name]
-
-    @staticmethod
-    def get_monitors():
-        MonitorsFactory.init_monitors()
-        return [x[1] for x in MonitorsFactory.monitors]
-
-class STSMonitor(object):
-    name = "MONITOR"
-    description = "MISSING DESCRIPTION!"
-    interface = "MISSING INTERFACE!"
-
-    def __init__(self):
-        pass
-
-    def get_sts(self, name, params):
-        pass
-
-    def get_name(self):
-        return self.name
-
-    def get_desc(self):
-        return self.description
-
-    def get_interface(self):
-        return self.interface
-    
-
-class ScoreBoardMonitor(STSMonitor):
+class ScoreBoardGenerator(STSGenerator):
     name = "Scoreboard"
-    description = "Scoreboard Monitor"
+    description = "Scoreboard Generator"
     interface = "input_port, max_value, clock"
     
     def get_sts(self, name, params):
@@ -118,3 +70,26 @@ class ScoreBoardMonitor(STSMonitor):
         ts.vars, ts.init, ts.invar, ts.trans = set([tracking, end, packet, count]), init, invar, trans
 
         return ts
+
+class RandomGenerator(STSGenerator):
+    name = "Random"
+    description = "Random Generator"
+    interface = "varsize"
+    
+    def get_sts(self, name, params):
+        ts = TS()
+        size = None
+        if type(params[0]) == str:
+            size = int(params[0])
+
+        if type(params[0]) == FNode:
+            size = get_type(params[0]).width
+            
+        assert size is not None
+
+        value = Symbol("%s.value"%name, BVType(size))
+        ts.add_var(value)
+        ts.trans = EqualsOrIff(value, TS.get_prime(value))
+
+        return ts
+    

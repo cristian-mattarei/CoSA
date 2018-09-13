@@ -11,6 +11,7 @@
 import re
 import os
 import math
+import copy
 
 VPARSER = True
 
@@ -28,6 +29,8 @@ from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
 from pysmt.walkers.identitydag import IdentityDagWalker
+from pysmt.walkers import TreeWalker
+from pysmt.walkers.dag import DagWalker
 
 from cosa.utils.logger import Logger
 from cosa.encoders.template import ModelParser
@@ -73,7 +76,8 @@ def assign_define_substitute(formula):
     subwalker.reset()
     ret = subwalker.walk(formula)
     return (ret, list(subwalker.assign_list))
-    
+
+
 class VerilogHTSParser(ModelParser):
     parser = None
     extensions = ["v"]
@@ -160,6 +164,10 @@ class VerilogSTSWalker(VerilogWalker):
     hts = None
     ts = None
     config = None
+
+    reglist = None
+    outputlist = None
+    memlist = None
     
     id_vars = 0
 
@@ -170,6 +178,9 @@ class VerilogSTSWalker(VerilogWalker):
         self.hts = HTS(modulename)
         self.ts = TS()
         self.portslist = None
+        self.reglist = []
+        self.outputlist = []
+        self.memlist = []
         if self.varmap is None: self.varmap = {}
         if self.paramdic is None: self.paramdic = {}
         if self.modulesdic is None: self.modulesdic = {} 
@@ -208,7 +219,9 @@ class VerilogSTSWalker(VerilogWalker):
 
     def Reg(self, modulename, el, args):
         width = args[0] if args is not None else 1
-        self.add_var(modulename, el.name, Symbol(self.varname(modulename, el.name), BVType(width)))
+        symbol = Symbol(self.varname(modulename, el.name), BVType(width))
+        self.add_var(modulename, el.name, symbol)
+        self.reglist.append(symbol)
         return (el.name, args)
     
     def Ioport(self, modulename, el, args):
@@ -250,6 +263,7 @@ class VerilogSTSWalker(VerilogWalker):
                     var = Symbol(self.varname(modulename, portname), BVType(width))
                     self.add_var(modulename, portname, var)
                     self.ts.add_output_var(var)
+                    self.outputlist.append(var)
                 continue
 
             if type(porttype) == Input:
@@ -278,6 +292,7 @@ class VerilogSTSWalker(VerilogWalker):
                 self.ts.add_input_var(var)
             if self.varmap[varname][1] == OUTPUT:
                 self.ts.add_output_var(var)
+                self.outputlist.append(var)
             self.varmap[varname] = var
             return var
         else:
@@ -315,6 +330,7 @@ class VerilogSTSWalker(VerilogWalker):
                 self.ts.add_input_var(var)
             elif type(direction) == Output:
                 self.ts.add_output_var(var)
+                self.outputlist.append(var)
             else:
                 self.ts.add_state_var(var)
 
@@ -328,13 +344,13 @@ class VerilogSTSWalker(VerilogWalker):
             width = args[0][0]
             vname = el.children()[0].name
             var_idxs = []
-            just = len(str(high))
             for i in range(low, high+1, 1):
-                vname_idx = "%s_%s"%(vname, str(i).rjust(just,"0"))
+                vname_idx = self.get_num_name(vname, i, high)
                 var_idx = Symbol(self.varname(modulename, vname_idx), BVType(width))
                 var_idxs.append(var_idx)
                 self.add_var(modulename, vname_idx, var_idx)
                 self.ts.add_state_var(var_idx)
+                self.memlist.append(var_idx)
 
             self.add_var(modulename, vname, var_idxs)
             self.ts.add_var(Symbol(self.varname(modulename, vname), BVType(width)))
@@ -342,6 +358,9 @@ class VerilogSTSWalker(VerilogWalker):
             return var_idxs
         
         Logger.error("Unmanaged type %s, line %d"%(type(direction), el.lineno))
+
+    def get_num_name(self, name, idx, maxval):
+        return "%s_%s"%(name, str(idx).rjust(len(str(maxval)),"0"))
         
     def Sens(self, modulename, el, args):
         if el.sig is None:
@@ -484,7 +503,41 @@ class VerilogSTSWalker(VerilogWalker):
     def Initial(self, modulename, el, args):
         self.add_init(And([And(a) for a in args]))
         return And(args)
+
+
+    def process_always(self, always_list):
+        if len(always_list) == 0:
+            return
+
+        g_always = {}
+        
+        for always in always_list:
+            for v in always:
+                if v not in g_always:
+                    g_always[v] = []
+                g_always[v] += always[v]
+
+        active_cons = set([])
             
+        for var in self.reglist+self.outputlist+self.memlist:
+            keep_value = EqualsOrIff(var, TS.get_prime(var))
+            if var not in g_always:
+                self.add_constraint(keep_value)
+                continue
+
+            all_conds = []
+            for beh in g_always[var]:
+                effect, condition = assign_define_substitute(beh[0])[0], beh[1]
+                all_conds.append(condition)
+                cons = Implies(condition, effect)
+                active_cons.add(cons)
+
+            # Behavioral constraints
+            self.add_constraint(And(active_cons))
+                
+            # Frame condition
+            self.add_constraint(Implies(Not(Or(all_conds)), keep_value))
+    
     def Always(self, modulename, el, args):
         condition, statements = args[0], args[1]
 
@@ -497,30 +550,14 @@ class VerilogSTSWalker(VerilogWalker):
         
         for i in range(len(statements)):
             statements[i] = substitute(statements[i], sensedict)
-        
-        nonblocking = And([s for s in statements if TS.has_next(s)])
-        blocking = And([s for s in statements if not TS.has_next(s)])
 
-        (blocking, ass_list_b) = assign_define_substitute(blocking)
-        (nonblocking, ass_list_nb) = assign_define_substitute(nonblocking)
+        assign_conditions = self.collect_assign_conditions(And(statements))
 
-        framed_vars = set([TS.get_ref_var(v) for v in ass_list_b+ass_list_nb])
-        
-        def gen_formula(statement):
-            if statement == TRUE():
-                return TRUE()
-            frame_cond = And([EqualsOrIff(v, TS.get_prime(v)) for v in framed_vars])
-            active = statement if condition == TRUE() else Implies(condition, statement)
-            passive = TRUE() if condition == TRUE() else Implies(Not(condition), frame_cond)
-            return And(active, passive)
+        for v in assign_conditions:
+            for i in range(len(assign_conditions[v])):
+                assign_conditions[v][i] = (assign_conditions[v][i][0], And(assign_conditions[v][i][1], condition))
 
-        blocking = gen_formula(blocking)
-        nonblocking = gen_formula(nonblocking)
-
-        self.add_invar(blocking)
-        self.add_trans(nonblocking)
-
-        return And(blocking, nonblocking) #(condition, blocking, nonblocking)
+        return assign_conditions
     
     def ForStatement(self, modulename, el, args):
 
@@ -568,8 +605,12 @@ class VerilogSTSWalker(VerilogWalker):
                 break
 
         return And(formulae)
-    
+
     def ModuleDef(self, modulename, el, args):
+        el_child = el.children()
+        always_idx = [el_child.index(p) for p in el_child if type(p) == Always]
+        self.process_always([args[i] for i in always_idx])
+        
         self.hts.add_ts(self.ts)
 
         self.portslist.sort()
@@ -724,21 +765,24 @@ class VerilogSTSWalker(VerilogWalker):
         if type(args[0]) == tuple:
             width = get_type(args[1]).width
             mem_size = args[0][1]
-            mem_locations = ["%s_%d"%(args[0][0], i) for i in range(mem_size[0], mem_size[1]+1)]
-            return mem_access(args[1], [self.varmap[v] for v in mem_locations], width)
+            mem_locations = [self.get_num_name(args[0][0], i, mem_size[1]+1) for i in range(mem_size[0], mem_size[1]+1)]
+            ma = mem_access(args[1], [self.varmap[v] for v in mem_locations], width)
+            return ma
 
         if (type(args[0]) == FNode) and (type(args[1]) == FNode):
             width_mem = get_type(args[0]).width
             width_idx = get_type(args[1]).width
             mem_locations = [BVExtract(args[0], i, i) for i in range(width_mem)]
-            return mem_access(args[1], mem_locations, width_idx)
+            ma = mem_access(args[1], mem_locations, width_idx)
+            return ma
 
         # Management of memory access
         if (type(args[0]) == list) and (type(args[1]) == FNode):
             width_mem = len(args[0])
             width_idx = get_type(args[1]).width
             mem_locations = args[0]
-            return mem_access(args[1], mem_locations, width_idx)
+            ma = mem_access(args[1], mem_locations, width_idx)
+            return ma
 
         if (type(args[0]) == list) and (type(args[1]) == int):
             return args[0][args[1]]
@@ -804,7 +848,7 @@ class VerilogSTSWalker(VerilogWalker):
             
             for i in range(args[width_idx[0]]):
                 idx_params = [(p[0], extract_port(p[1], i) if remap_ports.index(p) in args_width_idx else p[1]) for p in remap_ports]
-                idx_instance_name = "%s_%d"%(el.name, i)
+                idx_instance_name = self.get_num_name(el.name, i, args[width_idx[0]])
                 instances.append((idx_instance_name, idx_params))
         else:        
             instances = [(el.name, portargs)]
@@ -862,6 +906,74 @@ class VerilogSTSWalker(VerilogWalker):
             self.add_constraint(assign_define_substitute(el)[0])
         return TRUE()
 
+    def collect_conditions_rec(self, formula, ext_function, assign_list=[], collected={}):
+
+        if formula.is_ite():
+            listlen = len(assign_list)
+            condition, then_b, else_b = formula.args()[0], formula.args()[1], formula.args()[2]
+            (assign_list, collected) = self.collect_conditions_rec(then_b, ext_function, \
+                                                                   assign_list[:listlen]+[condition], collected)
+            (assign_list, collected) = self.collect_conditions_rec(else_b, ext_function, \
+                                                                   assign_list[:listlen]+[Not(condition)], collected)
+
+        if formula.is_implies():
+            condition, then_b = formula.args()[0], formula.args()[1]
+            (assign_list, collected) = self.collect_conditions_rec(then_b, ext_function, \
+                                                                   assign_list+[condition], collected)
+
+        if formula.is_and():
+            lstlen = len(assign_list)
+
+            for arg in formula.args():
+                (assign_list, collected) = self.collect_conditions_rec(arg, ext_function, assign_list[:lstlen], collected)
+
+        (assign_list, collected) = ext_function(formula, assign_list, collected)
+
+        return (assign_list, collected)
+
+    def collect_assign_conditions(self, formula):
+
+        def var_fun(formula, assign_list, collected):
+            if formula.is_symbol():
+                ref_var = TS.get_ref_var(formula)
+                if ref_var not in collected:
+                    collected[ref_var] = []
+                collected[ref_var].append((formula, And(assign_list)))
+            return (assign_list, collected)
+        
+        def assign_fun(formula, assign_list, collected):
+            left = formula.args()[0]
+            if formula.node_type() in [ASSIGN, DEFINE]:
+                if not left.is_symbol():
+                    fv = get_free_variables(left)
+                    mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
+                    idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
+
+                    if left.is_bv_extract():
+                        left = left.args()[0]
+                    
+                    var_conditions = self.collect_conditions_rec(left, var_fun, assign_list=[], collected={})[1]
+
+                    lstlen = len(assign_list)
+                    for var, conditions in var_conditions.items():
+                        for cond in conditions:
+                            assign_list = assign_list[:lstlen]
+                            assign_list.append(And(cond[1]))
+                            if var not in collected:
+                                collected[var] = []
+                            collected[var].append((formula, And(assign_list)))
+                else:
+                    ref_var = TS.get_ref_var(left)
+                    if ref_var not in collected:
+                        collected[ref_var] = []
+                    collected[ref_var].append((formula, And(assign_list)))
+
+            return (assign_list, collected)
+
+        (assign_list, collected) = self.collect_conditions_rec(formula, assign_fun, assign_list=[], collected={})
+        return collected
+
+    
 class SubstituteWalker(IdentityDagWalker):
 
     def set_substitute_function(self, function):

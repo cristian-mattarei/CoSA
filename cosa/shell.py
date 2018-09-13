@@ -25,10 +25,9 @@ from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
 from cosa.printers.hts import SMVHTSPrinter
-from cosa.encoders.monitors import MonitorsFactory
 from cosa.encoders.coreir import CoreIRParser
 from cosa.encoders.formulae import StringParser
-from cosa.encoders.factory import ModelParsersFactory
+from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
 from cosa.encoders.template import EncoderConfig
 from cosa.encoders.miter import Miter
 from cosa.encoders.ltl import LTLParser
@@ -74,7 +73,7 @@ class Config(object):
     incremental = True
     deterministic = False
     time = False
-    monitors = None
+    generators = None
     force_expected = False
     assume_if_true = False
 
@@ -448,10 +447,10 @@ def main():
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='comma separated list of invariant assumptions.')
 
-    # monitors = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in MonitorsFactory.get_monitors()]
+    # generators = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in GeneratorsFactory.get_generators()]
 
-    # ver_params.add_argument('--monitors', metavar='monitors', type=str, nargs='?',
-    #                     help='comma separated list of monitors instantiation. Possible types:\n%s'%("\n".join(monitors)))
+    # ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
+    #                     help='comma separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
@@ -597,7 +596,7 @@ def main():
     config.incremental = not args.ninc
     config.time = args.time
     config.no_clock = args.no_clock
-    # config.monitors = args.monitors
+    # config.generators = args.generators
     config.assume_if_true = args.assume_if_true
 
     if len(sys.argv)==1:
