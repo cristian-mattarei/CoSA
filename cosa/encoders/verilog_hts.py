@@ -364,7 +364,7 @@ class VerilogSTSWalker(VerilogWalker):
                 self.memlist.append(var_idx)
 
             self.add_var(modulename, vname, var_idxs)
-            self.ts.add_var(Symbol(self.varname(modulename, vname), BVType(width)))
+            self.ts.add_hidden_var(Symbol(self.varname(modulename, vname), BVType(width)))
                 
             return var_idxs
         

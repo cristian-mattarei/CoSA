@@ -325,6 +325,7 @@ class TS(object):
     state_vars = None
     input_vars = None
     output_vars = None
+    hidden_vars = None
     init = None
     trans = None
     invar = None
@@ -337,6 +338,7 @@ class TS(object):
         self.state_vars = set([])
         self.input_vars = set([])
         self.output_vars = set([])
+        self.hidden_vars = set([])
         self.init = TRUE()
         self.trans = TRUE()
         self.invar = TRUE()
@@ -361,6 +363,9 @@ class TS(object):
 
     def add_var(self, var):
         self.vars.add(var)
+
+    def add_hidden_var(self, var):
+        self.hidden_vars.add(var)
         
     def add_state_var(self, var):
         self.state_vars.add(var)
