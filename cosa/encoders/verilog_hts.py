@@ -504,8 +504,7 @@ class VerilogSTSWalker(VerilogWalker):
         self.add_init(And([And(a) for a in args]))
         return And(args)
 
-
-    def process_always(self, always_list):
+    def process_always(self, modulename, always_list):
         if len(always_list) == 0:
             return
 
@@ -518,8 +517,15 @@ class VerilogSTSWalker(VerilogWalker):
                 g_always[v] += always[v]
 
         active_cons = set([])
-            
-        for var in self.reglist+self.outputlist+self.memlist:
+
+        possible_ass_vars = set(self.reglist+self.outputlist+self.memlist)
+        ass_vars = set(g_always.keys())
+        diff_vars = ass_vars.difference(possible_ass_vars)
+        
+        if len(diff_vars) > 0:
+            Logger.error("Assignments to a not valid variables \"%s\""%(", ".join([v.symbol_name().replace("%s."%(modulename),"") for v in diff_vars])))
+        
+        for var in possible_ass_vars:
             keep_value = EqualsOrIff(var, TS.get_prime(var))
             if var not in g_always:
                 self.add_constraint(keep_value)
@@ -609,7 +615,7 @@ class VerilogSTSWalker(VerilogWalker):
     def ModuleDef(self, modulename, el, args):
         el_child = el.children()
         always_idx = [el_child.index(p) for p in el_child if type(p) == Always]
-        self.process_always([args[i] for i in always_idx])
+        self.process_always(modulename, [args[i] for i in always_idx])
         
         self.hts.add_ts(self.ts)
 

@@ -68,7 +68,7 @@ module Reset #(parameter SIZE = 16)
    (
     input             clk1, 
     input             clk2, 
-    input             rst, 
+    output             rst, 
     input [SIZE-1:0]  in
     );
 
