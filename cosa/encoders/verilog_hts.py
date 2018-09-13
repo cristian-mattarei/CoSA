@@ -11,7 +11,6 @@
 import re
 import os
 import math
-import copy
 
 VPARSER = True
 
@@ -36,7 +35,7 @@ from cosa.utils.logger import Logger
 from cosa.encoders.template import ModelParser
 from cosa.walkers.verilog_walker import VerilogWalker
 from cosa.representation import HTS, TS
-from cosa.utils.generic import bin_to_dec, dec_to_bin
+from cosa.utils.generic import bin_to_dec, dec_to_bin, suppress_output, restore_output
 from cosa.utils.formula_mngm import B2BV, BV2B, get_free_variables, substitute, mem_access
 from cosa.environment import Assign, Define, ASSIGN, DEFINE
 
@@ -102,7 +101,16 @@ class VerilogHTSParser(ModelParser):
             Logger.error("Module name not provided")
         
         absstrfile = os.path.abspath(strfile)
+
+        print_level = 3
+        if not Logger.level(print_level):
+            saved_stdout = suppress_output()
+        
         ast = self.parse([absstrfile])
+
+        if not Logger.level(print_level):
+            restore_output(saved_stdout)
+        
         self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
         hts.flatten()
