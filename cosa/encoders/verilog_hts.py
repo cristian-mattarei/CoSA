@@ -54,6 +54,9 @@ LEVEL = "level"
 INPUT = "input"
 OUTPUT = "output"
 
+MODPARST = "__|"
+MODPAREN = "|"
+
 class AssignDefineSubstituteWalker(IdentityDagWalker):
 
     assign_list = None
@@ -405,7 +408,7 @@ class VerilogSTSWalker(VerilogWalker):
             primedic = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) for v in get_free_variables(left) \
                              if v not in self.ts.input_vars])
             left = substitute(left, primedic)
-        
+            
         return Assign(left, right)
 
     def BlockingSubstitution(self, modulename, el, args):
@@ -431,7 +434,7 @@ class VerilogSTSWalker(VerilogWalker):
 
         if delay == 1:
             left = TS.to_next(left)
-        
+            
         return Define(left, B2BV(right))
 
     def SensList(self, modulename, el, args):
@@ -521,9 +524,11 @@ class VerilogSTSWalker(VerilogWalker):
         possible_ass_vars = set(self.reglist+self.outputlist+self.memlist)
         ass_vars = set(g_always.keys())
         diff_vars = ass_vars.difference(possible_ass_vars)
+
+        strip_name = modulename[:modulename.find(MODPARST)] if MODPARST in modulename else modulename
         
         if len(diff_vars) > 0:
-            Logger.error("Assignments to a not valid variables \"%s\""%(", ".join([v.symbol_name().replace("%s."%(modulename),"") for v in diff_vars])))
+            Logger.error("Assignment is not allowed to variables \"%s\" in module \"%s\""%(", ".join([v.symbol_name().replace("%s."%(modulename),"") for v in diff_vars]), strip_name))
         
         for var in possible_ass_vars:
             keep_value = EqualsOrIff(var, TS.get_prime(var))
@@ -839,7 +844,7 @@ class VerilogSTSWalker(VerilogWalker):
                 varmap[portarg[0]] = (get_type(portarg[1]).width, None)
 
         if len(parameterized_type) > 0:
-            param_modulename = "%s__|%s|"%(param_modulename, ",".join(parameterized_type))
+            param_modulename = "".join((param_modulename, MODPARST, ",".join(parameterized_type), MODPAREN))
 
         instances = []
 
