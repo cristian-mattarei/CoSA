@@ -8,8 +8,8 @@ module Counters #(parameter SIZE = 8)
 
 
    initial begin
-      clk1 = 0;
-      clk2 = 1;
+      clk1 = 1;
+      clk2 = 0;
       forever begin
          #1 clk1 = !clk1;
          #1 clk2 = !clk2;
@@ -23,7 +23,7 @@ module Counters #(parameter SIZE = 8)
    reg [SIZE-1:0] init2;
 
    assign init1 = 'd0;
-   assign init2 = 'd2;
+   assign init2 = 'd1;
    
    Counter #(.SIZE(SIZE)) counter_1 (.clk (clk1), .rst (rst), .out (val1), .initval (init1));
    Counter #(.SIZE(SIZE)) counter_2 (.clk (clk2), .rst (rst), .out (val2), .initval (init2));
@@ -36,7 +36,7 @@ module Counter #(parameter SIZE = 16)
    (
     input             clk,
     input             rst,
-    output [SIZE-1:0] initval,
+    input [SIZE-1:0]  initval,
     output [SIZE-1:0] out
     );
 
@@ -45,7 +45,7 @@ module Counter #(parameter SIZE = 16)
    always @(posedge clk or posedge rst)
      begin
         if (rst)
-          out = initval;
+          out <= initval;
         else
           out <= out + 1;
      end
@@ -68,21 +68,19 @@ module Reset #(parameter SIZE = 16)
    (
     input             clk1, 
     input             clk2, 
-    input             rst, 
+    output             rst, 
     input [SIZE-1:0]  in
     );
 
    always @ (posedge clk1 or posedge clk2)
-     begin
-        if (in > 'd9)
+        if (in > 'd8)
           begin
              rst = 0;
              rst <= 1;
           end
         else
           begin
-             rst = 0;
+             rst <= 0;
           end
-     end
 
 endmodule

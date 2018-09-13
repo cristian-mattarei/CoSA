@@ -952,6 +952,31 @@ class VerilogSTSWalker(VerilogWalker):
 
     def collect_assign_conditions(self, formula):
 
+        def simplify_assign_list(assign_list):
+            cp = list(conjunctive_partition(assign_list))
+            equals = [f for f in cp if f.is_equals()]
+            if len(equals) != 1:
+                return assign_list
+
+            refel = equals[0]
+            left, right = refel.args()[0], refel.args()[1]
+            pos_var = left if left.is_symbol() else right
+            pos_val = right if left.is_symbol() else left
+            
+            ret = [refel]
+            for neq in [f.args()[0] for f in cp if f.is_not()]:
+                if not neq.is_equals():
+                    return assign_list
+
+                left, right = neq.args()[0], neq.args()[1]
+                neg_var = left if left.is_symbol() else right
+                neg_val = right if left.is_symbol() else left
+
+                if not((pos_var == neg_var) & (pos_val != neg_val)):
+                    ret.append(neq)
+
+            return And(ret)
+        
         def var_fun(formula, assign_list, collected):
             if formula.is_symbol():
                 ref_var = TS.get_ref_var(formula)
@@ -977,7 +1002,9 @@ class VerilogSTSWalker(VerilogWalker):
                     for var, conditions in var_conditions.items():
                         for cond in conditions:
                             assign_list = assign_list[:lstlen]
-                            assign_list.append(And(cond[1]))
+                            newcond = And(cond[1])
+                            newcond = simplify_assign_list(newcond)
+                            assign_list.append(newcond)
                             if var not in collected:
                                 collected[var] = []
                             collected[var].append((formula, And(assign_list)))
