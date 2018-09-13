@@ -23,7 +23,7 @@ except:
 
 from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVAdd, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl
+    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
@@ -646,12 +646,45 @@ class VerilogSTSWalker(VerilogWalker):
     def Source(self, modulename, el, args):
         return args[0]
 
-    # TODO: Fix operations to manage both ints and BV
     def Divide(self, modulename, el, args):
-        return int(int(args[0])/int(args[1]))
+        left, right = args[0], args[1]
+
+        if (type(left) == int) and (type(right) == int):
+            return int(left/right)
+        
+        if (type(right) == int) and (type(left) == FNode):
+            right = BV(right, get_type(left).width)
+
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
+            
+        if (type(right) == int):
+            right = BV(right, MAXINT)
+
+        if (type(left) == int):
+            left = BV(left, MAXINT)
+            
+        return BVUDiv(left, right)
 
     def Minus(self, modulename, el, args):
-        return int(args[0])-int(args[1])
+        left, right = args[0], args[1]
+
+        if (type(left) == int) and (type(right) == int):
+            return left-right
+        
+        if (type(right) == int) and (type(left) == FNode):
+            right = BV(right, get_type(left).width)
+
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
+            
+        if (type(right) == int):
+            right = BV(right, MAXINT)
+
+        if (type(left) == int):
+            left = BV(left, MAXINT)
+            
+        return BVSub(left, right)
 
     def Plus(self, modulename, el, args):
         left, right = args[0], args[1]
@@ -662,9 +695,15 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
 
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
+            
         if (type(right) == int):
             right = BV(right, MAXINT)
-                    
+
+        if (type(left) == int):
+            left = BV(left, MAXINT)
+            
         return BVAdd(left, right)
     
     def Eq(self, modulename, el, args):
