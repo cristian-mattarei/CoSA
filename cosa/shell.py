@@ -86,8 +86,8 @@ class Config(object):
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
     if vcd_trace:
-        vcd_msg = "\n - \"%s\""%(vcd_trace)
-    Logger.log("%s saved in:\n - \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
+        vcd_msg = ", and\n - \"%s\""%(vcd_trace)
+    Logger.log("\n%s saved in:\n - \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
 
 def print_trace(msg, trace, index, prefix):
     trace_hr, trace_vcd = trace
@@ -350,7 +350,7 @@ def run_problems(problems, config):
             Logger.log("Expected: %s"%(expected), 0)
             correct = VerificationStatus.compare(VerificationStatus.convert(pbm.expected), pbm.status)
             if not correct:
-                Logger.log("ERROR: %s != %s"%(pbm.status, expected), 0)
+                Logger.log("%s != %s <<<---------| ERROR"%(pbm.status, expected), 0)
                 global_status = 1
 
         assert not(config.force_expected and (pbm.expected is None))
