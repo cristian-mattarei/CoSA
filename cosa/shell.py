@@ -36,7 +36,6 @@ from cosa.encoders.ltl import LTLParser
 from cosa.environment import reset_env
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.representation import HTS
-from cosa.system_config import config_system
 
 class Config(object):
     parser = None
@@ -87,8 +86,8 @@ class Config(object):
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
     if vcd_trace:
-        vcd_msg = " and in \"%s\""%(vcd_trace)
-    Logger.log("%s stored in \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
+        vcd_msg = "\n - \"%s\""%(vcd_trace)
+    Logger.log("%s saved in:\n - \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
 
 def print_trace(msg, trace, index, prefix):
     trace_hr, trace_vcd = trace
