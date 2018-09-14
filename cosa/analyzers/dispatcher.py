@@ -89,8 +89,14 @@ class ProblemSolver(object):
                 strgenerator = strgenerator.replace(" ","")
                 if strgenerator == "":
                     continue
-                instance = strgenerator[:strgenerator.find("="):]
-                mdef = strgenerator[strgenerator.find("=")+1:]
+
+                eqpos = strgenerator.find("=")
+                parstart = strgenerator.find("(")
+                if (parstart < eqpos) or (eqpos == -1):
+                    Logger.error("Invalid generators")
+
+                instance = strgenerator[:eqpos:]
+                mdef = strgenerator[eqpos+1:]
                 mtype = mdef.split("(")[0]
                 pars = mdef[mdef.find("(")+1:-1].split(",")
                 generator = GeneratorsFactory.generator_by_name(mtype)
