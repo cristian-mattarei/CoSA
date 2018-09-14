@@ -10,7 +10,8 @@
 
 import math
 
-from pysmt.shortcuts import And, Or, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, BV, BVAdd, BVSub, get_type, BVULT, BVUGT
+from pysmt.shortcuts import And, Or, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, \
+    BV, BVAdd, BVSub, get_type, BVULT, BVUGT, BVULE
 from pysmt.typing import BOOL, BVType, ArrayType
 from pysmt.fnode import FNode
 
@@ -19,9 +20,9 @@ from cosa.representation import TS
 from cosa.utils.logger import Logger
 from cosa.encoders.formulae import StringParser
 
-class ScoreBoardGenerator(STSGenerator):
-    name = "Scoreboard"
-    description = "Scoreboard Generator"
+class FixedScoreBoardGenerator(STSGenerator):
+    name = "FixedScoreboard"
+    description = "Scoreboard for a fifo with no pop"
     interface = "input_port, max_value, clock"
 
     def get_param_length(self):
@@ -75,9 +76,9 @@ class ScoreBoardGenerator(STSGenerator):
 
         return ts
 
-class DynamicScoreBoardGenerator(STSGenerator):
-    name = "DynamicScoreboard"
-    description = "Dynamic Scoreboard Generator"
+class ScoreBoardGenerator(STSGenerator):
+    name = "Scoreboard"
+    description = "Scoreboard for a fifo with push and pop"
     interface = "input_port, max_value, signal_push, signal_pop"
 
     def get_param_length(self):
@@ -127,6 +128,8 @@ class DynamicScoreBoardGenerator(STSGenerator):
 
         # count <= size
         invar.append(BVULE(count, size))
+        invar.append(BVULE(count, max_bvval))
+        invar.append(BVULE(size, max_bvval))
         
         # Trans definition
         

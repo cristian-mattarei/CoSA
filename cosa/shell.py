@@ -17,7 +17,9 @@ import pickle
 
 from argparse import RawTextHelpFormatter
 
-from cosa.analyzers.dispatcher import ProblemSolver
+from pysmt.shortcuts import TRUE, get_env
+
+from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
@@ -34,9 +36,7 @@ from cosa.encoders.ltl import LTLParser
 from cosa.environment import reset_env
 from cosa.problem import Problems, VerificationStatus, VerificationType
 from cosa.representation import HTS
-
-from pysmt.shortcuts import TRUE, get_env
-
+from cosa.system_config import config_system
 
 class Config(object):
     parser = None
@@ -58,16 +58,14 @@ class Config(object):
     trace_all_vars = False
     prefix = None
     run_passes = True
-    printer = None
     translate = None
     smt2file = None
-    strategy = None
-    boolean = None
+    boolean = False
     abstract_clock = False
     no_clock = False
     skip_solving = False
     pickle_file = None
-    solver_name = None
+    solver_name = "msat"
     vcd = False
     prove = False
     incremental = True
@@ -77,44 +75,14 @@ class Config(object):
     force_expected = False
     assume_if_true = False
 
+    printer = None
+    strategy = None
+    
     def __init__(self):
         HTSPrintersFactory.init_printers()
-
-        self.parser = None
-        self.strfiles = None
-        self.verbosity = 1
-        self.simulate = False
-        self.bmc_length = 10
-        self.bmc_length_min = 0
-        self.safety = None
-        self.ltl = None
-        self.properties = None
-        self.lemmas = None
-        self.assumptions = None
-        self.equivalence = None
-        self.symbolic_init = False
-        self.fsm_check = False
-        self.full_trace = False
-        self.trace_vars_change = False
-        self.trace_all_vars = False
-        self.prefix = None
-        self.run_passes = True
+        
         self.printer = HTSPrintersFactory.get_default().get_name()
-        self.translate = None
-        self.smt2file = None
         self.strategy = MCConfig.get_strategies()[0][0]
-        self.boolean = False
-        self.abstract_clock = False
-        self.no_clock = False        
-        self.skip_solving = False
-        self.pickle_file = None
-        self.solver_name = "msat"
-        self.vcd = False
-        self.prove = False
-        self.incremental = True
-        self.deterministic = False
-        self.time = False
-        self.assume_if_true = False
         
 def trace_printed(msg, hr_trace, vcd_trace):
     vcd_msg = ""
@@ -149,7 +117,7 @@ def get_file_flags(strfile):
     if "[" not in strfile:
         return (strfile, [])
     
-    (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+    (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(FILE_SP))
     return (strfile, flags)
                         
 def run_verification(config):
@@ -160,9 +128,6 @@ def run_verification(config):
     ets_parser = None
     sts_parser = None
 
-    # if config.ltl:
-    #     ltl_reset_env()
-    
     hts = HTS("Top level")
 
     encoder_config = EncoderConfig()
@@ -214,6 +179,25 @@ def run_verification(config):
         lemmas = [t[1] for t in parsed_formulae]
         hts.lemmas = lemmas
 
+    if config.generators is not None:
+
+        varsdict = dict([(var.symbol_name(), var) for var in hts.vars])
+
+        for strgenerator in config.generators.split(MODEL_SP):
+            strgenerator = strgenerator.replace(" ","")
+            if strgenerator == "":
+                continue
+            instance = strgenerator[:strgenerator.find("="):]
+            mdef = strgenerator[strgenerator.find("=")+1:]
+            mtype = mdef.split("(")[0]
+            pars = mdef[mdef.find("(")+1:-1].split(",")
+            generator = GeneratorsFactory.generator_by_name(mtype)
+            pars = [varsdict[v] if v in varsdict else v for v in pars]
+            ts = generator.get_sts(instance, pars)
+
+            hts.add_ts(ts)
+
+        
     mc_config.smt2file = config.smt2file
 
     mc_config.full_trace = config.full_trace
@@ -381,6 +365,7 @@ def run_problems(problems, config):
     return global_status
             
 def main():
+    
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
 
     config = Config()
@@ -447,10 +432,10 @@ def main():
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='comma separated list of invariant assumptions.')
 
-    # generators = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in GeneratorsFactory.get_generators()]
+    generators = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in GeneratorsFactory.get_generators()]
 
-    # ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
-    #                     help='comma separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
+    ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
+                        help='comma separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
@@ -596,7 +581,7 @@ def main():
     config.incremental = not args.ninc
     config.time = args.time
     config.no_clock = args.no_clock
-    # config.generators = args.generators
+    config.generators = args.generators
     config.assume_if_true = args.assume_if_true
 
     if len(sys.argv)==1:
@@ -641,7 +626,7 @@ def main():
                 with open(parsing_defs[i]) as f:
                     parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
             else:
-                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(FILE_SP)]
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs
 

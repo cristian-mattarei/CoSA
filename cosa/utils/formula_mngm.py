@@ -63,7 +63,7 @@ def get_free_variables(formula):
     symwalker.walk(formula)
     return symwalker.symbols
 
-KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
+KEYWORDS = ["not","xor","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \

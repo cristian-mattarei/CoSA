@@ -1,0 +1,31 @@
+[GENERAL]
+model_file: fifo_pop.sts
+
+[DEFAULT]
+trace_prefix: trace
+trace_vars_change: True
+trace_all_vars: True
+bmc_length: 40
+
+[Scoreboard_end]
+description: "Scoreboard does not reach the end value"
+formula: !sb.end
+generators: sb=Scoreboard(input, 6, (posedge(clk) & (write = 1_1)), (posedge(clk) & (read = 1_1) & (write = 0_1)))
+verification: safety
+prove: True
+expected: False
+
+[FifoCorrectness]
+description: "FIFO correctness with scoreboard"
+formula: sb.end -> (sb.packet = output)
+generators: sb=Scoreboard(input, 6, (posedge(clk) & (write = 1_1)), (posedge(clk) & (read = 1_1) & (write = 0_1)))
+verification: safety
+prove: True
+expected: Unknown
+
+[FifoSim]
+description: "Simulation"
+generators: sb=Scoreboard(input, 6, (posedge(clk) & (write = 1_1)), (posedge(clk) & (read = 1_1) & (write = 0_1)))
+verification: simulation
+bmc_length: 40
+expected: True

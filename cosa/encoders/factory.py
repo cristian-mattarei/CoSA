@@ -108,10 +108,10 @@ class GeneratorsFactory(object):
     # Additional generators should be registered here #
     @staticmethod
     def init_generators():
-        from cosa.encoders.generators import ScoreBoardGenerator, DynamicScoreBoardGenerator, RandomGenerator
+        from cosa.encoders.generators import ScoreBoardGenerator, FixedScoreBoardGenerator, RandomGenerator
         
+        GeneratorsFactory.register_generator(FixedScoreBoardGenerator())
         GeneratorsFactory.register_generator(ScoreBoardGenerator())
-        GeneratorsFactory.register_generator(DynamicScoreBoardGenerator())
         GeneratorsFactory.register_generator(RandomGenerator())
 
     @staticmethod
