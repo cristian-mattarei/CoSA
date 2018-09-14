@@ -7,7 +7,7 @@ bmc_length: 40
 [Scoreboard_end]
 description: "Scoreboard does not reach the end value"
 formula: !sb.end
-generators: sb=Scoreboard(input, 6, clk)
+generators: sb=FixedScoreboard(input, 6, clk)
 verification: safety
 prove: True
 expected: False
@@ -15,7 +15,7 @@ expected: False
 [FifoCorrectness]
 description: "FIFO correctness with scoreboard"
 formula: sb.end -> (sb.packet = output)
-generators: sb=Scoreboard(input, 6, clk)
+generators: sb=FixedScoreboard(input, 6, clk)
 verification: safety
 strategy: INT
 incremental: False
