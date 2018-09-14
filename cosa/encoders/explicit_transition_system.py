@@ -101,7 +101,7 @@ class ExplicitTSParser(ModelParser):
         comment = (T_COM + restOfLine + LineEnd())(P_COMMENT)
         emptyline = (ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
 
-        init = (Literal(T_I)(P_TYPE) + Literal(T_CL) + varname + Literal(T_EQ) + value)(P_INIT)
+        init = (Literal(T_I)(P_TYPE) + Literal(T_CL) + ((varname + Literal(T_EQ) + value) | (boolvalue)(P_VALUE)))(P_INIT)
         inits = OneOrMore(init)
 
         state = (Literal(T_S)(P_TYPE) + ((varname)(P_ID)) + Literal(T_CL) + ((varname + Literal(T_EQ) + value) | (boolvalue)(P_VALUE)))(P_STATE)
@@ -136,14 +136,18 @@ class ExplicitTSParser(ModelParser):
             if line.comment:
                 continue
             if line.init:
-                (value, typev) = self.__get_value(line.init.value)
-                ivar = def_var(line.init.varname, typev)
-
                 if T_I not in states:
                     states[T_I] = TRUE()
 
-                states[T_I] = And(states[T_I], EqualsOrIff(ivar, value))
-                init = And(init, EqualsOrIff(ivar, value))
+                if line.init.varname != "":
+                    (value, typev) = self.__get_value(line.init.value)
+                    ivar = def_var(line.init.varname, typev)
+                    state = EqualsOrIff(ivar, value)
+                else:
+                    state = TRUE() if line.init.value == T_TRUE else FALSE()
+                
+                states[T_I] = And(states[T_I], state)
+                init = And(init, state)
                 
             state = TRUE()
             if line.state:

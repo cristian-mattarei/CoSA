@@ -385,13 +385,13 @@ class VerilogSTSWalker(VerilogWalker):
         if el.type == POSEDGE:
             if self.config.abstract_clock:
                 return TRUE()
-            return And(EqualsOrIff(var, zero), EqualsOrIff(TS.get_prime(var), one))
+            return And(EqualsOrIff(TS.get_prime(var), one), EqualsOrIff(var, zero))
 
         if el.type == NEGEDGE:
             if self.config.abstract_clock:
                 Logger.warning("Unsound clock abstraction: registers with negedge behavior")
 
-            return And(EqualsOrIff(var, one), EqualsOrIff(TS.get_prime(var), zero))
+            return And(EqualsOrIff(TS.get_prime(var), zero), EqualsOrIff(var, one))
 
         if el.type == LEVEL:
             return EqualsOrIff(var, one)
@@ -529,6 +529,7 @@ class VerilogSTSWalker(VerilogWalker):
 
         active_cons = set([])
 
+        state_vars = set(self.reglist+self.memlist)
         possible_ass_vars = set(self.reglist+self.outputlist+self.memlist)
         ass_vars = set(g_always.keys())
         diff_vars = ass_vars.difference(possible_ass_vars)
@@ -540,22 +541,24 @@ class VerilogSTSWalker(VerilogWalker):
         
         for var in possible_ass_vars:
             keep_value = EqualsOrIff(var, TS.get_prime(var))
-            if var not in g_always:
-                self.add_constraint(keep_value)
+            if (var not in g_always):
+                if (var in state_vars):
+                    self.add_constraint(keep_value)
                 continue
 
             all_conds = []
             for beh in g_always[var]:
                 effect, condition = assign_define_substitute(beh[0])[0], beh[1]
+                condition = simplify(condition)
                 all_conds.append(condition)
-                cons = Implies(condition, effect)
+                cons = simplify(Implies(condition, effect))
                 active_cons.add(cons)
 
             # Behavioral constraints
             self.add_constraint(And(active_cons))
                 
             # Frame condition
-            self.add_constraint(Implies(Not(Or(all_conds)), keep_value))
+            self.add_constraint(simplify(Implies(Not(Or(all_conds)), keep_value)))
     
     def Always(self, modulename, el, args):
         condition, statements = args[0], args[1]
@@ -814,7 +817,7 @@ class VerilogSTSWalker(VerilogWalker):
 
         if type(right) == int:
             right = BV(right, get_type(left).width)
-        
+
         invar = EqualsOrIff(B2BV(left), B2BV(right))
         self.add_invar(invar)
         return el

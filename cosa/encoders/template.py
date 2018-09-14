@@ -78,8 +78,16 @@ class STSGenerator(object):
         pass
 
     def get_sts(self, name, params):
-        pass
+        if len(list(params)) != self.get_param_length():
+            Logger.error("Not correct parameters for generator \"%s\""%(self.name))
+        return self.compile_sts(name, params)
 
+    def compile_sts(name, params):
+        Logger.error("Compile STS not Implemented")
+    
+    def get_param_length(self):
+        Logger.error("Param length not Implemented")
+        
     def get_name(self):
         return self.name
 

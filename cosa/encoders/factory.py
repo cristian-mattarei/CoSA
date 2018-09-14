@@ -17,7 +17,7 @@ class SyntacticSugarFactory(object):
     # Additional syntactic sugar should be registered here #
     @staticmethod
     def init_sugar():
-        from cosa.encoders.sugar import Posedge, Negedge, Change, NoChange, MemAccess, Ones, Zero
+        from cosa.encoders.sugar import Posedge, Negedge, Change, NoChange, MemAccess, Ones, Zero, Dec2BV
     
         SyntacticSugarFactory.register_sugar(MemAccess())
         SyntacticSugarFactory.register_sugar(Posedge())
@@ -26,7 +26,8 @@ class SyntacticSugarFactory(object):
         SyntacticSugarFactory.register_sugar(NoChange())
         SyntacticSugarFactory.register_sugar(Ones())
         SyntacticSugarFactory.register_sugar(Zero())
-
+        SyntacticSugarFactory.register_sugar(Dec2BV())
+        
         for name in SyntacticSugarFactory.sugar_names():
             if name not in KEYWORDS:
                 KEYWORDS.append(name)
@@ -43,10 +44,20 @@ class SyntacticSugarFactory(object):
     @staticmethod
     def get_sugars():
         return [x[1] for x in SyntacticSugarFactory.sugars]
-    
+
+
+class VerilogEncoder(object):
+    INTERNAL = 0
+    YOSYS_BTOR = 1
+    YOSYS_COREIR = 2
+
+VERILOG_INTERNAL = VerilogEncoder.INTERNAL
+VERILOG_YOSYS_BTOR = VerilogEncoder.YOSYS_BTOR
+VERILOG_YOSYS_COREIR = VerilogEncoder.YOSYS_COREIR
         
 class ModelParsersFactory(object):
     parsers = []
+    verilog_encoder = VerilogEncoder.INTERNAL
 
     # Additional parsers should be registered here #
     @staticmethod
@@ -55,7 +66,7 @@ class ModelParsersFactory(object):
         from cosa.encoders.explicit_transition_system import ExplicitTSParser
         from cosa.encoders.btor2 import BTOR2Parser
         from cosa.encoders.coreir import CoreIRParser
-        from cosa.encoders.verilog_yosys import VerilogYosysParser
+        from cosa.encoders.verilog_yosys import VerilogYosysBtorParser
         from cosa.encoders.verilog_hts import VerilogHTSParser
         
         ModelParsersFactory.register_parser(CoreIRParser())
@@ -63,8 +74,14 @@ class ModelParsersFactory(object):
         ModelParsersFactory.register_parser(SymbolicSimpleTSParser())
         ModelParsersFactory.register_parser(ExplicitTSParser())
         ModelParsersFactory.register_parser(BTOR2Parser())
-        # ModelParsersFactory.register_parser(VerilogYosysParser())
-        ModelParsersFactory.register_parser(VerilogHTSParser())
+
+        if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
+            ModelParsersFactory.register_parser(VerilogHTSParser())
+        
+        if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_BTOR:
+            ModelParsersFactory.register_parser(VerilogYosysBtorParser())
+        if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_COREIR:
+            Loggerl.error("Not supported")
         
     @staticmethod
     def register_parser(parser):
@@ -91,9 +108,10 @@ class GeneratorsFactory(object):
     # Additional generators should be registered here #
     @staticmethod
     def init_generators():
-        from cosa.encoders.generators import ScoreBoardGenerator, RandomGenerator
+        from cosa.encoders.generators import ScoreBoardGenerator, DynamicScoreBoardGenerator, RandomGenerator
         
         GeneratorsFactory.register_generator(ScoreBoardGenerator())
+        GeneratorsFactory.register_generator(DynamicScoreBoardGenerator())
         GeneratorsFactory.register_generator(RandomGenerator())
 
     @staticmethod

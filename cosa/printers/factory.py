@@ -18,8 +18,8 @@ class HTSPrintersFactory(object):
     # Additional printers should be registered here #
     @staticmethod
     def init_printers():
-        HTSPrintersFactory.register_printer(SMVHTSPrinter(), True)
-        HTSPrintersFactory.register_printer(STSHTSPrinter(), False)
+        HTSPrintersFactory.register_printer(STSHTSPrinter(), True)
+        HTSPrintersFactory.register_printer(SMVHTSPrinter(), False)
 
     @staticmethod
     def get_default():

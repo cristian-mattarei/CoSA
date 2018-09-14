@@ -84,6 +84,24 @@ class Zero(SyntacticSugar):
             return BV(0,x)
         size = get_type(x).width
         return BV(0,size)
+
+class Dec2BV(SyntacticSugar):
+    name = "dec2bv"
+    description = "Decimal to BitVector"
+
+    def adapter(self):
+        return FunctionCallAdapter(self.Dec2BV, 60)
+
+    def Dec2BV(self, left, right):
+        if right.is_int_constant():
+            size = right.constant_value()
+        else:
+            size = get_type(right).width
+            
+        if not left.is_int_constant():
+            Logger.error("Left argument of dec2bv should be a number")
+            
+        return BV(left.constant_value(), size)
     
 class MemAccess(SyntacticSugar):
     name = "memacc"

@@ -50,7 +50,7 @@ KEYWORDS += "module wire assign else reg always endmodule end define integer gen
 KEYWORDS += "for localparam begin input output parameter posedge negedge or and if"
 KEYWORDS = KEYWORDS.split()
 
-class VerilogYosysParser(ModelParser):
+class VerilogYosysBtorParser(ModelParser):
     parser = None
     extensions = ["v"]
     name = "Verilog"
@@ -149,7 +149,7 @@ class VerilogYosysParser(ModelParser):
 
     @staticmethod        
     def get_extensions():
-        return VerilogYosysParser.extensions
+        return VerilogYosysBtorParser.extensions
 
     def remap_an2or(self, name):
         return name

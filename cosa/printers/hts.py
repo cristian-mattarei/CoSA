@@ -208,7 +208,9 @@ class STSHTSPrinter(HTSPrinter):
                     cp = self._simplify_cp(cp)
     
                 for i in range(len(cp)):
-                    f = simplify(cp[i])
+                    f = cp[i]
+                    if self.simplify:
+                        f = simplify(f)
                     if f == TRUE():
                         continue
                     self.printer(f)

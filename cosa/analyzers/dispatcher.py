@@ -89,10 +89,10 @@ class ProblemSolver(object):
                 strgenerator = strgenerator.replace(" ","")
                 if strgenerator == "":
                     continue
-                instance, mtype = strgenerator.split("=")
-                mtype, pars = mtype.split("(")
-                pars = pars[:-1].split(",")
-
+                instance = strgenerator[:strgenerator.find("="):]
+                mdef = strgenerator[strgenerator.find("=")+1:]
+                mtype = mdef.split("(")[0]
+                pars = mdef[mdef.find("(")+1:-1].split(",")
                 generator = GeneratorsFactory.generator_by_name(mtype)
                 pars = [varsdict[v] if v in varsdict else v for v in pars]
                 ts = generator.get_sts(instance, pars)
