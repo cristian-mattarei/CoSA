@@ -94,6 +94,8 @@ class Problems(object):
     boolean = None
     time = False
     assume_if_true = False
+    symbolic_init = None
+    zero_init = None
     
     def __init__(self):
         self.problems = []

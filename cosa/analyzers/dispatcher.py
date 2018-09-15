@@ -10,8 +10,6 @@
 
 import os
 
-from pysmt.shortcuts import And
-
 from cosa.problem import VerificationType
 from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
@@ -329,10 +327,11 @@ class ProblemSolver(object):
         encoder_config = EncoderConfig()
         encoder_config.abstract_clock = problems.abstract_clock
         encoder_config.symbolic_init = config.symbolic_init
+        encoder_config.zero_init = problems.zero_init or config.zero_init
         encoder_config.no_clock = problems.no_clock
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean
-        
+
         return encoder_config
         

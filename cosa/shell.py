@@ -38,7 +38,8 @@ class Config(object):
     lemmas = None
     assumptions = None
     equivalence = None
-    symbolic_init = None
+    symbolic_init = False
+    zero_init = False
     fsm_check = False
     full_trace = False
     trace_vars_change = False
@@ -177,6 +178,7 @@ def run_verification(config):
     problem.solver_name = config.solver_name
     problem.strategy = config.strategy
     problem.symbolic_init = config.symbolic_init
+    problem.zero_init = config.zero_init
     problem.time = config.time
     problem.trace_all_vars = config.trace_all_vars
     problem.trace_vars_change = config.trace_vars_change
@@ -333,8 +335,12 @@ def main():
 
     enc_params.set_defaults(symbolic_init=config.symbolic_init)
     enc_params.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
-                       help='symbolic inititial state for equivalence checking. (Default is \"%s\")'%config.symbolic_init)
+                       help='removes constraints on the initial state. (Default is \"%s\")'%config.symbolic_init)
 
+    enc_params.set_defaults(zero_init=config.zero_init)
+    enc_params.add_argument('--zero-init', dest='zero_init', action='store_true',
+                       help='sets initial state to zero. (Default is \"%s\")'%config.zero_init)
+    
     enc_params.set_defaults(boolean=config.boolean)
     enc_params.add_argument('--boolean', dest='boolean', action='store_true',
                         help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
@@ -416,6 +422,7 @@ def main():
     config.assumptions = args.assumptions
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
+    config.zero_init = args.zero_init
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
     config.bmc_length_min = args.bmc_length_min

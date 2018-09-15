@@ -23,7 +23,7 @@ except:
 
 from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl
+    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
@@ -114,6 +114,18 @@ class VerilogHTSParser(ModelParser):
         self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
         hts.flatten()
+
+        if config.zero_init:
+            ts = TS("zero-init")
+            assigns = []
+            for var in hts.state_vars:
+                if var.symbol_type().is_bv_type():
+                    assigns.append(EqualsOrIff(var, BVZero(var.bv_width())))
+                if var.symbol_type().is_bool_type():
+                    assigns.append(Not(var))
+            ts.init = And(assigns)
+            hts.add_ts(ts)
+        
         return (hts, invar_props, ltl_props)
 
     def get_extensions(self):

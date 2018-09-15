@@ -66,9 +66,9 @@ def run_translation(path):
         if parsing_defs[i] is not None:
             if os.path.isfile(parsing_defs[i]):
                 with open(parsing_defs[i]) as f:
-                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
+                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")][0]
             else:
-                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")][0]
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs
         
