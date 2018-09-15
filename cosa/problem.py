@@ -24,6 +24,7 @@ SAFETY = "safety"
 LTL = "ltl"
 EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
+DETERMINISTIC = "deterministic"
 FORMULA = "formula"
 MODEL_FILE = "model_file"
 
@@ -57,8 +58,29 @@ class VerificationType(object):
     LIVENESS = 1
     EVENTUALLY = 2
     EQUIVALENCE = 3
-    SIMULATION = 4
-    LTL = 5
+    DETERMINISTIC = 4
+    SIMULATION = 5
+    LTL = 6
+
+    @staticmethod        
+    def to_string(verification_type):
+        if verification_type == VerificationType.SAFETY:
+            return SAFETY
+        if verification_type == VerificationType.LIVENESS:
+            return LIVENESS
+        if verification_type == VerificationType.EVENTUALLY:
+            return EVENTUALLY
+        if verification_type == VerificationType.EQUIVALENCE:
+            return EQUIVALENCE
+        if verification_type == VerificationType.SIMULATION:
+            return SIMULATION
+        if verification_type == VerificationType.LTL:
+            return LTL
+        if verification_type == VerificationType.DETERMINISTIC:
+            return DETERMINISTIC
+
+        return None
+        
 
 class Problems(object):
     problems = None
@@ -187,6 +209,10 @@ class Problem(object):
             self.verification = VerificationType.EQUIVALENCE
             return
 
+        if value == DETERMINISTIC:
+            self.verification = VerificationType.DETERMINISTIC
+            return
+        
         if value == SIMULATION:
             self.verification = VerificationType.SIMULATION
             return

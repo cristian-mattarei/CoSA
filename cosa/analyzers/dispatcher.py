@@ -43,8 +43,9 @@ class ProblemSolver(object):
         pass
 
     def solve_problem(self, problem, config):
-        Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
-        Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
+        if problem.name is not None:
+            Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
+            Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
         
         sparser = StringParser()
         lparser = LTLParser()
@@ -70,17 +71,6 @@ class ProblemSolver(object):
 
         [mc_config.properties, mc_config.lemmas, mc_config.assumptions] = parsing_defs
 
-        assumps = None
-        lemmas = None
-
-        if mc_config.properties is None:
-            if problem.verification == VerificationType.SIMULATION:
-                mc_config.properties = ["True"]
-            elif problem.verification != VerificationType.EQUIVALENCE:
-                Logger.error("Property not provided")
-                
-        accepted_ver = False
-
         if problem.generators is not None:
 
             varsdict = dict([(var.symbol_name(), var) for var in problem.hts.vars])
@@ -104,8 +94,19 @@ class ProblemSolver(object):
                 ts = generator.get_sts(instance, pars)
 
                 problem.hts.add_ts(ts)
+        
+        assumps = None
+        lemmas = None
 
-        if problem.verification != VerificationType.EQUIVALENCE:
+        if mc_config.properties is None:
+            if problem.verification == VerificationType.SIMULATION:
+                mc_config.properties = ["True"]
+            elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
+                Logger.error("Property not provided")
+                
+        accepted_ver = False
+
+        if (problem.verification != VerificationType.EQUIVALENCE) and (mc_config.properties is not None):
             assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
             lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
             for ass in assumps:
@@ -119,6 +120,9 @@ class ProblemSolver(object):
 
             problem.formula = prop
 
+        if problem.verification is None:
+            return problem
+            
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
@@ -270,6 +274,11 @@ class ProblemSolver(object):
                 timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             try:
                 self.solve_problem(problem, config)
+                
+                if problem.verification is None:
+                    Logger.log("Unset verification", 2)
+                    continue
+                
                 Logger.msg(" %s\n"%problem.status, 0, not(Logger.level(1)))
 
                 if (assume_if_true) and \

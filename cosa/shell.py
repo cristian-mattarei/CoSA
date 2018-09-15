@@ -13,29 +13,17 @@
 import sys
 import argparse
 import os
-import pickle
 
 from argparse import RawTextHelpFormatter
 
-from pysmt.shortcuts import TRUE, get_env
-
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
-from cosa.analyzers.bmc_safety import BMCSafety
-from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
-from cosa.printers.hts import SMVHTSPrinter
-from cosa.encoders.coreir import CoreIRParser
-from cosa.encoders.formulae import StringParser
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
-from cosa.encoders.template import EncoderConfig
-from cosa.encoders.miter import Miter
-from cosa.encoders.ltl import LTLParser
 from cosa.environment import reset_env
-from cosa.problem import Problems, VerificationStatus, VerificationType
-from cosa.representation import HTS
+from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 
 class Config(object):
     parser = None
@@ -63,7 +51,6 @@ class Config(object):
     abstract_clock = False
     no_clock = False
     skip_solving = False
-    pickle_file = None
     solver_name = "msat"
     vcd = False
     prove = False
@@ -118,215 +105,107 @@ def get_file_flags(strfile):
     
     (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(FILE_SP))
     return (strfile, flags)
-                        
+
+def print_problem_result(pbm, config):
+    if pbm.name is None:
+        return 0
+    ret_status = 0
+
+    unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
+    Logger.log("\n** Problem %s **"%(pbm.name), 0)
+    Logger.log("Description: %s"%(pbm.description), 0)
+    Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+    if (pbm.expected is not None):
+        expected = VerificationStatus.convert(pbm.expected)
+        Logger.log("Expected: %s"%(expected), 0)
+        correct = VerificationStatus.compare(VerificationStatus.convert(pbm.expected), pbm.status)
+        if not correct:
+            Logger.log("%s != %s <<<---------| ERROR"%(pbm.status, expected), 0)
+            ret_status = 1
+
+    assert not(config.force_expected and (pbm.expected is None))
+
+    prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
+
+    if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
+        print_trace("Counterexample", pbm.trace, pbm.name, prefix)
+
+    if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+        print_trace("Execution", pbm.trace, pbm.name, prefix)
+
+    if pbm.time:
+        Logger.log("Time: %.2f sec"%(pbm.time), 0)
+
+    return ret_status
+
 def run_verification(config):
     reset_env()
     Logger.verbosity = config.verbosity
 
-    coreir_parser = None
-    ets_parser = None
-    sts_parser = None
+    ps = ProblemSolver()
+    problem = Problem()
 
-    hts = HTS("Top level")
+    if config.safety:
+        problem.verification = VerificationType.SAFETY
+    elif config.ltl:
+        problem.verification = VerificationType.LTL
+    elif config.equivalence is not None:
+        problem.verification = VerificationType.EQUIVALENCE
+        problem.equivalence = config.equivalence
+    elif config.simulate:
+        problem.verification = VerificationType.SIMULATION
+    elif config.fsm_check:
+        problem.verification = VerificationType.EQUIVALENCE
+        problem.equivalence = config.strfiles
 
-    encoder_config = EncoderConfig()
-    encoder_config.abstract_clock = config.abstract_clock
-    encoder_config.symbolic_init = config.symbolic_init
-    encoder_config.deterministic = config.deterministic
-    encoder_config.boolean = config.boolean
-    encoder_config.no_clock = config.no_clock
+    if not problem.verification == VerificationType.EQUIVALENCE:
+        problem.formula = config.properties
+
+    problem.assumptions = config.assumptions
+    problem.bmc_length = config.bmc_length
+    problem.bmc_length_min = config.bmc_length_min
+    problem.full_trace = config.full_trace
+    problem.generators = config.generators
+    problem.incremental = config.incremental
+    problem.lemmas = config.lemmas
+    problem.model_file = config.strfiles
+    problem.name = VerificationType.to_string(problem.verification)
+    problem.prefix = config.prefix
+    problem.prove = config.prove
+    problem.skip_solving = config.skip_solving
+    problem.smt2_tracing = config.smt2file
+    problem.solver_name = config.solver_name
+    problem.strategy = config.strategy
+    problem.symbolic_init = config.symbolic_init
+    problem.time = config.time
+    problem.trace_all_vars = config.trace_all_vars
+    problem.trace_vars_change = config.trace_vars_change
+    problem.vcd = config.vcd
+    problem.verbosity = config.verbosity
     
-    if config.strfiles[0][-4:] != ".pkl":
-        ps = ProblemSolver()
-        (hts, invar_props, ltl_props) = ps.parse_model("./", config.strfiles, encoder_config)
-        config.parser = ps.parser
+    problems = Problems()
+    problems.model_file = config.strfiles
+    problems.boolean = config.boolean
+    problems.no_clock = config.no_clock
+    problems.abstract_clock = config.abstract_clock
+    problems.run_coreir_passes = config.run_passes
+    problems.relative_path = "./"
 
-        if config.pickle_file:
-            Logger.msg("Pickling model to %s\n"%(config.pickle_file), 1)
-            sys.setrecursionlimit(50000)
-            with open(config.pickle_file, "wb") as f:
-                pickle.dump(hts, f)
-    else:
-        if config.pickle_file:
-            raise RuntimeError("Don't need to re-pickle the input file %s"%(config.strfile))
-
-        Logger.msg("Loading pickle file %s\n"%(config.strfile), 0)
-        with open(config.pickle_file, "rb") as f:
-            hts = pickle.load(f)
-        Logger.log("DONE", 0)
-
-    printsmv = True
-
-    mc_config = MCConfig()
-
-    sparser = StringParser()
-    sparser.remap_or2an = config.parser.remap_or2an
-    ltlparser = LTLParser()
-
-    # if equivalence checking wait to add assumptions to combined system
-    if config.assumptions is not None and config.equivalence is None:
-        Logger.log("Adding %d assumptions... "%len(config.assumptions), 1)
-        assumps = [t[1] for t in sparser.parse_formulae(config.assumptions)]
-        hts.assumptions = assumps
-
-    lemmas = None
-    if config.lemmas is not None:
-        Logger.log("Adding %d lemmas... "%len(config.lemmas), 1)
-        parsed_formulae = sparser.parse_formulae(config.lemmas)
-        if list(set([t[2] for t in parsed_formulae]))[0][0] != False:
-            Logger.error("Lemmas do not support \"next\" operators")
-        lemmas = [t[1] for t in parsed_formulae]
-        hts.lemmas = lemmas
-
-    if config.generators is not None:
-
-        varsdict = dict([(var.symbol_name(), var) for var in hts.vars])
-
-        for strgenerator in config.generators.split(MODEL_SP):
-            strgenerator = strgenerator.replace(" ","")
-            if strgenerator == "":
-                continue
-            eqpos = strgenerator.find("=")
-            parstart = strgenerator.find("(")
-            if (parstart < eqpos) or (eqpos == -1):
-                Logger.error("Invalid generators")
-                
-            instance = strgenerator[:eqpos:]
-            mdef = strgenerator[eqpos+1:]
-            mtype = mdef.split("(")[0]
-            pars = mdef[mdef.find("(")+1:-1].split(",")
-            generator = GeneratorsFactory.generator_by_name(mtype)
-            pars = [varsdict[v] if v in varsdict else v for v in pars]
-            ts = generator.get_sts(instance, pars)
-
-            hts.add_ts(ts)
-
-        
-    mc_config.smt2file = config.smt2file
-
-    mc_config.full_trace = config.full_trace
-    mc_config.trace_vars_change = config.trace_vars_change
-    mc_config.trace_all_vars = config.trace_all_vars
-    mc_config.prefix = config.prefix
-    mc_config.strategy = config.strategy
-    mc_config.skip_solving = config.skip_solving
-    mc_config.map_function = config.parser.remap_an2or
-    mc_config.solver_name = config.solver_name
-    mc_config.vcd_trace = config.vcd
-    mc_config.prove = config.prove
-    mc_config.incremental = config.incremental
-
-    if config.ltl:
-        bmc_ltl = BMCLTL(hts, mc_config)
-    else:
-        bmc_safety = BMCSafety(hts, mc_config)
+    problems.add_problem(problem)
+    ps.solve_problems(problems, config)
+    print_problem_result(problem, config)
 
     if config.translate:
         Logger.log("Writing system to \"%s\""%(config.translate), 0)
         printer = HTSPrintersFactory.printer_by_name(config.printer)
 
         props = []
-        if config.ltl:
-            props += ltlparser.parse_formulae(config.properties)
-            props += [(str(p), p, None) for p in ltl_props]
-        else:
-            props += sparser.parse_formulae(config.properties)
-            props += [(str(p), p, None) for p in invar_props]
-
+        if problem.formula is not None:
+            props.append((problem.formula.serialize(threshold=100), problem.formula, None))
         with open(config.translate, "w") as f:
-            f.write(printer.print_hts(hts, props))
+            f.write(printer.print_hts(problem.hts, props))
 
-    if config.simulate:
-        count = 0
-        if config.properties is None:
-            props = [("True", TRUE(), None)]
-        else:
-            props = sparser.parse_formulae(config.properties)
-        for (strprop, prop, _) in props:
-            Logger.log("Simulation for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_safety.simulate(prop, config.bmc_length)
-            if res == VerificationStatus.TRUE:
-                count += 1
-                print_trace("Execution", trace, count, config.prefix)
-            else:
-                Logger.log("No execution found", 0)
-
-    if config.safety:
-        count = 0
-        props = sparser.parse_formulae(config.properties)
-        props += [(str(p), p, None) for p in invar_props]
-        if len(props) == 0:
-            Logger.warning("Safety verification requires at least a property")
-            
-        for (strprop, prop, _) in props:
-            Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            res, trace, t = bmc_safety.safety(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("\nProperty is %s"%res, 0)
-            if res == VerificationStatus.FALSE:
-                count += 1
-                print_trace("Counterexample", trace, count, config.prefix)
-
-        return 0
-    
-    if config.equivalence or config.fsm_check:
-
-        if config.equivalence:
-            parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init, config.run_passes)
-
-            Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
-            hts2 = parser2.parse_file(config.equivalence)
-            Logger.log("DONE", 0)
-
-            symb = " (symbolic init)" if config.symbolic_init else ""
-            Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
-
-            if Logger.level(1):
-                print(hts2.print_statistics("System 2", Logger.level(2)))
-        else:
-            hts2 = hts
-                
-        # TODO: Make incremental solving optional
-        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)
-
-        if config.assumptions is not None:
-            Logger.log("Adding %d assumptions to combined system... "%len(config.assumptions), 1)
-            assumps = [t[1] for t in sparser.parse_formulae(config.assumptions)]
-            htseq.assumptions = assumps
-
-        # create bmc object for combined system
-        bmcseq = BMC(htseq, mc_config)
-        res, trace, t = bmcseq.safety(miter_out, config.bmc_length, config.bmc_length_min)
-
-        msg = "Systems are %s equivalent" if config.equivalence else "System is%s deterministic"
-        
-        if res == VerificationStatus.FALSE:
-            Logger.log(msg%(" not"), 0)
-            print_trace("Counterexample", trace, 1, config.prefix)
-        elif res == VerificationStatus.UNK:
-            if config.symbolic_init:
-                # strong equivalence with symbolic initial state
-                Logger.log(msg%(""), 0)
-            else:
-                Logger.log(msg%("")+" up to k=%i"%t, 0)
-        else:
-            Logger.log(msg%("")+" up to k=%i"%t, 0)
-
-    if config.ltl:
-        count = 0
-        props = ltlparser.parse_formulae(config.properties)
-        props += [(str(p), p, None) for p in ltl_props]
-        if len(props) == 0:
-            Logger.warning("LTL verification requires at least a property")
-            
-        for (strprop, prop, _) in props:
-            Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
-            res, trace, t = bmc_ltl.ltl(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("\nProperty is %s"%res, 0)
-            if res == VerificationStatus.FALSE:
-                count += 1
-                print_trace("Counterexample", trace, count, config.prefix)
-
-        return 0
+    return 0
             
 def run_problems(problems, config):
     reset_env()
@@ -341,30 +220,7 @@ def run_problems(problems, config):
     Logger.log("\n*** SUMMARY ***", 0)
 
     for pbm in pbms.problems:
-        unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
-        Logger.log("\n** Problem %s **"%(pbm.name), 0)
-        Logger.log("Description: %s"%(pbm.description), 0)
-        Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
-        if (pbm.expected is not None):
-            expected = VerificationStatus.convert(pbm.expected)
-            Logger.log("Expected: %s"%(expected), 0)
-            correct = VerificationStatus.compare(VerificationStatus.convert(pbm.expected), pbm.status)
-            if not correct:
-                Logger.log("%s != %s <<<---------| ERROR"%(pbm.status, expected), 0)
-                global_status = 1
-
-        assert not(config.force_expected and (pbm.expected is None))
-
-        prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
-        
-        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-            print_trace("Counterexample", pbm.trace, pbm.name, prefix)
-
-        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-            print_trace("Execution", pbm.trace, pbm.name, prefix)
-
-        if pbm.time:
-            Logger.log("Time: %.2f sec"%(pbm.time), 0)
+        global_status = print_problem_result(pbm, config)
             
     return global_status
             
@@ -533,10 +389,6 @@ def main():
     trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',
                         help='does not call the solver (used with --smt2 or --translate parameters).')
 
-    trans_params.set_defaults(pickle=None)
-    trans_params.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
-                       help='pickles the transition system to be loaded later.')
-
     # Debugging
 
     deb_params = parser.add_argument_group('verbosity')
@@ -575,7 +427,6 @@ def main():
     config.smt2file = args.smt2
     config.strategy = args.strategy
     config.skip_solving = args.skip_solving
-    config.pickle_file = args.pickle
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
     config.verbosity = args.verbosity
@@ -622,17 +473,6 @@ def main():
            (config.translate is not None) or\
            (config.fsm_check)):
         Logger.error("Analysis selection is necessary")
-        
-    parsing_defs = [config.properties, config.lemmas, config.assumptions]
-    for i in range(len(parsing_defs)):
-        if parsing_defs[i] is not None:
-            if os.path.isfile(parsing_defs[i]):
-                with open(parsing_defs[i]) as f:
-                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
-            else:
-                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(FILE_SP)]
-
-    [config.properties, config.lemmas, config.assumptions] = parsing_defs
 
     Logger.error_raise_exept = True
     
