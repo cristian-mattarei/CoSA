@@ -393,15 +393,16 @@ class VerilogSTSWalker(VerilogWalker):
 
         zero = BV(0, var.symbol_type().width)
         one = BV(1, var.symbol_type().width)
-        
+
         if el.type == POSEDGE:
             if self.config.abstract_clock:
-                return TRUE()
+                return EqualsOrIff(var, zero)
             return And(EqualsOrIff(TS.get_prime(var), one), EqualsOrIff(var, zero))
 
         if el.type == NEGEDGE:
             if self.config.abstract_clock:
                 Logger.warning("Unsound clock abstraction: registers with negedge behavior")
+                return EqualsOrIff(var, one)
 
             return And(EqualsOrIff(TS.get_prime(var), zero), EqualsOrIff(var, one))
 
