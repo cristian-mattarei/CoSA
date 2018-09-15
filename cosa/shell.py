@@ -77,7 +77,7 @@ def trace_printed(msg, hr_trace, vcd_trace):
         vcd_msg = ", and\n - \"%s\""%(vcd_trace)
     Logger.log("\n%s saved in:\n - \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
 
-def print_trace(msg, trace, index, prefix):
+def print_trace(msg, trace, index, prefix, tracecount):
     trace_hr, trace_vcd = trace
 
     hr_trace_file = None
@@ -94,11 +94,21 @@ def print_trace(msg, trace, index, prefix):
             with open(vcd_trace_file, "w") as f:
                 f.write(trace_vcd)
 
-        trace_printed(msg, hr_trace_file, vcd_trace_file)
-
+        if tracecount < 0:
+            trace_printed(msg, hr_trace_file, vcd_trace_file)
+            return []
+                
+        vcd_msg = ""
+        if trace_vcd:
+            vcd_msg = " and [%s]"%(tracecount+1)
+        Logger.log("%s: [%s]%s"%(msg, tracecount, vcd_msg), 0)
+                
+        return [hr_trace_file,vcd_trace_file] if trace_vcd else [hr_trace_file]
     else:
         Logger.log("%s:"%msg, 0)
         Logger.log(trace_hr, 0)
+
+    return None
 
 def get_file_flags(strfile):
     if "[" not in strfile:
@@ -107,7 +117,7 @@ def get_file_flags(strfile):
     (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(FILE_SP))
     return (strfile, flags)
 
-def print_problem_result(pbm, config):
+def print_problem_result(pbm, config, count=-1):
     if pbm.name is None:
         return 0
     ret_status = 0
@@ -128,16 +138,18 @@ def print_problem_result(pbm, config):
 
     prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
 
+    traces = []
+    
     if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-        print_trace("Counterexample", pbm.trace, pbm.name, prefix)
+        traces = print_trace("Counterexample", pbm.trace, pbm.name, prefix, count)
 
     if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-        print_trace("Execution", pbm.trace, pbm.name, prefix)
+        traces = print_trace("Execution", pbm.trace, pbm.name, prefix, count)
 
     if pbm.time:
         Logger.log("Time: %.2f sec"%(pbm.time), 0)
 
-    return ret_status
+    return (ret_status, traces)
 
 def run_verification(config):
     reset_env()
@@ -218,12 +230,19 @@ def run_problems(problems, config):
     psol.solve_problems(pbms, config)
 
     global_status = 0
+    traces = []
     
     Logger.log("\n*** SUMMARY ***", 0)
 
     for pbm in pbms.problems:
-        global_status = print_problem_result(pbm, config)
-            
+        (global_status, trace) = print_problem_result(pbm, config, len(traces)+1)
+        traces += trace
+
+    if len(traces) > 0:
+        Logger.log("\n*** TRACES ***\n", 0)
+        for trace in traces:
+            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
+        
     return global_status
             
 def main():
