@@ -108,7 +108,7 @@ def print_trace(msg, trace, index, prefix, tracecount):
         Logger.log("%s:"%msg, 0)
         Logger.log(trace_hr, 0)
 
-    return None
+    return []
 
 def get_file_flags(strfile):
     if "[" not in strfile:
