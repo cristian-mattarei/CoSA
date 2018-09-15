@@ -15,8 +15,13 @@ Installation
 
 3) ``pysmt-install --env`` to show the environment variables that need to be exported
 
-- `CoreIR`_ needs to be installed in order to support it as input format
+- `CoreIR`_ and `PyCoreIR`_ need to be installed in order to support CoreIR as input format
 .. _CoreIR: https://github.com/rdaly525/coreir
+.. _PyCoreIR: https://github.com/leonardt/pycoreir
+
+- `Icarus Verilog`_ and `Pyverilog`_ need to be installed in order to support Verilog as input format
+.. _Icarus Verilog: https://github.com/steveicarus/iverilog
+.. _Pyverilog: https://github.com/PyHDI/Pyverilog
 
 ========================
 Usage

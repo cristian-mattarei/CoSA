@@ -11,6 +11,7 @@ Supported Input Formats
 =======================
 * CoreIR (https://github.com/rdaly525/coreir)
 * BTOR2 (https://github.com/Boolector/btor2tools)
+* Verilog
 * Symbolic Transition System
 * Explicit Transition System
 
@@ -29,7 +30,7 @@ For more information visit http://github.com/cristian-mattarei/CoSA
 """
 
 setup(name='CoSA',
-      version='0.1.2',
+      version='0.1.3',
       description='CoreIR Symbolic Analyzer',
       long_description=long_description,
       url='http://github.com/cristian-mattarei/CoSA',
