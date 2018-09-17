@@ -12,6 +12,7 @@ import re
 import os
 import math
 import shutil
+import copy
 
 VPARSER = True
 
@@ -34,6 +35,7 @@ from pysmt.walkers.dag import DagWalker
 
 from cosa.utils.logger import Logger
 from cosa.encoders.template import ModelParser
+from cosa.encoders.modules import Modules
 from cosa.walkers.verilog_walker import VerilogWalker
 from cosa.representation import HTS, TS
 from cosa.utils.generic import bin_to_dec, dec_to_bin, suppress_output, restore_output
@@ -52,9 +54,9 @@ MAXINT = 64
 POSEDGE = "posedge"
 NEGEDGE = "negedge"
 LEVEL = "level"
-
 INPUT = "input"
 OUTPUT = "output"
+CLOCK = "clk"
 
 MODPARST = "__|"
 MODPAREN = "|"
@@ -95,7 +97,7 @@ class VerilogHTSParser(ModelParser):
 
     def is_available(self):
         return VPARSER and shutil.which(IVERILOG) is not None
-
+    
     def parse_file(self, strfile, config, flags=None):
         invar_props = []
         ltl_props = []
@@ -234,7 +236,19 @@ class VerilogSTSWalker(VerilogWalker):
         if modulename == "":
             return varname
         return "%s.%s"%(modulename, varname)
-    
+
+    def _add_clock_behavior(self, var, modulename):
+        varname = var.symbol_name()
+        if (CLOCK in varname) and (not self.config.no_clock):
+            if not self.config.abstract_clock:
+                Logger.log("Adding clock behavior to input \"%s\""%(varname), 1)
+                self.hts.add_ts(Modules.Clock(var))
+            else:
+                Logger.log("Adding abstract clock behavior to input \"%s\""%(varname), 1)
+                ts = TS("Clock behavior for signal \"%s\""%varname)
+                ts.invar = EqualsOrIff(var, BV(1,1))
+                self.hts.add_ts(ts)
+                
     def Paramlist(self, modulename, el, args):
         return el
 
@@ -279,6 +293,7 @@ class VerilogSTSWalker(VerilogWalker):
                     var = Symbol(self.varname(modulename, portname), BVType(width))
                     self.add_var(modulename, portname, var)
                     self.ts.add_input_var(var)
+                    self._add_clock_behavior(var, modulename)
                 continue
             
             if type(porttype) == Output:
@@ -300,6 +315,7 @@ class VerilogSTSWalker(VerilogWalker):
                     var = Symbol(self.varname(modulename, portname), BVType(width))
                     self.add_var(modulename, portname, var)
                     self.ts.add_input_var(var)
+                    self._add_clock_behavior(var, modulename)
                 continue
                     
             assert False
@@ -316,6 +332,7 @@ class VerilogSTSWalker(VerilogWalker):
             var = Symbol(self.varname(modulename,varname), BVType(size))
             if self.varmap[varname][1] == INPUT:
                 self.ts.add_input_var(var)
+                self._add_clock_behavior(var, modulename)
             if self.varmap[varname][1] == OUTPUT:
                 self.ts.add_output_var(var)
                 self.outputlist.append(var)
@@ -354,6 +371,7 @@ class VerilogSTSWalker(VerilogWalker):
 
             if type(direction) == Input:
                 self.ts.add_input_var(var)
+                self._add_clock_behavior(var, modulename)
             elif type(direction) == Output:
                 self.ts.add_output_var(var)
                 self.outputlist.append(var)
@@ -399,13 +417,13 @@ class VerilogSTSWalker(VerilogWalker):
 
         if el.type == POSEDGE:
             if self.config.abstract_clock:
-                return EqualsOrIff(var, zero)
+                return EqualsOrIff(var, one)
             return And(EqualsOrIff(TS.get_prime(var), one), EqualsOrIff(var, zero))
 
         if el.type == NEGEDGE:
             if self.config.abstract_clock:
-                Logger.warning("Unsound clock abstraction: registers with negedge behavior")
-                return EqualsOrIff(var, one)
+                Logger.warning("Clock abstraction activated with negedge behavior")
+                return EqualsOrIff(var, zero)
 
             return And(EqualsOrIff(TS.get_prime(var), zero), EqualsOrIff(var, one))
 
@@ -932,7 +950,8 @@ class VerilogSTSWalker(VerilogWalker):
 
         for (instance, actualargs) in instances:
             instancewalker = VerilogSTSWalker()
-            instancewalker.config = self.config
+            instancewalker.config = copy.deepcopy(self.config)
+            instancewalker.config.no_clock = True
             instancewalker.paramdic = dict(paramargs)
             instancewalker.varmap = varmap
             instancewalker.modulesdic = self.modulesdic

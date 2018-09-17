@@ -11,14 +11,13 @@
 import os
 
 from cosa.problem import VerificationType
-from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
-from cosa.encoders.coreir import CoreIRParser
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.problem import VerificationStatus
 from cosa.encoders.miter import Miter
+from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS
 from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
@@ -36,18 +35,18 @@ FILE_SP  = ","
 
 class ProblemSolver(object):
     parser = None
+    sparser = None
+    lparser = None
 
     def __init__(self):
-        pass
+        self.sparser = None
+        self.lparser = None
 
-    def solve_problem(self, problem, config):
+    def __solve_problem(self, problem, config):
         if problem.name is not None:
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
         
-        sparser = StringParser()
-        lparser = LTLParser()
-
         mc_config = self.problem2mc_config(problem, config)
         bmc_safety = BMCSafety(problem.hts, mc_config)
         bmc_ltl = BMCLTL(problem.hts, mc_config)
@@ -105,16 +104,16 @@ class ProblemSolver(object):
         accepted_ver = False
 
         if (problem.verification != VerificationType.EQUIVALENCE) and (mc_config.properties is not None):
-            assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
-            lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
+            assumps = [t[1] for t in self.sparser.parse_formulae(mc_config.assumptions)]
+            lemmas = [t[1] for t in self.sparser.parse_formulae(mc_config.lemmas)]
             for ass in assumps:
                 problem.hts.add_assumption(ass)
             for lemma in lemmas:
                 problem.hts.add_lemma(lemma)
             if problem.verification != VerificationType.LTL:
-                (strprop, prop, types) = sparser.parse_formulae(mc_config.properties)[0]
+                (strprop, prop, types) = self.sparser.parse_formulae(mc_config.properties)[0]
             else:
-                (strprop, prop, types) = lparser.parse_formulae(mc_config.properties)[0]
+                (strprop, prop, types) = self.lparser.parse_formulae(mc_config.properties)[0]
 
             problem.formula = prop
 
@@ -150,10 +149,10 @@ class ProblemSolver(object):
                                                      True)
 
             if mc_config.assumptions is not None:
-                assumps = [t[1] for t in sparser.parse_formulae(mc_config.assumptions)]
+                assumps = [t[1] for t in self.sparser.parse_formulae(mc_config.assumptions)]
 
             if mc_config.lemmas is not None:
-                lemmas = [t[1] for t in sparser.parse_formulae(mc_config.lemmas)]
+                lemmas = [t[1] for t in self.sparser.parse_formulae(mc_config.lemmas)]
 
             if assumps is not None:
                 for assumption in assumps:
@@ -187,7 +186,7 @@ class ProblemSolver(object):
     def parse_model(self, \
                     relative_path, \
                     model_files, \
-                    config, \
+                    encoder_config, \
                     name=None):
         
         hts = HTS("System 1")
@@ -216,7 +215,7 @@ class ProblemSolver(object):
                     Logger.error("File \"%s\" does not exist"%strfile)
 
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, config, flags)
+                (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
                 hts.combine(hts_a)
 
                 invar_props += inv_a
@@ -237,7 +236,10 @@ class ProblemSolver(object):
             Logger.error("No problems defined")
             
         encoder_config = self.problems2encoder_config(config, problems)
-            
+
+        self.sparser = StringParser(encoder_config)
+        self.lparser = LTLParser()
+        
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
@@ -271,7 +273,7 @@ class ProblemSolver(object):
             if config.time or problems.time:
                 timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             try:
-                self.solve_problem(problem, config)
+                self.__solve_problem(problem, config)
                 
                 if problem.verification is None:
                     Logger.log("Unset verification", 2)

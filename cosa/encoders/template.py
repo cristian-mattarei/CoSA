@@ -24,7 +24,7 @@ class EncoderConfig(object):
 
     def __init__(self):
         pass
-    
+
 class ModelParser(object):
     extensions = None
     name = None
@@ -55,8 +55,10 @@ class SyntacticSugar(object):
     name = "Syntactic Sugar"
     description = "MISSING DESCRIPTION!"
 
-    def __init__(self):
-        pass
+    encoder_config = None
+
+    def __init__(self, encoder_config):
+        self.encoder_config = encoder_config
 
     def get_name(self):
         return self.name

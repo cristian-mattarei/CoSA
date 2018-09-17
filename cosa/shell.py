@@ -103,7 +103,7 @@ def print_trace(msg, trace, index, prefix, tracecount):
             vcd_msg = " and [%s]"%(tracecount+1)
         Logger.log("%s: [%s]%s"%(msg, tracecount, vcd_msg), 0)
         tracelen = trace[0].length
-        Logger.log("Length: %d"%(tracelen), 0)
+        Logger.log("Trace length: %d"%(tracelen), 0)
                 
         return [hr_trace_file,vcd_trace_file] if trace_vcd else [hr_trace_file]
     else:

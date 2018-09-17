@@ -24,7 +24,11 @@ class Posedge(SyntacticSugar):
 
     def Posedge(self, x):
         if get_type(x).is_bool_type():
+            if (self.encoder_config is not None) and (self.encoder_config.abstract_clock):
+                return x
             return And(Not(x), TS.to_next(x))
+        if (self.encoder_config is not None) and (self.encoder_config.abstract_clock):
+            return EqualsOrIff(x, BV(1,1))
         return And(EqualsOrIff(x, BV(0,1)), BV2B(TS.to_next(x)))
 
 class Negedge(SyntacticSugar):
@@ -36,7 +40,11 @@ class Negedge(SyntacticSugar):
         
     def Negedge(self, x):
         if get_type(x).is_bool_type():
+            if (self.encoder_config is not None) and (self.encoder_config.abstract_clock):
+                return Not(x)
             return And(x, Not(TS.to_next(x)))
+        if (self.encoder_config is not None) and (self.encoder_config.abstract_clock):
+            return EqualsOrIff(x, BV(0,1))
         return And(BV2B(x), EqualsOrIff(TS.to_next(x), BV(0,1)))
     
 class Change(SyntacticSugar):

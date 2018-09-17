@@ -24,7 +24,7 @@ class ExtLexer(HRLexer):
         self.rules.insert(0, Rule(r"(prev)", UnaryOpAdapter(self.Prev, 100), False))
         self.rules.insert(0, Rule(r"(next)", UnaryOpAdapter(self.Next, 100), False))
 
-        SyntacticSugarFactory.init_sugar()
+        SyntacticSugarFactory.init_sugar(None)
 
         for sugar in SyntacticSugarFactory.get_sugars():
             sugar.insert_lexer_rule(self.rules)
@@ -45,8 +45,8 @@ def HRParser(env=None):
 
 class StringParser(object):
 
-    def __init__(self):
-        SyntacticSugarFactory.init_sugar()
+    def __init__(self, encoder_config=None):
+        SyntacticSugarFactory.init_sugar(encoder_config)
     
     def parse_string(self, string):
         return HRParser().parse(string)

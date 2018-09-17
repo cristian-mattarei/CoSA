@@ -268,7 +268,7 @@ class Modules(object):
         return ts
 
     @staticmethod
-    def Clock(clk):
+    def Clock(clk, initval=True):
         # INIT: clk = 0
         # TRANS: clk' = !clk
         comment = "Clock (clk) = (" + clk.symbol_name() + ")"
@@ -279,9 +279,12 @@ class Modules(object):
         else:
             clk0 = EqualsOrIff(clk, BV(0, 1))
             clk1 = EqualsOrIff(clk, BV(1, 1))
-        
-        init = clk0
 
+        if initval:
+            init = clk0
+        else:
+            init = TRUE()
+            
         invar = TRUE()
         
         if False:
