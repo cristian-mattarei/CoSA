@@ -2,7 +2,7 @@ FROM ubuntu:16.04
 WORKDIR /home/CoSA
 
 RUN apt-get update
-RUN apt-get install -y python3-pip libpcre* wget unzip build-essential python3 automake libgmp-dev curl nano python3-dev libboost-dev default-jdk libclang-dev llvm llvm-dev lbzip2 libncurses5-dev git libtool
+RUN apt-get install -y python3-pip libpcre* wget unzip build-essential python3 automake libgmp-dev curl nano python3-dev libboost-dev default-jdk libclang-dev llvm llvm-dev lbzip2 libncurses5-dev git libtool iverilog
 
 RUN wget https://github.com/pysmt/pysmt/archive/15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
 RUN unzip 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
@@ -33,6 +33,6 @@ RUN wget https://github.com/cristian-mattarei/CoSA/archive/master.zip
 RUN unzip master.zip
 RUN rm master.zip
 RUN mv CoSA-master CoSA
-RUN pip3 install pyparsing
+RUN pip3 install pyparsing pyverilog
 
 RUN ln -s /usr/bin/python3 /usr/bin/python

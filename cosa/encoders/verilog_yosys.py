@@ -53,7 +53,7 @@ KEYWORDS = KEYWORDS.split()
 class VerilogYosysBtorParser(ModelParser):
     parser = None
     extensions = ["v"]
-    name = "Verilog"
+    name = "Verilog Yosys (via BTOR)"
 
     files_from_dir = False
     single_file = True

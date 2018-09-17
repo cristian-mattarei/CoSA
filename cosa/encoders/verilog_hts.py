@@ -11,6 +11,7 @@
 import re
 import os
 import math
+import shutil
 
 VPARSER = True
 
@@ -43,6 +44,8 @@ KEYWORDS = ""
 KEYWORDS += "module wire assign else reg always endmodule end define integer generate "
 KEYWORDS += "for localparam begin input output parameter posedge negedge or and if"
 KEYWORDS = KEYWORDS.split()
+
+IVERILOG = "iverilog"
 
 MAXINT = 64
 
@@ -91,7 +94,7 @@ class VerilogHTSParser(ModelParser):
         self.walker = VerilogSTSWalker()
 
     def is_available(self):
-        return VPARSER
+        return VPARSER and shutil.which(IVERILOG) is not None
 
     def parse_file(self, strfile, config, flags=None):
         invar_props = []

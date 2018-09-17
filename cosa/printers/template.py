@@ -42,3 +42,37 @@ class HTSPrinter(object):
 
     def get_desc(self):
         return self.description
+
+# Variables starting with HIDDEN are not printed
+HIDDEN_VAR = "H__"
+    
+class TracePrinter(object):
+
+    def __init__(self):
+        pass
+
+    def print_trace(self, hts, model, length, map_function=None):
+        Logger.error("Not implemented")
+
+    def get_file_ext(self):
+        Logger.error("Not implemented")
+
+    def is_hidden(self, name):
+        return name[:len(HIDDEN_VAR)] == HIDDEN_VAR
+
+class Trace(object):
+    name = ""
+    description = ""
+    strtrace = None
+    length = None
+
+    def __init__(self, strtrace, length):
+        self.strtrace = strtrace
+        self.length = length
+
+    def __repr__(self):
+        return self.strtrace
+
+    def __str__(self):
+        return self.strtrace
+    

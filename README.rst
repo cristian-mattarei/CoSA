@@ -6,14 +6,14 @@ CoSA: CoreIR Symbolic Analyzer
 Installation
 ========================
 
-1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., `PyCoreIR`_, and `PySMT`_
+1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., `PySMT`_, `PyCoreIR`_, and `PyVerilog`_
 
 2) ``pysmt-install --msat`` to install `MathSAT5`_ solver (it provides interpolation support), or ``pysmt-install --cvc4`` for `CVC4`_ and ``pysmt-install --z3`` for `Z3`_
 
 3) ``pysmt-install --env`` to show the environment variables that need to be exported
 
 - `CoreIR`_ needs to be installed in order to support CoreIR as input format
-- `Icarus Verilog`_ and `Pyverilog`_ need to be installed in order to support Verilog as input format
+- `Icarus Verilog`_ needs to be installed in order to support Verilog as input format
 
 .. _PyCoreIR: https://github.com/leonardt/pycoreir
 .. _PySMT: https://github.com/pysmt/pysmt
@@ -23,7 +23,7 @@ Installation
 
 .. _CoreIR: https://github.com/rdaly525/coreir
 .. _Icarus Verilog: https://github.com/steveicarus/iverilog
-.. _Pyverilog: https://github.com/PyHDI/Pyverilog
+.. _PyVerilog: https://github.com/PyHDI/Pyverilog
 
 ========================
 Usage

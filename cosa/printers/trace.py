@@ -17,30 +17,18 @@ from pysmt.shortcuts import BOOL
 from cosa.representation import TS
 from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex, sort_system_variables
+from cosa.printers.template import TracePrinter, Trace
 
 NL = "\n"
 VCD_SEP = "-"
-
-# Variables starting with HIDDEN are not printed
-HIDDEN = "H__"
 
 BV = 0
 HEX = 1
 BIN = 2
 
-class TracePrinter(object):
-
-    def __init__(self):
-        pass
-
-    def print_trace(self, hts, model, length, map_function=None):
-        pass
-
-    def get_file_ext(self):
-        pass
-
-    def is_hidden(self, name):
-        return name[:len(HIDDEN)] == HIDDEN
+PRE_TRACE = "---> "
+POS_TRACE = " <---"
+STATE = "STATE"
 
 class TextTracePrinter(TracePrinter):
 
@@ -58,7 +46,8 @@ class TextTracePrinter(TracePrinter):
         trace = []
         prevass = []
 
-        trace.append("---> INIT <---")
+        # Initial state printing
+        trace.append("%sINIT%s"%(PRE_TRACE, POS_TRACE))
 
         if self.all_vars:
             varlist = list(hts.vars)
@@ -68,7 +57,7 @@ class TextTracePrinter(TracePrinter):
                 varlist = list(set(varlist).union(set(self.extra_vars)))
 
         strvarlist = [(map_function(var[0]), var[1]) for var in sort_system_variables(varlist, True) if not self.is_hidden(var[0])]
-        
+
         for var in strvarlist:
             var_0 = TS.get_timed(var[1], 0)
             if var_0 not in modeldic:
@@ -84,8 +73,10 @@ class TextTracePrinter(TracePrinter):
 
         if self.diff_only: prevass = dict(prevass)
 
+        # Success state printing
+
         for t in range(length):
-            trace.append("\n---> STATE %s <---"%(t+1))
+            trace.append("\n%s%s %d%s"%(PRE_TRACE, STATE, t+1, POS_TRACE))
 
             for var in strvarlist:
                 var_t = TS.get_timed(var[1], t+1)
@@ -113,12 +104,13 @@ class TextTracePrinter(TracePrinter):
             if loop_id >= 0: 
                 trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
 
-
-        trace = NL.join(trace)
-        return trace
+        strtrace = NL.join(trace)
+        return Trace(strtrace, length)
 
 class VCDTracePrinter(TracePrinter):
 
+    hierarchical = True
+    
     def __init__(self):
         pass
 
@@ -126,7 +118,6 @@ class VCDTracePrinter(TracePrinter):
         return ".vcd"
 
     def print_trace(self, hts, modeldic, length, map_function=None):
-        hierarchical = False
         ret = []
 
         ret.append("$date")
@@ -173,7 +164,7 @@ class VCDTracePrinter(TracePrinter):
         arr_varlist = []
         idvar = 0
         var2id = {}
-        for v in list(hts.vars):
+        for v in sort_system_variables(hts.vars):
             n = map_function(v.symbol_name())
             if self.is_hidden(v.symbol_name()):
                 continue
@@ -200,7 +191,7 @@ class VCDTracePrinter(TracePrinter):
             (varname, width) = el
             idvar = var2id[varname]
 
-            if hierarchical:
+            if self.hierarchical:
                 varname = varname.split(SEP)
                 for scope in varname[:-1]:
                     ret.append("$scope module %s $end"%scope)
@@ -240,4 +231,4 @@ class VCDTracePrinter(TracePrinter):
         # last timestep's values correctly without this change
         ret.append("#%d"%(t+1))
 
-        return NL.join(ret)
+        return Trace(NL.join(ret), length)

@@ -87,12 +87,12 @@ def print_trace(msg, trace, index, prefix, tracecount):
         if trace_hr:
             hr_trace_file = "%s-%s.txt"%(prefix, index)
             with open(hr_trace_file, "w") as f:
-                f.write(trace_hr)
+                f.write(str(trace_hr))
 
         if trace_vcd:
             vcd_trace_file = "%s-%s.vcd"%(prefix, index)
             with open(vcd_trace_file, "w") as f:
-                f.write(trace_vcd)
+                f.write(str(trace_vcd))
 
         if tracecount < 0:
             trace_printed(msg, hr_trace_file, vcd_trace_file)
@@ -102,11 +102,13 @@ def print_trace(msg, trace, index, prefix, tracecount):
         if trace_vcd:
             vcd_msg = " and [%s]"%(tracecount+1)
         Logger.log("%s: [%s]%s"%(msg, tracecount, vcd_msg), 0)
+        tracelen = trace[0].length
+        Logger.log("Length: %d"%(tracelen), 0)
                 
         return [hr_trace_file,vcd_trace_file] if trace_vcd else [hr_trace_file]
     else:
         Logger.log("%s:"%msg, 0)
-        Logger.log(trace_hr, 0)
+        Logger.log(str(trace_hr), 0)
 
     return []
 

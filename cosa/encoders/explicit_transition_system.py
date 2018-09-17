@@ -13,7 +13,7 @@ from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Impli
 from pysmt.typing import BOOL, BVType
 
 from cosa.representation import HTS, TS
-from cosa.printers.trace import HIDDEN
+from cosa.printers.template import HIDDEN_VAR
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables
 from cosa.encoders.template import ModelParser
@@ -84,7 +84,7 @@ class ExplicitTSParser(ModelParser):
 
     def new_state_id(self):
         ExplicitTSParser.state_id += 1
-        return HIDDEN+STATE_ID+str(ExplicitTSParser.state_id)+(HIDDEN[::-1])
+        return HIDDEN_VAR+STATE_ID+str(ExplicitTSParser.state_id)+(HIDDEN_VAR[::-1])
 
     def __init_parser(self):
 

@@ -20,7 +20,7 @@ from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
-from cosa.printers.trace import HIDDEN
+from cosa.printers.template import HIDDEN_VAR
 from cosa.analyzers.mcsolver import MCConfig, VerificationStrategy
 from cosa.problem import VerificationStatus
 
@@ -28,8 +28,8 @@ from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
 
 NL = "\n"
 
-EQVAR = HIDDEN+"eq_var"+HIDDEN
-HEQVAR = HIDDEN+"heq_var"+HIDDEN
+EQVAR = HIDDEN_VAR+"eq_var"+HIDDEN_VAR[::-1]
+HEQVAR = HIDDEN_VAR+"heq_var"+HIDDEN_VAR[::-1]
 
 class BMCTemporal(BMCSolver):
 
