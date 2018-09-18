@@ -125,7 +125,7 @@ def translate(hts, config, formulae=None):
     printer = HTSPrintersFactory.printer_by_name(config.printer)
     props = []
     if formulae is not None:
-        props = [(f.serialize(threshold=100), f, None) for f in formulae ]
+        props = [(f.serialize(threshold=100), f, None) for f in formulae if f is not None]
     with open(config.translate, "w") as f:
         f.write(printer.print_hts(hts, props))
 
