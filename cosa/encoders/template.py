@@ -17,7 +17,7 @@ class EncoderConfig(object):
     abstract_clock = False
     symbolic_init = False
     zero_init = False
-    no_clock = False
+    add_clock = False
     deterministic = False
     run_passes = True
     boolean = False

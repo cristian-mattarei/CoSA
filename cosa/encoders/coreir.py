@@ -469,7 +469,7 @@ class CoreIRParser(ModelParser):
                 hts.add_output_var(bvvar)
 
             # Adding clock behavior
-            if (not self.config.no_clock) and (self.CLK in var[0].lower()) and (var[1].is_input()):
+            if (self.config.add_clock) and (self.CLK in var[0].lower()) and (var[1].is_input()):
                 Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
                 ts = Modules.Clock(bvvar)
                 

@@ -320,10 +320,12 @@ class ProblemSolver(object):
             problem.hts = systems[('hts', problem.symbolic_init)]
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
             problem.abstract_clock = problems.abstract_clock
-            problem.no_clock = problems.no_clock
+            problem.add_clock = problems.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
 
+            Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(problem.abstract_clock, problem.add_clock), 2)
+            
             if problem.trace_prefix is not None:
                 problem.trace_prefix = "".join([problem.relative_path,problem.trace_prefix])
                 
@@ -386,7 +388,7 @@ class ProblemSolver(object):
         encoder_config.abstract_clock = problems.abstract_clock
         encoder_config.symbolic_init = config.symbolic_init
         encoder_config.zero_init = problems.zero_init or config.zero_init
-        encoder_config.no_clock = problems.no_clock
+        encoder_config.add_clock = problems.add_clock
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean

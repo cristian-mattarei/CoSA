@@ -249,7 +249,7 @@ class VerilogSTSWalker(VerilogWalker):
 
     def _add_clock_behavior(self, var, modulename):
         varname = var.symbol_name()
-        if (CLOCK in varname) and (not self.config.no_clock):
+        if (CLOCK in varname) and (self.config.add_clock):
             if not self.config.abstract_clock:
                 Logger.log("Adding clock behavior to input \"%s\""%(varname), 1)
                 self.hts.add_ts(Modules.Clock(var))
@@ -963,7 +963,7 @@ class VerilogSTSWalker(VerilogWalker):
         for (instance, actualargs) in instances:
             instancewalker = VerilogSTSWalker()
             instancewalker.config = copy.deepcopy(self.config)
-            instancewalker.config.no_clock = True
+            instancewalker.config.add_clock = False
             instancewalker.paramdic = dict(paramargs)
             instancewalker.varmap = varmap
             instancewalker.modulesdic = self.modulesdic

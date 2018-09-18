@@ -59,7 +59,6 @@ def revise_abstract_clock(model, abstract_clock_list):
                 
     return (newmodel, length)
 
-
 class TextTracePrinter(TracePrinter):
 
     values_base = BV

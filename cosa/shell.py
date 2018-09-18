@@ -52,7 +52,7 @@ class Config(object):
     smt2file = None
     boolean = False
     abstract_clock = False
-    no_clock = False
+    add_clock = False
     skip_solving = False
     solver_name = "msat"
     vcd = False
@@ -203,7 +203,7 @@ def run_verification(config):
     problems = Problems()
     problems.model_file = config.strfiles
     problems.boolean = config.boolean
-    problems.no_clock = config.no_clock
+    problems.add_clock = config.add_clock
     problems.abstract_clock = config.abstract_clock
     problems.run_coreir_passes = config.run_passes
     problems.relative_path = "./"
@@ -347,9 +347,9 @@ def main():
 
     enc_params = parser.add_argument_group('encoding')
 
-    enc_params.set_defaults(no_clock=False)
-    enc_params.add_argument('--no-clock', dest='no_clock', action='store_true',
-                       help='does not add the clock behavior.')
+    enc_params.set_defaults(add_clock=False)
+    enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
+                       help='adds clock behavior.')
     
     enc_params.set_defaults(abstract_clock=False)
     enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
@@ -464,7 +464,7 @@ def main():
     config.solver_name = args.solver_name
     config.incremental = not args.ninc
     config.time = args.time
-    config.no_clock = args.no_clock
+    config.add_clock = args.add_clock
     config.generators = args.generators
     config.assume_if_true = args.assume_if_true
 

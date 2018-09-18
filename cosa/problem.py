@@ -87,7 +87,7 @@ class Problems(object):
     model_file = None
     bmc_length = 10
     abstract_clock = False
-    no_clock = False
+    add_clock = False
     run_coreir_passes = True
     equivalence = None
     relative_path = None

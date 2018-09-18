@@ -1,6 +1,7 @@
 [GENERAL]
 model_file: mpe.json
 equivalence: mpe_fc.json[FC-LEMMAS]
+add_clock: True
 
 [DEFAULT]
 bmc_length: 10
