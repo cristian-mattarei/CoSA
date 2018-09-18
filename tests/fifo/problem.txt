@@ -5,7 +5,7 @@ full_trace: True
 [DEFAULT]
 bmc_length: 40
 
-[Scoreboard_end]
+[scoreboard_end]
 description: "Scoreboard does not reach the end value"
 formula: !sb.end
 generators: sb=FixedScoreboard(input, 6, clk)
@@ -13,7 +13,7 @@ verification: safety
 prove: True
 expected: False
 
-[FifoCorrectness]
+[fifocorrectness]
 description: "FIFO correctness with scoreboard"
 formula: sb.end -> (sb.packet = output)
 generators: sb=FixedScoreboard(input, 6, clk)
