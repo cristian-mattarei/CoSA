@@ -17,7 +17,7 @@ if [ ! -f "$PYSMT" ]; then
     cd ..
 else
     echo "Skipping PYSMT installation"
-    cd pysmt && pip3 install -e . && cd ..
+    cd pysmt && pip3 install -e . && pysmt-install --msat --confirm-agreement && cd ..
 fi
     
 export COREIRCONFIG="g++-4.9"
