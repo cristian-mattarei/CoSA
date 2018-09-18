@@ -59,20 +59,3 @@ class TracePrinter(object):
 
     def is_hidden(self, name):
         return name[:len(HIDDEN_VAR)] == HIDDEN_VAR
-
-class Trace(object):
-    name = ""
-    description = ""
-    strtrace = None
-    length = None
-
-    def __init__(self, strtrace, length):
-        self.strtrace = strtrace
-        self.length = length
-
-    def __repr__(self):
-        return self.strtrace
-
-    def __str__(self):
-        return self.strtrace
-    

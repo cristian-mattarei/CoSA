@@ -64,6 +64,9 @@ class VerilogYosysBtorParser(ModelParser):
     def is_available(self):
         return shutil.which(CMD) is not None
 
+    def get_model_info(self):
+        return None
+     
     def _get_extension(self, strfile):
         return strfile.split(".")[-1]
 

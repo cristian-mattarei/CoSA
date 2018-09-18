@@ -25,6 +25,18 @@ class EncoderConfig(object):
     def __init__(self):
         pass
 
+class ModelInformation(object):
+
+    abstract_clock_list = None
+    
+    def __init__(self):
+        self.abstract_clock_list = []
+
+    def combine(self, other):
+        if other is not None:
+            if other.abstract_clock_list is not None:
+                self.abstract_clock_list += other.abstract_clock_list
+    
 class ModelParser(object):
     extensions = None
     name = None
@@ -47,6 +59,9 @@ class ModelParser(object):
         Logger.error("Not implemented")
 
     def is_available(self):
+        Logger.error("Not implemented")
+
+    def get_model_info(self):
         Logger.error("Not implemented")
         
 from pysmt.parsing import Rule

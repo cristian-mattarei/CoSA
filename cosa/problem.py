@@ -179,7 +179,7 @@ class Problem(object):
     generators = None
     relative_path = None
     name = None
-    trace = None
+    traces = None
     time = None
 
     vcd = False
@@ -224,3 +224,26 @@ class Problem(object):
             return
         
         Logger.error("Unknown verification type \"%s\""%value)
+
+
+class Trace(object):
+    name = ""
+    description = ""
+    extension = None
+    strtrace = None
+    model = None
+    length = None
+    infinite = False
+    human_readable = False
+
+    def __init__(self, strtrace=None, length=None):
+        self.strtrace = strtrace
+        self.length = length
+
+    def __repr__(self):
+        return str(self.strtrace)
+
+    def __str__(self):
+        return str(self.strtrace)
+
+    

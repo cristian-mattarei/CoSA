@@ -101,7 +101,10 @@ class CoreIRParser(ModelParser):
     @staticmethod        
     def get_extensions():
         return CoreIRParser.extensions
-        
+
+    def get_model_info(self):
+        return None
+     
     def run_passes(self):
         Logger.log("Running CoreIR passes...", 1)
         print_level = 3

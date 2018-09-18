@@ -131,7 +131,10 @@ class SymbolicTSParser(ModelParser):
 
     def is_available(self):
         return True
-        
+
+    def get_model_info(self):
+        return None
+     
     def _split_list(self, lst, delimiter):
         ret = []
         sub = []

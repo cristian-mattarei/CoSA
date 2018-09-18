@@ -34,7 +34,7 @@ from pysmt.walkers import TreeWalker
 from pysmt.walkers.dag import DagWalker
 
 from cosa.utils.logger import Logger
-from cosa.encoders.template import ModelParser
+from cosa.encoders.template import ModelParser, ModelInformation
 from cosa.encoders.modules import Modules
 from cosa.walkers.verilog_walker import VerilogWalker
 from cosa.representation import HTS, TS
@@ -95,6 +95,11 @@ class VerilogHTSParser(ModelParser):
     def __init__(self):
         self.walker = VerilogSTSWalker()
 
+    def get_model_info(self):
+        model_info = ModelInformation()
+        model_info.abstract_clock_list = self.abstract_clock_list
+        return model_info
+    
     def is_available(self):
         return VPARSER and shutil.which(IVERILOG) is not None
     
@@ -118,6 +123,8 @@ class VerilogHTSParser(ModelParser):
         
         self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
+        self.abstract_clock_list = self.walker.abstract_clock_list
+        
         hts.flatten()
 
         if config.zero_init:
@@ -199,6 +206,8 @@ class VerilogSTSWalker(VerilogWalker):
     
     id_vars = 0
 
+    abstract_clock_list = None
+
     def __init__(self):
         self.reset_structures()
 
@@ -209,6 +218,7 @@ class VerilogSTSWalker(VerilogWalker):
         self.reglist = []
         self.outputlist = []
         self.memlist = []
+        self.abstract_clock_list = []
         if self.varmap is None: self.varmap = {}
         if self.paramdic is None: self.paramdic = {}
         if self.modulesdic is None: self.modulesdic = {} 
@@ -417,12 +427,14 @@ class VerilogSTSWalker(VerilogWalker):
 
         if el.type == POSEDGE:
             if self.config.abstract_clock:
+                self.abstract_clock_list.append((var, (zero, one)))
                 return EqualsOrIff(var, one)
             return And(EqualsOrIff(TS.get_prime(var), one), EqualsOrIff(var, zero))
 
         if el.type == NEGEDGE:
             if self.config.abstract_clock:
                 Logger.warning("Clock abstraction activated with negedge behavior")
+                self.abstract_clock_list.append((var, (one, zero)))
                 return EqualsOrIff(var, zero)
 
             return And(EqualsOrIff(TS.get_prime(var), zero), EqualsOrIff(var, one))

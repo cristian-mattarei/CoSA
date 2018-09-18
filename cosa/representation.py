@@ -397,6 +397,9 @@ class TS(object):
             return Symbol(v.symbol_name()[:-len(NEXT)], v.symbol_type())
         if TS.is_prev(v):
             return Symbol(v.symbol_name()[:-len(PREV)], v.symbol_type())
+        if TS.is_timed(v):
+            varname = v.symbol_name()
+            return Symbol(varname[:varname.find(AT)], v.symbol_type())
         return v
         
     @staticmethod
@@ -418,6 +421,13 @@ class TS(object):
     @staticmethod
     def get_prefix(v, pref):
         return Symbol(TS.get_prefix_name(v.symbol_name(), pref), v.symbol_type())
+
+    @staticmethod
+    def get_time(v):
+        if not TS.is_timed(v):
+            return -1
+        varname = v.symbol_name()
+        return int(varname[varname.find(AT)+len(AT):])
     
     @staticmethod
     def get_prime_name(name):

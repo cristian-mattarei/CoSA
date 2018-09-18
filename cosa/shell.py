@@ -25,6 +25,8 @@ from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 
+TRACE_PREFIX = "trace"
+
 class Config(object):
     parser = None
     strfiles = None
@@ -71,46 +73,45 @@ class Config(object):
         self.printer = HTSPrintersFactory.get_default().get_name()
         self.strategy = MCConfig.get_strategies()[0][0]
         
-def trace_printed(msg, hr_trace, vcd_trace):
-    vcd_msg = ""
-    if vcd_trace:
-        vcd_msg = ", and\n - \"%s\""%(vcd_trace)
-    Logger.log("\n%s saved in:\n - \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
+def traces_printed(msg, trace_files):
+    traces = ", and\n - ".join(["\"%s\""%f for f in trace_files])
+    Logger.log("\n%s saved in:\n - %s"%(msg, traces), 0)
+    
+def print_traces(msg, traces, index, prefix, tracecount):
+    trace_files = []
+    trace_prefix = None
+    
+    for trace in traces:
+        if prefix:
+            trace_prefix = prefix
+        else:
+            if not trace.human_readable:
+                trace_prefix = TRACE_PREFIX
+            
+        if trace_prefix:
+            trace_file = "%s-%s.%s"%(trace_prefix, index, trace.extension)
+            trace_files.append(trace_file)
+            with open(trace_file, "w") as f:
+                f.write(str(trace))
 
-def print_trace(msg, trace, index, prefix, tracecount):
-    trace_hr, trace_vcd = trace
+            if tracecount < 0:
+                continue
 
-    hr_trace_file = None
-    vcd_trace_file = None
+        else:
+            Logger.log("%s:"%msg, 0)
+            Logger.log(str(trace), 0)
 
-    if prefix:
-        if trace_hr:
-            hr_trace_file = "%s-%s.txt"%(prefix, index)
-            with open(hr_trace_file, "w") as f:
-                f.write(str(trace_hr))
-
-        if trace_vcd:
-            vcd_trace_file = "%s-%s.vcd"%(prefix, index)
-            with open(vcd_trace_file, "w") as f:
-                f.write(str(trace_vcd))
-
-        if tracecount < 0:
-            trace_printed(msg, hr_trace_file, vcd_trace_file)
-            return []
-                
-        vcd_msg = ""
-        if trace_vcd:
-            vcd_msg = " and [%s]"%(tracecount+1)
-        Logger.log("%s: [%s]%s"%(msg, tracecount, vcd_msg), 0)
-        tracelen = trace[0].length
+    if (tracecount > 0):
+        traces_idx = " and ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
+        Logger.log("%s: %s"%(msg, traces_idx), 0)
+        tracelen = traces[0].length
         Logger.log("Trace length: %d"%(tracelen), 0)
-                
-        return [hr_trace_file,vcd_trace_file] if trace_vcd else [hr_trace_file]
-    else:
-        Logger.log("%s:"%msg, 0)
-        Logger.log(str(trace_hr), 0)
-
-    return []
+            
+    if (tracecount < 0) and (len(trace_files) > 0):
+        traces_printed(msg, trace_files)
+        return []
+    
+    return trace_files
 
 def get_file_flags(strfile):
     if "[" not in strfile:
@@ -143,10 +144,10 @@ def print_problem_result(pbm, config, count=-1):
     traces = []
     
     if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-        traces = print_trace("Counterexample", pbm.trace, pbm.name, prefix, count)
+        traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
 
     if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-        traces = print_trace("Execution", pbm.trace, pbm.name, prefix, count)
+        traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
 
     if pbm.time:
         Logger.log("Time: %.2f sec"%(pbm.time), 0)
@@ -212,7 +213,7 @@ def run_verification(config):
     print_problem_result(problem, config)
 
     if config.translate:
-        Logger.log("Writing system to \"%s\""%(config.translate), 0)
+        Logger.log("\nWriting system to \"%s\""%(config.translate), 0)
         printer = HTSPrintersFactory.printer_by_name(config.printer)
 
         props = []

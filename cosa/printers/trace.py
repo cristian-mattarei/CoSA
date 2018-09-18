@@ -17,7 +17,8 @@ from pysmt.shortcuts import BOOL
 from cosa.representation import TS
 from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex, sort_system_variables
-from cosa.printers.template import TracePrinter, Trace
+from cosa.printers.template import TracePrinter
+from cosa.problem import Trace
 
 NL = "\n"
 VCD_SEP = "-"
@@ -30,6 +31,35 @@ PRE_TRACE = "---> "
 POS_TRACE = " <---"
 STATE = "STATE"
 
+def revise_abstract_clock(model, abstract_clock_list):
+    newmodel = {}
+    abs_clock = dict(abstract_clock_list)
+    length = 0
+    for var, value in model.items():
+        refvar = TS.get_ref_var(var)
+        time = TS.get_time(var)
+
+        if time > 0:
+            if refvar not in abs_clock:
+                newmodel[TS.get_timed(refvar, (time*2)-1)] = value
+                newmodel[TS.get_timed(refvar, (time*2))] = value
+            else:
+                newmodel[TS.get_timed(refvar, (time*2)-1)] = abs_clock[refvar][1]
+                if value == abs_clock[refvar][1]:
+                    newmodel[TS.get_timed(refvar, (time*2))] = abs_clock[refvar][0]
+                else:
+                    newmodel[TS.get_timed(refvar, (time*2))] = abs_clock[refvar][1]
+                if ((time*2)+1) > length:
+                    length = ((time*2))
+        else:
+            if refvar not in abs_clock:
+                newmodel[TS.get_timed(refvar, 0)] = value
+            else:
+                newmodel[TS.get_timed(refvar, 0)] = abs_clock[refvar][0]
+                
+    return (newmodel, length)
+
+
 class TextTracePrinter(TracePrinter):
 
     values_base = BV
@@ -40,9 +70,13 @@ class TextTracePrinter(TracePrinter):
         self.all_vars = False
 
     def get_file_ext(self):
-        return ".txt"
+        return "txt"
 
-    def print_trace(self, hts, modeldic, length, map_function=None, find_loop=False):
+    def print_trace(self, hts, model, length, map_function=None, find_loop=False, abstract_clock_list=None):
+        abstract_clock = (abstract_clock_list is not None) and (len(abstract_clock_list) > 0)
+        if abstract_clock:
+            (model, length) = revise_abstract_clock(model, abstract_clock_list)
+        
         trace = []
         prevass = []
 
@@ -60,10 +94,10 @@ class TextTracePrinter(TracePrinter):
 
         for var in strvarlist:
             var_0 = TS.get_timed(var[1], 0)
-            if var_0 not in modeldic:
+            if var_0 not in model:
                 prevass.append((var[0], None))
                 continue
-            varass = (var[0], modeldic[var_0])
+            varass = (var[0], model[var_0])
             if (self.values_base == HEX) and (var[1].symbol_type().is_bv_type()):
                 varass = (varass[0], dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
             if (self.values_base == BIN) and (var[1].symbol_type().is_bv_type()):
@@ -80,9 +114,9 @@ class TextTracePrinter(TracePrinter):
 
             for var in strvarlist:
                 var_t = TS.get_timed(var[1], t+1)
-                if var_t not in modeldic:
+                if var_t not in model:
                     continue
-                varass = (var[0], modeldic[var_t])
+                varass = (var[0], model[var_t])
                 if (self.values_base == HEX) and (var[1].symbol_type().is_bv_type()):
                     varass = (varass[0], dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
                 if (self.values_base == BIN) and (var[1].symbol_type().is_bv_type()):
@@ -92,11 +126,11 @@ class TextTracePrinter(TracePrinter):
                     if self.diff_only: prevass[varass[0]] = varass[1]
 
         if find_loop:
-            last_state = [(var[0], modeldic[TS.get_timed(var[1], length)]) for var in strvarlist]
+            last_state = [(var[0], model[TS.get_timed(var[1], length)]) for var in strvarlist]
             last_state.sort()
             loop_id = -1
             for i in range(length):
-                state_i = [(var[0], modeldic[TS.get_timed(var[1], i)]) for var in strvarlist]
+                state_i = [(var[0], model[TS.get_timed(var[1], i)]) for var in strvarlist]
                 state_i.sort()
                 if state_i == last_state:
                     loop_id = i
@@ -105,7 +139,9 @@ class TextTracePrinter(TracePrinter):
                 trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
 
         strtrace = NL.join(trace)
-        return Trace(strtrace, length)
+        trace = Trace(strtrace, length)
+        trace.human_readable = True
+        return trace
 
 class VCDTracePrinter(TracePrinter):
 
@@ -115,9 +151,14 @@ class VCDTracePrinter(TracePrinter):
         pass
 
     def get_file_ext(self):
-        return ".vcd"
+        return "vcd"
 
-    def print_trace(self, hts, modeldic, length, map_function=None):
+    def print_trace(self, hts, model, length, map_function=None, abstract_clock_list=None):
+        abstract_clock = (abstract_clock_list is not None) and (len(abstract_clock_list) > 0)
+
+        if abstract_clock:
+            (model, length) = revise_abstract_clock(model, abstract_clock_list)
+        
         ret = []
 
         ret.append("$date")
@@ -140,11 +181,11 @@ class VCDTracePrinter(TracePrinter):
                     d[k.constant_value()] = v.constant_value()
             return d
 
-        # TODO, use modeldic[v].array_value_assigned_values_map()
+        # TODO, use model[v].array_value_assigned_values_map()
         # to get all the array values for a counterexample trace
-        modeldic = dict([(v.symbol_name(), modeldic[v].constant_value()
+        model = dict([(v.symbol_name(), model[v].constant_value()
                           if not v.symbol_type().is_array_type()
-                          else _recover_array(modeldic[v])) for v in modeldic])
+                          else _recover_array(model[v])) for v in model])
 
         # These are the pysmt array vars
         arr_vars = list(filter(lambda v: v.symbol_type().is_array_type(), hts.vars))
@@ -156,7 +197,7 @@ class VCDTracePrinter(TracePrinter):
             indices = set()
             for t in range(length+1):
                 tname = TS.get_timed_name(map_function(name), t)
-                indices |= set((k for k in modeldic[tname]))
+                indices |= set((k for k in model[tname]))
             arr_used_indices[name] = indices
 
         # These are the vcd vars (Arrays get blown out)
@@ -214,14 +255,14 @@ class VCDTracePrinter(TracePrinter):
             for el in varlist:
                 (varname, width) = el
                 tname = TS.get_timed_name(varname, t)
-                val = modeldic[tname] if tname in modeldic else 0
+                val = model[tname] if tname in model else 0
                 ret.append("b%s v%s"%(dec_to_bin(val, width), var2id[varname]))
 
             for a in arr_vars:
                 name = a.symbol_name()
                 width = a.symbol_type().elem_type.width
                 tname = TS.get_timed_name(name, t)
-                m = modeldic[tname]
+                m = model[tname]
                 for i, v in m.items():
                     vcdname = name + "[%i]"%i
                     ret.append("b%s v%s"%(dec_to_bin(v,width),var2id[vcdname]))

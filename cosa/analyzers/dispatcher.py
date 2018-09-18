@@ -15,7 +15,7 @@ from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
-from cosa.problem import VerificationStatus
+from cosa.problem import VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS
@@ -24,7 +24,8 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicS
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
-from cosa.encoders.template import EncoderConfig
+from cosa.encoders.template import EncoderConfig, ModelInformation
+from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 
 FLAG_SR = "["
 FLAG_ST = "]"
@@ -37,11 +38,62 @@ class ProblemSolver(object):
     parser = None
     sparser = None
     lparser = None
+    model_info = None
 
     def __init__(self):
         self.sparser = None
         self.lparser = None
+        self.model_info = ModelInformation()
 
+    def __process_trace(self, hts, trace, config):
+        prevass = []
+
+        diff_only = not config.trace_vars_change
+        all_vars = config.trace_all_vars
+        txttrace_synth_clock = False
+        
+        if config.full_trace:
+            diff_only = False
+            all_vars = True
+
+        traces = []
+        abstract_clock_list = []
+
+        if txttrace_synth_clock:
+            abstract_clock_list=self.model_info.abstract_clock_list
+        
+        # Human Readable Format
+        hr_printer = TextTracePrinter()
+        #hr_printer.extra_vars = xvars
+        hr_printer.diff_only = diff_only
+        hr_printer.all_vars = all_vars
+        hr_trace = hr_printer.print_trace(hts=hts, \
+                                          model=trace.model, \
+                                          length=trace.length, \
+                                          map_function=self.parser.remap_an2or, \
+                                          find_loop=trace.infinite, \
+                                          abstract_clock_list=abstract_clock_list)
+        traceH = Trace(hr_trace, trace.length)
+        traceH.extension = hr_printer.get_file_ext()
+        traceH.human_readable = hr_trace.human_readable
+        traces.append(traceH)
+
+        # VCD format
+        vcd_trace = None
+        if config.vcd:
+            vcd_printer = VCDTracePrinter()
+            vcd_trace = vcd_printer.print_trace(hts=hts, \
+                                                model=trace.model, \
+                                                length=trace.length, \
+                                                map_function=self.parser.remap_an2or, \
+                                                abstract_clock_list=self.model_info.abstract_clock_list)
+            traceV = Trace(vcd_trace, trace.length)
+            traceV.extension = vcd_printer.get_file_ext()
+            traceV.human_readable = vcd_trace.human_readable
+            traces.append(traceV)
+
+        return traces
+        
     def __solve_problem(self, problem, config):
         if problem.name is not None:
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
@@ -132,6 +184,8 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.SIMULATION:
             accepted_ver = True
             res, trace = bmc_safety.simulate(prop, bmc_length)
+
+        hts = problem.hts
             
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
@@ -163,13 +217,15 @@ class ProblemSolver(object):
                     htseq.add_lemma(lemma)
 
             bmcseq = BMCSafety(htseq, mc_config)
+            hts = htseq
             res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
 
         if not accepted_ver:
             Logger.error("Invalid verification type")
             
         problem.status = res
-        problem.trace = trace
+        if trace is not None:
+            problem.traces = self.__process_trace(hts, trace, config)
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
@@ -216,6 +272,7 @@ class ProblemSolver(object):
 
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
                 (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
+                self.model_info.combine(parser.get_model_info())
                 hts.combine(hts_a)
 
                 invar_props += inv_a
@@ -314,7 +371,6 @@ class ProblemSolver(object):
         mc_config.strategy = config_selection(problem.strategy, config.strategy)
         mc_config.incremental = config_selection(problem.incremental, config.incremental)
         mc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
-        mc_config.map_function = self.parser.remap_an2or
         mc_config.solver_name = config_selection(problem.solver_name, config.solver_name)
         mc_config.vcd_trace = problem.vcd or config.vcd
         mc_config.prove = config_selection(problem.prove, config.prove)

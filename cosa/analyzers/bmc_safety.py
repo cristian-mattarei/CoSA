@@ -81,7 +81,7 @@ class BMCSafety(BMCSolver):
         model = self._remap_model(self.hts.vars, model, t)
         if (t > -1) and (model is not None):
             Logger.log("Execution found", 1)
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
+            trace = self.generate_trace(model, t, get_free_variables(prop))
             return (VerificationStatus.TRUE, trace)
         else:
             Logger.log("Deadlock wit k=%s"%k, 1)
@@ -276,18 +276,10 @@ class BMCSafety(BMCSolver):
                 prefix = self.config.prefix+"-ind"
 
             if res:
-                if Logger.level(2):
-                    Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
-                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 0, prefix=prefix, map_function=self.config.map_function)
-                    Logger.log("", 2)
-                    if hr_trace:
-                        Logger.log("Counterexample: \n%s"%(hr_trace), 2)
-                    else:
-                        Logger.log("", 2)
+                Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
                 return False
-            else:
-                Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
 
+            Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
             return True
 
         def check_step():
@@ -296,23 +288,11 @@ class BMCSafety(BMCSolver):
             self._add_assertion(self.solver, self.at_time(Not(lemma), 1))
 
             if self._solve(self.solver):
-                if Logger.level(2):
-                    Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
-                    if Logger.level(3):
-                        (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 1, prefix=prefix, map_function=self.config.map_function)
-                        if hr_trace or vcd_trace:
-                            vcd_msg = ""
-                            if vcd_trace:
-                                vcd_msg = " and in \"%s\""%(vcd_trace)
-                            Logger.log("Counterexample stored in \"%s\"%s"%(hr_trace, vcd_msg), 2)
-                        else:
-                            Logger.log("", 2)
+                Logger.log("Lemma \"%s\" failed for L & T -> L'"%lemma, 2)
                 return False
-            else:
-                Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 2)
 
+            Logger.log("Lemma \"%s\" holds for L & T -> L'"%lemma, 2)
             return True
-
 
         if not check_step():
             return False
@@ -607,7 +587,7 @@ class BMCSafety(BMCSolver):
             return (VerificationStatus.TRUE, None, t)
         elif model is not None:
             model = self._remap_model(self.hts.vars, model, t)
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function)
+            trace = self.generate_trace(model, t, get_free_variables(prop))
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)

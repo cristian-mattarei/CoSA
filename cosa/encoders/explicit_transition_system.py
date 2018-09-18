@@ -73,7 +73,10 @@ class ExplicitTSParser(ModelParser):
 
     def is_available(self):
         return True
-        
+
+    def get_model_info(self):
+        return None
+     
     def parse_string(self, strinput):
         lines = []
         for line in strinput.split(T_NL):
