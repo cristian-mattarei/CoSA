@@ -8,9 +8,9 @@ RUN wget https://github.com/pysmt/pysmt/archive/master.zip
 RUN unzip master.zip
 RUN rm master.zip
 RUN mv pysmt-master pysmt
-RUN cd pysmt && pip3 install -e .
-RUN pysmt-install --msat --confirm-agreement
-RUN pysmt-install --env >> ~/.bashrc
+RUN cd pysmt && pip3 install -e . && pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
+ENV PYTHONPATH="/home/CoSA/pysmt/bindings:${PYTHONPATH}"
+ENV LD_LIBRARY_PATH="/home/CoSA/pysmt/bindings:${LD_LIBRARY_PATH}"
 
 RUN wget https://github.com/rdaly525/coreir/archive/master.zip
 RUN unzip master.zip
