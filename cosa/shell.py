@@ -222,7 +222,7 @@ def run_verification(config):
     print_problem_result(problem, config)
 
     if config.translate:
-        translate(problem.hts, config, problem.formula)
+        translate(problem.hts, config, [problem.formula])
 
     return 0
             
