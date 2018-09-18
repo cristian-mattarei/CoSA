@@ -6,10 +6,10 @@ PYSMT="`pwd`/pysmt/setup.py"
 
 if [ ! -f "$PYSMT" ]; then
     rm -fr pysmt*
-    wget https://github.com/pysmt/pysmt/archive/15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
-    unzip 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
-    rm 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
-    mv pysmt-15f039f8a2c84b5d8aea10b35d83d3c370b142b6 pysmt
+    wget https://github.com/pysmt/pysmt/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv pysmt-master pysmt
     cd pysmt
     pip3 install -e .
     pysmt-install --msat --confirm-agreement
