@@ -3,6 +3,7 @@
 PYCOREIR="`pwd`/pycoreir/setup.py"
 COREIR="`pwd`/coreir/Makefile"
 PYSMT="`pwd`/pysmt/setup.py"
+BITVECTOR="`pwd`/bit_vector/setup.py"
 
 if [ ! -f "$PYSMT" ]; then
     rm -fr pysmt*
@@ -33,7 +34,20 @@ else
     echo "Skipping COREIR installation"
     cd coreir && sudo make install && cd ..
 fi
-    
+
+if [ ! -f "$BITVECTOR" ]; then
+    rm -fr bit_vector*
+    wget https://github.com/leonardt/bit_vector/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv bit_vector-master bit_vector
+    cd bit_vector
+    pip3 install -e .
+else
+    echo "Skipping BIT_VECTOR installation"
+    cd bit_vector && pip3 install -e . && cd ..
+fi
+
 if [ ! -f "$PYCOREIR" ]; then
     rm -fr pycoreir*
     wget https://github.com/leonardt/pycoreir/archive/master.zip
