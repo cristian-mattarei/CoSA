@@ -13,11 +13,11 @@ if [ ! -f "$PYSMT" ]; then
     mv pysmt-master pysmt
     cd pysmt
     pip3 install -e .
-    pysmt-install --msat --confirm-agreement
+    pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
     cd ..
 else
     echo "Skipping PYSMT installation"
-    cd pysmt && pip3 install -e . && pysmt-install --msat --confirm-agreement && cd ..
+    cd pysmt && pip3 install -e . && cd ..
 fi
     
 export COREIRCONFIG="g++-4.9"
