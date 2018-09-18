@@ -1,5 +1,6 @@
 [GENERAL]
 model_file: fifo.sts
+full_trace: True
 
 [DEFAULT]
 bmc_length: 40

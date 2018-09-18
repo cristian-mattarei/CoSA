@@ -96,6 +96,9 @@ class Problems(object):
     assume_if_true = False
     symbolic_init = None
     zero_init = None
+    full_trace = False
+    trace_vars_change = False
+    trace_all_vars = False
     
     def __init__(self):
         self.problems = []
@@ -235,6 +238,7 @@ class Trace(object):
     length = None
     infinite = False
     human_readable = False
+    prop_vars = None
 
     def __init__(self, strtrace=None, length=None):
         self.strtrace = strtrace

@@ -45,14 +45,19 @@ class ProblemSolver(object):
         self.lparser = None
         self.model_info = ModelInformation()
 
-    def __process_trace(self, hts, trace, config):
+    def __process_trace(self, hts, trace, config, problem):
         prevass = []
 
-        diff_only = not config.trace_vars_change
-        all_vars = config.trace_all_vars
-        txttrace_synth_clock = False
+        full_trace = problem.full_trace or config.full_trace
+        trace_vars_change = problem.trace_vars_change or config.trace_vars_change
+        trace_all_vars = problem.trace_all_vars or config.trace_all_vars
+
+        diff_only = not trace_vars_change
+        all_vars = trace_all_vars
         
-        if config.full_trace:
+        txttrace_synth_clock = False
+
+        if full_trace:
             diff_only = False
             all_vars = True
 
@@ -64,7 +69,7 @@ class ProblemSolver(object):
         
         # Human Readable Format
         hr_printer = TextTracePrinter()
-        #hr_printer.extra_vars = xvars
+        hr_printer.prop_vars = trace.prop_vars
         hr_printer.diff_only = diff_only
         hr_printer.all_vars = all_vars
         hr_trace = hr_printer.print_trace(hts=hts, \
@@ -225,7 +230,7 @@ class ProblemSolver(object):
             
         problem.status = res
         if trace is not None:
-            problem.traces = self.__process_trace(hts, trace, config)
+            problem.traces = self.__process_trace(hts, trace, config, problem)
 
         if problem.assumptions is not None:
             problem.hts.assumptions = None
@@ -324,6 +329,13 @@ class ProblemSolver(object):
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
 
+            if not problem.full_trace:
+                problem.full_trace = problems.full_trace
+            if not problem.trace_vars_change:
+                problem.trace_vars_change = problems.trace_vars_change
+            if not problem.trace_all_vars:
+                problem.trace_all_vars = problems.trace_all_vars
+
             Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(problem.abstract_clock, problem.add_clock), 2)
             
             if problem.trace_prefix is not None:
@@ -366,9 +378,6 @@ class ProblemSolver(object):
         config_selection = lambda problem, config: config if problem is None else problem
         
         mc_config.smt2file = config_selection(problem.smt2_tracing, config.smt2file)
-        mc_config.full_trace = problem.full_trace or config.full_trace
-        mc_config.trace_vars_change = problem.trace_vars_change or config.trace_vars_change
-        mc_config.trace_all_vars = problem.trace_all_vars or config.trace_all_vars
         mc_config.prefix = problem.name
         mc_config.strategy = config_selection(problem.strategy, config.strategy)
         mc_config.incremental = config_selection(problem.incremental, config.incremental)

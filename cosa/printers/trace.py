@@ -64,7 +64,7 @@ class TextTracePrinter(TracePrinter):
     values_base = BV
     
     def __init__(self):
-        self.extra_vars = None
+        self.prop_vars = None
         self.diff_only = True
         self.all_vars = False
 
@@ -86,8 +86,8 @@ class TextTracePrinter(TracePrinter):
             varlist = list(hts.vars)
         else:
             varlist = list(hts.input_vars.union(hts.output_vars))
-            if self.extra_vars is not None:
-                varlist = list(set(varlist).union(set(self.extra_vars)))
+            if self.prop_vars is not None:
+                varlist = list(set(varlist).union(set(self.prop_vars)))
 
         strvarlist = [(map_function(var[0]), var[1]) for var in sort_system_variables(varlist, True) if not self.is_hidden(var[0])]
 

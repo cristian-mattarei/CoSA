@@ -41,11 +41,7 @@ class MCConfig(object):
     smt2file = None
     simplify = False
     solver_name = None
-    vcd_trace = None
     prove = None
-    full_trace = False
-    trace_vars_change = False
-    trace_all_vars = False
 
     def __init__(self):
         self.incremental = True
@@ -54,11 +50,7 @@ class MCConfig(object):
         self.prefix = None
         self.smt2file = None
         self.simplify = False
-        self.vcd_trace = False
         self.prove = False
-        self.full_trace = False
-        self.trace_vars_change = False
-        self.trace_all_vars = False
 
         self.strategies = MCConfig.get_strategies()
 
@@ -425,6 +417,7 @@ class BMCSolver(object):
         trace.model = model
         trace.length = length
         trace.infinite = find_loop
+        trace.prop_vars = xvars
         
         return trace
     
