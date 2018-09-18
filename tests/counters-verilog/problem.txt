@@ -1,7 +1,6 @@
 [GENERAL]
 model_file: Counters.v[Counters]
 assume_if_true: True
-add_clock: True
 
 [DEFAULT]
 bmc_length: 40
