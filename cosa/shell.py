@@ -120,6 +120,15 @@ def get_file_flags(strfile):
     (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(FILE_SP))
     return (strfile, flags)
 
+def translate(hts, config, formulae=None):
+    Logger.log("\nWriting system to \"%s\""%(config.translate), 0)
+    printer = HTSPrintersFactory.printer_by_name(config.printer)
+    props = []
+    if formulae is not None:
+        props = [(f.serialize(threshold=100), f, None) for f in formulae ]
+    with open(config.translate, "w") as f:
+        f.write(printer.print_hts(hts, props))
+
 def print_problem_result(pbm, config, count=-1):
     if pbm.name is None:
         return 0
@@ -213,14 +222,7 @@ def run_verification(config):
     print_problem_result(problem, config)
 
     if config.translate:
-        Logger.log("\nWriting system to \"%s\""%(config.translate), 0)
-        printer = HTSPrintersFactory.printer_by_name(config.printer)
-
-        props = []
-        if problem.formula is not None:
-            props.append((problem.formula.serialize(threshold=100), problem.formula, None))
-        with open(config.translate, "w") as f:
-            f.write(printer.print_hts(problem.hts, props))
+        translate(problem.hts, config, problem.formula)
 
     return 0
             
@@ -237,15 +239,20 @@ def run_problems(problems, config):
     
     Logger.log("\n*** SUMMARY ***", 0)
 
+    formulae = []
     for pbm in pbms.problems:
         (global_status, trace) = print_problem_result(pbm, config, len(traces)+1)
         traces += trace
+        formulae.append(pbm.formula)
 
     if len(traces) > 0:
         Logger.log("\n*** TRACES ***\n", 0)
         for trace in traces:
             Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
-        
+
+    if config.translate:
+        translate(pbms.problems[0].hts, config, formulae)
+            
     return global_status
             
 def main():
@@ -472,6 +479,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    if args.printer in [str(x.get_name()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]:
+        config.printer = args.printer
+    else:
+        Logger.error("Printer \"%s\" not found"%(args.printer))
+        
     if args.problems:
         if args.debug:
             sys.exit(run_problems(args.problems, config))
@@ -486,11 +498,6 @@ def main():
             
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
-
-    if args.printer in [str(x.get_name()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]:
-        config.printer = args.printer
-    else:
-        Logger.error("Printer \"%s\" not found"%(args.printer))
 
     if args.strategy not in [s[0] for s in MCConfig.get_strategies()]:
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
