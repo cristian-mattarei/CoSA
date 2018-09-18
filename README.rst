@@ -1,3 +1,6 @@
+.. figure:: http://www.mattarei.eu/cristian/images/CoSA-logo_small.png
+   :align: center
+   
 CoSA: CoreIR Symbolic Analyzer
 ========================
 
