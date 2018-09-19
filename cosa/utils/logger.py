@@ -12,6 +12,8 @@ import sys
 import time
 import inspect
 
+ERROR = "ERROR: "
+
 class Logger(object):
     verbosity = 0
     linenum_verbosity = 5
@@ -74,16 +76,16 @@ class Logger(object):
             Logger.newline = True
 
     @staticmethod        
-    def error(msg):
+    def error(msg, raise_exception=True):
         if not Logger.newline:
             sys.stderr.write("\n")
             Logger.newline = True
-        if not Logger.error_raise_exept:
-            sys.stderr.write("ERROR: "+msg+"\n")
+        if not (Logger.error_raise_exept and raise_exception):
+            sys.stderr.write("%s%s\n"%(ERROR, msg))
             sys.stderr.flush()
-            sys.exit(0)
+            sys.exit(1)
             
-        raise RuntimeError("ERROR: "+msg+"\n")
+        raise RuntimeError(msg)
 
     @staticmethod        
     def warning(msg):
