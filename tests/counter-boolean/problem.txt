@@ -4,7 +4,7 @@ boolean: True
 add_clock: True
 
 [DEFAULT]
-bmc_length: 40
+bmc_length: 20
 
 [Globally]
 description: "Globally Check"

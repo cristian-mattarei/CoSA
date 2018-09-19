@@ -3,7 +3,7 @@ model_file: counter.json,counter_live.sts,counter_live.ets
 add_clock: True
 
 [DEFAULT]
-bmc_length: 40
+bmc_length: 20
 
 [Globally]
 description: "Globally Check"
