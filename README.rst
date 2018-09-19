@@ -4,6 +4,7 @@
 CoSA: CoreIR Symbolic Analyzer
 ========================
 
+...an SMT-based symbolic model checker for hardware design. 
 
 ========================
 Installation
