@@ -10,9 +10,11 @@
 
 import sys
 import time
+import inspect
 
 class Logger(object):
     verbosity = 0
+    linenum_verbosity = 5
     id_timer = 0
     timers = []
     time = False
@@ -53,10 +55,20 @@ class Logger(object):
                 sys.stdout.flush()
                 Logger._last_inline = None
                 Logger.newline = True
-            
+
+    @staticmethod        
+    def line_number():
+        previous_frame = inspect.currentframe().f_back.f_back
+        (filename, line_number, _, _, _) = inspect.getframeinfo(previous_frame)
+        return (filename, line_number)
+                
     @staticmethod        
     def log(msg, level, condition=True, max_level=10):
         if (Logger.verbosity > level) and (Logger.verbosity <= max_level+1) and (condition):
+            if Logger.verbosity >= Logger.linenum_verbosity:
+                filename, line_number = Logger.line_number()
+                msg = "\"%s\"\nfrom %s:%d"%(msg, filename, line_number)
+                
             sys.stdout.write(msg+"\n")
             sys.stdout.flush()
             Logger.newline = True

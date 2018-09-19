@@ -63,7 +63,7 @@ def get_free_variables(formula):
     symwalker.walk(formula)
     return symwalker.symbols
 
-KEYWORDS = ["not","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
+KEYWORDS = ["not","xor","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \
@@ -95,3 +95,9 @@ def quote_names(strformula, prefix=None, replace_ops=True):
             strformula = strformula.replace(op[0], op[1])
 
     return strformula
+
+def mem_access(address, locations, width_idx, idx=0):
+    if (len(locations) == 1) or (idx == 2**width_idx):
+        return locations[0]
+    location = BV(idx, width_idx)
+    return Ite(EqualsOrIff(address, location), locations[0], mem_access(address, locations[1:], width_idx, idx+1))

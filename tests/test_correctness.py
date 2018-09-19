@@ -28,8 +28,11 @@ def runtest(example):
     config.prove = True
     config.vcd = True
     config.force_expected = True
+    config.translate = "file.ssts"
     
     status = run_problems("%s/problem.txt"%example, config)
+    with open(config.translate, "r") as f:
+        print(f.read())
 
     assert status == 0
     return status

@@ -1,5 +1,6 @@
 [GENERAL]
 model_file: registers.json
+add_clock: True
 
 [DEFAULT]
 bmc_length: 40

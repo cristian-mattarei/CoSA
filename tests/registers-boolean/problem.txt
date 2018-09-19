@@ -1,6 +1,7 @@
 [GENERAL]
 model_file: model.json
 boolean: True
+add_clock: True
 
 [DEFAULT]
 bmc_length: 40

@@ -20,7 +20,7 @@ from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
-from cosa.printers import TextTracePrinter, VCDTracePrinter, HIDDEN
+from cosa.printers.template import HIDDEN_VAR
 from cosa.analyzers.mcsolver import MCConfig, VerificationStrategy
 from cosa.problem import VerificationStatus
 
@@ -28,8 +28,8 @@ from cosa.analyzers.mcsolver import TraceSolver, BMCSolver
 
 NL = "\n"
 
-EQVAR = HIDDEN+"eq_var"+HIDDEN
-HEQVAR = HIDDEN+"heq_var"+HIDDEN
+EQVAR = HIDDEN_VAR+"eq_var"+HIDDEN_VAR[::-1]
+HEQVAR = HIDDEN_VAR+"heq_var"+HIDDEN_VAR[::-1]
 
 class BMCTemporal(BMCSolver):
 
@@ -235,7 +235,7 @@ class BMCTemporal(BMCSolver):
         if model == True:
             return (VerificationStatus.TRUE, None, t)
         elif model is not None:
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
+            trace = self.generate_trace(model, t, get_free_variables(prop), find_loop=True)
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)
@@ -250,7 +250,7 @@ class BMCTemporal(BMCSolver):
         if model == True:
             return (VerificationStatus.TRUE, None, t)
         elif model is not None:
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
+            trace = self.generate_trace(model, t, get_free_variables(prop), find_loop=True)
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)

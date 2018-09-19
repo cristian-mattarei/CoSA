@@ -13,9 +13,10 @@ from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Impli
 from pysmt.typing import BOOL, BVType
 
 from cosa.representation import HTS, TS
-from cosa.printers import HIDDEN
+from cosa.printers.template import HIDDEN_VAR
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables
+from cosa.encoders.template import ModelParser
 
 import math
 
@@ -56,19 +57,26 @@ P_ID = "id"
 
 STATE_ID = "state_id"
 
-class ExplicitTSParser(object):
+class ExplicitTSParser(ModelParser):
     parser = None
     extensions = ["ets"]
-
+    name = "ETS"
+    
     state_id = 0
 
     def __init__(self):
         self.parser = self.__init_parser()
 
-    def parse_file(self, strfile, flags=None):
+    def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
             return self.parse_string(f.read())
-        
+
+    def is_available(self):
+        return True
+
+    def get_model_info(self):
+        return None
+     
     def parse_string(self, strinput):
         lines = []
         for line in strinput.split(T_NL):
@@ -79,7 +87,7 @@ class ExplicitTSParser(object):
 
     def new_state_id(self):
         ExplicitTSParser.state_id += 1
-        return HIDDEN+STATE_ID+str(ExplicitTSParser.state_id)+HIDDEN
+        return HIDDEN_VAR+STATE_ID+str(ExplicitTSParser.state_id)+(HIDDEN_VAR[::-1])
 
     def __init_parser(self):
 
@@ -96,7 +104,7 @@ class ExplicitTSParser(object):
         comment = (T_COM + restOfLine + LineEnd())(P_COMMENT)
         emptyline = (ZeroOrMore(White(' \t')) + LineEnd())(P_EMPTY)
 
-        init = (Literal(T_I)(P_TYPE) + Literal(T_CL) + varname + Literal(T_EQ) + value)(P_INIT)
+        init = (Literal(T_I)(P_TYPE) + Literal(T_CL) + ((varname + Literal(T_EQ) + value) | (boolvalue)(P_VALUE)))(P_INIT)
         inits = OneOrMore(init)
 
         state = (Literal(T_S)(P_TYPE) + ((varname)(P_ID)) + Literal(T_CL) + ((varname + Literal(T_EQ) + value) | (boolvalue)(P_VALUE)))(P_STATE)
@@ -131,29 +139,34 @@ class ExplicitTSParser(object):
             if line.comment:
                 continue
             if line.init:
-                (value, typev) = self.__get_value(line.init.value)
-                ivar = def_var(line.init.varname, typev)
-
                 if T_I not in states:
                     states[T_I] = TRUE()
 
-                states[T_I] = And(states[T_I], EqualsOrIff(ivar, value))
-                init = And(init, EqualsOrIff(ivar, value))
+                if line.init.varname != "":
+                    (value, typev) = self.__get_value(line.init.value)
+                    ivar = def_var(line.init.varname, typev)
+                    state = EqualsOrIff(ivar, value)
+                else:
+                    state = TRUE() if line.init.value == T_TRUE else FALSE()
                 
+                states[T_I] = And(states[T_I], state)
+                init = And(init, state)
+                
+            state = TRUE()
             if line.state:
-                state = TRUE()
                 sname = T_S + line.state.id
-                if line.state.value != T_TRUE:
+                if (line.state.varname != ""):
                     (value, typev) = self.__get_value(line.state.value)
                     ivar = def_var(line.state.varname, typev)
                     state = EqualsOrIff(ivar, value)
-
                     assval = (sname, line.state.varname)
                     if assval not in assigns:
                         assigns.add(assval)
                     else:
                         Logger.error("Double assignment for variable \"%s\" at state \"%s\""%(line.state.varname, sname))
-                    
+                else:
+                    state = TRUE() if line.state.value == T_TRUE else FALSE()
+                        
                 if sname not in states:
                     states[sname] = TRUE()
 

@@ -18,7 +18,8 @@ from pysmt.logics import QF_ABV
 from cosa.utils.logger import Logger
 from cosa.representation import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
-from cosa.printers import TextTracePrinter, VCDTracePrinter
+from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
+from cosa.problem import Trace
 
 
 class VerificationStrategy(object):
@@ -39,13 +40,8 @@ class MCConfig(object):
     prefix = None
     smt2file = None
     simplify = False
-    map_function = None
     solver_name = None
-    vcd_trace = None
     prove = None
-    full_trace = False
-    trace_vars_change = False
-    trace_all_vars = False
 
     def __init__(self):
         self.incremental = True
@@ -54,12 +50,7 @@ class MCConfig(object):
         self.prefix = None
         self.smt2file = None
         self.simplify = False
-        self.map_function = None
-        self.vcd_trace = False
         self.prove = False
-        self.full_trace = False
-        self.trace_vars_change = False
-        self.trace_all_vars = False
 
         self.strategies = MCConfig.get_strategies()
 
@@ -337,18 +328,10 @@ class BMCSolver(object):
                 prefix = self.config.prefix+"-ind"
 
             if res:
-                if Logger.level(2):
-                    Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
-                    (hr_trace, vcd_trace) = self.print_trace(hts, self._get_model(self.solver), 0, prefix=prefix, map_function=self.config.map_function)
-                    Logger.log("", 2)
-                    if hr_trace:
-                        Logger.log("Counterexample: \n%s"%(hr_trace), 2)
-                    else:
-                        Logger.log("", 2)
+                Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
                 return False
-            else:
-                Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
-
+            
+            Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
             return True
 
     
@@ -424,41 +407,17 @@ class BMCSolver(object):
 
         return retmodel
 
-    def print_trace(self, hts, model, length, \
-                    xvars=None, \
-                    diff_only=True, \
-                    map_function=None, \
-                    prefix=None, \
-                    write_to_file=True, \
-                    find_loop=False):
-        trace = []
-        prevass = []
+    def generate_trace(self, \
+                       model, \
+                       length, \
+                       xvars=None, \
+                       find_loop=False):
 
-        if prefix is None:
-            prefix = self.config.prefix
-
-        diff_only = not self.config.trace_vars_change
-        all_vars = self.config.trace_all_vars
-
-        if self.config.full_trace:
-            diff_only = False
-            all_vars = True
+        trace = Trace()
+        trace.model = model
+        trace.length = length
+        trace.infinite = find_loop
+        trace.prop_vars = xvars
         
-        # Human Readable Format
-        hr_printer = TextTracePrinter()
-        hr_printer.extra_vars = xvars
-        hr_printer.diff_only = diff_only
-        hr_printer.all_vars = all_vars
-        hr_trace = hr_printer.print_trace(hts, model, length, map_function, find_loop)
-
-        # VCD format
-        vcd_trace = None
-        if self.config.vcd_trace:
-            vcd_printer = VCDTracePrinter()
-            vcd_trace = vcd_printer.print_trace(hts, model, length, map_function)
-
-        vcd_trace_file = None
-        hr_trace_file = None
-
-        return (hr_trace, vcd_trace)
+        return trace
     

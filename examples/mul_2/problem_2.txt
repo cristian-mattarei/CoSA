@@ -2,6 +2,7 @@
 model_file: mul_2_pe.json
 equivalence: mul_2_pe-passes.json
 abstract_clock: True
+add_clock: True
 
 [DEFAULT]
 bmc_length: 5

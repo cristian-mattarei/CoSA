@@ -69,3 +69,33 @@ def restore_output(saved_status):
     (devnull, old_stdout) = saved_status
     os.dup2(old_stdout, 1)
     devnull.close()
+
+def sort_system_variables(variables, with_names=False):
+    depthdic = {}
+    maxdepth = 0
+    for v in variables:
+        varname = v.symbol_name()
+        depth = len(varname.split("."))
+        if depth > maxdepth:
+            maxdepth = depth
+        if depth not in depthdic:
+            depthdic[depth] = []
+        depthdic[depth].append((varname, v))
+
+    ret = []
+    depths = list(depthdic.keys())
+    depths.sort()
+    
+    for i in depths:
+        vars = depthdic[i]
+        vars.sort()
+        if with_names:
+            ret += [v for v in depthdic[i]]
+        else:
+            ret += [v[1] for v in depthdic[i]]
+    assert len(ret) == len(variables)
+    return ret
+        
+def class_name(obj):
+    return obj.__class__.__name__
+    

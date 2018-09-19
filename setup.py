@@ -10,9 +10,10 @@ CoSA is an SMT-based symbolic model checker for hardware design.
 Supported Input Formats
 =======================
 * CoreIR (https://github.com/rdaly525/coreir)
-* BTOR2 (https://github.com/Boolector/btor2tools)
+* Verilog
 * Symbolic Transition System
 * Explicit Transition System
+* BTOR2 (https://github.com/Boolector/btor2tools)
 
 Supported Verifications
 =======================
@@ -29,7 +30,7 @@ For more information visit http://github.com/cristian-mattarei/CoSA
 """
 
 setup(name='CoSA',
-      version='0.1.2',
+      version='0.2.0',
       description='CoreIR Symbolic Analyzer',
       long_description=long_description,
       url='http://github.com/cristian-mattarei/CoSA',
@@ -38,7 +39,7 @@ setup(name='CoSA',
       license='BSD',
       packages = find_packages(),
       include_package_data = True,
-      install_requires=["six","pyparsing","pysmt","coreir"],
+      install_requires=["six","pyparsing","pysmt","coreir","pyverilog"],
       entry_points={
           'console_scripts': [
               'CoSA = cosa.shell:main'

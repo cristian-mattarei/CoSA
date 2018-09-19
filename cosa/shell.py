@@ -13,28 +13,19 @@
 import sys
 import argparse
 import os
-import pickle
 
 from argparse import RawTextHelpFormatter
 
-from cosa.analyzers.dispatcher import ProblemSolver
+from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
-from cosa.analyzers.bmc_safety import BMCSafety
-from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.utils.logger import Logger
-from cosa.printers import PrintersFactory, PrinterType, SMVHTSPrinter
-from cosa.encoders.monitors import MonitorsFactory
-from cosa.encoders.explicit_transition_system import ExplicitTSParser
-from cosa.encoders.symbolic_transition_system import SymbolicTSParser
-from cosa.encoders.coreir import CoreIRParser
-from cosa.encoders.formulae import StringParser
-from cosa.encoders.miter import Miter
-from cosa.encoders.ltl import ltl_reset_env, LTLParser
-from cosa.problem import Problems, VerificationStatus, VerificationType
-from cosa.representation import HTS
+from cosa.printers.factory import HTSPrintersFactory
+from cosa.printers.template import HTSPrinterType
+from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
+from cosa.environment import reset_env
+from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 
-from pysmt.shortcuts import TRUE, reset_env, get_env
-
+TRACE_PREFIX = "trace"
 
 class Config(object):
     parser = None
@@ -49,285 +40,191 @@ class Config(object):
     lemmas = None
     assumptions = None
     equivalence = None
-    symbolic_init = None
+    symbolic_init = False
+    zero_init = False
     fsm_check = False
     full_trace = False
     trace_vars_change = False
     trace_all_vars = False
     prefix = None
     run_passes = True
-    printer = None
     translate = None
     smt2file = None
-    strategy = None
-    boolean = None
+    boolean = False
     abstract_clock = False
-    no_clock = False
+    add_clock = False
     skip_solving = False
-    pickle_file = None
-    solver_name = None
+    solver_name = "msat"
     vcd = False
     prove = False
     incremental = True
     deterministic = False
     time = False
-    monitors = None
+    generators = None
     force_expected = False
+    assume_if_true = False
 
+    printer = None
+    strategy = None
+    
     def __init__(self):
-        PrintersFactory.init_printers()
-
-        self.parser = None
-        self.strfiles = None
-        self.verbosity = 1
-        self.simulate = False
-        self.bmc_length = 10
-        self.bmc_length_min = 0
-        self.safety = None
-        self.ltl = None
-        self.properties = None
-        self.lemmas = None
-        self.assumptions = None
-        self.equivalence = None
-        self.symbolic_init = False
-        self.fsm_check = False
-        self.full_trace = False
-        self.trace_vars_change = False
-        self.trace_all_vars = False
-        self.prefix = None
-        self.run_passes = True
-        self.printer = PrintersFactory.get_default().get_name()
-        self.translate = None
-        self.smt2file = None
-        self.strategy = MCConfig.get_strategies()[0][0]
-        self.boolean = False
-        self.abstract_clock = False
-        self.no_clock = False        
-        self.skip_solving = False
-        self.pickle_file = None
-        self.solver_name = "msat"
-        self.vcd = False
-        self.prove = False
-        self.incremental = True
-        self.deterministic = False
-        self.time = False
+        HTSPrintersFactory.init_printers()
         
-def trace_printed(msg, hr_trace, vcd_trace):
-    vcd_msg = ""
-    if vcd_trace:
-        vcd_msg = " and in \"%s\""%(vcd_trace)
-    Logger.log("%s stored in \"%s\"%s"%(msg, hr_trace, vcd_msg), 0)
+        self.printer = HTSPrintersFactory.get_default().get_name()
+        self.strategy = MCConfig.get_strategies()[0][0]
+        
+def traces_printed(msg, trace_files):
+    traces = ", and\n - ".join(["\"%s\""%f for f in trace_files])
+    Logger.log("\n%s saved in:\n - %s"%(msg, traces), 0)
+    
+def print_traces(msg, traces, index, prefix, tracecount):
+    trace_files = []
+    trace_prefix = None
+    
+    for trace in traces:
+        if prefix:
+            trace_prefix = prefix
+        else:
+            if not trace.human_readable:
+                trace_prefix = TRACE_PREFIX
+            
+        if trace_prefix:
+            trace_file = "%s-%s.%s"%(trace_prefix, index, trace.extension)
+            trace_files.append(trace_file)
+            with open(trace_file, "w") as f:
+                f.write(str(trace))
 
-def print_trace(msg, trace, index, prefix):
-    trace_hr, trace_vcd = trace
+            if tracecount < 0:
+                continue
 
-    hr_trace_file = None
-    vcd_trace_file = None
+        else:
+            Logger.log("%s:"%msg, 0)
+            Logger.log(str(trace), 0)
 
-    if prefix:
-        if trace_hr:
-            hr_trace_file = "%s-%s.txt"%(prefix, index)
-            with open(hr_trace_file, "w") as f:
-                f.write(trace_hr)
-
-        if trace_vcd:
-            vcd_trace_file = "%s-%s.vcd"%(prefix, index)
-            with open(vcd_trace_file, "w") as f:
-                f.write(trace_vcd)
-
-        trace_printed(msg, hr_trace_file, vcd_trace_file)
-
-    else:
-        Logger.log("%s:"%msg, 0)
-        Logger.log(trace_hr, 0)
+    if (tracecount > 0) and (len(trace_files) > 0):
+        traces_idx = " and ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
+        Logger.log("%s: %s"%(msg, traces_idx), 0)
+        tracelen = traces[0].length
+        Logger.log("Trace length: %d"%(tracelen), 0)
+            
+    if (tracecount < 0) and (len(trace_files) > 0):
+        traces_printed(msg, trace_files)
+        return []
+    
+    return trace_files
 
 def get_file_flags(strfile):
     if "[" not in strfile:
         return (strfile, [])
     
-    (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(","))
+    (strfile, flags) = (strfile[:strfile.index("[")], strfile[strfile.index("[")+1:strfile.index("]")].split(FILE_SP))
     return (strfile, flags)
-                        
+
+def translate(hts, config, formulae=None):
+    Logger.log("\nWriting system to \"%s\""%(config.translate), 0)
+    printer = HTSPrintersFactory.printer_by_name(config.printer)
+    props = []
+    if formulae is not None:
+        props = [(f.serialize(threshold=100), f, None) for f in formulae if f is not None]
+    with open(config.translate, "w") as f:
+        f.write(printer.print_hts(hts, props))
+
+def print_problem_result(pbm, config, count=-1):
+    if pbm.name is None:
+        return 0
+    ret_status = 0
+
+    unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
+    Logger.log("\n** Problem %s **"%(pbm.name), 0)
+    Logger.log("Description: %s"%(pbm.description), 0)
+    Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+    if (pbm.expected is not None):
+        expected = VerificationStatus.convert(pbm.expected)
+        Logger.log("Expected: %s"%(expected), 0)
+        correct = VerificationStatus.compare(VerificationStatus.convert(pbm.expected), pbm.status)
+        if not correct:
+            Logger.log("%s != %s <<<---------| ERROR"%(pbm.status, expected), 0)
+            ret_status = 1
+
+    assert not(config.force_expected and (pbm.expected is None))
+
+    prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
+
+    traces = []
+    
+    if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
+        traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
+
+    if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+        traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
+
+    if pbm.time:
+        Logger.log("Time: %.2f sec"%(pbm.time), 0)
+
+    return (ret_status, traces)
+
 def run_verification(config):
     reset_env()
     Logger.verbosity = config.verbosity
 
-    coreir_parser = None
-    ets_parser = None
-    sts_parser = None
-
-    if config.ltl:
-        ltl_reset_env()
-    
-    hts = HTS("Top level")
-
-    if config.strfiles[0][-4:] != ".pkl":
-        ps = ProblemSolver()
-        (hts, invar_props, ltl_props) = ps.parse_model("./", config.strfiles, config.abstract_clock, config.symbolic_init, deterministic=config.deterministic, boolean=config.boolean, no_clock=config.no_clock)
-        config.parser = ps.parser
-
-        if config.pickle_file:
-            Logger.msg("Pickling model to %s\n"%(config.pickle_file), 1)
-            sys.setrecursionlimit(50000)
-            with open(config.pickle_file, "wb") as f:
-                pickle.dump(hts, f)
-    else:
-        if config.pickle_file:
-            raise RuntimeError("Don't need to re-pickle the input file %s"%(config.strfile))
-
-        Logger.msg("Loading pickle file %s\n"%(config.strfile), 0)
-        with open(config.pickle_file, "rb") as f:
-            hts = pickle.load(f)
-        Logger.log("DONE", 0)
-
-    printsmv = True
-
-    mc_config = MCConfig()
-
-    sparser = StringParser()
-    sparser.remap_or2an = config.parser.remap_or2an
-    ltlparser = LTLParser()
-
-    # if equivalence checking wait to add assumptions to combined system
-    if config.assumptions is not None and config.equivalence is None:
-        Logger.log("Adding %d assumptions... "%len(config.assumptions), 1)
-        assumps = [t[1] for t in sparser.parse_formulae(config.assumptions)]
-        hts.assumptions = assumps
-
-    lemmas = None
-    if config.lemmas is not None:
-        Logger.log("Adding %d lemmas... "%len(config.lemmas), 1)
-        parsed_formulae = sparser.parse_formulae(config.lemmas)
-        if list(set([t[2] for t in parsed_formulae]))[0][0] != False:
-            Logger.error("Lemmas do not support \"next\" operators")
-        lemmas = [t[1] for t in parsed_formulae]
-        hts.lemmas = lemmas
-
-    mc_config.smt2file = config.smt2file
-
-    mc_config.full_trace = config.full_trace
-    mc_config.trace_vars_change = config.trace_vars_change
-    mc_config.trace_all_vars = config.trace_all_vars
-    mc_config.prefix = config.prefix
-    mc_config.strategy = config.strategy
-    mc_config.skip_solving = config.skip_solving
-    mc_config.map_function = config.parser.remap_an2or
-    mc_config.solver_name = config.solver_name
-    mc_config.vcd_trace = config.vcd
-    mc_config.prove = config.prove
-    mc_config.incremental = config.incremental
-
-    if config.ltl:
-        bmc_ltl = BMCLTL(hts, mc_config)
-    else:
-        bmc_safety = BMCSafety(hts, mc_config)
-
-    if config.translate:
-        Logger.log("Writing system to \"%s\""%(config.translate), 0)
-        printer = PrintersFactory.printer_by_name(config.printer)
-
-        props = []
-        if config.ltl:
-            props += ltlparser.parse_formulae(config.properties)
-            props += [(str(p), p, None) for p in ltl_props]
-        else:
-            props += sparser.parse_formulae(config.properties)
-            props += [(str(p), p, None) for p in invar_props]
-
-        with open(config.translate, "w") as f:
-            f.write(printer.print_hts(hts, props))
-
-    if config.simulate:
-        count = 0
-        if config.properties is None:
-            props = [("True", TRUE(), None)]
-        else:
-            props = sparser.parse_formulae(config.properties)
-        for (strprop, prop, _) in props:
-            Logger.log("Simulation for property \"%s\":"%(strprop), 0)
-            res, trace = bmc_safety.simulate(prop, config.bmc_length)
-            if res == VerificationStatus.TRUE:
-                count += 1
-                print_trace("Execution", trace, count, config.prefix)
-            else:
-                Logger.log("No execution found", 0)
+    ps = ProblemSolver()
+    problem = Problem()
 
     if config.safety:
-        count = 0
-        props = sparser.parse_formulae(config.properties)
-        props += [(str(p), p, None) for p in invar_props]
-        if len(props) == 0:
-            Logger.warning("Safety verification requires at least a property")
-            
-        for (strprop, prop, _) in props:
-            Logger.log("Safety verification for property \"%s\":"%(strprop), 0)
-            res, trace, t = bmc_safety.safety(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("\nProperty is %s"%res, 0)
-            if res == VerificationStatus.FALSE:
-                count += 1
-                print_trace("Counterexample", trace, count, config.prefix)
+        problem.verification = VerificationType.SAFETY
+    elif config.ltl:
+        problem.verification = VerificationType.LTL
+    elif config.equivalence is not None:
+        problem.verification = VerificationType.EQUIVALENCE
+        problem.equivalence = config.equivalence
+    elif config.simulate:
+        problem.verification = VerificationType.SIMULATION
+    elif config.fsm_check:
+        problem.verification = VerificationType.EQUIVALENCE
+        problem.equivalence = config.strfiles
 
-        return 0
+    if not problem.verification == VerificationType.EQUIVALENCE:
+        problem.formula = config.properties
+
+    problem.assumptions = config.assumptions
+    problem.bmc_length = config.bmc_length
+    problem.bmc_length_min = config.bmc_length_min
+    problem.full_trace = config.full_trace
+    problem.generators = config.generators
+    problem.incremental = config.incremental
+    problem.lemmas = config.lemmas
+    problem.model_file = config.strfiles
+    problem.name = VerificationType.to_string(problem.verification)
+    problem.prefix = config.prefix
+    problem.prove = config.prove
+    problem.skip_solving = config.skip_solving
+    problem.smt2_tracing = config.smt2file
+    problem.solver_name = config.solver_name
+    problem.strategy = config.strategy
+    problem.symbolic_init = config.symbolic_init
+    problem.zero_init = config.zero_init
+    problem.time = config.time
+    problem.trace_all_vars = config.trace_all_vars
+    problem.trace_vars_change = config.trace_vars_change
+    problem.vcd = config.vcd
+    problem.verbosity = config.verbosity
     
-    if config.equivalence or config.fsm_check:
+    problems = Problems()
+    problems.model_file = config.strfiles
+    problems.boolean = config.boolean
+    problems.add_clock = config.add_clock
+    problems.abstract_clock = config.abstract_clock
+    problems.run_coreir_passes = config.run_passes
+    problems.relative_path = "./"
 
-        if config.equivalence:
-            parser2 = CoreIRParser(config.abstract_clock, config.symbolic_init, config.run_passes)
+    problems.add_problem(problem)
+    ps.solve_problems(problems, config)
+    print_problem_result(problem, config)
 
-            Logger.msg("Parsing file \"%s\"... "%(config.equivalence), 0)
-            hts2 = parser2.parse_file(config.equivalence)
-            Logger.log("DONE", 0)
+    if config.translate:
+        translate(problem.hts, config, [problem.formula])
 
-            symb = " (symbolic init)" if config.symbolic_init else ""
-            Logger.log("Equivalence checking%s with k=%s:"%(symb, config.bmc_length), 0)
-
-            if Logger.level(1):
-                print(hts2.print_statistics("System 2", Logger.level(2)))
-        else:
-            hts2 = hts
-                
-        # TODO: Make incremental solving optional
-        htseq, miter_out = Miter.combine_systems(hts, hts2, config.bmc_length, config.symbolic_init, config.properties, True)
-
-        if config.assumptions is not None:
-            Logger.log("Adding %d assumptions to combined system... "%len(config.assumptions), 1)
-            assumps = [t[1] for t in sparser.parse_formulae(config.assumptions)]
-            htseq.assumptions = assumps
-
-        # create bmc object for combined system
-        bmcseq = BMC(htseq, mc_config)
-        res, trace, t = bmcseq.safety(miter_out, config.bmc_length, config.bmc_length_min)
-
-        msg = "Systems are %s equivalent" if config.equivalence else "System is%s deterministic"
-        
-        if res == VerificationStatus.FALSE:
-            Logger.log(msg%(" not"), 0)
-            print_trace("Counterexample", trace, 1, config.prefix)
-        elif res == VerificationStatus.UNK:
-            if config.symbolic_init:
-                # strong equivalence with symbolic initial state
-                Logger.log(msg%(""), 0)
-            else:
-                Logger.log(msg%("")+" up to k=%i"%t, 0)
-        else:
-            Logger.log(msg%("")+" up to k=%i"%t, 0)
-
-    if config.ltl:
-        count = 0
-        props = ltlparser.parse_formulae(config.properties)
-        props += [(str(p), p, None) for p in ltl_props]
-        if len(props) == 0:
-            Logger.warning("LTL verification requires at least a property")
-            
-        for (strprop, prop, _) in props:
-            Logger.log("LTL verification for property \"%s\":"%(strprop), 0)
-            res, trace, t = bmc_ltl.ltl(prop, config.bmc_length, config.bmc_length_min)
-            Logger.log("\nProperty is %s"%res, 0)
-            if res == VerificationStatus.FALSE:
-                count += 1
-                print_trace("Counterexample", trace, count, config.prefix)
-
-        return 0
+    return 0
             
 def run_problems(problems, config):
     reset_env()
@@ -338,36 +235,28 @@ def run_problems(problems, config):
     psol.solve_problems(pbms, config)
 
     global_status = 0
+    traces = []
     
     Logger.log("\n*** SUMMARY ***", 0)
 
+    formulae = []
     for pbm in pbms.problems:
-        unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
-        Logger.log("\n** Problem %s **"%(pbm.name), 0)
-        Logger.log("Description: %s"%(pbm.description), 0)
-        Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
-        if (pbm.expected is not None):
-            expected = VerificationStatus.convert(pbm.expected) == pbm.status
-            Logger.log("Expected: %s"%("OK" if expected else "WRONG"), 0)
-            if not expected:
-                global_status = 1
+        (global_status, trace) = print_problem_result(pbm, config, len(traces)+1)
+        traces += trace
+        formulae.append(pbm.formula)
 
-        assert not(config.force_expected and (pbm.expected is None))
+    if len(traces) > 0:
+        Logger.log("\n*** TRACES ***\n", 0)
+        for trace in traces:
+            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
 
-        prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
-        
-        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-            print_trace("Counterexample", pbm.trace, pbm.name, prefix)
-
-        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-            print_trace("Execution", pbm.trace, pbm.name, prefix)
-
-        if pbm.time:
-            Logger.log("Time: %.2f sec"%(pbm.time), 0)
+    if config.translate:
+        translate(pbms.problems[0].hts, config, formulae)
             
     return global_status
             
 def main():
+    
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
 
     config = Config()
@@ -375,11 +264,13 @@ def main():
     # Main inputs
 
     in_options = parser.add_argument_group('input options')
+
+    input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) for x in ModelParsersFactory.get_parsers()]
     
     in_options.set_defaults(input_files=None)
     in_options.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
-                        help='comma separated list of input files.')
-
+                            help='comma separated list of input files. Supported types:\n%s'%("\n".join(input_types)))
+    
     in_options.set_defaults(problems=None)
     in_options.add_argument('--problems', metavar='<problems file>', type=str, required=False,
                        help='problems file describing the verifications to be performed.')
@@ -432,10 +323,10 @@ def main():
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='comma separated list of invariant assumptions.')
 
-    # monitors = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in MonitorsFactory.get_monitors()]
+    generators = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in GeneratorsFactory.get_generators()]
 
-    # ver_params.add_argument('--monitors', metavar='monitors', type=str, nargs='?',
-    #                     help='comma separated list of monitors instantiation. Possible types:\n%s'%("\n".join(monitors)))
+    ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
+                        help='comma separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
@@ -450,6 +341,10 @@ def main():
     ver_params.set_defaults(ninc=False)
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
                        help='disables incrementality.')
+
+    ver_params.set_defaults(assume_if_true=False)
+    ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
+                       help='add true properties as assumptions.')
     
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
@@ -459,9 +354,9 @@ def main():
 
     enc_params = parser.add_argument_group('encoding')
 
-    enc_params.set_defaults(no_clock=False)
-    enc_params.add_argument('--no-clock', dest='no_clock', action='store_true',
-                       help='does not add the clock behavior.')
+    enc_params.set_defaults(add_clock=False)
+    enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
+                       help='adds clock behavior.')
     
     enc_params.set_defaults(abstract_clock=False)
     enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
@@ -469,8 +364,12 @@ def main():
 
     enc_params.set_defaults(symbolic_init=config.symbolic_init)
     enc_params.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
-                       help='symbolic inititial state for equivalence checking. (Default is \"%s\")'%config.symbolic_init)
+                       help='removes constraints on the initial state. (Default is \"%s\")'%config.symbolic_init)
 
+    enc_params.set_defaults(zero_init=config.zero_init)
+    enc_params.add_argument('--zero-init', dest='zero_init', action='store_true',
+                       help='sets initial state to zero. (Default is \"%s\")'%config.zero_init)
+    
     enc_params.set_defaults(boolean=config.boolean)
     enc_params.add_argument('--boolean', dest='boolean', action='store_true',
                         help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
@@ -515,7 +414,7 @@ def main():
     trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
     
-    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]
+    printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]
 
     trans_params.set_defaults(printer=config.printer)
     trans_params.add_argument('--printer', metavar='printer', type=str, nargs='?',
@@ -524,10 +423,6 @@ def main():
     trans_params.set_defaults(skip_solving=False)
     trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',
                         help='does not call the solver (used with --smt2 or --translate parameters).')
-
-    trans_params.set_defaults(pickle=None)
-    trans_params.add_argument('--pickle', metavar='<pickle file>', type=str, required=False,
-                       help='pickles the transition system to be loaded later.')
 
     # Debugging
 
@@ -556,6 +451,7 @@ def main():
     config.assumptions = args.assumptions
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
+    config.zero_init = args.zero_init
     config.fsm_check = args.fsm_check
     config.bmc_length = args.bmc_length
     config.bmc_length_min = args.bmc_length_min
@@ -567,7 +463,6 @@ def main():
     config.smt2file = args.smt2
     config.strategy = args.strategy
     config.skip_solving = args.skip_solving
-    config.pickle_file = args.pickle
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
     config.verbosity = args.verbosity
@@ -576,13 +471,19 @@ def main():
     config.solver_name = args.solver_name
     config.incremental = not args.ninc
     config.time = args.time
-    config.no_clock = args.no_clock
-    # config.monitors = args.monitors
+    config.add_clock = args.add_clock
+    config.generators = args.generators
+    config.assume_if_true = args.assume_if_true
 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
+    if args.printer in [str(x.get_name()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]:
+        config.printer = args.printer
+    else:
+        Logger.error("Printer \"%s\" not found"%(args.printer))
+        
     if args.problems:
         if args.debug:
             sys.exit(run_problems(args.problems, config))
@@ -598,11 +499,6 @@ def main():
     if (args.problems is None) and (args.input_files is None):
         Logger.error("No input files provided")
 
-    if args.printer in [str(x.get_name()) for x in PrintersFactory.get_printers_by_type(PrinterType.TRANSSYS)]:
-        config.printer = args.printer
-    else:
-        Logger.error("Printer \"%s\" not found"%(args.printer))
-
     if args.strategy not in [s[0] for s in MCConfig.get_strategies()]:
         Logger.error("Strategy \"%s\" not found"%(args.strategy))
 
@@ -613,17 +509,6 @@ def main():
            (config.translate is not None) or\
            (config.fsm_check)):
         Logger.error("Analysis selection is necessary")
-        
-    parsing_defs = [config.properties, config.lemmas, config.assumptions]
-    for i in range(len(parsing_defs)):
-        if parsing_defs[i] is not None:
-            if os.path.isfile(parsing_defs[i]):
-                with open(parsing_defs[i]) as f:
-                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
-            else:
-                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
-
-    [config.properties, config.lemmas, config.assumptions] = parsing_defs
 
     Logger.error_raise_exept = True
     

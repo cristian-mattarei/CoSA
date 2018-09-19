@@ -18,6 +18,7 @@ from cosa.encoders.formulae import StringParser
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import quote_names, B2BV, BV2B
 from cosa.utils.generic import bin_to_dec
+from cosa.encoders.template import ModelParser
 
 NL = "\n"
 
@@ -63,18 +64,21 @@ NEXT="next"
 CONSTRAINT="constraint"
 BAD="bad"
 
-
-class BTOR2Parser(object):
+class BTOR2Parser(ModelParser):
     parser = None
     extensions = ["btor2","btor"]
-
+    name = "BTOR2"
+    
     def __init__(self):
         pass
 
-    def parse_file(self, strfile, flags=None):
+    def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
             return self.parse_string(f.read())
 
+    def is_available(self):
+        return True
+        
     def get_extensions(self):
         return self.extensions
 
@@ -284,8 +288,9 @@ class BTOR2Parser(object):
             name = lambda x: str(nodemap[x]) if nodemap[x].is_symbol() else x
             uncovered = [name(x) for x in nodemap if x not in node_covered]
             uncovered.sort()
-            Logger.warning("Unlinked nodes \"%s\""%",".join(uncovered))
-
+            if len(uncovered) > 0:
+                Logger.warning("Unlinked nodes \"%s\""%",".join(uncovered))
+        
         init = And(initlist)
         trans = And(translist)
         invar = And(invarlist)

@@ -3,16 +3,17 @@
 PYCOREIR="`pwd`/pycoreir/setup.py"
 COREIR="`pwd`/coreir/Makefile"
 PYSMT="`pwd`/pysmt/setup.py"
+BITVECTOR="`pwd`/bit_vector/setup.py"
 
 if [ ! -f "$PYSMT" ]; then
     rm -fr pysmt*
-    wget https://github.com/pysmt/pysmt/archive/15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
-    unzip 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
-    rm 15f039f8a2c84b5d8aea10b35d83d3c370b142b6.zip
-    mv pysmt-15f039f8a2c84b5d8aea10b35d83d3c370b142b6 pysmt
+    wget https://github.com/pysmt/pysmt/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv pysmt-master pysmt
     cd pysmt
     pip3 install -e .
-    pysmt-install --msat --confirm-agreement
+    pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
     cd ..
 else
     echo "Skipping PYSMT installation"
@@ -23,28 +24,45 @@ export COREIRCONFIG="g++-4.9"
 
 if [ ! -f "$COREIR" ]; then
     rm -fr coreir*
-    wget https://github.com/rdaly525/coreir/archive/a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
-    unzip a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
-    rm a20cb469a10f504ebed6ea8a1872bb5baac406c2.zip
-    mv coreir-a20cb469a10f504ebed6ea8a1872bb5baac406c2 coreir
+    wget https://github.com/rdaly525/coreir/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv coreir-master coreir
     cd coreir && make -j4 && sudo make install
     cd ..
 else
     echo "Skipping COREIR installation"
     cd coreir && sudo make install && cd ..
 fi
-    
+
+if [ ! -f "$BITVECTOR" ]; then
+    rm -fr bit_vector*
+    wget https://github.com/leonardt/bit_vector/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv bit_vector-master bit_vector
+    cd bit_vector
+    sed -i -e 's/f"BitVector({self._value}, {self.num_bits})"/"BitVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
+    sed -i -e 's/f"UIntVector({self._value}, {self.num_bits})"/"UIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
+    sed -i -e 's/f"SIntVector({self._value}, {self.num_bits})"/"SIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
+    pip3 install -e .
+else
+    echo "Skipping BIT_VECTOR installation"
+    cd bit_vector && pip3 install -e . && cd ..
+fi
+
 if [ ! -f "$PYCOREIR" ]; then
     rm -fr pycoreir*
-    wget https://github.com/leonardt/pycoreir/archive/0c10e7b814360d40b6291485fac7d921aae19d36.zip
-    unzip 0c10e7b814360d40b6291485fac7d921aae19d36.zip
-    rm 0c10e7b814360d40b6291485fac7d921aae19d36.zip
-    mv pycoreir-0c10e7b814360d40b6291485fac7d921aae19d36 pycoreir
+    wget https://github.com/leonardt/pycoreir/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv pycoreir-master pycoreir
     cd pycoreir
     sed -i -e 's/KeyError(f"key={key} not found")/Error("key={key} not found".format(key=key))/g' coreir/type.py
     sed -i -e 's/KeyError(f"key={key} not in params={self.params.keys()}")/KeyError("key={key} not in params={params_keys}".format(key=key, params_keys=self.params.keys()))/g' coreir/generator.py
     sed -i -e 's/ValueError(f"Arg(name={key}, value={value}) does not match expected type {self.params\[key\].kind}")/ValueError("Arg(name={key}, value={value}) does not match expected type {params_kind}".format(key=key, value=value, params_kind=self.params\[key\].kind))/g' coreir/generator.py
     sed -i -e 's/f"{self.module.name}.{self.name}"/"{module_name}.{self_name}".format(module_name=self.module.name, name=self.name)/g' coreir/wireable.py
+    sed -i -e 's/f"Cannot select path {field}"/"Cannot select path {field}".format(field=field)/g' coreir/module.py
     pip3 install -e .
 else
     echo "Skipping PYCOREIR installation"

@@ -36,13 +36,14 @@ addons:
      - lbzip2
      - libncurses5-dev
      - python3-nose
+     - iverilog
 
 install:
-  - pip install six pyparsing bit_vector
+  - pip install six pyparsing bit_vector pyverilog
   - bash scripts/travis_install.sh
 
 env:
- - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"/home/travis/.smt_solvers/python-bindings-3.6:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/pycoreir/lib":"/home/travis/.smt_solvers/python-bindings-3.6:${LD_LIBRARY_PATH}"
+ - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/pycoreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings":${LD_LIBRARY_PATH}"
 
 
 script: nosetests tests -v

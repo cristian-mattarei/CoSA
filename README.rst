@@ -4,22 +4,32 @@
 CoSA: CoreIR Symbolic Analyzer
 ========================
 
+...an SMT-based symbolic model checker for hardware design. 
 
 ========================
 Installation
 ========================
 
-1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., `PyCoreIR`_, and `PySMT`_
+1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., `PySMT`_, `PyCoreIR`_, and `PyVerilog`_
 
-.. _PyCoreIR: https://github.com/leonardt/pycoreir
-.. _PySMT: https://github.com/pysmt/pysmt
-
-2) ``pysmt-install --msat`` to install MathSAT5 solver (it provides interpolation support), or ``pysmt-install --cvc4/z3`` for other solvers
+2) ``pysmt-install --msat`` to install `MathSAT5`_ solver (it provides interpolation support), or ``pysmt-install --cvc4`` for `CVC4`_ and ``pysmt-install --z3`` for `Z3`_
 
 3) ``pysmt-install --env`` to show the environment variables that need to be exported
 
-- `CoreIR`_ needs to be installed in order to support it as input format
+Software requirements:
+
+- `CoreIR`_ needs to be installed in order to support CoreIR as input format
+- `Icarus Verilog`_ needs to be installed in order to support Verilog as input format
+
+.. _PyCoreIR: https://github.com/leonardt/pycoreir
+.. _PySMT: https://github.com/pysmt/pysmt
+.. _MathSAT5: http://mathsat.fbk.eu
+.. _CVC4: http://cvc4.cs.stanford.edu/web/
+.. _Z3: https://github.com/Z3Prover/z3
+
 .. _CoreIR: https://github.com/rdaly525/coreir
+.. _Icarus Verilog: https://github.com/steveicarus/iverilog
+.. _PyVerilog: https://github.com/PyHDI/Pyverilog
 
 ========================
 Usage

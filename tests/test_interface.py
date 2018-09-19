@@ -57,17 +57,18 @@ def run_translation(path):
     models = list(os.walk(path))[-1][-1]
     j_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] == "json"]
     s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["sts","ets"]]
+    v_files = ["%s/%s[%s]"%(path,f, f.split(".")[0]) for f in models if f.split(".")[1] in ["v"]]
     
-    config.strfiles = ",".join(j_files+s_files)
+    config.strfiles = ",".join(j_files+s_files+v_files)
         
     parsing_defs = [config.properties, config.lemmas, config.assumptions]
     for i in range(len(parsing_defs)):
         if parsing_defs[i] is not None:
             if os.path.isfile(parsing_defs[i]):
                 with open(parsing_defs[i]) as f:
-                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
+                    parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")][0]
             else:
-                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")]
+                parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")][0]
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs
         

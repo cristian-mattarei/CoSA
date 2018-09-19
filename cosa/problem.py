@@ -24,6 +24,7 @@ SAFETY = "safety"
 LTL = "ltl"
 EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
+DETERMINISTIC = "deterministic"
 FORMULA = "formula"
 MODEL_FILE = "model_file"
 
@@ -46,27 +47,59 @@ class VerificationStatus(object):
         
         Logger.error("Invalid Verification Status \"%s\""%status)
 
+    @staticmethod        
+    def compare(expected, status):
+        if (expected == VerificationStatus.UNK) and (status == VerificationStatus.TRUE):
+            return True
+        return expected == status
         
 class VerificationType(object):
     SAFETY = 0
     LIVENESS = 1
     EVENTUALLY = 2
     EQUIVALENCE = 3
-    SIMULATION = 4
-    LTL = 5
+    DETERMINISTIC = 4
+    SIMULATION = 5
+    LTL = 6
+
+    @staticmethod        
+    def to_string(verification_type):
+        if verification_type == VerificationType.SAFETY:
+            return SAFETY
+        if verification_type == VerificationType.LIVENESS:
+            return LIVENESS
+        if verification_type == VerificationType.EVENTUALLY:
+            return EVENTUALLY
+        if verification_type == VerificationType.EQUIVALENCE:
+            return EQUIVALENCE
+        if verification_type == VerificationType.SIMULATION:
+            return SIMULATION
+        if verification_type == VerificationType.LTL:
+            return LTL
+        if verification_type == VerificationType.DETERMINISTIC:
+            return DETERMINISTIC
+
+        return None
+        
 
 class Problems(object):
     problems = None
     model_file = None
     bmc_length = 10
     abstract_clock = False
-    no_clock = False
+    add_clock = False
     run_coreir_passes = True
     equivalence = None
     relative_path = None
     boolean = None
     time = False
-
+    assume_if_true = False
+    symbolic_init = None
+    zero_init = None
+    full_trace = False
+    trace_vars_change = False
+    trace_all_vars = False
+    
     def __init__(self):
         self.problems = []
         # need to create TS for each symbolic init value
@@ -112,6 +145,9 @@ class Problems(object):
                 for attr,value in problem.items():
                     if hasattr(self, attr):
                         setattr(self, attr, auto_convert(value))
+                    else:
+                        if not hasattr(Problem(), attr):
+                            Logger.error("Attribute \"%s\" not found"%attr)
                 continue
             pbm = self.generate_problem(value, problem)
             pbm.name = value
@@ -143,10 +179,10 @@ class Problem(object):
     equivalence = None
     
     model_file = None
-    monitors = None
+    generators = None
     relative_path = None
     name = None
-    trace = None
+    traces = None
     time = None
 
     vcd = False
@@ -178,6 +214,10 @@ class Problem(object):
             self.verification = VerificationType.EQUIVALENCE
             return
 
+        if value == DETERMINISTIC:
+            self.verification = VerificationType.DETERMINISTIC
+            return
+        
         if value == SIMULATION:
             self.verification = VerificationType.SIMULATION
             return
@@ -187,3 +227,27 @@ class Problem(object):
             return
         
         Logger.error("Unknown verification type \"%s\""%value)
+
+
+class Trace(object):
+    name = ""
+    description = ""
+    extension = None
+    strtrace = None
+    model = None
+    length = None
+    infinite = False
+    human_readable = False
+    prop_vars = None
+
+    def __init__(self, strtrace=None, length=None):
+        self.strtrace = strtrace
+        self.length = length
+
+    def __repr__(self):
+        return str(self.strtrace)
+
+    def __str__(self):
+        return str(self.strtrace)
+
+    

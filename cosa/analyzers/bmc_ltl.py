@@ -96,7 +96,7 @@ class BMCLTL(BMCTemporal, BMCSafety):
             return (VerificationStatus.TRUE, None, t)
         elif model is not None:
             model = self._remap_model(self.hts.vars, model, t)
-            trace = self.print_trace(self.hts, model, t, get_free_variables(prop), map_function=self.config.map_function, find_loop=True)
+            trace = self.generate_trace(model, t, get_free_variables(prop), find_loop=True)
             return (VerificationStatus.FALSE, trace, t)
         else:
             return (VerificationStatus.UNK, None, t)

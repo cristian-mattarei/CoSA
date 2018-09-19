@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Symbol, And, TRUE, simplify, EqualsOrIff
+from pysmt.shortcuts import Symbol, And, TRUE, simplify, EqualsOrIff, get_type
 from cosa.utils.formula_mngm import get_free_variables, substitute
 
 NEXT = "_N"
@@ -32,9 +32,9 @@ class HTS(object):
     assumptions = None
     lemmas = None
 
-    init = None
-    trans = None
-    invar = None
+    _s_init = None
+    _s_trans = None
+    _s_invar = None
 
     logic = None
     en_simplify = False
@@ -52,9 +52,9 @@ class HTS(object):
         self.assumptions = None
         self.lemmas = None
 
-        self.init = None
-        self.trans = None
-        self.invar = None
+        self._s_init = None
+        self._s_trans = None
+        self._s_invar = None
 
         self.logic = L_BV
         self.en_simplify = False
@@ -72,6 +72,13 @@ class HTS(object):
 
     def add_output_var(self, var):
         self.output_vars.add(var)
+        self.vars.add(var)
+
+    def add_state_var(self, var):
+        self.state_vars.add(var)
+        self.vars.add(var)
+        
+    def add_var(self, var):
         self.vars.add(var)
         
     def update_logic(self, logic):
@@ -116,39 +123,39 @@ class HTS(object):
             ts.remove_invar()
 
     def single_init(self):
-        if self.init is None:
-            self.init = TRUE()
+        if self._s_init is None:
+            self._s_init = TRUE()
             for ts in self.tss:
                 if ts.init is not None:
-                    self.init = And(self.init, ts.init)
+                    self._s_init = And(self._s_init, ts.init)
 
-        return self.init
+        return self._s_init
 
     def single_trans(self):
-        if self.trans is None:
-            self.trans = TRUE()
+        if self._s_trans is None:
+            self._s_trans = TRUE()
             for ts in self.tss:
                 if ts.trans is not None:
-                    self.trans = And(self.trans, ts.trans)
+                    self._s_trans = And(self._s_trans, ts.trans)
 
-        return self.trans
+        return self._s_trans
 
     def single_invar(self, rebuild=False):
-        if (self.invar is None) or (rebuild):
-            self.invar = TRUE()
+        if (self._s_invar is None) or (rebuild):
+            self._s_invar = TRUE()
             for ts in self.tss:
                 if ts.invar is not None:
-                    self.invar = And(self.invar, ts.invar)
+                    self._s_invar = And(self._s_invar, ts.invar)
 
         if self.assumptions is not None:
-            return And(self.invar, And(self.assumptions))
+            return And(self._s_invar, And(self.assumptions))
 
-        return self.invar
+        return self._s_invar
 
     def reset_formulae(self):
-        self.init = None
-        self.invar = None
-        self.trans = None
+        self._s_init = None
+        self._s_invar = None
+        self._s_trans = None
 
     def combine(self, other_hts):
         for ts in other_hts.tss:
@@ -175,7 +182,10 @@ class HTS(object):
                 self.add_lemma(lemma)
 
     def newname(self, varname, path=[]):
-        return varname.replace(self.name, ".".join(path))
+        ret = varname.replace(self.name, ".".join(path)).strip()
+        if ret[0] == ".":
+            ret = ret[1:]
+        return ret
 
     def get_TS(self):
         ts = TS()
@@ -190,21 +200,42 @@ class HTS(object):
         return ts
     
     def flatten(self, path=[]):
-        
         vardic = dict([(v.symbol_name(), v) for v in self.vars])
+
+        def full_path(name, path):
+            ret = ".".join(path+[name])
+            if ret[0] == ".":
+                return ret[1:]
+            return ret
+        
         for sub in self.subs:
             instance, actual, module = sub
             formal = module.params
 
             ts = TS("FLATTEN")
-            (ts.init, ts.trans, ts.invar) = module.flatten(path+[instance])
+            (sub_vars, sub_state_vars, ts.init, ts.trans, ts.invar) = module.flatten(path+[instance])
             self.add_ts(ts)
+            
+            for var in sub_vars:
+                self.add_var(var)
+
+            for var in sub_state_vars:
+                self.add_state_var(var)
 
             links = TRUE()
             for i in range(len(actual)):
-                local_var = ".".join(path+[actual[i]])
+                if type(actual[i]) == str:
+                    local_expr = vardic[full_path(actual[i], path)]
+                else:
+                    local_vars = [(v.symbol_name(), v.symbol_name().replace(self.name, ".".join(path))) for v in get_free_variables(actual[i])]
+                    local_expr = substitute(actual[i], dict(local_vars))
                 module_var = sub[2].newname(formal[i].symbol_name(), path+[sub[0]])
-                links = And(links, EqualsOrIff(vardic[local_var], vardic[module_var]))
+                assert sub[2].name != ""
+                if module_var not in vardic:
+                    modulevar = Symbol(module_var, formal[i].symbol_type())
+                    self.vars.add(modulevar)
+                    vardic[module_var] = modulevar
+                links = And(links, EqualsOrIff(local_expr, vardic[module_var]))
                 
             ts = TS("LINKS")
             ts.invar = links
@@ -216,12 +247,20 @@ class HTS(object):
         
         replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
                            [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) for v in self.vars])
-
+        
         s_init = substitute(s_init, replace_dic)
         s_invar = substitute(s_invar, replace_dic)
         s_trans = substitute(s_trans, replace_dic)
-        
-        return (s_init, s_trans, s_invar)
+
+        local_vars = []
+        local_state_vars = []
+        for var in self.vars:
+            local_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
+
+        for var in self.state_vars:
+            local_state_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
+            
+        return (local_vars, local_state_vars, s_init, s_trans, s_invar)
                 
     def __copy__(self):
         cls = self.__class__
@@ -286,6 +325,7 @@ class TS(object):
     state_vars = None
     input_vars = None
     output_vars = None
+    hidden_vars = None
     init = None
     trans = None
     invar = None
@@ -298,6 +338,7 @@ class TS(object):
         self.state_vars = set([])
         self.input_vars = set([])
         self.output_vars = set([])
+        self.hidden_vars = set([])
         self.init = TRUE()
         self.trans = TRUE()
         self.invar = TRUE()
@@ -322,6 +363,9 @@ class TS(object):
 
     def add_var(self, var):
         self.vars.add(var)
+
+    def add_hidden_var(self, var):
+        self.hidden_vars.add(var)
         
     def add_state_var(self, var):
         self.state_vars.add(var)
@@ -340,6 +384,10 @@ class TS(object):
         return v.symbol_name()[-len(NEXT):] == NEXT
 
     @staticmethod
+    def is_timed(v):
+        return AT in v.symbol_name()
+    
+    @staticmethod
     def is_prev(v):
         return v.symbol_name()[-len(PREV):] == PREV
 
@@ -349,6 +397,9 @@ class TS(object):
             return Symbol(v.symbol_name()[:-len(NEXT)], v.symbol_type())
         if TS.is_prev(v):
             return Symbol(v.symbol_name()[:-len(PREV)], v.symbol_type())
+        if TS.is_timed(v):
+            varname = v.symbol_name()
+            return Symbol(varname[:varname.find(AT)], v.symbol_type())
         return v
         
     @staticmethod
@@ -370,6 +421,13 @@ class TS(object):
     @staticmethod
     def get_prefix(v, pref):
         return Symbol(TS.get_prefix_name(v.symbol_name(), pref), v.symbol_type())
+
+    @staticmethod
+    def get_time(v):
+        if not TS.is_timed(v):
+            return -1
+        varname = v.symbol_name()
+        return int(varname[varname.find(AT)+len(AT):])
     
     @staticmethod
     def get_prime_name(name):
