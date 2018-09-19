@@ -241,7 +241,9 @@ def run_problems(problems, config):
 
     formulae = []
     for pbm in pbms.problems:
-        (global_status, trace) = print_problem_result(pbm, config, len(traces)+1)
+        (status, trace) = print_problem_result(pbm, config, len(traces)+1)
+        if status != 0:
+            global_status = status
         traces += trace
         formulae.append(pbm.formula)
 
@@ -249,10 +251,14 @@ def run_problems(problems, config):
         Logger.log("\n*** TRACES ***\n", 0)
         for trace in traces:
             Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
+        Logger.log("", 0)
 
     if config.translate:
         translate(pbms.problems[0].hts, config, formulae)
-            
+
+    if global_status != 0:
+        Logger.warning("Verifications with unexpected result")
+        
     return global_status
             
 def main():
@@ -491,7 +497,7 @@ def main():
             try:
                 sys.exit(run_problems(args.problems, config))
             except Exception as e:
-                Logger.msg(str(e), 0)
+                Logger.error(str(e), False)
                 sys.exit(1)
 
     Logger.error_raise_exept = False
@@ -518,9 +524,9 @@ def main():
         try:
             sys.exit(run_verification(config))
         except Exception as e:
-            Logger.msg(str(e), 0)
+            Logger.error(str(e), False)
             sys.exit(1)
-   
+
 if __name__ == "__main__":
     main()
             

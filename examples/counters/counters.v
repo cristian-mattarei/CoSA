@@ -8,8 +8,8 @@ module Counters #(parameter SIZE = 8)
 
 
    initial begin
-      clk1 = 1;
-      clk2 = 0;
+      clk1 = 0;
+      clk2 = 1;
       forever begin
          #1 clk1 = !clk1;
          #1 clk2 = !clk2;
@@ -73,7 +73,7 @@ module Reset #(parameter SIZE = 16)
     );
 
    always @ (posedge clk1 or posedge clk2)
-        if (in > 'd8)
+        if (in > 'd10)
           begin
              rst = 0;
              rst <= 1;
