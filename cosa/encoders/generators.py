@@ -147,14 +147,21 @@ class RandomGenerator(STSGenerator):
     
     def compile_sts(self, name, params):
         ts = TS()
+        parsize = params[0]
         size = None
-        if type(params[0]) == str:
-            size = int(params[0])
+        
+        if type(parsize) == str:
+            sparser = StringParser()
+            parsize = sparser.parse_formula(parsize)
 
-        if type(params[0]) == FNode:
-            size = get_type(params[0]).width
+        if parsize.is_constant():
+            size = parsize.constant_value()
+
+        if get_type(parsize).is_bv_type():
+            size = get_type(parsize).width
             
-        assert size is not None
+        if size is None:
+            Logger.error("Undefined size for symbol \"%s\""%(params[0]))
 
         value = Symbol("%s.value"%name, BVType(size))
         ts.add_var(value)
