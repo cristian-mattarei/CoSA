@@ -114,3 +114,13 @@ class STSGenerator(object):
 
     def get_interface(self):
         return self.interface
+
+class ClockBehavior(object):
+    name = "CLOCK BEHAVIOR"
+    description = "MISSING DESCRIPTION!"
+
+    def __init__(self):
+        pass
+
+    def get_sts(self, clk, params):
+        Logger.error("Param length not Implemented")

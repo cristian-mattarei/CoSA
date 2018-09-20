@@ -45,7 +45,6 @@ class SyntacticSugarFactory(object):
     def get_sugars():
         return [x[1] for x in SyntacticSugarFactory.sugars]
 
-
 class VerilogEncoder(object):
     INTERNAL = 0
     YOSYS_BTOR = 1
