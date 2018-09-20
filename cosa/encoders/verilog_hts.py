@@ -18,6 +18,8 @@ VPARSER = True
 
 try:
     from pyverilog.vparser.parser import VerilogParser, VerilogPreprocessor
+    from pyverilog.vparser.ply.yacc import yacc
+    from pyverilog.vparser.lexer import VerilogLexer
     from pyverilog.vparser.plyparser import ParseError
     from pyverilog.vparser.ast import *
 except:
@@ -115,7 +117,7 @@ class VerilogHTSParser(ModelParser):
         print_level = 3
         if not Logger.level(print_level):
             saved_stdout = suppress_output()
-        
+
         ast = self.parse([absstrfile])
 
         if not Logger.level(print_level):
@@ -160,6 +162,16 @@ class VerilogHTSParser(ModelParser):
     def remap_or2an(self, name):
         return name
 
+
+class SpecVerilogParser(VerilogParser):
+
+    def __init__(self):
+        self.lexer = VerilogLexer(error_func=self._lexer_error_func)
+        self.lexer.build()
+
+        self.tokens = self.lexer.tokens
+        self.parser = yacc(module=self, method="LALR", outputdir="/tmp/", debug=False)
+    
 class VerilogCodeParser(object):
 
     def __init__(self, filelist, preprocess_output='preprocess.output',
@@ -170,7 +182,7 @@ class VerilogCodeParser(object):
         self.preprocessor = VerilogPreprocessor(filelist, preprocess_output,
                                                 preprocess_include,
                                                 preprocess_define)
-        self.parser = VerilogParser()
+        self.parser = SpecVerilogParser()
 
     def preprocess(self):
         self.preprocessor.preprocess()
