@@ -182,7 +182,9 @@ class VerilogCodeParser(object):
         self.preprocessor = VerilogPreprocessor(filelist, preprocess_output,
                                                 preprocess_include,
                                                 preprocess_define)
+        prev_path = sys.path
         self.parser = SpecVerilogParser()
+        sys.path = prev_path
 
     def preprocess(self):
         self.preprocessor.preprocess()
