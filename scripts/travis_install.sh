@@ -35,21 +35,21 @@ else
     cd coreir && sudo make install && cd ..
 fi
 
-# if [ ! -f "$BITVECTOR" ]; then
-#     rm -fr bit_vector*
-#     wget https://github.com/leonardt/bit_vector/archive/master.zip
-#     unzip master.zip
-#     rm master.zip
-#     mv bit_vector-master bit_vector
-#     cd bit_vector
-#     sed -i -e 's/f"BitVector({self._value}, {self.num_bits})"/"BitVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
-#     sed -i -e 's/f"UIntVector({self._value}, {self.num_bits})"/"UIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
-#     sed -i -e 's/f"SIntVector({self._value}, {self.num_bits})"/"SIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
-#     pip3 install -e .
-# else
-#     echo "Skipping BIT_VECTOR installation"
-#     cd bit_vector && pip3 install -e . && cd ..
-# fi
+if [ ! -f "$BITVECTOR" ]; then
+    rm -fr bit_vector*
+    wget https://github.com/leonardt/bit_vector/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv bit_vector-master bit_vector
+    cd bit_vector
+    sed -i -e 's/f"BitVector({self._value}, {self.num_bits})"/"BitVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
+    sed -i -e 's/f"UIntVector({self._value}, {self.num_bits})"/"UIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
+    sed -i -e 's/f"SIntVector({self._value}, {self.num_bits})"/"SIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
+    pip3 install -e .
+else
+    echo "Skipping BIT_VECTOR installation"
+    cd bit_vector && pip3 install -e . && cd ..
+fi
 
 if [ ! -f "$PYCOREIR" ]; then
     rm -fr pycoreir*
