@@ -14,6 +14,7 @@ import sys
 import argparse
 import os
 
+from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
 
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
@@ -21,7 +22,7 @@ from cosa.analyzers.mcsolver import MCConfig
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
-from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
+from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 
@@ -61,6 +62,7 @@ class Config(object):
     deterministic = False
     time = False
     generators = None
+    clock_behaviors = None
     force_expected = False
     assume_if_true = False
 
@@ -191,6 +193,7 @@ def run_verification(config):
     problem.bmc_length_min = config.bmc_length_min
     problem.full_trace = config.full_trace
     problem.generators = config.generators
+    problem.clock_behaviors = config.clock_behaviors
     problem.incremental = config.incremental
     problem.lemmas = config.lemmas
     problem.model_file = config.strfiles
@@ -266,6 +269,7 @@ def main():
     parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
 
     config = Config()
+    wrapper = TextWrapper(initial_indent=" - ")
 
     # Main inputs
 
@@ -327,12 +331,23 @@ def main():
 
     ver_params.set_defaults(assumptions=None)
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
-                       help='comma separated list of invariant assumptions.')
+                       help='semi column separated list of invariant assumptions.')
 
-    generators = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in GeneratorsFactory.get_generators()]
+    generators = []
+    for x in GeneratorsFactory.get_generators():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
 
     ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
-                        help='comma separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
+                        help='semi column separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
+
+    clock_behaviors = []
+    for x in ClockBehaviorsFactory.get_clockbehaviors():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        clock_behaviors.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+
+    ver_params.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
+                        help='semi column separated list of clock behaviors instantiation. Possible types:\n%s'%("\n".join(clock_behaviors)))
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
@@ -479,6 +494,7 @@ def main():
     config.time = args.time
     config.add_clock = args.add_clock
     config.generators = args.generators
+    config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
 
     if len(sys.argv)==1:

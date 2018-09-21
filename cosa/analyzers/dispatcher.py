@@ -23,8 +23,9 @@ from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
-from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
+from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory
 from cosa.encoders.template import EncoderConfig, ModelInformation
+from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 
 FLAG_SR = "["
@@ -125,30 +126,8 @@ class ProblemSolver(object):
 
         [mc_config.properties, mc_config.lemmas, mc_config.assumptions] = parsing_defs
 
-        if problem.generators is not None:
-
-            varsdict = dict([(var.symbol_name(), var) for var in problem.hts.vars])
-            
-            for strgenerator in problem.generators.split(MODEL_SP):
-                strgenerator = strgenerator.replace(" ","")
-                if strgenerator == "":
-                    continue
-
-                eqpos = strgenerator.find("=")
-                parstart = strgenerator.find("(")
-                if (parstart < eqpos) or (eqpos == -1):
-                    Logger.error("Invalid generators")
-
-                instance = strgenerator[:eqpos:]
-                mdef = strgenerator[eqpos+1:]
-                mtype = mdef.split("(")[0]
-                pars = mdef[mdef.find("(")+1:-1].split(",")
-                generator = GeneratorsFactory.generator_by_name(mtype)
-                pars = [varsdict[v] if v in varsdict else v for v in pars]
-                ts = generator.get_sts(instance, pars)
-
-                problem.hts.add_ts(ts)
-        
+        ParametricBehavior.apply_to_problem(problem, self.model_info)
+                
         assumps = None
         lemmas = None
 
@@ -301,7 +280,7 @@ class ProblemSolver(object):
 
         self.sparser = StringParser(encoder_config)
         self.lparser = LTLParser()
-        
+
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
@@ -320,12 +299,12 @@ class ProblemSolver(object):
             systems[('hts2', si)] = None
 
         assume_if_true = config.assume_if_true or problems.assume_if_true
-        
+
         for problem in problems.problems:
             problem.hts = systems[('hts', problem.symbolic_init)]
             problem.hts2 = systems[('hts2', problem.symbolic_init)]
-            problem.abstract_clock = problems.abstract_clock
-            problem.add_clock = problems.add_clock
+            problem.abstract_clock = problems.abstract_clock or config.abstract_clock
+            problem.add_clock = problems.add_clock or config.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
 
@@ -335,7 +314,13 @@ class ProblemSolver(object):
                 problem.trace_vars_change = problems.trace_vars_change
             if not problem.trace_all_vars:
                 problem.trace_all_vars = problems.trace_all_vars
-
+            if not problem.clock_behaviors:
+                problem.clock_behaviors = ";".join([problems.clock_behaviors if problems.clock_behaviors is not None else "", \
+                                                    config.clock_behaviors if config.clock_behaviors is not None else ""])
+            if not problem.generators:
+                problem.generators = ";".join([problem.generators if problem.generators is not None else "", \
+                                               config.generators if config.generators is not None else ""])
+                
             Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(problem.abstract_clock, problem.add_clock), 2)
             
             if problem.trace_prefix is not None:
@@ -394,13 +379,13 @@ class ProblemSolver(object):
 
     def problems2encoder_config(self, config, problems):
         encoder_config = EncoderConfig()
-        encoder_config.abstract_clock = problems.abstract_clock
-        encoder_config.symbolic_init = config.symbolic_init
+        encoder_config.abstract_clock = problems.abstract_clock or config.abstract_clock
+        encoder_config.symbolic_init = config.symbolic_init or config.symbolic_init
         encoder_config.zero_init = problems.zero_init or config.zero_init
-        encoder_config.add_clock = problems.add_clock
+        encoder_config.add_clock = problems.add_clock or config.add_clock
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
-        encoder_config.boolean = problems.boolean
+        encoder_config.boolean = problems.boolean or config.boolean
 
         return encoder_config
         

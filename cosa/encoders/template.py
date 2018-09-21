@@ -28,14 +28,18 @@ class EncoderConfig(object):
 class ModelInformation(object):
 
     abstract_clock_list = None
+    clock_list = None
     
     def __init__(self):
         self.abstract_clock_list = []
+        self.clock_list = []
 
     def combine(self, other):
         if other is not None:
             if other.abstract_clock_list is not None:
                 self.abstract_clock_list += other.abstract_clock_list
+            if other.clock_list is not None:
+                self.clock_list += other.clock_list
     
 class ModelParser(object):
     extensions = None
@@ -118,9 +122,23 @@ class STSGenerator(object):
 class ClockBehavior(object):
     name = "CLOCK BEHAVIOR"
     description = "MISSING DESCRIPTION!"
+    interface = "MISSING INTERFACE!"
 
     def __init__(self):
         pass
 
-    def get_sts(self, clk, params):
+    def get_name(self):
+        return self.name
+
+    def get_desc(self):
+        return self.description
+
+    def get_interface(self):
+        return self.interface
+    
+    def get_sts(self, params):
         Logger.error("Param length not Implemented")
+
+    def get_default(self, params):
+        Logger.error("Param length not Implemented")
+        

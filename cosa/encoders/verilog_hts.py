@@ -100,6 +100,7 @@ class VerilogHTSParser(ModelParser):
     def get_model_info(self):
         model_info = ModelInformation()
         model_info.abstract_clock_list = self.abstract_clock_list
+        model_info.clock_list = self.clock_list
         return model_info
     
     def is_available(self):
@@ -126,6 +127,7 @@ class VerilogHTSParser(ModelParser):
         self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
         self.abstract_clock_list = self.walker.abstract_clock_list
+        self.clock_list = self.walker.clock_list
         
         hts.flatten()
 
@@ -221,6 +223,7 @@ class VerilogSTSWalker(VerilogWalker):
     id_vars = 0
 
     abstract_clock_list = None
+    clock_list = None
 
     def __init__(self):
         self.reset_structures()
@@ -233,6 +236,7 @@ class VerilogSTSWalker(VerilogWalker):
         self.outputlist = []
         self.memlist = []
         self.abstract_clock_list = []
+        self.clock_list = []
         if self.varmap is None: self.varmap = {}
         if self.paramdic is None: self.paramdic = {}
         if self.modulesdic is None: self.modulesdic = {} 
@@ -263,16 +267,9 @@ class VerilogSTSWalker(VerilogWalker):
 
     def _add_clock_behavior(self, var, modulename):
         varname = var.symbol_name()
-        if (CLOCK in varname) and (self.config.add_clock):
-            if not self.config.abstract_clock:
-                Logger.log("Adding clock behavior to input \"%s\""%(varname), 1)
-                self.hts.add_ts(Modules.Clock(var))
-            else:
-                Logger.log("Adding abstract clock behavior to input \"%s\""%(varname), 1)
-                ts = TS("Clock behavior for signal \"%s\""%varname)
-                ts.invar = EqualsOrIff(var, BV(1,1))
-                self.hts.add_ts(ts)
-                
+        if (CLOCK in varname):
+            self.clock_list.append(var)
+                 
     def Paramlist(self, modulename, el, args):
         return el
 
