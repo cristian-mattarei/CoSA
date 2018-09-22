@@ -385,7 +385,12 @@ class TS(object):
 
     @staticmethod
     def is_timed(v):
-        return AT in v.symbol_name()
+        varname = v.symbol_name()
+        return (AT in varname) and (ATP not in varname)
+
+    @staticmethod
+    def is_ptimed(v):
+        return ATP in v.symbol_name()
     
     @staticmethod
     def is_prev(v):
@@ -397,6 +402,9 @@ class TS(object):
             return Symbol(v.symbol_name()[:-len(NEXT)], v.symbol_type())
         if TS.is_prev(v):
             return Symbol(v.symbol_name()[:-len(PREV)], v.symbol_type())
+        if TS.is_ptimed(v):
+            varname = v.symbol_name()
+            return Symbol(varname[:varname.find(ATP)], v.symbol_type())
         if TS.is_timed(v):
             varname = v.symbol_name()
             return Symbol(varname[:varname.find(AT)], v.symbol_type())
@@ -424,9 +432,12 @@ class TS(object):
 
     @staticmethod
     def get_time(v):
-        if not TS.is_timed(v):
-            return -1
+        if not(TS.is_timed(v) or TS.is_ptimed(v)):
+            return None
         varname = v.symbol_name()
+        if TS.is_ptimed(v):
+            return -int(varname[varname.find(ATP)+len(ATP):])
+        
         return int(varname[varname.find(AT)+len(AT):])
     
     @staticmethod

@@ -23,7 +23,7 @@ from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
-from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory
+from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
 from cosa.encoders.template import EncoderConfig, ModelInformation
 from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
@@ -45,6 +45,9 @@ class ProblemSolver(object):
         self.sparser = None
         self.lparser = None
         self.model_info = ModelInformation()
+
+        GeneratorsFactory.init_generators()
+        ClockBehaviorsFactory.init_clockbehaviors()
 
     def __process_trace(self, hts, trace, config, problem):
         prevass = []
