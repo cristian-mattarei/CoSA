@@ -315,11 +315,11 @@ class ProblemSolver(object):
             if not problem.trace_all_vars:
                 problem.trace_all_vars = problems.trace_all_vars
             if not problem.clock_behaviors:
-                problem.clock_behaviors = ";".join([problems.clock_behaviors if problems.clock_behaviors is not None else "", \
-                                                    config.clock_behaviors if config.clock_behaviors is not None else ""])
+                clk_bhvs = [p for p in [problems.clock_behaviors, config.clock_behaviors] if p is not None]
+                if len(clk_bhvs) > 0:
+                    problem.clock_behaviors = ";".join(clk_bhvs)
             if not problem.generators:
-                problem.generators = ";".join([problem.generators if problem.generators is not None else "", \
-                                               config.generators if config.generators is not None else ""])
+                problem.generators = config.generators
                 
             Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(problem.abstract_clock, problem.add_clock), 2)
             
