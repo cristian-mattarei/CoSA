@@ -98,8 +98,8 @@ class CoreIRParser(ModelParser):
     def __reset_structures(self):
         self._init_mod_map()
         self._init_sym_map()
-        self.clock_list = []
-        self.abstract_clock_list = []
+        self.clock_list = set([])
+        self.abstract_clock_list = set([])
         self.enc_map = {}
         self.map_an2or = {}
         self.map_or2an = {}
@@ -110,8 +110,8 @@ class CoreIRParser(ModelParser):
 
     def get_model_info(self):
         model_info = ModelInformation()
-        model_info.abstract_clock_list = self.abstract_clock_list
-        model_info.clock_list = self.clock_list
+        model_info.abstract_clock_list = list(self.abstract_clock_list)
+        model_info.clock_list = list(self.clock_list)
         return model_info
      
     def run_passes(self):
