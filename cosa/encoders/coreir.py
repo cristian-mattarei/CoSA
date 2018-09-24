@@ -87,22 +87,23 @@ class CoreIRParser(ModelParser):
             self.__init_attrnames()
 
             self.pack_connections = True
-            self.map_an2or = {}
-            self.map_or2an = {}
             self.anonimize_names = False
-
-            self._init_mod_map()
-            self._init_sym_map()
 
             self.memoize_encoding = False
 
-            self.enc_map = {}
+            self.__reset_structures()
 
             Logger.time = True
 
-            self.abstract_clock_list = []
-            self.clock_list = []
-            
+    def __reset_structures(self):
+        self._init_mod_map()
+        self._init_sym_map()
+        self.clock_list = []
+        self.abstract_clock_list = []
+        self.enc_map = {}
+        self.map_an2or = {}
+        self.map_or2an = {}
+        
     @staticmethod        
     def get_extensions():
         return CoreIRParser.extensions
@@ -326,6 +327,8 @@ class CoreIRParser(ModelParser):
         
     def parse_file(self, strfile, config, flags=None):
         self.config = config
+        self.__reset_structures()
+        
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
 

@@ -11,7 +11,7 @@
 import os
 
 from cosa.shell import Config, run_verification, run_problems
-from pysmt.shortcuts import Symbol, reset_env
+from cosa.environment import reset_env
 
 abspath = os.path.abspath(__file__)
 path = ("/".join(abspath.split("/")[:-1]))
@@ -19,7 +19,7 @@ testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
 
 def runtest(example):
     reset_env()
-    
+
     config = Config()
 
     config.safety = True

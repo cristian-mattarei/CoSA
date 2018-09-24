@@ -44,7 +44,7 @@ class ParametricBehavior(object):
 
         if problem.add_clock and (problem.clock_behaviors is None):
             clk_behs = []
-            
+
             for (clock, (before, after)) in model_info.abstract_clock_list:
                 if (clock not in model_info.clock_list) or (clock in clk_behs):
                     continue
@@ -60,8 +60,10 @@ class ParametricBehavior(object):
                 else:
                     clock_behavior = ClockBehaviorsFactory.get_default()
                 ts = clock_behavior.get_default([clock])
-
+                clk_behs.append(clock)
                 problem.hts.add_ts(ts)
+
+            assert len(clk_behs) == len(set(clk_behs))
 
         if problem.clock_behaviors is not None:
 

@@ -40,7 +40,11 @@ class ModelInformation(object):
                 self.abstract_clock_list += other.abstract_clock_list
             if other.clock_list is not None:
                 self.clock_list += other.clock_list
-    
+
+    def __repr__(self):
+        return "CL(%s) ACL(%s)"%(", ".join([s.symbol_name() for s in self.clock_list]) if self.clock_list is not None else "", \
+                                 ", ".join([s.symbol_name() for s in self.abstract_clock_list]) if self.abstract_clock_list is not None else "")
+                
 class ModelParser(object):
     extensions = None
     name = None
