@@ -481,9 +481,9 @@ class CoreIRParser(ModelParser):
 
             # Adding clock behavior
             if (self.CLK in var[0].lower()) and (var[1].is_input()):
-                self.clock_list.append(bvvar)
+                self.clock_list.add(bvvar)
                 if self.config.abstract_clock:
-                    self.abstract_clock_list.append((bvvar, (BV(0, var[1].size), BV(1, var[1].size))))
+                    self.abstract_clock_list.add((bvvar, (BV(0, var[1].size), BV(1, var[1].size))))
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 
