@@ -37,9 +37,13 @@ class ModelInformation(object):
     def combine(self, other):
         if other is not None:
             if other.abstract_clock_list is not None:
-                self.abstract_clock_list += other.abstract_clock_list
+                for el in other.abstract_clock_list:
+                    if el not in self.abstract_clock_list:
+                        self.abstract_clock_list.append(el)
             if other.clock_list is not None:
-                self.clock_list += other.clock_list
+                for el in other.clock_list:
+                    if el not in self.clock_list:
+                        self.clock_list.append(el)
 
     def __repr__(self):
         return "CL(%s) ACL(%s)"%(", ".join([s.symbol_name() for s in self.clock_list]) if self.clock_list is not None else "", \
