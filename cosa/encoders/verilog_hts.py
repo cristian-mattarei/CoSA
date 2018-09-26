@@ -27,7 +27,7 @@ except:
 
 from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero
+    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero, BVMul
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
@@ -219,6 +219,7 @@ class VerilogSTSWalker(VerilogWalker):
     reglist = None
     outputlist = None
     memlist = None
+    mod_map = None
     
     id_vars = 0
 
@@ -239,7 +240,8 @@ class VerilogSTSWalker(VerilogWalker):
         self.clock_list = []
         if self.varmap is None: self.varmap = {}
         if self.paramdic is None: self.paramdic = {}
-        if self.modulesdic is None: self.modulesdic = {} 
+        if self.modulesdic is None: self.modulesdic = {}
+        self._init_mod_map()
         
     def _fresh_symbol(self, name):
         VerilogSTSWalker.id_vars += 1
@@ -269,7 +271,52 @@ class VerilogSTSWalker(VerilogWalker):
         varname = var.symbol_name()
         if (CLOCK in varname):
             self.clock_list.append(var)
-                 
+
+    def _init_mod_map(self):
+        mod_map = []
+        mod_map.append(("not",  Modules.Not))
+        mod_map.append(("zext", Modules.Zext))
+        mod_map.append(("orr",  Modules.Orr))
+        mod_map.append(("andr", Modules.Andr))
+        mod_map.append(("wrap", Modules.Wrap))
+        
+        mod_map.append(("shl",  Modules.LShl))
+        mod_map.append(("lshl", Modules.LShl))
+        mod_map.append(("lshr", Modules.LShr))
+        mod_map.append(("ashr", Modules.AShr))
+        mod_map.append(("add",  Modules.Add))
+        mod_map.append(("and",  Modules.And_M))
+        mod_map.append(("nand",  Modules.Nand_M))
+        mod_map.append(("xor",  Modules.Xor))
+        mod_map.append(("or",   Modules.Or_M))
+        mod_map.append(("nor",  Modules.Nor_M))
+        mod_map.append(("sub",  Modules.Sub))
+        mod_map.append(("mul",  Modules.Mul))
+        mod_map.append(("eq",   Modules.Eq))
+        mod_map.append(("neq",  Modules.Neq))
+
+        mod_map.append(("ult",  Modules.Ult))
+        mod_map.append(("ule",  Modules.Ule))
+        mod_map.append(("ugt",  Modules.Ugt))
+        mod_map.append(("uge",  Modules.Uge))
+        mod_map.append(("slt",  Modules.Slt))
+        mod_map.append(("sle",  Modules.Sle))
+        mod_map.append(("sgt",  Modules.Sgt))
+        mod_map.append(("sge",  Modules.Sge))
+
+        mod_map.append(("const",  Modules.Const))
+        mod_map.append(("reg",    Modules.Reg))
+        mod_map.append(("mem", Modules.Mem))
+        mod_map.append(("regrst", Modules.Reg))
+        mod_map.append(("reg_arst", Modules.Reg))
+        mod_map.append(("mux",    Modules.Mux))
+        mod_map.append(("slice",  Modules.Slice))
+        mod_map.append(("concat", Modules.Concat))
+
+        mod_map.append(('term', Modules.Term))
+
+        self.mod_map = dict(mod_map)
+            
     def Paramlist(self, modulename, el, args):
         return el
 
@@ -526,6 +573,22 @@ class VerilogSTSWalker(VerilogWalker):
             if width == "":
                 return int(bin_to_dec(value))
 
+            if (type(value) == str) and ("x" in value):
+                if width == "":
+                    Logger.error("Non deterministic value definition requires size, line %d"%el.lineno)
+
+                valvar = Symbol(self.varname(modulename, value), BVType(int(width)))
+                if len(value) > 1:
+                    valconstr = TRUE()
+                    for val in value:
+                        if val == "x":
+                            continue
+                        index = value.index(val)
+                        invalue = BV(0,1) if int(val) == 0 else BV(1,1)
+                        valconstr = And(valconstr, EqualsOrIff(BVExtract(valvar, index, index), invalue))
+                    self.add_constraint(valconstr)
+                return valvar
+
             return BV(int(bin_to_dec(value)), int(width))
         
         return int(el.value)
@@ -547,7 +610,7 @@ class VerilogSTSWalker(VerilogWalker):
         return And(args)
 
     def Cond(self, modulename, el, args):
-        return Ite(args[0], args[1], args[2])
+        return Ite(BV2B(args[0]), args[1], args[2])
     
     def IfStatement(self, modulename, el, args):
         statement, then_b, else_b = args[0], args[1], args[2] if len(args) > 2 else None
@@ -726,6 +789,9 @@ class VerilogSTSWalker(VerilogWalker):
             
         return BVUDiv(left, right)
 
+    def Uminus(self, modulename, el, args):
+        return self.Minus(modulename, el, [0, args[0]])
+    
     def Minus(self, modulename, el, args):
         left, right = args[0], args[1]
 
@@ -763,8 +829,37 @@ class VerilogSTSWalker(VerilogWalker):
 
         if (type(left) == int):
             left = BV(left, MAXINT)
-            
+
+        lft_width = get_type(left).width
+        rgt_width = get_type(right).width
+
+        if lft_width != rgt_width:
+            if lft_width < rgt_width:
+                left = BVConcat(left, BV(0, rgt_width-lft_width))
+            if lft_width > rgt_width:
+                right = BVConcat(right, BV(0, lft_width-rgt_width))
+
         return BVAdd(left, right)
+
+    def Times(self, modulename, el, args):
+        left, right = args[0], args[1]
+
+        if (type(left) == int) and (type(right) == int):
+            return left*right
+        
+        if (type(right) == int) and (type(left) == FNode):
+            right = BV(right, get_type(left).width)
+
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
+            
+        if (type(right) == int):
+            right = BV(right, MAXINT)
+
+        if (type(left) == int):
+            left = BV(left, MAXINT)
+
+        return BVMul(left, right)
     
     def Eq(self, modulename, el, args):
         return EqualsOrIff(args[0], args[1])
@@ -781,19 +876,38 @@ class VerilogSTSWalker(VerilogWalker):
         if type(el) == int:
             return BV(el, 1)
         return B2BV(el)
+
+    def Concat(self, modulename, el, args):
+        return self._multi_op(BVConcat, args)
     
     def And(self, modulename, el, args):
+        assert len(args) == 2
         return BVAnd(self.to_bv(args[0]), self.to_bv(args[1]))
 
     def Land(self, modulename, el, args):
         return And([self.to_bool(x) for x in args])
     
     def Xor(self, modulename, el, args):
+        assert len(args) == 2
         return BVXor(self.to_bv(args[0]), self.to_bv(args[1]))
 
     def Or(self, modulename, el, args):
+        assert len(args) == 2
         return BVOr(self.to_bv(args[0]), self.to_bv(args[1]))
 
+    def Uor(self, modulename, el, args):
+        assert len(args) == 1
+        # Or reduce
+        zero = BV(0, get_type(args[0]).width)
+        return Ite(EqualsOrIff(args[0], zero), BV(0,1), BV(1,1))
+
+    def Uand(self, modulename, el, args):
+        assert len(args) == 1
+        # And reduce
+        width = get_type(args[0]).width
+        ones = BV((2**width)-1, width)
+        return Ite(EqualsOrIff(args[0], ones), BV(1,1), BV(0,1))
+    
     def Lor(self, modulename, el, args):
         return Or([self.to_bool(x) for x in args])
     
@@ -852,7 +966,7 @@ class VerilogSTSWalker(VerilogWalker):
 
     def Unot(self, modulename, el, args):
         return self.Ulnot(modulename, el, args)
-    
+
     def Parameter(self, modulename, el, args):
         if el.name not in self.paramdic:
             self.paramdic[el.name] = args[0]
@@ -874,6 +988,21 @@ class VerilogSTSWalker(VerilogWalker):
 
         if type(right) == int:
             right = BV(right, get_type(left).width)
+
+        if get_type(left).is_bv_type() and get_type(right).is_bv_type():
+            
+            lft_width = get_type(left).width
+            rgt_width = get_type(right).width
+
+            if lft_width == rgt_width + 1:
+                fv = get_free_variables(right)
+                right = right.substitute(dict([(v, BVConcat(v, BV(0, 1))) for v in fv]))
+
+            lft_width = get_type(left).width
+            rgt_width = get_type(right).width
+
+            if lft_width > rgt_width:
+                right = BVConcat(right, BV(0, lft_width-rgt_width))
 
         invar = EqualsOrIff(B2BV(left), B2BV(right))
         self.add_invar(invar)
@@ -907,15 +1036,25 @@ class VerilogSTSWalker(VerilogWalker):
         
         return BVExtract(args[0], args[1], args[1])
 
-    def Concat(self, modulename, el, args):
+    def LConcat(self, modulename, el, args):
         if len(args) == 1:
             return args[0]
+        assert len(args) == 2
         return BVConcat(args[0], args[1])
-
+    
     def _rec_repeat(self, el, count):
         if count == 1:
             return el
         return simplify(BVConcat(el, self._rec_repeat(el, count-1)))
+
+    def _multi_op(self, op, args):
+        if len(args) == 1:
+            return args[0]
+        ret = op(args[0], args[1])
+        if len(args) > 2:
+            for el in args[2:]:
+                ret = op(ret, el)
+        return ret
     
     def Repeat(self, modulename, el, args):
         return self._rec_repeat(args[0], args[1])
@@ -930,13 +1069,24 @@ class VerilogSTSWalker(VerilogWalker):
         width_idx = [el_child.index(p) for p in el_child if type(p) == Width]
 
         portargs = [args[i] for i in portargs_idx]
-        portargs.sort()
+        if len([p[0] for p in portargs if p[0] is None]) == 0:
+            portargs.sort()
         paramargs = [args[i] for i in paramargs_idx]
         paramargs.sort()
         width = args[width_idx[0]] if len(width_idx) > 0 else None
 
+        if el.module in ["sva_posedge", "sva_at", "sva_assert", "sva_immediate_assert"]:
+            return None
+        
         if el.module not in self.modulesdic:
-            Logger.error("Module definition \"%s\" not found, line %d"%(el.module, el.lineno))
+            if el.module in self.mod_map:
+                actual_args = [p[1] for p in portargs]
+                actual_args.reverse()
+                ts = self.mod_map[el.module](*actual_args)
+                self.hts.add_ts(ts)
+                return args
+            else:
+                Logger.error("Module definition \"%s\" not found, line %d"%(el.module, el.lineno))
         
         param_modulename = el.module
 
@@ -981,6 +1131,22 @@ class VerilogSTSWalker(VerilogWalker):
             subhts = instancewalker.walk_module(self.modulesdic[el.module], param_modulename)
             subhts.name = param_modulename
 
+            # Setting parameters to value 0 in case they are not provided
+            if len(subhts.params) != len(actualargs):
+                dic_form = dict([(".".join(p.symbol_name().split(".")[1:]), p) for p in subhts.params])
+                lst_actu = [str(a[0]) for a in actualargs]
+
+                for par in dic_form:
+                    if par not in lst_actu:
+                        actualargs.append((par, BV(0, dic_form[par].symbol_type().width)))
+                actualargs.sort()
+            
+            formal_ptype = [get_type(p) for p in subhts.params]
+            actual_ptype = [get_type(a[1]) for a in actualargs]
+            if formal_ptype != actual_ptype:
+                formal = ["%s:%s"%(".".join(p.symbol_name().split(".")[1:]), get_type(p)) for p in subhts.params]
+                actual = ["%s:%s"%(a[0], get_type(a[1])) for a in actualargs]
+                Logger.error("Parameters type error, line %d\nformal=\"%s\" \nactual=\"%s\""%(el.lineno, formal, actual))
             self.hts.add_sub(instance, subhts, tuple([a[1] for a in actualargs]))
         return args
 

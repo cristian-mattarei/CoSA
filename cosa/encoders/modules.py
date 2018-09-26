@@ -13,11 +13,11 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
     BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
-    BVComp, Array, Select, Store
+    BVComp, Array, Select, Store, get_type
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import TS, HTS, L_BV, L_ABV
-from cosa.utils.formula_mngm import B2BV, BV2B
+from cosa.utils.formula_mngm import B2BV, BV2B, get_free_variables
 from cosa.utils.logger import Logger
 
 SEP = "."
@@ -39,11 +39,11 @@ class Modules(object):
     def Uop(bvop, bop, in_, out):
         # INVAR: (<op> in) = out)
         vars_ = [in_,out]
-        comment = (bvop.__name__ + " (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        comment = "" #(bvop.__name__ + " (in, out) = (%s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 3)
 
-        in_B = in_.symbol_type() == BOOL
-        outB = out.symbol_type() == BOOL
+        in_B = get_type(in_).is_bool_type()
+        outB = get_type(out).is_bool_type()
 
         bools = (1 if in_B else 0) + (1 if outB else 0)
 
@@ -66,7 +66,7 @@ class Modules(object):
                 
                 
         ts = TS(comment)
-        ts.vars, ts.invar = set(vars_), invar
+        ts.vars, ts.invar = get_free_variables(invar), invar
         return ts
 
     @staticmethod
@@ -88,12 +88,12 @@ class Modules(object):
     def Bop(bvop, bop, in0, in1, out):
         # INVAR: (in0 <op> in1) = out
         vars_ = [in0,in1,out]
-        comment = (bvop.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
+        comment = "" #(bvop.__name__ + " (in0, in1, out) = (%s, %s, %s)")%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 3)
 
-        in0B = in0.symbol_type() == BOOL
-        in1B = in1.symbol_type() == BOOL
-        outB = out.symbol_type() == BOOL
+        in0B = get_type(in0).is_bool_type()
+        in1B = get_type(in1).is_bool_type()
+        outB = get_type(out).is_bool_type()
 
         bools = (1 if in0B else 0) + (1 if in1B else 0) + (1 if outB else 0)
 
@@ -128,7 +128,7 @@ class Modules(object):
                     invar = EqualsOrIff(B2BV(bop(in0, in1)), out)
                 
         ts = TS(comment)
-        ts.vars, ts.invar = set(vars_), invar
+        ts.vars, ts.invar = get_free_variables(invar), invar
         return ts
 
     @staticmethod
@@ -145,9 +145,25 @@ class Modules(object):
     
         invar = Iff(op(in0,in1), bout)
         ts = TS(comment)
-        ts.vars, ts.invar = set(vars_), invar
+        ts.vars, ts.invar = get_free_variables(invar), invar
         return ts
 
+    @staticmethod
+    def MultiOp(op, end_op, *params):
+        inparams, out = params[:-1], params[-1]
+        cum = inparams[0]
+        for el in inparams[1:]:
+            cum = op(cum, el)
+
+        if end_op is not None:
+            cum = end_op(cum)
+
+        formula = EqualsOrIff(cum, out)
+            
+        ts = TS()
+        ts.vars, ts.invar = get_free_variables(formula), formula
+        return ts
+    
     @staticmethod
     def LShl(in0,in1,out):
         return Modules.Bop(BVLShl,None,in0,in1,out)
@@ -175,7 +191,7 @@ class Modules(object):
     @staticmethod
     def Or(in0,in1,out):
         return Modules.Bop(BVOr,Or,in0,in1,out)
-    
+
     @staticmethod
     def Sub(in0,in1,out):
         return Modules.Bop(BVSub,None,in0,in1,out)
@@ -220,6 +236,22 @@ class Modules(object):
     def Concat(in0,in1,out):
         return Modules.Bop(BVConcat,None,in0,in1,out)
 
+    @staticmethod
+    def Nor_M(*params):
+        return Modules.MultiOp(BVOr, BVNot, *params)
+
+    @staticmethod
+    def Or_M(*params):
+        return Modules.MultiOp(BVOr, None, *params)
+
+    @staticmethod
+    def And_M(*params):
+        return Modules.MultiOp(BVAnd, None, *params)
+
+    @staticmethod
+    def Nand_M(*params):
+        return Modules.MultiOp(BVAnd, BVNot, *params)
+    
     @staticmethod
     def Zext(in_,out):
         # INVAR: (<op> in) = out)
