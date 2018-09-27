@@ -143,7 +143,8 @@ def print_problem_result(pbm, config, count=-1):
     unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
     Logger.log("\n** Problem %s **"%(pbm.name), 0)
     Logger.log("Description: %s"%(pbm.description), 0)
-    Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
+    if pbm.formula is not None:
+        Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
