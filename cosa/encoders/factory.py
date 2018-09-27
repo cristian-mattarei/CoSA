@@ -67,12 +67,14 @@ class ModelParsersFactory(object):
         from cosa.encoders.coreir import CoreIRParser
         from cosa.encoders.verilog_yosys import VerilogYosysBtorParser
         from cosa.encoders.verilog_hts import VerilogHTSParser
+        from cosa.encoders.systemverilog_verific import SystemVerilogVerificParser
         
         ModelParsersFactory.register_parser(CoreIRParser())
         ModelParsersFactory.register_parser(SymbolicTSParser())
         ModelParsersFactory.register_parser(SymbolicSimpleTSParser())
         ModelParsersFactory.register_parser(ExplicitTSParser())
         ModelParsersFactory.register_parser(BTOR2Parser())
+        ModelParsersFactory.register_parser(SystemVerilogVerificParser())
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
             ModelParsersFactory.register_parser(VerilogHTSParser())
@@ -85,8 +87,7 @@ class ModelParsersFactory(object):
     @staticmethod
     def register_parser(parser):
         if parser.get_name() not in dict(ModelParsersFactory.parsers):
-            if parser.is_available():
-                ModelParsersFactory.parsers.append((parser.get_name(), parser))
+            ModelParsersFactory.parsers.append((parser.get_name(), parser))
 
     @staticmethod
     def parser_by_name(name):

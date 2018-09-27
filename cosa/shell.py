@@ -275,11 +275,17 @@ def main():
 
     in_options = parser.add_argument_group('input options')
 
-    input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) for x in ModelParsersFactory.get_parsers()]
+    av_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
+                      for x in ModelParsersFactory.get_parsers() if x.is_available()]
+
+    ua_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
+                      for x in ModelParsersFactory.get_parsers() if not x.is_available()]
     
     in_options.set_defaults(input_files=None)
     in_options.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
-                            help='comma separated list of input files. Supported types:\n%s'%("\n".join(input_types)))
+                            help='comma separated list of input files.\nSupported types:\n%s%s'%\
+                            ("\n".join(av_input_types), "\nNot enabled:\n%s"%("\n".join(ua_input_types)) \
+                             if len(ua_input_types) > 0 else ""))
     
     in_options.set_defaults(problems=None)
     in_options.add_argument('--problems', metavar='<problems file>', type=str, required=False,
