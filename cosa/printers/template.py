@@ -58,4 +58,4 @@ class TracePrinter(object):
         Logger.error("Not implemented")
 
     def is_hidden(self, name):
-        return name[:len(HIDDEN_VAR)] == HIDDEN_VAR
+        return HIDDEN_VAR in name

@@ -1031,7 +1031,7 @@ class VerilogSTSWalker(VerilogWalker):
     def Ulnot(self, modulename, el, args):
         if type(args[0]) == int:
             return Not(self.to_bool(args[0]))
-        zero = BV(0, args[0].symbol_type().width)
+        zero = BV(0, get_type(args[0]).width)
         return EqualsOrIff(args[0], zero)
 
     def Unot(self, modulename, el, args):
