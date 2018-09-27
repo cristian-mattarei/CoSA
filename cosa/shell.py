@@ -22,7 +22,7 @@ from cosa.analyzers.mcsolver import MCConfig
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
-from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory
+from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 
@@ -327,10 +327,15 @@ def main():
     # Verification parameters
 
     ver_params = parser.add_argument_group('verification parameters')
-    
+
+    sugars = []
+    for x in SyntacticSugarFactory.get_sugars():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        sugars.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+
     ver_params.set_defaults(properties=None)
     ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
-                       help='comma separated list of properties.')
+                       help='comma separated list of properties. Special operators:\n%s'%("\n".join(sugars)))
 
     ver_params.set_defaults(bmc_length=config.bmc_length)
     ver_params.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
@@ -341,7 +346,7 @@ def main():
                         help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
 
     ver_params.set_defaults(precondition=None)
-    ver_params.add_argument('-c', '--precondition', metavar='<invar list>', type=str, required=False,
+    ver_params.add_argument('-c', '--precondition', metavar='<invar>', type=str, required=False,
                        help='properties precondition.')
     
     ver_params.set_defaults(lemmas=None)

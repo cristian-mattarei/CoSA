@@ -43,6 +43,7 @@ class SyntacticSugarFactory(object):
     
     @staticmethod
     def get_sugars():
+        SyntacticSugarFactory.init_sugar(None)
         return [x[1] for x in SyntacticSugarFactory.sugars]
 
 class VerilogEncoder(object):

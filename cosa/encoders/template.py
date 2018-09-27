@@ -81,6 +81,7 @@ from pysmt.parsing import Rule
 class SyntacticSugar(object):
     name = "Syntactic Sugar"
     description = "MISSING DESCRIPTION!"
+    interface = "MISSING INTERFACE!"
 
     encoder_config = None
 
@@ -93,6 +94,9 @@ class SyntacticSugar(object):
     def get_desc(self):
         return self.description
 
+    def get_interface(self):
+        return self.interface
+    
     def insert_lexer_rule(self, rules):
         rules.insert(0, Rule(r"(%s)"%self.name, self.adapter(), False))
 
