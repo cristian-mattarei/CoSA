@@ -103,6 +103,7 @@ class SystemVerilogVerificParser(ModelParser):
 
         if not Logger.level(1):
             os.remove(TMPFILE)
+            os.remove(TMPCMDFILE)
         
         return ret
 

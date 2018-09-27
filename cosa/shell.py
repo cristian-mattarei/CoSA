@@ -32,15 +32,19 @@ class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
-    simulate = False
     bmc_length = 10
     bmc_length_min = 0
+    
+    simulate = False
     safety = None
     ltl = None
+    equivalence = None
+    problems = None
+    
     properties = None
     lemmas = None
+    precondition = None
     assumptions = None
-    equivalence = None
     symbolic_init = False
     zero_init = False
     fsm_check = False
@@ -133,12 +137,13 @@ def translate(hts, config, formulae=None):
 
 def print_problem_result(pbm, config, count=-1):
     if pbm.name is None:
-        return 0
+        return (0, [])
     ret_status = 0
 
     unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
     Logger.log("\n** Problem %s **"%(pbm.name), 0)
     Logger.log("Description: %s"%(pbm.description), 0)
+    Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
@@ -165,12 +170,85 @@ def print_problem_result(pbm, config, count=-1):
 
     return (ret_status, traces)
 
+def run_problems(problems_file, config, problems=None):
+    reset_env()
+    Logger.verbosity = config.verbosity
+    psol = ProblemSolver()
+    if problems is None:
+        problems = Problems()
+        problems.load_problems(problems_file)
+        
+    psol.solve_problems(problems, config)
+
+    global_status = 0
+    traces = []
+
+    if len(problems.problems) > 0:
+        Logger.log("\n*** SUMMARY ***", 0)
+    else:
+        if not config.translate:
+            Logger.log("No problems to solve", 0)
+            return 0
+
+    formulae = []
+    for pbm in problems.problems:
+        (status, trace) = print_problem_result(pbm, config, len(traces)+1)
+        if status != 0:
+            global_status = status
+        traces += trace
+        formulae.append(pbm.formula)
+
+    if len(traces) > 0:
+        Logger.log("\n*** TRACES ***\n", 0)
+        for trace in traces:
+            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
+
+    if config.translate:
+        translate(problems.get_hts(), config, formulae)
+
+    if global_status != 0:
+        Logger.log("", 0)
+        Logger.warning("Verifications with unexpected result")
+        
+    return global_status
+
 def run_verification(config):
     reset_env()
     Logger.verbosity = config.verbosity
 
-    ps = ProblemSolver()
-    problem = Problem()
+    problems = Problems()
+        
+    problems.assumptions = config.assumptions
+    problems.bmc_length = config.bmc_length
+    problems.bmc_length_min = config.bmc_length_min
+    problems.full_trace = config.full_trace
+    problems.generators = config.generators
+    problems.clock_behaviors = config.clock_behaviors
+    problems.incremental = config.incremental
+    problems.lemmas = config.lemmas
+    problems.model_file = config.strfiles
+    problems.prefix = config.prefix
+    problems.prove = config.prove
+    problems.skip_solving = config.skip_solving
+    problems.smt2_tracing = config.smt2file
+    problems.solver_name = config.solver_name
+    problems.strategy = config.strategy
+    problems.symbolic_init = config.symbolic_init
+    problems.zero_init = config.zero_init
+    problems.time = config.time
+    problems.trace_all_vars = config.trace_all_vars
+    problems.trace_vars_change = config.trace_vars_change
+    problems.vcd = config.vcd
+    problems.verbosity = config.verbosity
+    
+    problems.model_file = config.strfiles
+    problems.boolean = config.boolean
+    problems.add_clock = config.add_clock
+    problems.abstract_clock = config.abstract_clock
+    problems.run_coreir_passes = config.run_passes
+    problems.relative_path = "./"
+
+    problem = problems.new_problem()
 
     if config.safety:
         problem.verification = VerificationType.SAFETY
@@ -188,81 +266,12 @@ def run_verification(config):
     if not problem.verification == VerificationType.EQUIVALENCE:
         problem.formula = config.properties
 
-    problem.assumptions = config.assumptions
-    problem.bmc_length = config.bmc_length
-    problem.bmc_length_min = config.bmc_length_min
-    problem.full_trace = config.full_trace
-    problem.generators = config.generators
-    problem.clock_behaviors = config.clock_behaviors
-    problem.incremental = config.incremental
-    problem.lemmas = config.lemmas
-    problem.model_file = config.strfiles
     problem.name = VerificationType.to_string(problem.verification)
-    problem.prefix = config.prefix
-    problem.prove = config.prove
-    problem.skip_solving = config.skip_solving
-    problem.smt2_tracing = config.smt2file
-    problem.solver_name = config.solver_name
-    problem.strategy = config.strategy
-    problem.symbolic_init = config.symbolic_init
-    problem.zero_init = config.zero_init
-    problem.time = config.time
-    problem.trace_all_vars = config.trace_all_vars
-    problem.trace_vars_change = config.trace_vars_change
-    problem.vcd = config.vcd
-    problem.verbosity = config.verbosity
     
-    problems = Problems()
-    problems.model_file = config.strfiles
-    problems.boolean = config.boolean
-    problems.add_clock = config.add_clock
-    problems.abstract_clock = config.abstract_clock
-    problems.run_coreir_passes = config.run_passes
-    problems.relative_path = "./"
+    if problem.formula or problem.verification:
+        problems.add_problem(problem)
 
-    problems.add_problem(problem)
-    ps.solve_problems(problems, config)
-    print_problem_result(problem, config)
-
-    if config.translate:
-        translate(problem.hts, config, [problem.formula])
-
-    return 0
-            
-def run_problems(problems, config):
-    reset_env()
-    Logger.verbosity = config.verbosity
-    pbms = Problems()
-    psol = ProblemSolver()
-    pbms.load_problems(problems)
-    psol.solve_problems(pbms, config)
-
-    global_status = 0
-    traces = []
-    
-    Logger.log("\n*** SUMMARY ***", 0)
-
-    formulae = []
-    for pbm in pbms.problems:
-        (status, trace) = print_problem_result(pbm, config, len(traces)+1)
-        if status != 0:
-            global_status = status
-        traces += trace
-        formulae.append(pbm.formula)
-
-    if len(traces) > 0:
-        Logger.log("\n*** TRACES ***\n", 0)
-        for trace in traces:
-            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
-
-    if config.translate:
-        translate(pbms.problems[0].hts, config, formulae)
-
-    if global_status != 0:
-        Logger.log("", 0)
-        Logger.warning("Verifications with unexpected result")
-        
-    return global_status
+    return run_problems(None, config, problems)
             
 def main():
     
@@ -330,6 +339,10 @@ def main():
     ver_params.set_defaults(bmc_length_min=config.bmc_length_min)
     ver_params.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
                         help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
+
+    ver_params.set_defaults(precondition=None)
+    ver_params.add_argument('-c', '--precondition', metavar='<invar list>', type=str, required=False,
+                       help='properties precondition.')
     
     ver_params.set_defaults(lemmas=None)
     ver_params.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
@@ -475,6 +488,7 @@ def main():
     config.ltl = args.ltl
     config.properties = args.properties
     config.lemmas = args.lemmas
+    config.precondition = args.precondition
     config.assumptions = args.assumptions
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init

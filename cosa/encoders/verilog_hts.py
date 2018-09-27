@@ -43,6 +43,7 @@ from cosa.representation import HTS, TS
 from cosa.utils.generic import bin_to_dec, dec_to_bin, suppress_output, restore_output
 from cosa.utils.formula_mngm import B2BV, BV2B, get_free_variables, substitute, mem_access
 from cosa.environment import Assign, Define, ASSIGN, DEFINE
+from cosa.printers.template import HIDDEN_VAR
 
 KEYWORDS = ""
 KEYWORDS += "module wire assign else reg always endmodule end define integer generate "
@@ -62,6 +63,20 @@ CLOCK = "clk"
 
 MODPARST = "__|"
 MODPAREN = "|"
+
+# SystemVerilog Verific modules
+SVA_POSEDGE = "sva_posedge"
+SVA_AT = "sva_at"
+SVA_ASSERT = "sva_assert"
+SVA_IMMEDIATE_ASSERT = "sva_immediate_assert"
+
+SV_MODULES = [SVA_POSEDGE, SVA_AT, SVA_ASSERT, SVA_IMMEDIATE_ASSERT]
+
+ASSERT_ST = HIDDEN_VAR+"assert__l"
+ASSERT_EN = HIDDEN_VAR[::-1]
+ASSERT_SYMBOL = ASSERT_ST+"%d"+ASSERT_EN
+
+DONTCARE_VAR = HIDDEN_VAR+"%s"+(HIDDEN_VAR[::-1])
 
 class AssignDefineSubstituteWalker(IdentityDagWalker):
 
@@ -141,7 +156,9 @@ class VerilogHTSParser(ModelParser):
                     assigns.append(Not(var))
             ts.init = And(assigns)
             hts.add_ts(ts)
-        
+
+        invar_props, ltl_props = self.__extract_properties(hts, strfile)
+
         return (hts, invar_props, ltl_props)
 
     def get_extensions(self):
@@ -164,6 +181,50 @@ class VerilogHTSParser(ModelParser):
     def remap_or2an(self, name):
         return name
 
+    def __extract_properties(self, hts, strfile):
+        assertvars = [v.symbol_name() for v in hts.vars if ASSERT_ST in v.symbol_name()]
+
+        invar_props = []
+        ltl_props = []
+
+        print_line = False
+
+        # If the assertion line has a comment in the format // <filename>(lineno)
+        # it reports the line in the comment
+        def extract_lineno(line, linenum):
+            orig_lineno = re.search("/\w.*\(\d+\)", line)
+            if orig_lineno is None:
+                return line, linenum
+
+            strfile, linenum = re.search("/\w.*\(", line), re.search("\(\d+\)", line)
+            if (strfile is None) or (linenum is None):
+                return line, linenum
+            
+            strfile = strfile.group(0)[:-1]
+            linenum = int(linenum.group(0)[1:-1])
+
+            if print_line:
+                with open(strfile, "r") as f:
+                    line = f.readlines()[linenum-1]
+
+            return line, linenum
+            
+        
+        if len(assertvars) > 0:
+            with open(strfile, "r") as f:
+                lines = f.readlines()
+            
+            for assertion in assertvars:
+                linenum = int(assertion[assertion.find(ASSERT_ST)+len(ASSERT_ST):assertion.find(ASSERT_EN)])
+                line, linenum = extract_lineno(lines[linenum-1], linenum)
+                line = re.sub(' +',' ',line.strip())
+
+                if print_line:
+                    invar_props.append(("Assertion_line_%d"%linenum, "Assertion at line %d, \"%s\""%(linenum, line), assertion))
+                else:
+                    invar_props.append(("Assertion_line_%d"%linenum, "Assertion at line %d"%(linenum), assertion))
+
+        return invar_props, ltl_props
 
 class SpecVerilogParser(VerilogParser):
 
@@ -206,7 +267,7 @@ class VerilogCodeParser(object):
 
     def get_directives(self):
         return self.directives
-    
+
 class VerilogSTSWalker(VerilogWalker):
     varmap = None
     paramdic = None
@@ -263,6 +324,8 @@ class VerilogSTSWalker(VerilogWalker):
             self.add_invar(constraint)
             
     def varname(self, modulename, varname):
+        if varname[0] == "\\":
+            varname = varname[1:]
         if modulename == "":
             return varname
         return "%s.%s"%(modulename, varname)
@@ -322,7 +385,9 @@ class VerilogSTSWalker(VerilogWalker):
 
     def Wire(self, modulename, el, args):
         width = args[0] if args is not None else 1
-        self.add_var(modulename, el.name, Symbol(self.varname(modulename, el.name), BVType(width)))
+        wvar = Symbol(self.varname(modulename, el.name), BVType(width))
+        self.add_var(modulename, el.name, wvar)
+        self.ts.add_var(wvar)
         return (el.name, args)
 
     def Reg(self, modulename, el, args):
@@ -577,7 +642,12 @@ class VerilogSTSWalker(VerilogWalker):
                 if width == "":
                     Logger.error("Non deterministic value definition requires size, line %d"%el.lineno)
 
-                valvar = Symbol(self.varname(modulename, value), BVType(int(width)))
+                valname = DONTCARE_VAR%value
+                valvar = Symbol(self.varname(modulename, valname), BVType(int(width)))
+                self.add_var(modulename, valname, valvar)
+                self.ts.add_var(valvar)
+                # Inverting the value, e.g., with 'b1x x is the least significant
+                value = value[::-1]
                 if len(value) > 1:
                     valconstr = TRUE()
                     for val in value:
@@ -1075,8 +1145,14 @@ class VerilogSTSWalker(VerilogWalker):
         paramargs.sort()
         width = args[width_idx[0]] if len(width_idx) > 0 else None
 
-        if el.module in ["sva_posedge", "sva_at", "sva_assert", "sva_immediate_assert"]:
-            return None
+        if el.module in SV_MODULES:
+            if el.module in [SVA_ASSERT, SVA_IMMEDIATE_ASSERT]:
+                sname = ASSERT_SYMBOL%el.lineno
+                asymbol = Symbol(self.varname(modulename, sname), BOOL)
+                self.add_var(modulename, sname, asymbol)
+                self.ts.add_var(asymbol)
+                self.add_constraint(EqualsOrIff(asymbol, And([BV2B(a[1]) for a in args])))
+            return args
         
         if el.module not in self.modulesdic:
             if el.module in self.mod_map:

@@ -9,13 +9,13 @@
 # limitations under the License.
 
 import os
+import copy
 
-from cosa.problem import VerificationType
 from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
-from cosa.problem import VerificationStatus, Trace
+from cosa.problem import VerificationType, Problem, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS
@@ -142,6 +142,12 @@ class ProblemSolver(object):
                 
         accepted_ver = False
 
+        precondition = config.precondition if config.precondition is not None else problem.precondition
+        
+        if precondition:
+            for i in range(len(mc_config.properties)):
+                mc_config.properties[i] = "(%s) -> (%s)"%(precondition, mc_config.properties[i])
+        
         if (problem.verification != VerificationType.EQUIVALENCE) and (mc_config.properties is not None):
             assumps = [t[1] for t in self.sparser.parse_formulae(mc_config.assumptions)]
             lemmas = [t[1] for t in self.sparser.parse_formulae(mc_config.lemmas)]
@@ -276,36 +282,60 @@ class ProblemSolver(object):
         return (hts, invar_props, ltl_props)
 
     def solve_problems(self, problems, config):
-        if len(problems.problems) == 0:
-            Logger.error("No problems defined")
-            
         encoder_config = self.problems2encoder_config(config, problems)
 
         self.sparser = StringParser(encoder_config)
         self.lparser = LTLParser()
 
+        invar_props = []
+        ltl_props = []
+        si = False
+
+        if len(problems.symbolic_inits) == 0:
+            problems.symbolic_inits.add(si)
+
+        HTSM = 0
+        HTS2 = 1
+        HTSD = (HTSM, si)
+            
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
             encoder_config.symbolic_init = si
-            (systems[('hts', si)], _, _) = self.parse_model(problems.relative_path, \
-                                                            problems.model_file, \
-                                                            encoder_config, # si,\
-                                                            "System 1")
-
+            (systems[(HTSM, si)], invar_props, ltl_props) = self.parse_model(problems.relative_path, \
+                                                                              problems.model_file, \
+                                                                              encoder_config, \
+                                                                              "System 1")
+            
         if problems.equivalence is not None:
-            (systems[('hts2', si)], _, _) = self.parse_model(problems.relative_path, \
+            (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
                                                              problems.equivalence, \
-                                                             encoder_config, #si, \
+                                                             encoder_config, \
                                                              "System 2")
         else:
-            systems[('hts2', si)] = None
+            systems[(HTS2, si)] = None
 
+        if config.safety or config.problems:
+            for invar_prop in invar_props:
+                inv_prob = problems.new_problem()
+                inv_prob.verification = VerificationType.SAFETY
+                inv_prob.name = invar_prop[0]
+                inv_prob.description = invar_prop[1]
+                inv_prob.formula = invar_prop[2]
+                problems.add_problem(inv_prob)
+            
         assume_if_true = config.assume_if_true or problems.assume_if_true
 
+        if HTSD in systems:
+            problems._hts = systems[HTSD]
+        
         for problem in problems.problems:
-            problem.hts = systems[('hts', problem.symbolic_init)]
-            problem.hts2 = systems[('hts2', problem.symbolic_init)]
+            problem.hts = systems[(HTSM, problem.symbolic_init)]
+            if problems._hts is None:
+                problems._hts = problem.hts
+            problem.hts2 = systems[(HTS2, problem.symbolic_init)]
+            if problems._hts2 is None:
+                problems._hts2 = problem.hts2
             problem.abstract_clock = problems.abstract_clock or config.abstract_clock
             problem.add_clock = problems.add_clock or config.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes
