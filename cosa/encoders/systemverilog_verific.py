@@ -36,13 +36,14 @@ class SystemVerilogVerificParser(ModelParser):
     extensions = ["sv"]
     name = "SystemVerilog (Verific)"
 
+    model_info = None
+
     def __init__(self):
         pass
 
     def is_available(self):
         if shutil.which(CMD) is None:
             return False
-
 
         print_level = 3
         if not Logger.level(print_level):
@@ -59,7 +60,7 @@ class SystemVerilogVerificParser(ModelParser):
         return True
 
     def get_model_info(self):
-        return None
+        return self.model_info
      
     def parse_file(self, strfile, config, flags=None):
         if flags is None:
@@ -98,6 +99,7 @@ class SystemVerilogVerificParser(ModelParser):
             
         parser = VerilogHTSParser()
         ret = parser.parse_file(TMPFILE, config, flags=flags)
+        self.model_info = parser.get_model_info()
 
         if not Logger.level(1):
             os.remove(TMPFILE)
