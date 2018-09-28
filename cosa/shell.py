@@ -25,6 +25,7 @@ from cosa.printers.template import HTSPrinterType
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
+from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
 
@@ -275,11 +276,41 @@ def run_verification(config):
     return run_problems(None, config, problems)
             
 def main():
+    wrapper = TextWrapper(initial_indent=" - ")
+    extra_info = []
+
+    extra_info.append(bold_text("\nADDITIONAL INFORMATION:"))
     
-    parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
+    clock_behaviors = []
+    for x in ClockBehaviorsFactory.get_clockbehaviors():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        clock_behaviors.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+
+    extra_info.append('\nClock behaviors:\n%s'%("\n".join(clock_behaviors)))
+
+
+    sugars = []
+    for x in SyntacticSugarFactory.get_sugars():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        sugars.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+    
+
+    extra_info.append('\nSpecial operators:\n%s'%("\n".join(sugars)))
+
+    generators = []
+    for x in GeneratorsFactory.get_generators():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+    
+    extra_info.append('\nModule generators:\n%s'%("\n".join(generators)))
+
+                            
+    parser = argparse.ArgumentParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'), \
+                                     #usage='%(prog)s [options]', \
+                                     formatter_class=RawTextHelpFormatter, \
+                                     epilog="\n".join(extra_info))
 
     config = Config()
-    wrapper = TextWrapper(initial_indent=" - ")
 
     # Main inputs
 
@@ -329,14 +360,9 @@ def main():
 
     ver_params = parser.add_argument_group('verification parameters')
 
-    sugars = []
-    for x in SyntacticSugarFactory.get_sugars():
-        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
-        sugars.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
-
     ver_params.set_defaults(properties=None)
     ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
-                       help='comma separated list of properties. Special operators:\n%s'%("\n".join(sugars)))
+                       help='comma separated list of properties.')
 
     ver_params.set_defaults(bmc_length=config.bmc_length)
     ver_params.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
@@ -358,21 +384,11 @@ def main():
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
                        help='semi column separated list of invariant assumptions.')
 
-    generators = []
-    for x in GeneratorsFactory.get_generators():
-        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
-        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
-
     ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
-                        help='semi column separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
-
-    clock_behaviors = []
-    for x in ClockBehaviorsFactory.get_clockbehaviors():
-        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
-        clock_behaviors.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+                        help='semi column separated list of generators instantiation.')
 
     ver_params.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
-                        help='semi column separated list of clock behaviors instantiation. Possible types:\n%s'%("\n".join(clock_behaviors)))
+                        help='semi column separated list of clock behaviors instantiation.')
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
