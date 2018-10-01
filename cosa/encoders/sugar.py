@@ -18,6 +18,7 @@ from cosa.utils.formula_mngm import BV2B, B2BV, mem_access
 class Posedge(SyntacticSugar):
     name = "posedge"
     description = "Clock Posedge"
+    interface = "variable"
 
     def adapter(self):
         return UnaryOpAdapter(self.Posedge, 100)
@@ -34,6 +35,7 @@ class Posedge(SyntacticSugar):
 class Negedge(SyntacticSugar):
     name = "negedge"
     description = "Clock Negedge"
+    interface = "variable"
 
     def adapter(self):
         return UnaryOpAdapter(self.Negedge, 100)
@@ -50,6 +52,7 @@ class Negedge(SyntacticSugar):
 class Change(SyntacticSugar):
     name = "change"
     description = "Signal Changes"
+    interface = "variable"
 
     def adapter(self):
         return UnaryOpAdapter(self.Change, 100)
@@ -60,6 +63,7 @@ class Change(SyntacticSugar):
 class NoChange(SyntacticSugar):
     name = "nochange"
     description = "Signal doesn't Change"
+    interface = "variable"
 
     def adapter(self):
         return UnaryOpAdapter(self.NoChange, 100)
@@ -70,6 +74,7 @@ class NoChange(SyntacticSugar):
 class Ones(SyntacticSugar):
     name = "ones"
     description = "Maximum Bitvector value"
+    interface = "variable"
 
     def adapter(self):
         return UnaryOpAdapter(self.Ones, 100)
@@ -83,6 +88,7 @@ class Ones(SyntacticSugar):
 class Zero(SyntacticSugar):
     name = "zero"
     description = "Zero value"
+    interface = "variable"
 
     def adapter(self):
         return UnaryOpAdapter(self.Zero, 100)
@@ -96,6 +102,7 @@ class Zero(SyntacticSugar):
 class Dec2BV(SyntacticSugar):
     name = "dec2bv"
     description = "Decimal to BitVector"
+    interface = "value, variable"
 
     def adapter(self):
         return FunctionCallAdapter(self.Dec2BV, 60)
@@ -114,6 +121,7 @@ class Dec2BV(SyntacticSugar):
 class MemAccess(SyntacticSugar):
     name = "memacc"
     description = "Memory Access"
+    interface = "memory, location"
 
     def adapter(self):
         return FunctionCallAdapter(self.MemAcc, 60)

@@ -14,6 +14,7 @@ import sys
 import argparse
 import os
 
+from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
 
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
@@ -21,9 +22,10 @@ from cosa.analyzers.mcsolver import MCConfig
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
-from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
+from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
+from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
 
@@ -31,15 +33,19 @@ class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
-    simulate = False
     bmc_length = 10
     bmc_length_min = 0
+    
+    simulate = False
     safety = None
     ltl = None
+    equivalence = None
+    problems = None
+    
     properties = None
     lemmas = None
+    precondition = None
     assumptions = None
-    equivalence = None
     symbolic_init = False
     zero_init = False
     fsm_check = False
@@ -61,6 +67,7 @@ class Config(object):
     deterministic = False
     time = False
     generators = None
+    clock_behaviors = None
     force_expected = False
     assume_if_true = False
 
@@ -131,12 +138,14 @@ def translate(hts, config, formulae=None):
 
 def print_problem_result(pbm, config, count=-1):
     if pbm.name is None:
-        return 0
+        return (0, [])
     ret_status = 0
 
     unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
     Logger.log("\n** Problem %s **"%(pbm.name), 0)
     Logger.log("Description: %s"%(pbm.description), 0)
+    if pbm.formula is not None:
+        Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
@@ -163,12 +172,85 @@ def print_problem_result(pbm, config, count=-1):
 
     return (ret_status, traces)
 
+def run_problems(problems_file, config, problems=None):
+    reset_env()
+    Logger.verbosity = config.verbosity
+    psol = ProblemSolver()
+    if problems is None:
+        problems = Problems()
+        problems.load_problems(problems_file)
+        
+    psol.solve_problems(problems, config)
+
+    global_status = 0
+    traces = []
+
+    if len(problems.problems) > 0:
+        Logger.log("\n*** SUMMARY ***", 0)
+    else:
+        if not config.translate:
+            Logger.log("No problems to solve", 0)
+            return 0
+
+    formulae = []
+    for pbm in problems.problems:
+        (status, trace) = print_problem_result(pbm, config, len(traces)+1)
+        if status != 0:
+            global_status = status
+        traces += trace
+        formulae.append(pbm.formula)
+
+    if len(traces) > 0:
+        Logger.log("\n*** TRACES ***\n", 0)
+        for trace in traces:
+            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
+
+    if config.translate:
+        translate(problems.get_hts(), config, formulae)
+
+    if global_status != 0:
+        Logger.log("", 0)
+        Logger.warning("Verifications with unexpected result")
+        
+    return global_status
+
 def run_verification(config):
     reset_env()
     Logger.verbosity = config.verbosity
 
-    ps = ProblemSolver()
-    problem = Problem()
+    problems = Problems()
+        
+    problems.assumptions = config.assumptions
+    problems.bmc_length = config.bmc_length
+    problems.bmc_length_min = config.bmc_length_min
+    problems.full_trace = config.full_trace
+    problems.generators = config.generators
+    problems.clock_behaviors = config.clock_behaviors
+    problems.incremental = config.incremental
+    problems.lemmas = config.lemmas
+    problems.model_file = config.strfiles
+    problems.prefix = config.prefix
+    problems.prove = config.prove
+    problems.skip_solving = config.skip_solving
+    problems.smt2_tracing = config.smt2file
+    problems.solver_name = config.solver_name
+    problems.strategy = config.strategy
+    problems.symbolic_init = config.symbolic_init
+    problems.zero_init = config.zero_init
+    problems.time = config.time
+    problems.trace_all_vars = config.trace_all_vars
+    problems.trace_vars_change = config.trace_vars_change
+    problems.vcd = config.vcd
+    problems.verbosity = config.verbosity
+    
+    problems.model_file = config.strfiles
+    problems.boolean = config.boolean
+    problems.add_clock = config.add_clock
+    problems.abstract_clock = config.abstract_clock
+    problems.run_coreir_passes = config.run_passes
+    problems.relative_path = "./"
+
+    problem = problems.new_problem()
 
     if config.safety:
         problem.verification = VerificationType.SAFETY
@@ -186,84 +268,47 @@ def run_verification(config):
     if not problem.verification == VerificationType.EQUIVALENCE:
         problem.formula = config.properties
 
-    problem.assumptions = config.assumptions
-    problem.bmc_length = config.bmc_length
-    problem.bmc_length_min = config.bmc_length_min
-    problem.full_trace = config.full_trace
-    problem.generators = config.generators
-    problem.incremental = config.incremental
-    problem.lemmas = config.lemmas
-    problem.model_file = config.strfiles
     problem.name = VerificationType.to_string(problem.verification)
-    problem.prefix = config.prefix
-    problem.prove = config.prove
-    problem.skip_solving = config.skip_solving
-    problem.smt2_tracing = config.smt2file
-    problem.solver_name = config.solver_name
-    problem.strategy = config.strategy
-    problem.symbolic_init = config.symbolic_init
-    problem.zero_init = config.zero_init
-    problem.time = config.time
-    problem.trace_all_vars = config.trace_all_vars
-    problem.trace_vars_change = config.trace_vars_change
-    problem.vcd = config.vcd
-    problem.verbosity = config.verbosity
     
-    problems = Problems()
-    problems.model_file = config.strfiles
-    problems.boolean = config.boolean
-    problems.add_clock = config.add_clock
-    problems.abstract_clock = config.abstract_clock
-    problems.run_coreir_passes = config.run_passes
-    problems.relative_path = "./"
+    if problem.formula or problem.verification:
+        problems.add_problem(problem)
 
-    problems.add_problem(problem)
-    ps.solve_problems(problems, config)
-    print_problem_result(problem, config)
-
-    if config.translate:
-        translate(problem.hts, config, [problem.formula])
-
-    return 0
-            
-def run_problems(problems, config):
-    reset_env()
-    Logger.verbosity = config.verbosity
-    pbms = Problems()
-    psol = ProblemSolver()
-    pbms.load_problems(problems)
-    psol.solve_problems(pbms, config)
-
-    global_status = 0
-    traces = []
-    
-    Logger.log("\n*** SUMMARY ***", 0)
-
-    formulae = []
-    for pbm in pbms.problems:
-        (status, trace) = print_problem_result(pbm, config, len(traces)+1)
-        if status != 0:
-            global_status = status
-        traces += trace
-        formulae.append(pbm.formula)
-
-    if len(traces) > 0:
-        Logger.log("\n*** TRACES ***\n", 0)
-        for trace in traces:
-            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
-        Logger.log("", 0)
-
-    if config.translate:
-        translate(pbms.problems[0].hts, config, formulae)
-
-    if global_status != 0:
-        Logger.warning("Verifications with unexpected result")
-        
-    return global_status
+    return run_problems(None, config, problems)
             
 def main():
+    wrapper = TextWrapper(initial_indent=" - ")
+    extra_info = []
+
+    extra_info.append(bold_text("\nADDITIONAL INFORMATION:"))
     
-    parser = argparse.ArgumentParser(description='CoreIR Symbolic Analyzer.', formatter_class=RawTextHelpFormatter)
+    clock_behaviors = []
+    for x in ClockBehaviorsFactory.get_clockbehaviors():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        clock_behaviors.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+
+    extra_info.append('\nClock behaviors:\n%s'%("\n".join(clock_behaviors)))
+
+
+    sugars = []
+    for x in SyntacticSugarFactory.get_sugars():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        sugars.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+    
+
+    extra_info.append('\nSpecial operators:\n%s'%("\n".join(sugars)))
+
+    generators = []
+    for x in GeneratorsFactory.get_generators():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+    
+    extra_info.append('\nModule generators:\n%s'%("\n".join(generators)))
+
+                            
+    parser = argparse.ArgumentParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'), \
+                                     #usage='%(prog)s [options]', \
+                                     formatter_class=RawTextHelpFormatter, \
+                                     epilog="\n".join(extra_info))
 
     config = Config()
 
@@ -271,11 +316,17 @@ def main():
 
     in_options = parser.add_argument_group('input options')
 
-    input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) for x in ModelParsersFactory.get_parsers()]
+    av_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
+                      for x in ModelParsersFactory.get_parsers() if x.is_available()]
+
+    ua_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
+                      for x in ModelParsersFactory.get_parsers() if not x.is_available()]
     
     in_options.set_defaults(input_files=None)
     in_options.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
-                            help='comma separated list of input files. Supported types:\n%s'%("\n".join(input_types)))
+                            help='comma separated list of input files.\nSupported types:\n%s%s'%\
+                            ("\n".join(av_input_types), "\nNot enabled:\n%s"%("\n".join(ua_input_types)) \
+                             if len(ua_input_types) > 0 else ""))
     
     in_options.set_defaults(problems=None)
     in_options.add_argument('--problems', metavar='<problems file>', type=str, required=False,
@@ -308,7 +359,7 @@ def main():
     # Verification parameters
 
     ver_params = parser.add_argument_group('verification parameters')
-    
+
     ver_params.set_defaults(properties=None)
     ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of properties.')
@@ -320,6 +371,10 @@ def main():
     ver_params.set_defaults(bmc_length_min=config.bmc_length_min)
     ver_params.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
                         help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
+
+    ver_params.set_defaults(precondition=None)
+    ver_params.add_argument('-c', '--precondition', metavar='<invar>', type=str, required=False,
+                       help='properties precondition.')
     
     ver_params.set_defaults(lemmas=None)
     ver_params.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
@@ -327,12 +382,13 @@ def main():
 
     ver_params.set_defaults(assumptions=None)
     ver_params.add_argument('-a', '--assumptions', metavar='<invar assumptions list>', type=str, required=False,
-                       help='comma separated list of invariant assumptions.')
-
-    generators = [" - \"%s\": %s, with parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()) for x in GeneratorsFactory.get_generators()]
+                       help='semi column separated list of invariant assumptions.')
 
     ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
-                        help='comma separated list of generators instantiation. Possible types:\n%s'%("\n".join(generators)))
+                        help='semi column separated list of generators instantiation.')
+
+    ver_params.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
+                        help='semi column separated list of clock behaviors instantiation.')
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
@@ -454,6 +510,7 @@ def main():
     config.ltl = args.ltl
     config.properties = args.properties
     config.lemmas = args.lemmas
+    config.precondition = args.precondition
     config.assumptions = args.assumptions
     config.equivalence = args.equivalence
     config.symbolic_init = args.symbolic_init
@@ -479,6 +536,7 @@ def main():
     config.time = args.time
     config.add_clock = args.add_clock
     config.generators = args.generators
+    config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
 
     if len(sys.argv)==1:

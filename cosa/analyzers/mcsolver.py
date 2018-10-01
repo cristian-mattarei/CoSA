@@ -399,7 +399,7 @@ class BMCSolver(object):
         return retmodel
 
     def _remap_model_zz(self, vars, model, k):
-        retmodel = dict(model)
+        retmodel = dict([el for el in dict(model).items() if not TS.is_ptimed(el[0])])
 
         for var in vars:
             for t in range(int(k/2)+1, k+1, 1):

@@ -9,13 +9,13 @@
 # limitations under the License.
 
 import os
+import copy
 
-from cosa.problem import VerificationType
 from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_ltl import BMCLTL
-from cosa.problem import VerificationStatus, Trace
+from cosa.problem import VerificationType, Problem, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS
@@ -23,8 +23,9 @@ from cosa.encoders.explicit_transition_system import ExplicitTSParser
 from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
-from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory
+from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
 from cosa.encoders.template import EncoderConfig, ModelInformation
+from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 
 FLAG_SR = "["
@@ -44,6 +45,9 @@ class ProblemSolver(object):
         self.sparser = None
         self.lparser = None
         self.model_info = ModelInformation()
+
+        GeneratorsFactory.init_generators()
+        ClockBehaviorsFactory.init_clockbehaviors()
 
     def __process_trace(self, hts, trace, config, problem):
         prevass = []
@@ -125,30 +129,8 @@ class ProblemSolver(object):
 
         [mc_config.properties, mc_config.lemmas, mc_config.assumptions] = parsing_defs
 
-        if problem.generators is not None:
-
-            varsdict = dict([(var.symbol_name(), var) for var in problem.hts.vars])
-            
-            for strgenerator in problem.generators.split(MODEL_SP):
-                strgenerator = strgenerator.replace(" ","")
-                if strgenerator == "":
-                    continue
-
-                eqpos = strgenerator.find("=")
-                parstart = strgenerator.find("(")
-                if (parstart < eqpos) or (eqpos == -1):
-                    Logger.error("Invalid generators")
-
-                instance = strgenerator[:eqpos:]
-                mdef = strgenerator[eqpos+1:]
-                mtype = mdef.split("(")[0]
-                pars = mdef[mdef.find("(")+1:-1].split(",")
-                generator = GeneratorsFactory.generator_by_name(mtype)
-                pars = [varsdict[v] if v in varsdict else v for v in pars]
-                ts = generator.get_sts(instance, pars)
-
-                problem.hts.add_ts(ts)
-        
+        ParametricBehavior.apply_to_problem(problem, self.model_info)
+                
         assumps = None
         lemmas = None
 
@@ -160,6 +142,12 @@ class ProblemSolver(object):
                 
         accepted_ver = False
 
+        precondition = config.precondition if config.precondition is not None else problem.precondition
+        
+        if precondition:
+            for i in range(len(mc_config.properties)):
+                mc_config.properties[i] = "(%s) -> (%s)"%(precondition, mc_config.properties[i])
+        
         if (problem.verification != VerificationType.EQUIVALENCE) and (mc_config.properties is not None):
             assumps = [t[1] for t in self.sparser.parse_formulae(mc_config.assumptions)]
             lemmas = [t[1] for t in self.sparser.parse_formulae(mc_config.lemmas)]
@@ -294,38 +282,62 @@ class ProblemSolver(object):
         return (hts, invar_props, ltl_props)
 
     def solve_problems(self, problems, config):
-        if len(problems.problems) == 0:
-            Logger.error("No problems defined")
-            
         encoder_config = self.problems2encoder_config(config, problems)
 
         self.sparser = StringParser(encoder_config)
         self.lparser = LTLParser()
-        
+
+        invar_props = []
+        ltl_props = []
+        si = False
+
+        if len(problems.symbolic_inits) == 0:
+            problems.symbolic_inits.add(si)
+
+        HTSM = 0
+        HTS2 = 1
+        HTSD = (HTSM, si)
+            
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
             encoder_config.symbolic_init = si
-            (systems[('hts', si)], _, _) = self.parse_model(problems.relative_path, \
-                                                            problems.model_file, \
-                                                            encoder_config, # si,\
-                                                            "System 1")
-
+            (systems[(HTSM, si)], invar_props, ltl_props) = self.parse_model(problems.relative_path, \
+                                                                              problems.model_file, \
+                                                                              encoder_config, \
+                                                                              "System 1")
+            
         if problems.equivalence is not None:
-            (systems[('hts2', si)], _, _) = self.parse_model(problems.relative_path, \
+            (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
                                                              problems.equivalence, \
-                                                             encoder_config, #si, \
+                                                             encoder_config, \
                                                              "System 2")
         else:
-            systems[('hts2', si)] = None
+            systems[(HTS2, si)] = None
 
+        if config.safety or config.problems:
+            for invar_prop in invar_props:
+                inv_prob = problems.new_problem()
+                inv_prob.verification = VerificationType.SAFETY
+                inv_prob.name = invar_prop[0]
+                inv_prob.description = invar_prop[1]
+                inv_prob.formula = invar_prop[2]
+                problems.add_problem(inv_prob)
+            
         assume_if_true = config.assume_if_true or problems.assume_if_true
+
+        if HTSD in systems:
+            problems._hts = systems[HTSD]
         
         for problem in problems.problems:
-            problem.hts = systems[('hts', problem.symbolic_init)]
-            problem.hts2 = systems[('hts2', problem.symbolic_init)]
-            problem.abstract_clock = problems.abstract_clock
-            problem.add_clock = problems.add_clock
+            problem.hts = systems[(HTSM, problem.symbolic_init)]
+            if problems._hts is None:
+                problems._hts = problem.hts
+            problem.hts2 = systems[(HTS2, problem.symbolic_init)]
+            if problems._hts2 is None:
+                problems._hts2 = problem.hts2
+            problem.abstract_clock = problems.abstract_clock or config.abstract_clock
+            problem.add_clock = problems.add_clock or config.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
 
@@ -335,7 +347,13 @@ class ProblemSolver(object):
                 problem.trace_vars_change = problems.trace_vars_change
             if not problem.trace_all_vars:
                 problem.trace_all_vars = problems.trace_all_vars
-
+            if not problem.clock_behaviors:
+                clk_bhvs = [p for p in [problems.clock_behaviors, config.clock_behaviors] if p is not None]
+                if len(clk_bhvs) > 0:
+                    problem.clock_behaviors = ";".join(clk_bhvs)
+            if not problem.generators:
+                problem.generators = config.generators
+                
             Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(problem.abstract_clock, problem.add_clock), 2)
             
             if problem.trace_prefix is not None:
@@ -394,13 +412,13 @@ class ProblemSolver(object):
 
     def problems2encoder_config(self, config, problems):
         encoder_config = EncoderConfig()
-        encoder_config.abstract_clock = problems.abstract_clock
-        encoder_config.symbolic_init = config.symbolic_init
+        encoder_config.abstract_clock = problems.abstract_clock or config.abstract_clock
+        encoder_config.symbolic_init = config.symbolic_init or config.symbolic_init
         encoder_config.zero_init = problems.zero_init or config.zero_init
-        encoder_config.add_clock = problems.add_clock
+        encoder_config.add_clock = problems.add_clock or config.add_clock
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
-        encoder_config.boolean = problems.boolean
+        encoder_config.boolean = problems.boolean or config.boolean
 
         return encoder_config
         

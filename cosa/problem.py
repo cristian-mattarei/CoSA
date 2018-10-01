@@ -83,22 +83,46 @@ class VerificationType(object):
         
 
 class Problems(object):
-    problems = None
-    model_file = None
-    bmc_length = 10
     abstract_clock = False
     add_clock = False
-    run_coreir_passes = True
-    equivalence = None
-    relative_path = None
-    boolean = None
-    time = False
     assume_if_true = False
-    symbolic_init = None
-    zero_init = None
+    assumptions = None
+    bmc_length = 10
+    bmc_length_min = 0
+    boolean = None
+    clock_behaviors = None
+    description = None
+    equivalence = None
+    expected = None
+    formula = None
     full_trace = False
-    trace_vars_change = False
+    generators = None
+    incremental = None
+    lemmas = None
+    model_file = None
+    name = None
+    precondition = None
+    problems = None
+    prove = False
+    relative_path = None
+    run_coreir_passes = True
+    skip_solving = False
+    smt2_tracing = None
+    solver_name = None
+    strategy = None
+    symbolic_init = None
+    time = False
     trace_all_vars = False
+    trace_prefix = None
+    trace_vars_change = False
+    traces = None
+    vcd = False
+    verbosity = None
+    verification = None
+    zero_init = None
+    
+    _hts = None
+    _hts2 = None
     
     def __init__(self):
         self.problems = []
@@ -109,6 +133,51 @@ class Problems(object):
         self.problems.append(problem)
         self.symbolic_inits.add(problem.symbolic_init)
 
+    def get_hts(self):
+        return self._hts
+        
+    def new_problem(self):
+        problem = Problem()
+        
+        problem.abstract_clock = self.abstract_clock 
+        problem.add_clock = self.add_clock 
+        problem.assume_if_true = self.assume_if_true 
+        problem.assumptions = self.assumptions 
+        problem.bmc_length = self.bmc_length 
+        problem.bmc_length_min = self.bmc_length_min 
+        problem.boolean = self.boolean 
+        problem.clock_behaviors = self.clock_behaviors 
+        problem.description = self.description 
+        problem.equivalence = self.equivalence 
+        problem.expected = self.expected 
+        problem.formula = self.formula 
+        problem.full_trace = self.full_trace 
+        problem.generators = self.generators 
+        problem.incremental = self.incremental 
+        problem.lemmas = self.lemmas 
+        problem.model_file = self.model_file 
+        problem.name = self.name 
+        problem.precondition = self.precondition
+        problem.problems = self.problems 
+        problem.prove = self.prove 
+        problem.relative_path = self.relative_path 
+        problem.run_coreir_passes = self.run_coreir_passes 
+        problem.skip_solving = self.skip_solving 
+        problem.smt2_tracing = self.smt2_tracing 
+        problem.solver_name = self.solver_name 
+        problem.strategy = self.strategy 
+        problem.symbolic_init = self.symbolic_init 
+        problem.time = self.time 
+        problem.trace_all_vars = self.trace_all_vars 
+        problem.trace_prefix = self.trace_prefix 
+        problem.trace_vars_change = self.trace_vars_change 
+        problem.traces = self.traces 
+        problem.vcd = self.vcd 
+        problem.verbosity = self.verbosity 
+        problem.verification = self.verification 
+        problem.zero_init = self.zero_init 
+        return problem
+        
     def generate_problem(self, name, pbm_values):
         pbm = Problem()
         
@@ -156,6 +225,7 @@ class Problems(object):
 class Problem(object):
     assumptions = None
     lemmas = None
+    precondition = None
     strategy = None
     incremental = None
     symbolic_init = None
@@ -180,10 +250,11 @@ class Problem(object):
     
     model_file = None
     generators = None
+    clock_behaviors = None
     relative_path = None
     name = None
     traces = None
-    time = None
+    time = False
 
     vcd = False
     skip_solving = False

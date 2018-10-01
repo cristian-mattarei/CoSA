@@ -42,7 +42,7 @@ class ScoreBoardGenerator(STSGenerator):
 
     def get_param_length(self):
         return 4
-    
+
     def compile_sts(self, name, params):
         sparser = StringParser()
         in_port, max_val, c_push, c_pop = list(params)
@@ -55,6 +55,7 @@ class ScoreBoardGenerator(STSGenerator):
 
         tracking = Symbol("%s.tracking"%name, BOOL)
         end = Symbol("%s.end"%name, BOOL)
+        done = Symbol("%s.done"%name, BOOL)
         packet = Symbol("%s.packet"%name, BVType(in_port.symbol_type().width))
         max_width = math.ceil(math.log(max_val)/math.log(2))
 
@@ -74,17 +75,21 @@ class ScoreBoardGenerator(STSGenerator):
         trans = []
         invar = []
         
-        # Init definition
-        
+        # INIT DEFINITION #
+
+        # count = 0
         init.append(EqualsOrIff(count, BV(0, max_width)))
+        # tracking = False
         init.append(EqualsOrIff(tracking, FALSE()))
+        # size = 0
         init.append(EqualsOrIff(size, BV(0, max_width)))
+        # end = false
         init.append(EqualsOrIff(end, FALSE()))
 
-        # Invar definition
+        # INVAR DEFINITION #
 
-        # end = (tracking & (size = count))
-        invar.append(EqualsOrIff(end, And(tracking, EqualsOrIff(size, count))))
+        # !done -> (end = (tracking & (size = count)))
+        invar.append(Implies(Not(done), EqualsOrIff(end, And(tracking, EqualsOrIff(size, count)))))
         
         # count <= size
         invar.append(BVULE(count, size))
@@ -92,41 +97,55 @@ class ScoreBoardGenerator(STSGenerator):
         invar.append(BVULE(count, max_bvval))
         # size <= maxval
         invar.append(BVULE(size, max_bvval))
+
+        # done -> (end <-> False);
+        invar.append(Implies(done, EqualsOrIff(end, FALSE())))
+        # done -> (count = 0_8);
+        invar.append(Implies(done, EqualsOrIff(count, BV(0, max_width))))
+        # done -> (size = 0_8);
+        invar.append(Implies(done, EqualsOrIff(size, BV(0, max_width))))
+        # done -> (packet = 0_8);
+        invar.append(Implies(done, EqualsOrIff(packet, BV(0, in_port.symbol_type().width))))
         
-        # Trans definition
+        # TRANS DEFINITION #
+
+        # (!end & !done) -> next(!done);
+        trans.append(Implies(And(Not(end), Not(done)), TS.to_next(Not(done))))
+        # end -> next(done);
+        trans.append(Implies(end, TS.to_next(done)))
+        # done -> next(done);
+        trans.append(Implies(done, TS.to_next(done)))
         
-        # tracking -> (!c_push & !c_pop)
-        trans.append(Implies(And(Not(tracking), TS.to_next(tracking)), pos_c_push))
         # tracking -> next(tracking);
-        trans.append(Implies(tracking, TS.to_next(tracking)))
+        trans.append(Implies(Not(done), Implies(tracking, TS.to_next(tracking))))
         # tracking -> (next(packet) = packet);
-        trans.append(Implies(tracking, EqualsOrIff(TS.to_next(packet), packet)))
+        trans.append(Implies(Not(done), Implies(tracking, EqualsOrIff(TS.to_next(packet), packet))))
         # !tracking & next(tracking) -> c_push;
-        trans.append(Implies(And(Not(tracking), TS.to_next(tracking)), pos_c_push))
+        trans.append(Implies(Not(done), Implies(And(Not(tracking), TS.to_next(tracking)), pos_c_push)))
         # (c_push & next(tracking)) -> ((packet = in) & (next(packet) = in);
-        trans.append(Implies(And(pos_c_push, TS.to_next(tracking)), And(EqualsOrIff(packet, in_port), EqualsOrIff(TS.to_next(packet), in_port))))
+        trans.append(Implies(Not(done), Implies(And(pos_c_push, TS.to_next(tracking)), And(EqualsOrIff(packet, in_port), EqualsOrIff(TS.to_next(packet), in_port)))))
         # (c_push & !c_pop & tracking) -> (next(count) = (count + 1_8));
-        trans.append(Implies(And(pos_c_push, neg_c_pop, tracking), EqualsOrIff(TS.to_next(count), BVAdd(count, BV(1, max_width)))))
+        trans.append(Implies(Not(done), Implies(And(pos_c_push, neg_c_pop, tracking), EqualsOrIff(TS.to_next(count), BVAdd(count, BV(1, max_width))))))
         # (c_push & size < maxval) -> (next(size) = (size + 1_8));
-        trans.append(Implies(And(pos_c_push, BVULT(size, max_bvval)), EqualsOrIff(TS.to_next(size), BVAdd(size, BV(1, max_width)))))
+        trans.append(Implies(Not(done), Implies(And(pos_c_push, BVULT(size, max_bvval)), EqualsOrIff(TS.to_next(size), BVAdd(size, BV(1, max_width))))))
         # (c_pop & size > 0) -> (next(size) = (size - 1_8));
-        trans.append(Implies(And(pos_c_pop, BVUGT(size, zero)), EqualsOrIff(TS.to_next(size), BVSub(size, BV(1, max_width)))))
+        trans.append(Implies(Not(done), Implies(And(pos_c_pop, BVUGT(size, zero)), EqualsOrIff(TS.to_next(size), BVSub(size, BV(1, max_width))))))
         # (!(c_push | c_pop)) -> (next(count) = count);
-        trans.append(Implies(Not(Or(pos_c_push, pos_c_pop)), EqualsOrIff(count, TS.to_next(count))))
+        trans.append(Implies(Not(done), Implies(Not(Or(pos_c_push, pos_c_pop)), EqualsOrIff(count, TS.to_next(count)))))
         # ((c_push | c_pop) & !tracking) -> (next(count) = count);
-        trans.append(Implies(And(Or(pos_c_push, pos_c_pop), Not(tracking)), EqualsOrIff(count, TS.to_next(count))))
+        trans.append(Implies(Not(done), Implies(And(Or(pos_c_push, pos_c_pop), Not(tracking)), EqualsOrIff(count, TS.to_next(count)))))
 
         # (c_push & size = maxval) -> (next(size) = size);
-        trans.append(Implies(And(pos_c_push, EqualsOrIff(size, max_bvval)), EqualsOrIff(TS.to_next(size), size)))
+        trans.append(Implies(Not(done), Implies(And(pos_c_push, EqualsOrIff(size, max_bvval)), EqualsOrIff(TS.to_next(size), size))))
         # (!(c_push | c_pop)) -> (next(size) = size);
-        trans.append(Implies(Not(Or(pos_c_push, pos_c_pop)), EqualsOrIff(size, TS.to_next(size))))
+        trans.append(Implies(Not(done), Implies(Not(Or(pos_c_push, pos_c_pop)), EqualsOrIff(size, TS.to_next(size)))))
         # (!(c_push | c_pop)) -> (next(count) = count);
-        trans.append(Implies(Not(Or(pos_c_push, pos_c_pop)), EqualsOrIff(count, TS.to_next(count))))
+        trans.append(Implies(Not(done), Implies(Not(Or(pos_c_push, pos_c_pop)), EqualsOrIff(count, TS.to_next(count)))))
         # (c_pop & size = 0) -> (next(size) = 0);
-        trans.append(Implies(And(pos_c_pop, EqualsOrIff(size, zero)), EqualsOrIff(TS.to_next(size), zero)))
+        trans.append(Implies(Not(done), Implies(And(pos_c_pop, EqualsOrIff(size, zero)), EqualsOrIff(TS.to_next(size), zero))))
 
         # (!c_push) -> (next(count) = count);
-        trans.append(Implies(neg_c_push, EqualsOrIff(TS.to_next(count), count)))
+        trans.append(Implies(Not(done), Implies(neg_c_push, EqualsOrIff(TS.to_next(count), count))))
         
         init = And(init)
         invar = And(invar)

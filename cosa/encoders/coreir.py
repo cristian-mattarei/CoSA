@@ -24,7 +24,7 @@ from pysmt.smtlib.printers import SmtPrinter
 from cosa.representation import TS, HTS, L_BV, L_ABV
 from cosa.utils.generic import is_number, status_bar
 from cosa.utils.logger import Logger
-from cosa.encoders.template import ModelParser, ModelFlags
+from cosa.encoders.template import ModelParser, ModelFlags, ModelInformation
 from cosa.encoders.modules import Modules, ModuleSymbols, SEP, CSEP
 from cosa.utils.generic import bin_to_dec, suppress_output, restore_output
 
@@ -70,6 +70,8 @@ class CoreIRParser(ModelParser):
     bitvec_new_version = True
     idvars = 0
     enc_map = None
+    abstract_clock_list = None
+    clock_list = None
 
     enabled = True
 
@@ -85,25 +87,32 @@ class CoreIRParser(ModelParser):
             self.__init_attrnames()
 
             self.pack_connections = True
-            self.map_an2or = {}
-            self.map_or2an = {}
             self.anonimize_names = False
-
-            self._init_mod_map()
-            self._init_sym_map()
 
             self.memoize_encoding = False
 
-            self.enc_map = {}
+            self.__reset_structures()
 
             Logger.time = True
 
+    def __reset_structures(self):
+        self._init_mod_map()
+        self._init_sym_map()
+        self.clock_list = set([])
+        self.abstract_clock_list = set([])
+        self.enc_map = {}
+        self.map_an2or = {}
+        self.map_or2an = {}
+        
     @staticmethod        
     def get_extensions():
         return CoreIRParser.extensions
 
     def get_model_info(self):
-        return None
+        model_info = ModelInformation()
+        model_info.abstract_clock_list = list(self.abstract_clock_list)
+        model_info.clock_list = list(self.clock_list)
+        return model_info
      
     def run_passes(self):
         Logger.log("Running CoreIR passes...", 1)
@@ -318,6 +327,8 @@ class CoreIRParser(ModelParser):
         
     def parse_file(self, strfile, config, flags=None):
         self.config = config
+        self.__reset_structures()
+        
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
 
@@ -469,14 +480,10 @@ class CoreIRParser(ModelParser):
                 hts.add_output_var(bvvar)
 
             # Adding clock behavior
-            if (self.config.add_clock) and (self.CLK in var[0].lower()) and (var[1].is_input()):
-                Logger.log("Adding clock behavior to \"%s\" input"%(varname), 1)
-                ts = Modules.Clock(bvvar)
-                
-                if (flags is not None) and (CoreIRModelFlags.NO_INIT in flags):
-                    ts.init = TRUE()
-                
-                hts.add_ts(ts)
+            if (self.CLK in var[0].lower()) and (var[1].is_input()):
+                self.clock_list.add(bvvar)
+                if self.config.abstract_clock:
+                    self.abstract_clock_list.add((bvvar, (BV(0, var[1].size), BV(1, var[1].size))))
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 

@@ -43,8 +43,8 @@ class SyntacticSugarFactory(object):
     
     @staticmethod
     def get_sugars():
+        SyntacticSugarFactory.init_sugar(None)
         return [x[1] for x in SyntacticSugarFactory.sugars]
-
 
 class VerilogEncoder(object):
     INTERNAL = 0
@@ -68,12 +68,14 @@ class ModelParsersFactory(object):
         from cosa.encoders.coreir import CoreIRParser
         from cosa.encoders.verilog_yosys import VerilogYosysBtorParser
         from cosa.encoders.verilog_hts import VerilogHTSParser
+        from cosa.encoders.systemverilog_verific import SystemVerilogVerificParser
         
         ModelParsersFactory.register_parser(CoreIRParser())
         ModelParsersFactory.register_parser(SymbolicTSParser())
         ModelParsersFactory.register_parser(SymbolicSimpleTSParser())
         ModelParsersFactory.register_parser(ExplicitTSParser())
         ModelParsersFactory.register_parser(BTOR2Parser())
+        ModelParsersFactory.register_parser(SystemVerilogVerificParser())
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
             ModelParsersFactory.register_parser(VerilogHTSParser())
@@ -86,8 +88,7 @@ class ModelParsersFactory(object):
     @staticmethod
     def register_parser(parser):
         if parser.get_name() not in dict(ModelParsersFactory.parsers):
-            if parser.is_available():
-                ModelParsersFactory.parsers.append((parser.get_name(), parser))
+            ModelParsersFactory.parsers.append((parser.get_name(), parser))
 
     @staticmethod
     def parser_by_name(name):
@@ -131,3 +132,55 @@ class GeneratorsFactory(object):
     def get_generators():
         GeneratorsFactory.init_generators()
         return [x[1] for x in GeneratorsFactory.generators]
+
+class ClockBehaviorsFactory(object):
+    clockbehaviors = []
+    default_clockbehavior = None
+    default_multi_clockbehavior = None
+    default_abstract_clockbehavior = None
+
+    # Additional clockbehaviors should be registered here #
+    @staticmethod
+    def init_clockbehaviors():
+        from cosa.encoders.clock import DeterministicClockBehavior, ConstantClockBehavior, NondeterministicClockBehavior
+        
+        ClockBehaviorsFactory.register_clockbehavior(DeterministicClockBehavior(), default=True)
+        ClockBehaviorsFactory.register_clockbehavior(ConstantClockBehavior(), default_abstract=True)
+        ClockBehaviorsFactory.register_clockbehavior(NondeterministicClockBehavior(), default_multi=True)
+        
+    @staticmethod
+    def get_default():
+        return ClockBehaviorsFactory.default_clockbehavior
+
+    @staticmethod
+    def get_default_multi():
+        return ClockBehaviorsFactory.default_multi_clockbehavior
+    
+    @staticmethod
+    def get_default_abstract():
+        return ClockBehaviorsFactory.default_abstract_clockbehavior
+    
+    @staticmethod
+    def register_clockbehavior(clockbehavior, default=False, default_abstract=False, default_multi=False):
+        if clockbehavior.get_name() not in dict(ClockBehaviorsFactory.clockbehaviors):
+            ClockBehaviorsFactory.clockbehaviors.append((clockbehavior.get_name(), clockbehavior))
+            if default:
+                ClockBehaviorsFactory.default_clockbehavior = clockbehavior
+            if default_abstract:
+                ClockBehaviorsFactory.default_abstract_clockbehavior = clockbehavior
+            if default_multi:
+                ClockBehaviorsFactory.default_multi_clockbehavior = clockbehavior
+
+                
+    @staticmethod
+    def clockbehavior_by_name(name):
+        ClockBehaviorsFactory.init_clockbehaviors()
+        dprint = dict(ClockBehaviorsFactory.clockbehaviors)
+        if name not in dprint:
+            Logger.error("Clockbehavior \"%s\" is not registered"%name)
+        return dprint[name]
+
+    @staticmethod
+    def get_clockbehaviors():
+        ClockBehaviorsFactory.init_clockbehaviors()
+        return [x[1] for x in ClockBehaviorsFactory.clockbehaviors]

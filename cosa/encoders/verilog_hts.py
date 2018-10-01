@@ -18,6 +18,8 @@ VPARSER = True
 
 try:
     from pyverilog.vparser.parser import VerilogParser, VerilogPreprocessor
+    from pyverilog.vparser.ply.yacc import yacc
+    from pyverilog.vparser.lexer import VerilogLexer
     from pyverilog.vparser.plyparser import ParseError
     from pyverilog.vparser.ast import *
 except:
@@ -25,7 +27,7 @@ except:
 
 from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero
+    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero, BVMul
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
@@ -41,6 +43,7 @@ from cosa.representation import HTS, TS
 from cosa.utils.generic import bin_to_dec, dec_to_bin, suppress_output, restore_output
 from cosa.utils.formula_mngm import B2BV, BV2B, get_free_variables, substitute, mem_access
 from cosa.environment import Assign, Define, ASSIGN, DEFINE
+from cosa.printers.template import HIDDEN_VAR
 
 KEYWORDS = ""
 KEYWORDS += "module wire assign else reg always endmodule end define integer generate "
@@ -60,6 +63,20 @@ CLOCK = "clk"
 
 MODPARST = "__|"
 MODPAREN = "|"
+
+# SystemVerilog Verific modules
+SVA_POSEDGE = "sva_posedge"
+SVA_AT = "sva_at"
+SVA_ASSERT = "sva_assert"
+SVA_IMMEDIATE_ASSERT = "sva_immediate_assert"
+
+SV_MODULES = [SVA_POSEDGE, SVA_AT, SVA_ASSERT, SVA_IMMEDIATE_ASSERT]
+
+ASSERT_ST = HIDDEN_VAR+"assert__l"
+ASSERT_EN = HIDDEN_VAR[::-1]
+ASSERT_SYMBOL = ASSERT_ST+"%d"+ASSERT_EN
+
+DONTCARE_VAR = HIDDEN_VAR+"%s"+(HIDDEN_VAR[::-1])
 
 class AssignDefineSubstituteWalker(IdentityDagWalker):
 
@@ -98,6 +115,7 @@ class VerilogHTSParser(ModelParser):
     def get_model_info(self):
         model_info = ModelInformation()
         model_info.abstract_clock_list = self.abstract_clock_list
+        model_info.clock_list = self.clock_list
         return model_info
     
     def is_available(self):
@@ -115,7 +133,7 @@ class VerilogHTSParser(ModelParser):
         print_level = 3
         if not Logger.level(print_level):
             saved_stdout = suppress_output()
-        
+
         ast = self.parse([absstrfile])
 
         if not Logger.level(print_level):
@@ -124,6 +142,7 @@ class VerilogHTSParser(ModelParser):
         self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
         self.abstract_clock_list = self.walker.abstract_clock_list
+        self.clock_list = self.walker.clock_list
         
         hts.flatten()
 
@@ -137,7 +156,9 @@ class VerilogHTSParser(ModelParser):
                     assigns.append(Not(var))
             ts.init = And(assigns)
             hts.add_ts(ts)
-        
+
+        invar_props, ltl_props = self.__extract_properties(hts, strfile)
+
         return (hts, invar_props, ltl_props)
 
     def get_extensions(self):
@@ -160,6 +181,60 @@ class VerilogHTSParser(ModelParser):
     def remap_or2an(self, name):
         return name
 
+    def __extract_properties(self, hts, strfile):
+        assertvars = [v.symbol_name() for v in hts.vars if ASSERT_ST in v.symbol_name()]
+
+        invar_props = []
+        ltl_props = []
+
+        print_line = False
+
+        # If the assertion line has a comment in the format // <filename>(lineno)
+        # it reports the line in the comment
+        def extract_lineno(line, linenum):
+            orig_lineno = re.search("/\w.*\(\d+\)", line)
+            if orig_lineno is None:
+                return line, linenum
+
+            strfile, linenum = re.search("/\w.*\(", line), re.search("\(\d+\)", line)
+            if (strfile is None) or (linenum is None):
+                return line, linenum
+            
+            strfile = strfile.group(0)[:-1]
+            linenum = int(linenum.group(0)[1:-1])
+
+            if print_line:
+                with open(strfile, "r") as f:
+                    line = f.readlines()[linenum-1]
+
+            return line, linenum
+            
+        
+        if len(assertvars) > 0:
+            with open(strfile, "r") as f:
+                lines = f.readlines()
+            
+            for assertion in assertvars:
+                linenum = int(assertion[assertion.find(ASSERT_ST)+len(ASSERT_ST):assertion.find(ASSERT_EN)])
+                line, linenum = extract_lineno(lines[linenum-1], linenum)
+                line = re.sub(' +',' ',line.strip())
+
+                if print_line:
+                    invar_props.append(("Assertion_line_%d"%linenum, "Assertion at line %d, \"%s\""%(linenum, line), assertion))
+                else:
+                    invar_props.append(("Assertion_line_%d"%linenum, "Assertion at line %d"%(linenum), assertion))
+
+        return invar_props, ltl_props
+
+class SpecVerilogParser(VerilogParser):
+
+    def __init__(self):
+        self.lexer = VerilogLexer(error_func=self._lexer_error_func)
+        self.lexer.build()
+
+        self.tokens = self.lexer.tokens
+        self.parser = yacc(module=self, method="LALR", outputdir="/tmp/", debug=False)
+    
 class VerilogCodeParser(object):
 
     def __init__(self, filelist, preprocess_output='preprocess.output',
@@ -170,7 +245,9 @@ class VerilogCodeParser(object):
         self.preprocessor = VerilogPreprocessor(filelist, preprocess_output,
                                                 preprocess_include,
                                                 preprocess_define)
-        self.parser = VerilogParser()
+        prev_path = sys.path
+        self.parser = SpecVerilogParser()
+        sys.path = prev_path
 
     def preprocess(self):
         self.preprocessor.preprocess()
@@ -190,7 +267,7 @@ class VerilogCodeParser(object):
 
     def get_directives(self):
         return self.directives
-    
+
 class VerilogSTSWalker(VerilogWalker):
     varmap = None
     paramdic = None
@@ -203,10 +280,12 @@ class VerilogSTSWalker(VerilogWalker):
     reglist = None
     outputlist = None
     memlist = None
+    mod_map = None
     
     id_vars = 0
 
     abstract_clock_list = None
+    clock_list = None
 
     def __init__(self):
         self.reset_structures()
@@ -219,9 +298,11 @@ class VerilogSTSWalker(VerilogWalker):
         self.outputlist = []
         self.memlist = []
         self.abstract_clock_list = []
+        self.clock_list = []
         if self.varmap is None: self.varmap = {}
         if self.paramdic is None: self.paramdic = {}
-        if self.modulesdic is None: self.modulesdic = {} 
+        if self.modulesdic is None: self.modulesdic = {}
+        self._init_mod_map()
         
     def _fresh_symbol(self, name):
         VerilogSTSWalker.id_vars += 1
@@ -243,28 +324,70 @@ class VerilogSTSWalker(VerilogWalker):
             self.add_invar(constraint)
             
     def varname(self, modulename, varname):
+        if varname[0] == "\\":
+            varname = varname[1:]
         if modulename == "":
             return varname
         return "%s.%s"%(modulename, varname)
 
     def _add_clock_behavior(self, var, modulename):
         varname = var.symbol_name()
-        if (CLOCK in varname) and (self.config.add_clock):
-            if not self.config.abstract_clock:
-                Logger.log("Adding clock behavior to input \"%s\""%(varname), 1)
-                self.hts.add_ts(Modules.Clock(var))
-            else:
-                Logger.log("Adding abstract clock behavior to input \"%s\""%(varname), 1)
-                ts = TS("Clock behavior for signal \"%s\""%varname)
-                ts.invar = EqualsOrIff(var, BV(1,1))
-                self.hts.add_ts(ts)
-                
+        if (CLOCK in varname):
+            self.clock_list.append(var)
+
+    def _init_mod_map(self):
+        mod_map = []
+        mod_map.append(("not",  Modules.Not))
+        mod_map.append(("zext", Modules.Zext))
+        mod_map.append(("orr",  Modules.Orr))
+        mod_map.append(("andr", Modules.Andr))
+        mod_map.append(("wrap", Modules.Wrap))
+        
+        mod_map.append(("shl",  Modules.LShl))
+        mod_map.append(("lshl", Modules.LShl))
+        mod_map.append(("lshr", Modules.LShr))
+        mod_map.append(("ashr", Modules.AShr))
+        mod_map.append(("add",  Modules.Add))
+        mod_map.append(("and",  Modules.And_M))
+        mod_map.append(("nand",  Modules.Nand_M))
+        mod_map.append(("xor",  Modules.Xor))
+        mod_map.append(("or",   Modules.Or_M))
+        mod_map.append(("nor",  Modules.Nor_M))
+        mod_map.append(("sub",  Modules.Sub))
+        mod_map.append(("mul",  Modules.Mul))
+        mod_map.append(("eq",   Modules.Eq))
+        mod_map.append(("neq",  Modules.Neq))
+
+        mod_map.append(("ult",  Modules.Ult))
+        mod_map.append(("ule",  Modules.Ule))
+        mod_map.append(("ugt",  Modules.Ugt))
+        mod_map.append(("uge",  Modules.Uge))
+        mod_map.append(("slt",  Modules.Slt))
+        mod_map.append(("sle",  Modules.Sle))
+        mod_map.append(("sgt",  Modules.Sgt))
+        mod_map.append(("sge",  Modules.Sge))
+
+        mod_map.append(("const",  Modules.Const))
+        mod_map.append(("reg",    Modules.Reg))
+        mod_map.append(("mem", Modules.Mem))
+        mod_map.append(("regrst", Modules.Reg))
+        mod_map.append(("reg_arst", Modules.Reg))
+        mod_map.append(("mux",    Modules.Mux))
+        mod_map.append(("slice",  Modules.Slice))
+        mod_map.append(("concat", Modules.Concat))
+
+        mod_map.append(('term', Modules.Term))
+
+        self.mod_map = dict(mod_map)
+            
     def Paramlist(self, modulename, el, args):
         return el
 
     def Wire(self, modulename, el, args):
         width = args[0] if args is not None else 1
-        self.add_var(modulename, el.name, Symbol(self.varname(modulename, el.name), BVType(width)))
+        wvar = Symbol(self.varname(modulename, el.name), BVType(width))
+        self.add_var(modulename, el.name, wvar)
+        self.ts.add_var(wvar)
         return (el.name, args)
 
     def Reg(self, modulename, el, args):
@@ -515,6 +638,27 @@ class VerilogSTSWalker(VerilogWalker):
             if width == "":
                 return int(bin_to_dec(value))
 
+            if (type(value) == str) and ("x" in value):
+                if width == "":
+                    Logger.error("Non deterministic value definition requires size, line %d"%el.lineno)
+
+                valname = DONTCARE_VAR%value
+                valvar = Symbol(self.varname(modulename, valname), BVType(int(width)))
+                self.add_var(modulename, valname, valvar)
+                self.ts.add_var(valvar)
+                # Inverting the value, e.g., with 'b1x x is the least significant
+                value = value[::-1]
+                if len(value) > 1:
+                    valconstr = TRUE()
+                    for val in value:
+                        if val == "x":
+                            continue
+                        index = value.index(val)
+                        invalue = BV(0,1) if int(val) == 0 else BV(1,1)
+                        valconstr = And(valconstr, EqualsOrIff(BVExtract(valvar, index, index), invalue))
+                    self.add_constraint(valconstr)
+                return valvar
+
             return BV(int(bin_to_dec(value)), int(width))
         
         return int(el.value)
@@ -536,7 +680,7 @@ class VerilogSTSWalker(VerilogWalker):
         return And(args)
 
     def Cond(self, modulename, el, args):
-        return Ite(args[0], args[1], args[2])
+        return Ite(BV2B(args[0]), args[1], args[2])
     
     def IfStatement(self, modulename, el, args):
         statement, then_b, else_b = args[0], args[1], args[2] if len(args) > 2 else None
@@ -715,6 +859,9 @@ class VerilogSTSWalker(VerilogWalker):
             
         return BVUDiv(left, right)
 
+    def Uminus(self, modulename, el, args):
+        return self.Minus(modulename, el, [0, args[0]])
+    
     def Minus(self, modulename, el, args):
         left, right = args[0], args[1]
 
@@ -752,8 +899,37 @@ class VerilogSTSWalker(VerilogWalker):
 
         if (type(left) == int):
             left = BV(left, MAXINT)
-            
+
+        lft_width = get_type(left).width
+        rgt_width = get_type(right).width
+
+        if lft_width != rgt_width:
+            if lft_width < rgt_width:
+                left = BVConcat(left, BV(0, rgt_width-lft_width))
+            if lft_width > rgt_width:
+                right = BVConcat(right, BV(0, lft_width-rgt_width))
+
         return BVAdd(left, right)
+
+    def Times(self, modulename, el, args):
+        left, right = args[0], args[1]
+
+        if (type(left) == int) and (type(right) == int):
+            return left*right
+        
+        if (type(right) == int) and (type(left) == FNode):
+            right = BV(right, get_type(left).width)
+
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
+            
+        if (type(right) == int):
+            right = BV(right, MAXINT)
+
+        if (type(left) == int):
+            left = BV(left, MAXINT)
+
+        return BVMul(left, right)
     
     def Eq(self, modulename, el, args):
         return EqualsOrIff(args[0], args[1])
@@ -770,19 +946,38 @@ class VerilogSTSWalker(VerilogWalker):
         if type(el) == int:
             return BV(el, 1)
         return B2BV(el)
+
+    def Concat(self, modulename, el, args):
+        return self._multi_op(BVConcat, args)
     
     def And(self, modulename, el, args):
+        assert len(args) == 2
         return BVAnd(self.to_bv(args[0]), self.to_bv(args[1]))
 
     def Land(self, modulename, el, args):
         return And([self.to_bool(x) for x in args])
     
     def Xor(self, modulename, el, args):
+        assert len(args) == 2
         return BVXor(self.to_bv(args[0]), self.to_bv(args[1]))
 
     def Or(self, modulename, el, args):
+        assert len(args) == 2
         return BVOr(self.to_bv(args[0]), self.to_bv(args[1]))
 
+    def Uor(self, modulename, el, args):
+        assert len(args) == 1
+        # Or reduce
+        zero = BV(0, get_type(args[0]).width)
+        return Ite(EqualsOrIff(args[0], zero), BV(0,1), BV(1,1))
+
+    def Uand(self, modulename, el, args):
+        assert len(args) == 1
+        # And reduce
+        width = get_type(args[0]).width
+        ones = BV((2**width)-1, width)
+        return Ite(EqualsOrIff(args[0], ones), BV(1,1), BV(0,1))
+    
     def Lor(self, modulename, el, args):
         return Or([self.to_bool(x) for x in args])
     
@@ -836,12 +1031,12 @@ class VerilogSTSWalker(VerilogWalker):
     def Ulnot(self, modulename, el, args):
         if type(args[0]) == int:
             return Not(self.to_bool(args[0]))
-        zero = BV(0, args[0].symbol_type().width)
+        zero = BV(0, get_type(args[0]).width)
         return EqualsOrIff(args[0], zero)
 
     def Unot(self, modulename, el, args):
         return self.Ulnot(modulename, el, args)
-    
+
     def Parameter(self, modulename, el, args):
         if el.name not in self.paramdic:
             self.paramdic[el.name] = args[0]
@@ -863,6 +1058,21 @@ class VerilogSTSWalker(VerilogWalker):
 
         if type(right) == int:
             right = BV(right, get_type(left).width)
+
+        if get_type(left).is_bv_type() and get_type(right).is_bv_type():
+            
+            lft_width = get_type(left).width
+            rgt_width = get_type(right).width
+
+            if lft_width == rgt_width + 1:
+                fv = get_free_variables(right)
+                right = right.substitute(dict([(v, BVConcat(v, BV(0, 1))) for v in fv]))
+
+            lft_width = get_type(left).width
+            rgt_width = get_type(right).width
+
+            if lft_width > rgt_width:
+                right = BVConcat(right, BV(0, lft_width-rgt_width))
 
         invar = EqualsOrIff(B2BV(left), B2BV(right))
         self.add_invar(invar)
@@ -896,15 +1106,25 @@ class VerilogSTSWalker(VerilogWalker):
         
         return BVExtract(args[0], args[1], args[1])
 
-    def Concat(self, modulename, el, args):
+    def LConcat(self, modulename, el, args):
         if len(args) == 1:
             return args[0]
+        assert len(args) == 2
         return BVConcat(args[0], args[1])
-
+    
     def _rec_repeat(self, el, count):
         if count == 1:
             return el
         return simplify(BVConcat(el, self._rec_repeat(el, count-1)))
+
+    def _multi_op(self, op, args):
+        if len(args) == 1:
+            return args[0]
+        ret = op(args[0], args[1])
+        if len(args) > 2:
+            for el in args[2:]:
+                ret = op(ret, el)
+        return ret
     
     def Repeat(self, modulename, el, args):
         return self._rec_repeat(args[0], args[1])
@@ -919,13 +1139,30 @@ class VerilogSTSWalker(VerilogWalker):
         width_idx = [el_child.index(p) for p in el_child if type(p) == Width]
 
         portargs = [args[i] for i in portargs_idx]
-        portargs.sort()
+        if len([p[0] for p in portargs if p[0] is None]) == 0:
+            portargs.sort()
         paramargs = [args[i] for i in paramargs_idx]
         paramargs.sort()
         width = args[width_idx[0]] if len(width_idx) > 0 else None
 
+        if el.module in SV_MODULES:
+            if el.module in [SVA_ASSERT, SVA_IMMEDIATE_ASSERT]:
+                sname = ASSERT_SYMBOL%el.lineno
+                asymbol = Symbol(self.varname(modulename, sname), BOOL)
+                self.add_var(modulename, sname, asymbol)
+                self.ts.add_var(asymbol)
+                self.add_constraint(EqualsOrIff(asymbol, And([BV2B(a[1]) for a in args])))
+            return args
+        
         if el.module not in self.modulesdic:
-            Logger.error("Module definition \"%s\" not found, line %d"%(el.module, el.lineno))
+            if el.module in self.mod_map:
+                actual_args = [p[1] for p in portargs]
+                actual_args.reverse()
+                ts = self.mod_map[el.module](*actual_args)
+                self.hts.add_ts(ts)
+                return args
+            else:
+                Logger.error("Module definition \"%s\" not found, line %d"%(el.module, el.lineno))
         
         param_modulename = el.module
 
@@ -970,6 +1207,22 @@ class VerilogSTSWalker(VerilogWalker):
             subhts = instancewalker.walk_module(self.modulesdic[el.module], param_modulename)
             subhts.name = param_modulename
 
+            # Setting parameters to value 0 in case they are not provided
+            if len(subhts.params) != len(actualargs):
+                dic_form = dict([(".".join(p.symbol_name().split(".")[1:]), p) for p in subhts.params])
+                lst_actu = [str(a[0]) for a in actualargs]
+
+                for par in dic_form:
+                    if par not in lst_actu:
+                        actualargs.append((par, BV(0, dic_form[par].symbol_type().width)))
+                actualargs.sort()
+            
+            formal_ptype = [get_type(p) for p in subhts.params]
+            actual_ptype = [get_type(a[1]) for a in actualargs]
+            if formal_ptype != actual_ptype:
+                formal = ["%s:%s"%(".".join(p.symbol_name().split(".")[1:]), get_type(p)) for p in subhts.params]
+                actual = ["%s:%s"%(a[0], get_type(a[1])) for a in actualargs]
+                Logger.error("Parameters type error, line %d\nformal=\"%s\" \nactual=\"%s\""%(el.lineno, formal, actual))
             self.hts.add_sub(instance, subhts, tuple([a[1] for a in actualargs]))
         return args
 

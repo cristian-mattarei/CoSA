@@ -467,6 +467,9 @@ class SymbolicSimpleTSParser(ModelParser):
     def get_extensions():
         return SymbolicSimpleTSParser.extensions
 
+    def get_model_info(self):
+        return None
+    
     def is_available(self):
         return True
     
