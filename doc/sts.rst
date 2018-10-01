@@ -17,7 +17,7 @@ The language supports also a typed modules definition and instantiation. A modul
 Counter Example
 ========================
 
-Simple definition
+Simple definition of an 8-bit counter with clock and reset. The lines that starts with ``#`` are comments. 
 
 .. code::
 
@@ -60,6 +60,7 @@ Definition using sub-module instantiation
     (clk = 0_1) <-> (next(clk) = 1_1);
     
   INVAR
+    # Enforcement of the equivalence between local output value and the output of the sub-module
     out = counter_1.out;
 
   DEF Counter(clk: BV(1), rst: BV(1)):
