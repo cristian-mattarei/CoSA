@@ -7,6 +7,26 @@ CoSA: CoreIR Symbolic Analyzer
 ...an SMT-based symbolic model checker for hardware design. 
 
 ========================
+Overview
+========================
+
+CoSA supports a variety of input formats:
+
+- `CoreIR`_
+- `BTOR2`_
+- Verilog
+- SystemVerilog
+- Symbolic Transition System (`STS`_)
+- Explicit states Transition System (`ETS`_)
+
+and multiple verifications:
+
+- reachability analysis (safety)
+- Linear Temporal Logic (LTL) model checking
+- equivalence checking
+
+
+========================
 Installation
 ========================
 
@@ -30,6 +50,9 @@ Software requirements:
 .. _CoreIR: https://github.com/rdaly525/coreir
 .. _Icarus Verilog: https://github.com/steveicarus/iverilog
 .. _PyVerilog: https://github.com/PyHDI/Pyverilog
+.. _BTOR2: https://github.com/Boolector/btor2tools
+.. _STS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/sts.rst
+.. _ETS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/ets.rst
 
 ========================
 Usage
