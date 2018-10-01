@@ -11,6 +11,7 @@ Supported Input Formats
 =======================
 * CoreIR (https://github.com/rdaly525/coreir)
 * Verilog
+* SystemVerilog
 * Symbolic Transition System
 * Explicit Transition System
 * BTOR2 (https://github.com/Boolector/btor2tools)
