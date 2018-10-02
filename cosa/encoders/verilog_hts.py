@@ -309,13 +309,13 @@ class VerilogSTSWalker(VerilogWalker):
         return "%s__%d"%(name, VerilogSTSWalker.id_vars)
 
     def add_init(self, constraint):
-        self.ts.init = And(self.ts.init, assign_define_substitute(constraint)[0])
+        self.ts.init = And(self.ts.init, constraint)
 
     def add_invar(self, constraint):
-        self.ts.invar = And(self.ts.invar, assign_define_substitute(constraint)[0])
+        self.ts.invar = And(self.ts.invar, constraint)
 
     def add_trans(self, constraint):
-        self.ts.trans = And(self.ts.trans, assign_define_substitute(constraint)[0])
+        self.ts.trans = And(self.ts.trans, constraint)
         
     def add_constraint(self, constraint):
         if TS.has_next(constraint):
@@ -1264,7 +1264,7 @@ class VerilogSTSWalker(VerilogWalker):
     def ForeverStatement(self, modulename, el, args):
         statement = And(args)
         for el in [And(a) for a in args]:
-            self.add_constraint(assign_define_substitute(el)[0])
+            self.add_constraint(el)
         return TRUE()
 
     def collect_conditions_rec(self, formula, ext_function, assign_list=[], collected={}):
