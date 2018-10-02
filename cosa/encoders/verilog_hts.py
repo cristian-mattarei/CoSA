@@ -309,13 +309,13 @@ class VerilogSTSWalker(VerilogWalker):
         return "%s__%d"%(name, VerilogSTSWalker.id_vars)
 
     def add_init(self, constraint):
-        self.ts.init = And(self.ts.init, constraint)
+        self.ts.init = And(self.ts.init, assign_define_substitute(constraint)[0])
 
     def add_invar(self, constraint):
-        self.ts.invar = And(self.ts.invar, constraint)
+        self.ts.invar = And(self.ts.invar, assign_define_substitute(constraint)[0])
 
     def add_trans(self, constraint):
-        self.ts.trans = And(self.ts.trans, constraint)
+        self.ts.trans = And(self.ts.trans, assign_define_substitute(constraint)[0])
         
     def add_constraint(self, constraint):
         if TS.has_next(constraint):
