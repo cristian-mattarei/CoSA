@@ -19,12 +19,13 @@ CoSA supports a variety of input formats:
 - Symbolic Transition System (`STS`_)
 - Explicit states Transition System (`ETS`_)
 
-and multiple verifications:
+and verifications:
 
-- reachability analysis (safety)
-- Linear Temporal Logic (LTL) model checking
-- equivalence checking
-
+- Invariant Properties
+- Linear Temporal Logic (LTL) Properties
+- Proving capabilities
+- Equivalence Checking
+- Automated Lemma Extraction
 
 ========================
 Installation

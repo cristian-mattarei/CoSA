@@ -115,7 +115,7 @@ class ProblemSolver(object):
         bmc_length = max(problem.bmc_length, config.bmc_length)
         bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
 
-        parsing_defs = [mc_config.properties, mc_config.lemmas, mc_config.assumptions]
+        parsing_defs = [problem.formula, problem.lemmas, problem.assumptions]
         for i in range(len(parsing_defs)):
             if parsing_defs[i] is not None:
                 pdef_file = problem.relative_path+parsing_defs[i]
@@ -127,38 +127,40 @@ class ProblemSolver(object):
             else:
                 parsing_defs[i] = None
 
-        [mc_config.properties, mc_config.lemmas, mc_config.assumptions] = parsing_defs
+        [formulae, problem.lemmas, problem.assumptions] = parsing_defs
 
         ParametricBehavior.apply_to_problem(problem, self.model_info)
-                
+
         assumps = None
         lemmas = None
 
-        if mc_config.properties is None:
+        if formulae is None:
             if problem.verification == VerificationType.SIMULATION:
-                mc_config.properties = ["True"]
+                formulae = ["True"]
             elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
                 Logger.error("Property not provided")
                 
         accepted_ver = False
 
+        if formulae is not None:
+            problem.formula = formulae[0]
+        
         precondition = config.precondition if config.precondition is not None else problem.precondition
         
         if precondition:
-            for i in range(len(mc_config.properties)):
-                mc_config.properties[i] = "(%s) -> (%s)"%(precondition, mc_config.properties[i])
+            problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
         
-        if (problem.verification != VerificationType.EQUIVALENCE) and (mc_config.properties is not None):
-            assumps = [t[1] for t in self.sparser.parse_formulae(mc_config.assumptions)]
-            lemmas = [t[1] for t in self.sparser.parse_formulae(mc_config.lemmas)]
+        if (problem.verification != VerificationType.EQUIVALENCE) and (problem.formula is not None):
+            assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
+            lemmas = [t[1] for t in self.sparser.parse_formulae(problem.lemmas)]
             for ass in assumps:
                 problem.hts.add_assumption(ass)
             for lemma in lemmas:
                 problem.hts.add_lemma(lemma)
             if problem.verification != VerificationType.LTL:
-                (strprop, prop, types) = self.sparser.parse_formulae(mc_config.properties)[0]
+                (strprop, prop, types) = self.sparser.parse_formulae([problem.formula])[0]
             else:
-                (strprop, prop, types) = self.lparser.parse_formulae(mc_config.properties)[0]
+                (strprop, prop, types) = self.lparser.parse_formulae([problem.formula])[0]
 
             problem.formula = prop
 
@@ -192,14 +194,14 @@ class ProblemSolver(object):
                                                      problem.hts2, \
                                                      bmc_length, \
                                                      problem.symbolic_init, \
-                                                     mc_config.properties, \
+                                                     problem.formula, \
                                                      True)
 
-            if mc_config.assumptions is not None:
-                assumps = [t[1] for t in self.sparser.parse_formulae(mc_config.assumptions)]
+            if problem.assumptions is not None:
+                assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
 
-            if mc_config.lemmas is not None:
-                lemmas = [t[1] for t in self.sparser.parse_formulae(mc_config.lemmas)]
+            if problem.lemmas is not None:
+                lemmas = [t[1] for t in self.sparser.parse_formulae(problem.lemmas)]
 
             if assumps is not None:
                 for assumption in assumps:
@@ -401,11 +403,7 @@ class ProblemSolver(object):
         mc_config.incremental = config_selection(problem.incremental, config.incremental)
         mc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
         mc_config.solver_name = config_selection(problem.solver_name, config.solver_name)
-        mc_config.vcd_trace = problem.vcd or config.vcd
         mc_config.prove = config_selection(problem.prove, config.prove)
-        mc_config.properties = problem.formula
-        mc_config.assumptions = problem.assumptions
-        mc_config.lemmas = problem.lemmas
 
         return mc_config
 
