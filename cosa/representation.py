@@ -8,8 +8,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Symbol, And, TRUE, simplify, EqualsOrIff, get_type
+from pysmt.shortcuts import Symbol, And, Or, TRUE, simplify, EqualsOrIff, get_type, Implies, Not
 from cosa.utils.formula_mngm import get_free_variables, substitute
+from cosa.utils.logger import Logger
 
 NEXT = "_N"
 PREV = "_P"
@@ -126,8 +127,9 @@ class HTS(object):
         if self._s_init is None:
             self._s_init = TRUE()
             for ts in self.tss:
-                if ts.init is not None:
-                    self._s_init = And(self._s_init, ts.init)
+                init = ts.init
+                if init is not None:
+                    self._s_init = And(self._s_init, init)
 
         return self._s_init
 
@@ -135,8 +137,12 @@ class HTS(object):
         if self._s_trans is None:
             self._s_trans = TRUE()
             for ts in self.tss:
-                if ts.trans is not None:
-                    self._s_trans = And(self._s_trans, ts.trans)
+                ftrans = ts.compile_ftrans()
+                if ftrans is not None:
+                    self._s_trans = And(self._s_trans, ftrans)
+                trans = ts.trans
+                if trans is not None:
+                    self._s_trans = And(self._s_trans, trans)
 
         return self._s_trans
 
@@ -144,8 +150,9 @@ class HTS(object):
         if (self._s_invar is None) or (rebuild):
             self._s_invar = TRUE()
             for ts in self.tss:
-                if ts.invar is not None:
-                    self._s_invar = And(self._s_invar, ts.invar)
+                invar = ts.invar
+                if invar is not None:
+                    self._s_invar = And(self._s_invar, invar)
 
         if self.assumptions is not None:
             return And(self._s_invar, And(self.assumptions))
@@ -326,9 +333,11 @@ class TS(object):
     input_vars = None
     output_vars = None
     hidden_vars = None
+    
     init = None
     trans = None
     invar = None
+    ftrans = None
     
     comment = None
     logic = None
@@ -342,6 +351,7 @@ class TS(object):
         self.init = TRUE()
         self.trans = TRUE()
         self.invar = TRUE()
+        self.ftrans = None
 
         self.comment = comment
         self.logic = L_BV
@@ -378,6 +388,32 @@ class TS(object):
     def add_output_var(self, var):
         self.output_vars.add(var)
         self.vars.add(var)
+
+    def add_func_trans(self, var, cond_assign_list):
+        if self.ftrans is None:
+            self.ftrans = {}
+        
+        assert var not in self.ftrans
+
+        self.ftrans[var] = cond_assign_list
+
+    def compile_ftrans(self):
+        if self.ftrans is None:
+            return None
+
+        ret = TRUE()
+        effects = []
+        all_cond = []
+        for var, cond_assign_list in self.ftrans.items():
+            if not TS.has_next(var):
+                Logger.error("Functional transition relation definition with not primed variable \"%s\""%var)
+            for (condition, value) in cond_assign_list:
+                effects.append(Implies(condition, EqualsOrIff(var, value)))
+                all_cond.append(condition)
+            no_change = EqualsOrIff(var, TS.to_prev(var))
+            ret = And(ret, simplify(And(effects)), simplify(Implies(Not(Or(all_cond)), no_change)))
+
+        return ret
         
     @staticmethod
     def is_prime(v):
@@ -409,7 +445,35 @@ class TS(object):
             varname = v.symbol_name()
             return Symbol(varname[:varname.find(AT)], v.symbol_type())
         return v
-        
+
+    @staticmethod
+    def is_prime_name(varname):
+        return varname[-len(NEXT):] == NEXT
+
+    @staticmethod
+    def is_timed_name(varname):
+        return (AT in varname) and (ATP not in varname)
+
+    @staticmethod
+    def is_ptimed_name(varname):
+        return ATP in varname
+    
+    @staticmethod
+    def is_prev_name(varname):
+        return varname[-len(PREV):] == PREV
+    
+    @staticmethod
+    def get_ref_name(name):
+        if TS.is_prime_name(name):
+            return name[:-len(NEXT)]
+        if TS.is_prev_name(name):
+            return name[:-len(PREV)]
+        if TS.is_ptimed_name(name):
+            return name[:name.find(ATP)]
+        if TS.is_timed_name(name):
+            return name[:name.find(AT)]
+        return name
+    
     @staticmethod
     def get_prime(v):
         return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
@@ -464,7 +528,7 @@ class TS(object):
     def to_next(formula):
         varmap = []
         for v in get_free_variables(formula):
-            vname = v.symbol_name()
+            vname = TS.get_ref_name(v.symbol_name())
             varmap.append((vname,TS.get_prime_name(vname)))
             varmap.append((TS.get_prev_name(vname),vname))
         return substitute(formula, dict(varmap))
@@ -473,7 +537,7 @@ class TS(object):
     def to_prev(formula):
         varmap = []
         for v in get_free_variables(formula):
-            vname = v.symbol_name()
+            vname = TS.get_ref_name(v.symbol_name())
             varmap.append((vname,TS.get_prev_name(vname)))
             varmap.append((TS.get_prime_name(vname),vname))
         return substitute(formula, dict(varmap))

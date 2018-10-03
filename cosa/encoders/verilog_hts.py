@@ -25,7 +25,7 @@ try:
 except:
     VPARSER = False
 
-from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat
+from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat, is_unsat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero, BVMul
 from pysmt.fnode import FNode
@@ -77,30 +77,6 @@ ASSERT_EN = HIDDEN_VAR[::-1]
 ASSERT_SYMBOL = ASSERT_ST+"%d"+ASSERT_EN
 
 DONTCARE_VAR = HIDDEN_VAR+"%s"+(HIDDEN_VAR[::-1])
-
-class AssignDefineSubstituteWalker(IdentityDagWalker):
-
-    assign_list = None
-
-    def reset(self):
-        self.assign_list = set([])
-    
-    def walk_assign(self, formula, args, **kwargs):
-        for v in get_free_variables(args[0]):
-            self.assign_list.add(v)
-        return self.mgr.EqualsOrIff(args[0], args[1])
-
-    def walk_define(self, formula, args, **kwargs):
-        for v in get_free_variables(args[0]):
-            self.assign_list.add(v)
-        return self.mgr.EqualsOrIff(args[0], args[1])
-    
-def assign_define_substitute(formula):
-    subwalker = AssignDefineSubstituteWalker()
-    subwalker.reset()
-    ret = subwalker.walk(formula)
-    return (ret, list(subwalker.assign_list))
-
 
 class VerilogHTSParser(ModelParser):
     parser = None
@@ -308,20 +284,29 @@ class VerilogSTSWalker(VerilogWalker):
         VerilogSTSWalker.id_vars += 1
         return "%s__%d"%(name, VerilogSTSWalker.id_vars)
 
+    def assign_define_substitute(self, formula):
+        subwalker = AssignDefineSubstituteWalker()
+        subwalker.reset()
+        ret = subwalker.walk(formula)
+        return (ret, list(subwalker.assign_list))
+    
     def add_init(self, constraint):
-        self.ts.init = And(self.ts.init, assign_define_substitute(constraint)[0])
+        self.ts.init = And(self.ts.init, self.assign_define_substitute(constraint)[0])
 
     def add_invar(self, constraint):
-        self.ts.invar = And(self.ts.invar, assign_define_substitute(constraint)[0])
+        self.ts.invar = And(self.ts.invar, self.assign_define_substitute(constraint)[0])
 
     def add_trans(self, constraint):
-        self.ts.trans = And(self.ts.trans, assign_define_substitute(constraint)[0])
+        self.ts.trans = And(self.ts.trans, self.assign_define_substitute(constraint)[0])
         
     def add_constraint(self, constraint):
         if TS.has_next(constraint):
             self.add_trans(constraint)
         else:
             self.add_invar(constraint)
+
+    def add_ftrans(self, variable, cond_assign_list):
+        self.ts.add_func_trans(variable, cond_assign_list)
             
     def varname(self, modulename, varname):
         if varname[0] == "\\":
@@ -710,14 +695,15 @@ class VerilogSTSWalker(VerilogWalker):
             return
 
         g_always = {}
-        
+
+        # Combine all conditions
         for always in always_list:
             for v in always:
                 if v not in g_always:
                     g_always[v] = []
                 g_always[v] += always[v]
 
-        active_cons = set([])
+        active_cons = []
 
         state_vars = set(self.reglist+self.memlist)
         possible_ass_vars = set(self.reglist+self.outputlist+self.memlist)
@@ -728,28 +714,50 @@ class VerilogSTSWalker(VerilogWalker):
         
         if len(diff_vars) > 0:
             Logger.error("Assignment is not allowed to variables \"%s\" in module \"%s\""%(", ".join([v.symbol_name().replace("%s."%(modulename),"") for v in diff_vars]), strip_name))
-        
+
+        ftrans = {}
+            
         for var in possible_ass_vars:
             keep_value = EqualsOrIff(var, TS.get_prime(var))
+
+            # Variable does not change value if it does not have an active behavior
             if (var not in g_always):
                 if (var in state_vars):
                     self.add_constraint(keep_value)
                 continue
 
-            all_conds = []
             for beh in g_always[var]:
-                effect, condition = assign_define_substitute(beh[0])[0], beh[1]
+                effect, condition = self.assign_define_substitute(beh[0])[0], beh[1]
                 condition = simplify(condition)
-                all_conds.append(condition)
-                cons = simplify(Implies(condition, effect))
-                active_cons.add(cons)
 
-            # Behavioral constraints
-            self.add_constraint(And(active_cons))
+                # assignment and value from the assign operator (this can differ from var with the addition of bitvector extraction)
+                avar, aval = beh[0].args()[0], beh[0].args()[1]
+                # Only assignments to primed variables are added to the functional transition relation
+                if TS.has_next(avar):
+                    if avar not in ftrans:
+                        ftrans[avar] = []
+                    ftrans[avar].append((condition, aval))
+
+                # Still need to add the constraints in case of invariant behavior
+                cons = simplify(Implies(condition, effect))
+                if not TS.has_next(cons):
+                    active_cons.append(cons)
                 
-            # Frame condition
-            self.add_constraint(simplify(Implies(Not(Or(all_conds)), keep_value)))
-    
+            # Behavioral constraints
+            if len(active_cons) > 0:
+                self.add_constraint(And(active_cons))
+                
+            # Frame conditions are added by the compile_ftrans function in the TS class
+
+        for var in ftrans:
+            self.add_ftrans(var, ftrans[var])
+
+    # Simplifies ites according with a provided condition
+    def simplify_ites(self, formula, condition):
+        subwalker = IteSubstituteWalker()
+        subwalker.set_condition(condition)
+        return subwalker.walk(formula)
+            
     def Always(self, modulename, el, args):
         condition, statements = args[0], args[1]
 
@@ -765,10 +773,17 @@ class VerilogSTSWalker(VerilogWalker):
 
         assign_conditions = self.collect_assign_conditions(And(statements))
 
+        # The variable assignments apply only when the "always condition" is true
         for v in assign_conditions:
             for i in range(len(assign_conditions[v])):
-                assign_conditions[v][i] = (assign_conditions[v][i][0], And(assign_conditions[v][i][1], condition))
-
+                avalue, acond = assign_conditions[v][i][0], assign_conditions[v][i][1]
+                avalue = self.simplify_ites(avalue, acond)
+                assign_conditions[v][i] = (avalue, And(acond, condition))
+            
+        # Assignlist is a list of (variable, list((value, condition))), meaning that
+        # the "variable" is assigned to "value" when "condition" is true
+                
+        # The result is the processed by the process_always function
         return assign_conditions
     
     def ForStatement(self, modulename, el, args):
@@ -790,9 +805,9 @@ class VerilogSTSWalker(VerilogWalker):
 
         args[2] = And(newcp)
 
-        args_0 = assign_define_substitute(args[0])[0]
-        args_1 = assign_define_substitute(args[1])[0]
-        args_2 = assign_define_substitute(args[2])[0]
+        args_0 = self.assign_define_substitute(args[0])[0]
+        args_1 = self.assign_define_substitute(args[1])[0]
+        args_2 = self.assign_define_substitute(args[2])[0]
         
         # Performining the For-loop unrolling
         fv = get_free_variables(args_0)
@@ -1294,6 +1309,7 @@ class VerilogSTSWalker(VerilogWalker):
 
     def collect_assign_conditions(self, formula):
 
+        # Reduces an assignment (var = 0) & (var != 1) & (var != 2) .. into (var = 0)
         def simplify_assign_list(assign_list):
             cp = list(conjunctive_partition(assign_list))
             equals = [f for f in cp if f.is_equals()]
@@ -1318,7 +1334,8 @@ class VerilogSTSWalker(VerilogWalker):
                     ret.append(neq)
 
             return And(ret)
-        
+
+        # External function for collect_conditions_rec. Symbols collection
         def var_fun(formula, assign_list, collected):
             if formula.is_symbol():
                 ref_var = TS.get_ref_var(formula)
@@ -1327,7 +1344,8 @@ class VerilogSTSWalker(VerilogWalker):
                 collected[ref_var].append((formula, And(assign_list)))
             return (assign_list, collected)
         
-        def assign_fun(formula, assign_list, collected):
+        # External function for collect_conditions_rec. Assigns and Defines collection
+        def assign_define_fun(formula, assign_list, collected):
             left = formula.args()[0]
             if formula.node_type() in [ASSIGN, DEFINE]:
                 if not left.is_symbol():
@@ -1358,23 +1376,39 @@ class VerilogSTSWalker(VerilogWalker):
 
             return (assign_list, collected)
 
-        (assign_list, collected) = self.collect_conditions_rec(formula, assign_fun, assign_list=[], collected={})
+        (assign_list, collected) = self.collect_conditions_rec(formula, assign_define_fun, assign_list=[], collected={})
+        
         return collected
 
+class IteSubstituteWalker(IdentityDagWalker):
+
+    condition = None
+
+    def set_condition(self, condition):
+        self.condition = condition
+
+    def walk_ite(self, formula, args, **kwargs):
+        if is_unsat(And(args[0], self.condition)):
+            return args[2]
+
+        if is_unsat(And(Not(args[0]), self.condition)):
+            return args[1]
+
+        return formula
+        
+class AssignDefineSubstituteWalker(IdentityDagWalker):
+
+    assign_list = None
+
+    def reset(self):
+        self.assign_list = set([])
     
-class SubstituteWalker(IdentityDagWalker):
+    def walk_assign(self, formula, args, **kwargs):
+        for v in get_free_variables(args[0]):
+            self.assign_list.add(v)
+        return self.mgr.EqualsOrIff(args[0], args[1])
 
-    def set_substitute_function(self, function):
-        self.substitute_function = function
-
-    def set_substitute_map(self, smap):
-        self.mapsymbols = smap
-
-    def walk_symbol(self, formula, args, **kwargs):
-        if formula.symbol_name() in self.mapsymbols:
-            return self.mgr.Symbol(self.mapsymbols[formula.symbol_name()],
-                                   formula.symbol_type())
-        else:
-            return self.mgr.Symbol(formula.symbol_name(),
-                                   formula.symbol_type())
-
+    def walk_define(self, formula, args, **kwargs):
+        for v in get_free_variables(args[0]):
+            self.assign_list.add(v)
+        return self.mgr.EqualsOrIff(args[0], args[1])
