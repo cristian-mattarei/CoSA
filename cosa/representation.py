@@ -409,9 +409,9 @@ class TS(object):
                 Logger.error("Functional transition relation definition with not primed variable \"%s\""%var)
             for (condition, value) in cond_assign_list:
                 effects.append(Implies(condition, EqualsOrIff(var, value)))
-                all_cond.append(condition)
+                all_cond.append(Not(condition))
             no_change = EqualsOrIff(var, TS.to_prev(var))
-            ret = And(ret, simplify(And(effects)), simplify(Implies(Not(Or(all_cond)), no_change)))
+            ret = And(ret, simplify(And(effects)), simplify(Implies(Or(all_cond), no_change)))
 
         return ret
         
