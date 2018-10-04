@@ -716,16 +716,16 @@ class VerilogSTSWalker(VerilogWalker):
             Logger.error("Assignment is not allowed to variables \"%s\" in module \"%s\""%(", ".join([v.symbol_name().replace("%s."%(modulename),"") for v in diff_vars]), strip_name))
 
         ftrans = {}
-            
+
         for var in possible_ass_vars:
             keep_value = EqualsOrIff(var, TS.get_prime(var))
-
-            # Variable does not change value if it does not have an active behavior
             if (var not in g_always):
                 if (var in state_vars):
                     self.add_constraint(keep_value)
                 continue
 
+            only_functional = True
+            all_neg_conds = []
             for beh in g_always[var]:
                 effect, condition = self.assign_define_substitute(beh[0])[0], beh[1]
                 condition = simplify(condition)
@@ -733,24 +733,41 @@ class VerilogSTSWalker(VerilogWalker):
                 # assignment and value from the assign operator (this can differ from var with the addition of bitvector extraction)
                 avar, aval = beh[0].args()[0], beh[0].args()[1]
                 # Only assignments to primed variables are added to the functional transition relation
-                if TS.has_next(avar):
+                cons = simplify(Implies(condition, effect))
+
+                if True: #TS.has_next(avar):
                     if avar not in ftrans:
                         ftrans[avar] = []
                     ftrans[avar].append((condition, aval))
-
-                # Still need to add the constraints in case of invariant behavior
-                cons = simplify(Implies(condition, effect))
-                if not TS.has_next(cons):
+                else:
+                    only_functional = False
                     active_cons.append(cons)
+                    
+                all_neg_conds.append(Not(condition))
                 
             # Behavioral constraints
-            if len(active_cons) > 0:
+            if (len(active_cons) > 0) and not only_functional:
                 self.add_constraint(And(active_cons))
                 
-            # Frame conditions are added by the compile_ftrans function in the TS class
+            # Frame condition
+            if (len(all_neg_conds) > 0) and not only_functional:
+                self.add_constraint(simplify(Implies(And(all_neg_conds), keep_value)))
 
-        for var in ftrans:
-            self.add_ftrans(var, ftrans[var])
+        sort_assignments = False
+        for var, asscond in ftrans.items():
+            if not sort_assignments:
+                self.add_ftrans(var, asscond)
+            else:
+                sim_asscond = [(len(list(conjunctive_partition(x[0]))), str(x[1]), list(conjunctive_partition(x[0])), x[1]) for x in asscond]
+                sim_asscond.sort()
+                cum_cond = []
+                new_assconds = []
+                for el in sim_asscond:
+                    cp_cond, value = el[2], el[3]
+                    new_asscond = And([x for x in cp_cond if x not in cum_cond])
+                    cum_cond += [Not(x) for x in cp_cond]
+                    new_assconds.append((new_asscond, value))
+                self.add_ftrans(var, new_assconds)
 
     # Simplifies ites according with a provided condition
     def simplify_ites(self, formula, condition):

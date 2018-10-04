@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Symbol, And, Or, TRUE, simplify, EqualsOrIff, get_type, Implies, Not
+from pysmt.shortcuts import Symbol, And, Or, TRUE, simplify, EqualsOrIff, get_type, Implies, Not, Ite
 from cosa.utils.formula_mngm import get_free_variables, substitute
 from cosa.utils.logger import Logger
 
@@ -139,7 +139,7 @@ class HTS(object):
             for ts in self.tss:
                 ftrans = ts.compile_ftrans()
                 if ftrans is not None:
-                    self._s_trans = And(self._s_trans, ftrans)
+                    self._s_trans = And(self._s_trans, ftrans[1])
                 trans = ts.trans
                 if trans is not None:
                     self._s_trans = And(self._s_trans, trans)
@@ -150,6 +150,9 @@ class HTS(object):
         if (self._s_invar is None) or (rebuild):
             self._s_invar = TRUE()
             for ts in self.tss:
+                finvar = ts.compile_ftrans()
+                if finvar is not None:
+                    self._s_invar = And(self._s_invar, finvar[0])
                 invar = ts.invar
                 if invar is not None:
                     self._s_invar = And(self._s_invar, invar)
@@ -403,17 +406,38 @@ class TS(object):
 
         ret = TRUE()
         effects = []
-        all_cond = []
+        all_neg_cond = []
         for var, cond_assign_list in self.ftrans.items():
-            if not TS.has_next(var):
-                Logger.error("Functional transition relation definition with not primed variable \"%s\""%var)
+            # if not TS.has_next(var):
+            #     Logger.error("Functional transition relation definition with not primed variable \"%s\""%var)
             for (condition, value) in cond_assign_list:
                 effects.append(Implies(condition, EqualsOrIff(var, value)))
-                all_cond.append(Not(condition))
+                all_neg_cond.append(Not(condition))
             no_change = EqualsOrIff(var, TS.to_prev(var))
-            ret = And(ret, simplify(And(effects)), simplify(Implies(Or(all_cond), no_change)))
+            ret = And(ret, simplify(And(effects)))
+            ret = And(ret, simplify(Implies(And(all_neg_cond), no_change)))
 
-        return ret
+        # ret_trans = TRUE()
+        # ret_invar = TRUE()
+        # effects = []
+        # for var, cond_assign_list in self.ftrans.items():
+        #     temporal = True
+        #     if TS.has_next(var):
+        #         ite_list = TS.to_prev(var)
+        #     else:
+        #         ite_list = var
+        #     for (condition, value) in reversed(cond_assign_list):
+        #         if condition == TRUE():
+        #             ite_list = value
+        #         else:
+        #             ite_list = Ite(condition, value, ite_list)
+                    
+        #     if TS.has_next(ite_list):
+        #         ret_trans = And(ret_trans, EqualsOrIff(var, ite_list))
+        #     else:
+        #         ret_invar = And(ret_invar, EqualsOrIff(var, ite_list))
+            
+        # return (ret_invar, ret_trans)
         
     @staticmethod
     def is_prime(v):
