@@ -33,6 +33,7 @@ class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
+    debug = False
     bmc_length = 10
     bmc_length_min = 0
     
@@ -538,6 +539,7 @@ def main():
     config.generators = args.generators
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
+    config.debug = args.debug
 
     if len(sys.argv)==1:
         parser.print_help()

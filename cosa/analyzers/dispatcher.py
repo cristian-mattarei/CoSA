@@ -419,6 +419,7 @@ class ProblemSolver(object):
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean or config.boolean
+        encoder_config.debug = config.debug
 
         return encoder_config
         

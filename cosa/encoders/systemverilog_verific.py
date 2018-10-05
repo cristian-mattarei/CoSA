@@ -101,7 +101,7 @@ class SystemVerilogVerificParser(ModelParser):
         ret = parser.parse_file(TMPFILE, config, flags=flags)
         self.model_info = parser.get_model_info()
 
-        if not Logger.level(1):
+        if (not Logger.level(1)) and (not config.debug):
             os.remove(TMPFILE)
             os.remove(TMPCMDFILE)
         
