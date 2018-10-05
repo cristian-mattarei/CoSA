@@ -375,7 +375,7 @@ def main():
 
     ver_params.set_defaults(precondition=None)
     ver_params.add_argument('-c', '--precondition', metavar='<invar>', type=str, required=False,
-                       help='properties precondition.')
+                       help='invariant properties precondition.')
     
     ver_params.set_defaults(lemmas=None)
     ver_params.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
