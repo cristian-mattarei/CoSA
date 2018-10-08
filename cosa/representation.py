@@ -464,40 +464,45 @@ class TS(object):
         if self.ftrans is None:
             return None
 
-        ret = TRUE()
-        effects = []
-        all_neg_cond = []
-        for var, cond_assign_list in self.ftrans.items():
-            # if not TS.has_next(var):
-            #     Logger.error("Functional transition relation definition with not primed variable \"%s\""%var)
-            for (condition, value) in cond_assign_list:
-                effects.append(Implies(condition, EqualsOrIff(var, value)))
-                all_neg_cond.append(Not(condition))
-            no_change = EqualsOrIff(var, TS.to_prev(var))
-            ret = And(ret, simplify(And(effects)))
-            ret = And(ret, simplify(Implies(And(all_neg_cond), no_change)))
+        ret_trans = TRUE()
+        ret_invar = TRUE()
+        
+        use_ites = False
 
-        # ret_trans = TRUE()
-        # ret_invar = TRUE()
-        # effects = []
-        # for var, cond_assign_list in self.ftrans.items():
-        #     temporal = True
-        #     if TS.has_next(var):
-        #         ite_list = TS.to_prev(var)
-        #     else:
-        #         ite_list = var
-        #     for (condition, value) in reversed(cond_assign_list):
-        #         if condition == TRUE():
-        #             ite_list = value
-        #         else:
-        #             ite_list = Ite(condition, value, ite_list)
-                    
-        #     if TS.has_next(ite_list):
-        #         ret_trans = And(ret_trans, EqualsOrIff(var, ite_list))
-        #     else:
-        #         ret_invar = And(ret_invar, EqualsOrIff(var, ite_list))
+        if use_ites:
+            for var, cond_assign_list in self.ftrans.items():
+                if TS.has_next(var):
+                    ite_list = TS.to_prev(var)
+                else:
+                    ite_list = var
+                for (condition, value) in reversed(cond_assign_list):
+                    if condition == TRUE():
+                        ite_list = value
+                    else:
+                        ite_list = Ite(condition, value, ite_list)
+
+                if TS.has_next(ite_list):
+                    ret_trans = And(ret_trans, EqualsOrIff(var, ite_list))
+                else:
+                    ret_invar = And(ret_invar, EqualsOrIff(var, ite_list))
+        else:            
+            for var, cond_assign_list in self.ftrans.items():
+                effects = []
+                all_neg_cond = []
+                for (condition, value) in cond_assign_list:
+                    effects.append(simplify(Implies(condition, EqualsOrIff(var, value))))
+                    all_neg_cond.append(Not(condition))
+
+                if not TS.has_next(var) and not TS.has_next(condition):
+                    ret_invar = And(ret_invar, And(effects))
+                else:
+                    ret_trans = And(ret_trans, And(effects))
+
+                if TS.has_next(var):
+                    no_change = EqualsOrIff(var, TS.to_prev(var))
+                    ret_trans = And(ret_trans, simplify(Implies(And(all_neg_cond), no_change)))
             
-        # return (ret_invar, ret_trans)
+        return (ret_invar, ret_trans)
         
     @staticmethod
     def is_prime(v):

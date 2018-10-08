@@ -723,8 +723,6 @@ class VerilogSTSWalker(VerilogWalker):
                     g_always[v] = []
                 g_always[v] += always[v]
 
-        active_cons = []
-
         state_vars = set(self.reglist+self.memlist)
         possible_ass_vars = set(self.reglist+self.outputlist+self.memlist)
         ass_vars = set(g_always.keys())
@@ -744,8 +742,6 @@ class VerilogSTSWalker(VerilogWalker):
                     self.add_constraint(keep_value)
                 continue
 
-            only_functional = True
-            all_neg_conds = []
             for beh in g_always[var]:
                 effect, condition = self.assign_define_substitute(beh[0])[0], beh[1]
                 condition = simplify(condition)
@@ -755,25 +751,13 @@ class VerilogSTSWalker(VerilogWalker):
                 # Only assignments to primed variables are added to the functional transition relation
                 cons = simplify(Implies(condition, effect))
 
-                if True: #TS.has_next(avar):
-                    if avar not in ftrans:
-                        ftrans[avar] = []
-                    ftrans[avar].append((condition, aval))
-                else:
-                    only_functional = False
-                    active_cons.append(cons)
-                    
-                all_neg_conds.append(Not(condition))
-                
-            # Behavioral constraints
-            if (len(active_cons) > 0) and not only_functional:
-                self.add_constraint(And(active_cons))
-                
-            # Frame condition
-            if (len(all_neg_conds) > 0) and not only_functional:
-                self.add_constraint(simplify(Implies(And(all_neg_conds), keep_value)))
+                if avar not in ftrans:
+                    ftrans[avar] = []
+                ftrans[avar].append((condition, aval))
 
+        # Sort and simplifies assignments in case of ITE encoding
         sort_assignments = False
+        
         for var, asscond in ftrans.items():
             if not sort_assignments:
                 self.add_ftrans(var, asscond)
@@ -1379,6 +1363,15 @@ class VerilogSTSWalker(VerilogWalker):
             cp = list(conjunctive_partition(assign_list))
             equals = [f for f in cp if f.is_equals()]
             if len(equals) != 1:
+                if cp[0].args():
+                    # Managing condition where all assignments are negated
+                    get_eq_val = lambda f: f.args()[0] if f.args()[0].is_bv_constant() else f.args()[1]
+                    get_eq_var = lambda f: f.args()[0] if not f.args()[0].is_bv_constant() else f.args()[1]
+                    values = [get_eq_val(f.args()[0]).constant_value() for f in cp]
+                    if len(values) == len(range(max(values)+1)):
+                        refvar = get_eq_var(cp[0].args()[0])
+                        return BVUGT(refvar, BV(max(values), refvar.symbol_type().width))
+                
                 return assign_list
 
             refel = equals[0]
