@@ -89,7 +89,7 @@ class ProblemSolver(object):
 
         # VCD format
         vcd_trace = None
-        if config.vcd:
+        if problem.vcd:
             vcd_printer = VCDTracePrinter()
             vcd_trace = vcd_printer.print_trace(hts=hts, \
                                                 model=trace.model, \
