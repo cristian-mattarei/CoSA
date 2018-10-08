@@ -110,7 +110,7 @@ class Problems(object):
     smt2_tracing = None
     solver_name = None
     strategy = None
-    symbolic_init = None
+    symbolic_init = False
     time = False
     trace_all_vars = False
     trace_prefix = None
@@ -228,7 +228,7 @@ class Problem(object):
     precondition = None
     strategy = None
     incremental = None
-    symbolic_init = None
+    symbolic_init = False
     smt2_tracing = None
 
     full_trace = False
