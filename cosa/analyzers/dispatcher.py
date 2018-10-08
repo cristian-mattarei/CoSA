@@ -144,7 +144,7 @@ class ProblemSolver(object):
 
         precondition = config.precondition if config.precondition is not None else problem.precondition
         
-        if precondition:
+        if precondition and problem.verification == VerificationType.SAFETY:
             for i in range(len(mc_config.properties)):
                 mc_config.properties[i] = "(%s) -> (%s)"%(precondition, mc_config.properties[i])
         
@@ -323,7 +323,16 @@ class ProblemSolver(object):
                 inv_prob.description = invar_prop[1]
                 inv_prob.formula = invar_prop[2]
                 problems.add_problem(inv_prob)
-            
+
+        if config.ltl or config.problems:
+            for ltl_prop in ltl_props:
+                ltl_prob = problems.new_problem()
+                ltl_prob.verification = VerificationType.LTL
+                ltl_prob.name = ltl_prop[0]
+                ltl_prob.description = ltl_prop[1]
+                ltl_prob.formula = ltl_prop[2]
+                problems.add_problem(ltl_prob)
+                
         assume_if_true = config.assume_if_true or problems.assume_if_true
 
         if HTSD in systems:
@@ -419,6 +428,7 @@ class ProblemSolver(object):
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean or config.boolean
+        encoder_config.debug = config.debug
 
         return encoder_config
         

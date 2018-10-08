@@ -33,6 +33,7 @@ class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
+    debug = False
     bmc_length = 10
     bmc_length_min = 0
     
@@ -374,7 +375,7 @@ def main():
 
     ver_params.set_defaults(precondition=None)
     ver_params.add_argument('-c', '--precondition', metavar='<invar>', type=str, required=False,
-                       help='properties precondition.')
+                       help='invariant properties precondition.')
     
     ver_params.set_defaults(lemmas=None)
     ver_params.add_argument('-l', '--lemmas', metavar='<invar list>', type=str, required=False,
@@ -538,6 +539,7 @@ def main():
     config.generators = args.generators
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
+    config.debug = args.debug
 
     if len(sys.argv)==1:
         parser.print_help()

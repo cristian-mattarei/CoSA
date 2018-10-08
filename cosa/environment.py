@@ -41,6 +41,9 @@ def Assign(left, right):
 def Define(left, right):
     return get_env().formula_manager.Define(left, right)
 
+def Finally(arg):
+    return get_env().formula_manager.F(arg)
+
 class FormulaManager(pysmt.formula.FormulaManager):
     """Extension of FormulaManager to handle LTL Operators."""
     def X(self, formula):

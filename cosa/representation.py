@@ -19,6 +19,8 @@ ATP = "_ATP"
 L_ABV = "QF_ABV"
 L_BV = "QF_BV"
 
+apply_prefix = lambda name, prefix: ".".join(name.split(".")[:-1]+[prefix+name.split(".")[-1]])
+
 class HTS(object):
 
     tss = None
@@ -58,6 +60,41 @@ class HTS(object):
 
         self.logic = L_BV
         self.en_simplify = False
+
+    def apply_var_prefix(self, prefix):
+        remapdic = dict([(v.symbol_name(), apply_prefix(v.symbol_name(), prefix)) for v in self.vars]+\
+                        [(TS.get_prime(v).symbol_name(), apply_prefix(TS.get_prime(v).symbol_name(), prefix)) for v in self.vars])
+
+        p_init = None
+        p_trans = None
+        p_invar = None
+        p_assumptions = None
+        p_lemmas = None
+        
+        if self.assumptions is not None:
+            p_assumptions = [substitute(a, remapdic) for a in self.assumptions]
+        if self.lemmas is not None:
+            p_lemmas = [substitute(l, remapdic) for l in self.lemmas]
+        p_params = [Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.params]
+        
+        self.vars = set([])
+        self.state_vars = set([])
+        self.input_vars = set([])
+        self.output_vars = set([])
+        self.hidden_vars = set([])
+        
+        self._s_init = None
+        self._s_trans = None
+        self._s_invar = None
+
+        self.assumptions = p_assumptions
+        self.lemmas = p_lemmas
+        self.params = p_params
+
+        tss = self.tss
+        self.tss = set([])
+        for ts in tss:
+            self.add_ts(ts.apply_var_prefix(prefix))
         
     def add_sub(self, name, sub, parameters):
         self.subs.add((name, parameters, sub))
@@ -247,7 +284,7 @@ class HTS(object):
         
         replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
                            [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) for v in self.vars])
-        
+
         s_init = substitute(s_init, replace_dic)
         s_invar = substitute(s_invar, replace_dic)
         s_trans = substitute(s_trans, replace_dic)
@@ -259,7 +296,6 @@ class HTS(object):
 
         for var in self.state_vars:
             local_state_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
-            
         return (local_vars, local_state_vars, s_init, s_trans, s_invar)
                 
     def __copy__(self):
@@ -356,6 +392,30 @@ class TS(object):
 
         self.invar = None
 
+    def apply_var_prefix(self, prefix):
+        p_vars = set([Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.vars])
+        p_state_vars = set([Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.state_vars])
+        p_input_vars = set([Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.input_vars])
+        p_output_vars = set([Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.output_vars])
+        p_hidden_vars = set([Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.hidden_vars])
+        remapdic = dict([(v.symbol_name(), apply_prefix(v.symbol_name(), prefix)) for v in self.vars]+\
+                        [(TS.get_prime(v).symbol_name(), apply_prefix(TS.get_prime(v).symbol_name(), prefix)) for v in self.vars])
+        
+        p_init = substitute(self.init, remapdic)
+        p_trans = substitute(self.trans, remapdic)
+        p_invar = substitute(self.invar, remapdic)
+
+        self.vars = p_vars
+        self.state_vars = p_state_vars
+        self.input_vars = p_input_vars
+        self.output_vars = p_output_vars
+        self.hidden_vars = p_hidden_vars
+        self.init = p_init
+        self.trans = p_trans
+        self.invar = p_invar
+
+        return self
+        
     def set_behavior(self, init, trans, invar):
         self.init = init
         self.trans = trans
