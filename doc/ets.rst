@@ -7,7 +7,7 @@ This format allows for the definition of an Explicit States Transition System, w
 
 - transitions definition, e.g., ``I -> S1`` defines a transition from the state ``I`` to the state ``S1``
 
-The language does not require types definition, because it is inferred by the values assugment.
+The language does not require types definition, because it is inferred by the values assignment.
 
 ========================
 Counter Example
