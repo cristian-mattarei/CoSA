@@ -176,6 +176,8 @@ def print_problem_result(pbm, config, count=-1):
 def run_problems(problems_file, config, problems=None):
     reset_env()
     Logger.verbosity = config.verbosity
+    Logger.time = config.time
+    
     psol = ProblemSolver()
     if problems is None:
         problems = Problems()
