@@ -149,8 +149,7 @@ class Modules(object):
         return ts
 
     @staticmethod
-    def MultiOp(op, end_op, *params):
-        inparams, out = params[:-1], params[-1]
+    def MultiOp(op, end_op, out, *inparams):
         cum = inparams[0]
         for el in inparams[1:]:
             cum = op(cum, el)
@@ -237,20 +236,30 @@ class Modules(object):
         return Modules.Bop(BVConcat,None,in0,in1,out)
 
     @staticmethod
-    def Nor_M(*params):
-        return Modules.MultiOp(BVOr, BVNot, *params)
+    def Nor_M(out, *inparams):
+        return Modules.MultiOp(BVOr, BVNot, out, *inparams)
 
     @staticmethod
-    def Or_M(*params):
-        return Modules.MultiOp(BVOr, None, *params)
+    def Or_M(out, *inparams):
+        return Modules.MultiOp(BVOr, None, out, *inparams)
 
     @staticmethod
-    def And_M(*params):
-        return Modules.MultiOp(BVAnd, None, *params)
+    def And_M(out, *inparams):
+        return Modules.MultiOp(BVAnd, None, out, *inparams)
 
     @staticmethod
-    def Nand_M(*params):
-        return Modules.MultiOp(BVAnd, BVNot, *params)
+    def Nand_M(out, *inparams):
+        return Modules.MultiOp(BVAnd, BVNot, out, *inparams)
+
+    @staticmethod
+    def Xor_M(out, *inparams):
+        assert len(inparams) == 2
+        return Modules.Bop(BVXor,Xor,inparams[0],inparams[1],out)
+
+    @staticmethod
+    def Not_M(out, *inparams):
+        assert len(inparams) == 1
+        return Modules.Uop(BVNot,Not,inparams[0],out)
     
     @staticmethod
     def Zext(in_,out):

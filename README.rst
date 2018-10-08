@@ -41,6 +41,7 @@ Software requirements:
 
 - `CoreIR`_ needs to be installed in order to support CoreIR as input format
 - `Icarus Verilog`_ needs to be installed in order to support Verilog as input format
+- `Verific`_ binaries (i.e., ``verific``) and `Icarus Verilog`_ need to be installed in order to support SystemVerilog as input format
 
 .. _PyCoreIR: https://github.com/leonardt/pycoreir
 .. _PySMT: https://github.com/pysmt/pysmt
@@ -51,6 +52,7 @@ Software requirements:
 .. _CoreIR: https://github.com/rdaly525/coreir
 .. _Icarus Verilog: https://github.com/steveicarus/iverilog
 .. _PyVerilog: https://github.com/PyHDI/Pyverilog
+.. _Verific: http://www.verific.com/
 .. _BTOR2: https://github.com/Boolector/btor2tools
 .. _STS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/sts.rst
 .. _ETS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/ets.rst
