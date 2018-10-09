@@ -42,7 +42,7 @@ class VerilogWalker(object):
         Logger.log("(%d) Processing Node: %s ---> %s"%(el.lineno, \
                                                        class_name(el), \
                                                        None if el.children() is None else [class_name(c) for c in el.children()]), 3)
-        Logger.log("(%d) Args: %s"%(el.lineno, str(args)), 3)
+        Logger.log("(%d) Args: %s"%(el.lineno, str(args)), 4)
         self.__init_methods()
         
         classname = class_name(el)

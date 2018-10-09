@@ -356,7 +356,7 @@ class BMCSafety(BMCSolver):
         self._reset_assertions(self.solver)
 
         add_unsat_cons = False
-        
+
         if self.config.prove:
             self.solver_ind = self.solver.copy("ind")
             self._reset_assertions(self.solver_ind)
