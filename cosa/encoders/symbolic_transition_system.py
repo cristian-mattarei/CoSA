@@ -120,7 +120,7 @@ class SymbolicTSParser(ModelParser):
     parser = None
     extensions = ["sts"]
     name = "STS"
-    
+
     def __init__(self):
         self.parser = self.__init_parser()
         self.parser.ignore(T_COM + SkipTo(lineEnd))
@@ -134,7 +134,7 @@ class SymbolicTSParser(ModelParser):
 
     def get_model_info(self):
         return None
-     
+
     def _split_list(self, lst, delimiter):
         ret = []
         sub = []
@@ -149,7 +149,7 @@ class SymbolicTSParser(ModelParser):
             ret.append(sub)
 
         return ret
-        
+
     def parse_string(self, strinput):
         lines = []
         pstring = self.parser.parseString(strinput, parseAll=True)
@@ -157,13 +157,13 @@ class SymbolicTSParser(ModelParser):
         hts = HTS("STS")
         invar_props = []
         ltl_props = []
-        
+
         modules = []
         modulesdic = {}
 
         name = MAIN
         mainmodule = None
-        
+
         for psts in pstring.stss:
 
             var_str = []
@@ -243,7 +243,7 @@ class SymbolicTSParser(ModelParser):
                     outputpar = outputdef[4:-1] if outputtype != T_BOOL else None
 
                     output_str.append((outputname, outputtype, outputpar))
-                    
+
             if P_INIT in dict(psts):
                 inits = list(dict(psts.init)[P_FORMULAE])
                 for i in range(0, len(inits), 2):
@@ -266,13 +266,13 @@ class SymbolicTSParser(ModelParser):
                 mainmodule = module
             else:
                 modulesdic[name] = module
-                
+
             #hts.add_ts(self.generate_STS(var_str, init_str, invar_str, trans_str))
 
         hts = self.generate_HTS(mainmodule, modulesdic)
         hts.flatten()
         return (hts, invar_props, ltl_props)
-        
+
     def __init_parser(self):
 
         varname = (Combine(Literal("'")+Word(alphas+nums+T_US+T_MIN+T_DOT+"$"+"["+"]"+":")+Literal("'")) | Word(alphas+nums+T_US+T_MIN+T_DOT))(P_VARNAME)
@@ -291,7 +291,7 @@ class SymbolicTSParser(ModelParser):
         basicvardef = (varname + Literal(T_CL) + basictype)(P_VARTYPEDEF)
         parlistdef = (ZeroOrMore(basicvardef)+ZeroOrMore((Literal(T_CM) + basicvardef)))(P_PARDEF)
         moddef = (Literal(T_DEF) + Word(alphas+T_US+nums) + Literal(T_OP) + parlistdef + Literal(T_CP) + Literal(T_CL))(P_MODDEF)
-        
+
         operators = T_NEG+T_MIN+T_PLUS+T_EQ+T_NEQ+T_LT+T_LTE+T_IMPL+T_BOOLSYM+T_ITE
         formula = (Word(alphas+nums+T_US+T_SP+T_DOT+T_OP+T_CP+T_OB+T_CB+"'"+operators) + Literal(T_SC))(P_FORMULA)
 
@@ -302,39 +302,39 @@ class SymbolicTSParser(ModelParser):
         inits = (Literal(T_INIT) + (OneOrMore(formula))(P_FORMULAE))(P_INIT)
         transs = (Literal(T_TRANS) + (OneOrMore(formula))(P_FORMULAE))(P_TRANS)
         invars = (Literal(T_INVAR) + (OneOrMore(formula))(P_FORMULAE))(P_INVAR)
-        
+
         sts = Group((Optional(moddef) + OneOrMore(vardefs | statedefs | inputdefs | outputdefs | inits | transs | invars | emptyline)))(P_STS)
 
         return (OneOrMore(sts))(P_STSS)
 
     def _define_var(self, var, prefix=""):
         varname, (vartype, size) = var
-        fullname = self._concat_names(prefix, varname)    
-        
+        fullname = self._concat_names(prefix, varname)
+
         if vartype == T_BV:
             return Symbol(fullname, BVType(int(size[0])))
 
         if vartype == T_BOOL:
             return Symbol(fullname, BOOL)
-        
+
         Logger.error("Unsupported type: %s"%vartype)
 
     def _get_type(self, strtype):
         (vartype, size) = strtype
-        
+
         if vartype == T_BV:
             return BVType(int(size[0]))
 
         if vartype == T_BOOL:
             return BOOL
-        
+
         Logger.error("Unsupported type: %s"%vartype)
 
     def _concat_names(self, prefix, name):
         return ".".join([x for x in [prefix,name] if x != ""])
-        
+
     def _collect_sub_variables(self, module, modulesdic, path=[], varlist=[], statelist=[], inputlist=[], outputlist=[]):
-        
+
         for var in module.vars+module.pars:
             varlist.append((".".join(path+[str(var[0])]), var[1:]))
 
@@ -346,7 +346,7 @@ class SymbolicTSParser(ModelParser):
 
         for var in module.outputs:
             outputlist.append((".".join(path+[str(var[0])]), var[1:]))
-            
+
         for sub in module.subs:
             (varlist, statelist, inputlist, outputlist) = self._collect_sub_variables(modulesdic[sub[1]], modulesdic, path + [sub[0]], varlist, statelist, inputlist, outputlist)
 
@@ -359,14 +359,14 @@ class SymbolicTSParser(ModelParser):
         for sub in module.subs:
             formal_pars = [self._get_type(t[1:]) for t in modulesdic[sub[1]].pars]
             actual_pars = [vartypes[self._concat_names(module.name, v[0])] for v in sub[2]]
-            
+
             if formal_pars != actual_pars:
                 Logger.error("Not matching types for instance \"%s\" of type \"%s\""%(sub[0], sub[1]))
-    
+
     def generate_HTS(self, module, modulesdic):
         hts = HTS(module.name)
         ts = TS("TS %s"%module.name)
-        
+
         init = []
         trans = []
         invar = []
@@ -381,13 +381,13 @@ class SymbolicTSParser(ModelParser):
 
         for var in states:
             ts.add_state_var(self._define_var(var, module.name))
-            
+
         for var in inputs:
             ts.add_input_var(self._define_var(var, module.name))
 
         for var in outputs:
             ts.add_output_var(self._define_var(var, module.name))
-        
+
         self._check_parameters(module, modulesdic, ts.vars)
 
         for par in module.pars:
@@ -407,15 +407,15 @@ class SymbolicTSParser(ModelParser):
 
         for sub in module.subs:
             hts.add_sub(sub[0], self.generate_HTS(modulesdic[sub[1]], modulesdic), tuple([v[0] for v in sub[2]]))
-            
+
         ts.init = And(init)
         ts.invar = And(invar)
         ts.trans = And(trans)
 
         hts.add_ts(ts)
-        
+
         return hts
-        
+
     def generate_STS(self, var_str, init_str, invar_str, trans_str):
         ts = TS("Additional system")
         init = []
@@ -435,13 +435,13 @@ class SymbolicTSParser(ModelParser):
 
         for trans_s in trans_str:
             trans.append(sparser.parse_formula(trans_s))
-            
+
         ts.init = And(init)
         ts.invar = And(invar)
         ts.trans = And(trans)
-        
+
         return ts
-    
+
     def remap_an2or(self, name):
         return name
 
@@ -451,19 +451,19 @@ class SymbolicTSParser(ModelParser):
     def get_extensions(self):
         return self.extensions
 
-    @staticmethod        
+    @staticmethod
     def get_extensions():
         return SymbolicTSParser.extensions
-    
+
 class SymbolicSimpleTSParser(ModelParser):
     parser = None
     extensions = ["ssts"]
     name = "SimpleSTS"
-    
+
     def __init__(self):
         pass
 
-    @staticmethod        
+    @staticmethod
     def get_extensions():
         return SymbolicSimpleTSParser.extensions
 
@@ -472,13 +472,16 @@ class SymbolicSimpleTSParser(ModelParser):
     
     def is_available(self):
         return True
-    
+
+    def get_model_info(self):
+        return None
+
     def remap_an2or(self, name):
         return name
 
     def remap_or2an(self, name):
         return name
-    
+
     def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
             return self.parse_string(f.readlines())
@@ -490,14 +493,14 @@ class SymbolicSimpleTSParser(ModelParser):
         if vartype[0] == T_BV:
             vartype, size = vartype[0], vartype[1]
             return Symbol(varname, BVType(int(size)))
-        
+
         Logger.error("Unsupported type: %s"%vartype)
-        
+
     def parse_string(self, lines):
 
         [none, var, state, input, output, init, invar, trans] = range(8)
         section = none
-        
+
         inits = TRUE()
         invars = TRUE()
         transs = TRUE()
@@ -511,7 +514,7 @@ class SymbolicSimpleTSParser(ModelParser):
         outputs = set([])
         invar_props = []
         ltl_props = []
-        
+
         for line in lines:
             count += 1
 
@@ -533,7 +536,7 @@ class SymbolicSimpleTSParser(ModelParser):
             if T_OUTPUT == line[:len(T_OUTPUT)]:
                 section = output
                 continue
-            
+
             if T_INIT == line[:len(T_INIT)]:
                 section = init
                 continue
@@ -545,7 +548,7 @@ class SymbolicSimpleTSParser(ModelParser):
             if T_TRANS == line[:len(T_TRANS)]:
                 section = trans
                 continue
-            
+
             if section in [var, state, input, output]:
                 line = line[:-2].replace(" ","").split(":")
                 varname, vartype = line[0], (line[1][:-1].split("(")) if "(" in line[1] else line[1]
@@ -563,7 +566,7 @@ class SymbolicSimpleTSParser(ModelParser):
 
             if section in [init, invar, trans]:
                 qline = quote_names(line[:-2], replace_ops=False)
-                    
+
             if section == init:
                 inits = And(inits, sparser.parse_formula(qline))
 
@@ -572,7 +575,7 @@ class SymbolicSimpleTSParser(ModelParser):
 
             if section == trans:
                 transs = And(transs, sparser.parse_formula(qline))
-                
+
 
         hts = HTS("STS")
         ts = TS()
@@ -584,7 +587,7 @@ class SymbolicSimpleTSParser(ModelParser):
         ts.init = inits
         ts.invar = invars
         ts.trans = transs
-        
+
         hts.add_ts(ts)
 
         return (hts, invar_props, ltl_props)
