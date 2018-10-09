@@ -702,7 +702,6 @@ class VerilogSTSWalker(VerilogWalker):
             elif type(then_b[0]) == ProcessedAlways:
                 pass
             else:
-                print([type(a) for a in then_b])
                 Logger.error("Not Implemented")
 
         if type(else_b) == list:
@@ -732,7 +731,7 @@ class VerilogSTSWalker(VerilogWalker):
                 return None
             return Implies(condition, then_b)
         else:
-            if (condition in [True, TRUE()]):
+            if condition in [True, TRUE()]:
                 assert (then_b is not None)
                 return then_b
             if condition in [False, FALSE()]:
@@ -893,8 +892,12 @@ class VerilogSTSWalker(VerilogWalker):
         return And(formulae)
 
     def ModuleDef(self, modulename, el, args):
-        self.process_always(modulename, [a.assign_conditions for a in args if type(a) == ProcessedAlways])
-        
+        always_list = [a.assign_conditions for a in args if type(a) == ProcessedAlways]
+        for a in args:
+            if (type(a) == list) and (len(a) > 0) and (type(a[0]) == ProcessedAlways):
+                always_list += [x.assign_conditions for x in a]
+        self.process_always(modulename, always_list)
+
         self.hts.add_ts(self.ts)
 
         self.portslist.sort()
@@ -1074,7 +1077,7 @@ class VerilogSTSWalker(VerilogWalker):
             for a in args[1:]:
                 ret = ret or a
             return ret
-        return And([self.to_bool(x) for x in args])
+        return simplify(And([self.to_bool(x) for x in args]))
     
     def Lor(self, modulename, el, args):
         if set([type(a) for a in args]) == set([bool]):
@@ -1082,7 +1085,7 @@ class VerilogSTSWalker(VerilogWalker):
             for a in args[1:]:
                 ret = ret or a
             return ret
-        return Or([self.to_bool(x) for x in args])
+        return simplify(Or([self.to_bool(x) for x in args]))
     
     def Sll(self, modulename, el, args):
         left, right = args[0], args[1]
@@ -1406,6 +1409,8 @@ class VerilogSTSWalker(VerilogWalker):
         return self.Parameter(modulename, el, args)
 
     def GenerateStatement(self, modulename, el, args):
+        if len(args) == 1:
+            return args[0]
         return args
 
     def Length(self, modulename, el, args):
