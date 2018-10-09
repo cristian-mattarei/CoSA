@@ -27,7 +27,7 @@ except:
 
 from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero, BVMul
+    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero, BVMul, BVNot
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
@@ -484,7 +484,7 @@ class VerilogSTSWalker(VerilogWalker):
         
     def Decl(self, modulename, el, args):
         if args[0] == None:
-            return args
+            return None
 
         direction = el.children()[0]
 
@@ -527,7 +527,7 @@ class VerilogSTSWalker(VerilogWalker):
 
             self.add_var(modulename, typname, var)
 
-            return var
+            return None
 
         if type(direction) == RegArray:
             low, high = args[0][1][1], args[0][1][0]
@@ -546,7 +546,7 @@ class VerilogSTSWalker(VerilogWalker):
             self.add_var(modulename, vname, var_idxs)
             self.ts.add_hidden_var(Symbol(self.varname(modulename, vname), BVType(width)))
                 
-            return var_idxs
+            return None
         
         Logger.error("Unmanaged type %s, line %d"%(type(direction), el.lineno))
 
@@ -697,29 +697,64 @@ class VerilogSTSWalker(VerilogWalker):
         return (args[0] - args[1])+1
     
     def Block(self, modulename, el, args):
-        return And(args)
+        return [a for a in args if a is not None]
 
     def Cond(self, modulename, el, args):
+        if args[0] in [False, FALSE()]:
+            return args[2]
+        if args[0] in [True, TRUE()]:
+            return args[1]
         return Ite(BV2B(args[0]), args[1], args[2])
     
     def IfStatement(self, modulename, el, args):
         statement, then_b, else_b = args[0], args[1], args[2] if len(args) > 2 else None
 
         if type(then_b) == list:
-            Logger.error("Not Implemented")
-        else:
-            if type(statement) == int:
-                condition = self.to_bool(statement)
-            elif get_type(statement) == BOOL:
-                condition = statement
+            if len(then_b) == 0:
+                then_b = None
+            elif type(then_b[0]) == FNode:
+                then_b = And(then_b)
+            elif type(then_b[0]) == ProcessedAlways:
+                pass
             else:
-                one = BV(1, get_type(statement).width)
-                condition = EqualsOrIff(statement, one)
+                print([type(a) for a in then_b])
+                Logger.error("Not Implemented")
 
-            if else_b is None:
-                return Implies(condition, then_b)
+        if type(else_b) == list:
+            if len(else_b) == 0:
+                else_b = None
+            elif type(else_b[0]) == FNode:
+                else_b = And(else_b)
+            elif type(else_b[0]) == ProcessedAlways:
+                pass
             else:
-                return Ite(condition, then_b, else_b)
+                Logger.error("Not Implemented")
+                
+        if type(statement) == int:
+            condition = self.to_bool(statement)
+        elif (type(statement) == bool) or (get_type(statement) == BOOL):
+            condition = statement
+        else:
+            one = BV(1, get_type(statement).width)
+            condition = EqualsOrIff(statement, one)
+
+        if else_b is None:
+            if then_b is None:
+                return None
+            if condition in [True, TRUE()]:
+                return then_b
+            if condition in [False, FALSE()]:
+                return None
+            return Implies(condition, then_b)
+        else:
+            if (condition in [True, TRUE()]):
+                assert (then_b is not None)
+                return then_b
+            if condition in [False, FALSE()]:
+                assert (else_b is not None)
+                return else_b
+            assert (then_b is not None) and (else_b is not None)
+            return Ite(condition, then_b, else_b)
 
     def Initial(self, modulename, el, args):
         self.add_init(And([And(a) for a in args]))
@@ -776,6 +811,9 @@ class VerilogSTSWalker(VerilogWalker):
         if type(statements) == FNode:
             statements = [statements]
 
+        if And(statements) == TRUE():
+            return TRUE()
+            
         # All variables in the senselist are accessed at the primed time
         sensedict = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) \
                           for v in get_free_variables(condition) if not TS.is_prime(v)])
@@ -789,7 +827,9 @@ class VerilogSTSWalker(VerilogWalker):
             for i in range(len(assign_conditions[v])):
                 assign_conditions[v][i] = (assign_conditions[v][i][0], And(assign_conditions[v][i][1], condition))
 
-        return assign_conditions
+        #self.process_always(modulename, [assign_conditions])
+        
+        return ProcessedAlways(assign_conditions)
     
     def ForStatement(self, modulename, el, args):
 
@@ -839,9 +879,7 @@ class VerilogSTSWalker(VerilogWalker):
         return And(formulae)
 
     def ModuleDef(self, modulename, el, args):
-        el_child = el.children()
-        always_idx = [el_child.index(p) for p in el_child if type(p) == Always]
-        self.process_always(modulename, [args[i] for i in always_idx])
+        self.process_always(modulename, [a.assign_conditions for a in args if type(a) == ProcessedAlways])
         
         self.hts.add_ts(self.ts)
 
@@ -952,14 +990,34 @@ class VerilogSTSWalker(VerilogWalker):
         return BVMul(left, right)
     
     def Eq(self, modulename, el, args):
-        return EqualsOrIff(args[0], args[1])
+        left, right = args[0], args[1]
+        
+        if left == right:
+            return TRUE()
 
+        if (type(left) == int) and (type(right) == int):
+            return left==right        
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
+        if (type(right) == int) and (type(left) == FNode):
+            right = BV(right, get_type(left).width)
+        
+        return EqualsOrIff(left, right)
+
+    def Eql(self, modulename, el, args):
+        return self.Eq(modulename, el, args)
+    
     def NotEq(self, modulename, el, args):
         return Not(self.Eq(modulename, el, args))
 
+    def NotEql(self, modulename, el, args):
+        return self.NotEq(modulename, el, args)
+    
     def to_bool(self, el):
         if type(el) == int:
             return FALSE() if el == 0 else TRUE()
+        if type(el) == bool:
+            return TRUE() if el else FALSE()
         return BV2B(el)
 
     def to_bv(self, el):
@@ -973,9 +1031,6 @@ class VerilogSTSWalker(VerilogWalker):
     def And(self, modulename, el, args):
         assert len(args) == 2
         return BVAnd(self.to_bv(args[0]), self.to_bv(args[1]))
-
-    def Land(self, modulename, el, args):
-        return And([self.to_bool(x) for x in args])
     
     def Xor(self, modulename, el, args):
         assert len(args) == 2
@@ -997,8 +1052,22 @@ class VerilogSTSWalker(VerilogWalker):
         width = get_type(args[0]).width
         ones = BV((2**width)-1, width)
         return Ite(EqualsOrIff(args[0], ones), BV(1,1), BV(0,1))
+
+
+    def Land(self, modulename, el, args):
+        if set([type(a) for a in args]) == set([bool]):
+            ret = args[0]
+            for a in args[1:]:
+                ret = ret or a
+            return ret
+        return And([self.to_bool(x) for x in args])
     
     def Lor(self, modulename, el, args):
+        if set([type(a) for a in args]) == set([bool]):
+            ret = args[0]
+            for a in args[1:]:
+                ret = ret or a
+            return ret
         return Or([self.to_bool(x) for x in args])
     
     def Sll(self, modulename, el, args):
@@ -1014,58 +1083,94 @@ class VerilogSTSWalker(VerilogWalker):
         
     def LessThan(self, modulename, el, args):
         left, right = args[0], args[1]
+
+        if (left == None) or (right == None):
+            return False
+        
+        if (type(left) == int) and (type(right) == int):
+            return left < right
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
             
-        if type(right) == int:
-            right = BV(right, MAXINT)
         return BVULT(left, right)
 
     def LessEq(self, modulename, el, args):
         left, right = args[0], args[1]
+
+        if (left == None) or (right == None):
+            return False
+        
+        if (type(left) == int) and (type(right) == int):
+            return left <= right
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
             
-        if type(right) == int:
-            right = BV(right, MAXINT)
         return BVULE(left, right)
     
     def GreaterThan(self, modulename, el, args):
         left, right = args[0], args[1]
+
+        if (left == None) or (right == None):
+            return False
+        
+        if (type(left) == int) and (type(right) == int):
+            return left > right
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
-        
-        if type(right) == int:
-            right = BV(right, MAXINT)
+            
         return BVUGT(left, right)
 
     def GreaterEq(self, modulename, el, args):
         left, right = args[0], args[1]
+
+        if (left == None) or (right == None):
+            return False
+        
+        if (type(left) == int) and (type(right) == int):
+            return left >= right
+        if (type(left) == int) and (type(right) == FNode):
+            left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
-        
-        if type(right) == int:
-            right = BV(right, MAXINT)
+            
         return BVUGE(left, right)
     
     def Ulnot(self, modulename, el, args):
+        return BVNot(args[0])
+
+    def Unot(self, modulename, el, args):
         if type(args[0]) == int:
             return Not(self.to_bool(args[0]))
         zero = BV(0, get_type(args[0]).width)
         return EqualsOrIff(args[0], zero)
-
-    def Unot(self, modulename, el, args):
-        return self.Ulnot(modulename, el, args)
-
+    
     def Parameter(self, modulename, el, args):
         if el.name not in self.paramdic:
             self.paramdic[el.name] = args[0]
         return None
 
+    def SingleStatement(self, modulename, el, args):
+        return None
+    
     def SystemCall(self, modulename, el, args):
         if el.syscall == "clog2":
             return math.ceil(math.log(args[0])/math.log(2))
 
+        if el.syscall == "display":
+            return None
+
+        if el.syscall == "finish":
+            return None
+
+        if el.syscall == "time":
+            return None
+        
         Logger.error("Unimplemented system call \"%s\", line %d"%(el.syscall, el.lineno))
         
     def Partselect(self, modulename, el, args):
@@ -1426,3 +1531,6 @@ class SubstituteWalker(IdentityDagWalker):
             return self.mgr.Symbol(formula.symbol_name(),
                                    formula.symbol_type())
 
+class ProcessedAlways(object):
+    def __init__(self, assign_conditions):
+        self.assign_conditions = assign_conditions

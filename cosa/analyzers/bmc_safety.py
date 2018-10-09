@@ -355,6 +355,8 @@ class BMCSafety(BMCSolver):
     def solve_safety_inc_fwd(self, hts, prop, k, k_min, all_vars=False):
         self._reset_assertions(self.solver)
 
+        add_unsat_cons = False
+
         if self.config.prove:
             self.solver_ind = self.solver.copy("ind")
             self._reset_assertions(self.solver_ind)
@@ -425,9 +427,9 @@ class BMCSafety(BMCSolver):
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
 
-                    if self.config.prove:
+                    if add_unsat_cons and self.config.prove:
                         self._add_assertion(self.solver, Implies(self.at_time(And(init, invar), 1), self.at_time(Not(prop), t_prop+1)))
-                    #     self._add_assertion(self.solver, Not(n_prop_t))
+                        self._add_assertion(self.solver, Not(n_prop_t))
             else:
                 Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
