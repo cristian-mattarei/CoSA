@@ -68,8 +68,9 @@ class SMVHTSPrinter(HTSPrinter):
                 self.write(";\n")
 
         printed_vars = set([])
-        for ts in hts.tss:
-            printed_vars = self.__print_single_hts(ts, printed_vars)
+        self.__print_single_ts(hts.get_TS(), printed_vars)
+        # for ts in hts.tss:
+        #     printed_vars = self.__print_single_ts(ts, printed_vars)
 
         ret = self.stream.getvalue()
         self.stream.truncate(0)
@@ -79,20 +80,20 @@ class SMVHTSPrinter(HTSPrinter):
     def names(self, name):
         return "\"%s\""%name
 
-    def __print_single_hts(self, hts, printed_vars):
+    def __print_single_ts(self, ts, printed_vars):
 
-        has_comment = len(hts.comment) > 0
+        has_comment = len(ts.comment) > 0
         
         if has_comment:
-            lenstr = len(hts.comment)+3
+            lenstr = len(ts.comment)+3
 
             self.write("\n%s\n"%("-"*lenstr))
-            self.write("-- %s\n"%hts.comment)
+            self.write("-- %s\n"%ts.comment)
             self.write("%s\n"%("-"*lenstr))
 
-        locvars = [v for v in hts.vars if v not in printed_vars]
+        locvars = [v for v in ts.vars if v not in printed_vars]
 
-        for v in hts.vars:
+        for v in ts.vars:
             printed_vars.add(v)
 
         if locvars: self.write("\nVAR\n")
@@ -103,7 +104,7 @@ class SMVHTSPrinter(HTSPrinter):
             else:
                 self.write("%s : word[%s];\n"%(sname, var.symbol_type().width))
 
-        sections = [((hts.init),"INIT"), ((hts.invar),"INVAR"), ((hts.trans),"TRANS")]
+        sections = [((ts.init),"INIT"), ((ts.invar),"INVAR"), ((ts.trans),"TRANS")]
 
         for (formula, keyword) in sections:
             if formula not in [TRUE(), FALSE()]:
