@@ -17,8 +17,6 @@ import os
 from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
 
-from pysmt.rewritings import disjunctive_partition
-
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.modifiers.model_extension import ModelExtension
@@ -157,8 +155,8 @@ def print_problem_result(pbm, config, count=-1):
         Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
     if pbm.verification == VerificationType.PARAMETRIC:
-        region = [p.serialize(threshold=100) for p in list(disjunctive_partition(pbm.region))]
-        Logger.log("Region: %s"%(" or ".join(region)), 0)
+        print_assign = lambda r: "(%s)"%",".join([a.serialize(threshold=100) for a in r])
+        Logger.log("Region: %s"%(", or ".join([print_assign(x) for x in pbm.region])), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
         Logger.log("Expected: %s"%(expected), 0)

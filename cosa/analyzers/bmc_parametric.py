@@ -10,6 +10,7 @@
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.typing import BOOL, BVType, ArrayType
+from pysmt.rewritings import disjunctive_partition, conjunctive_partition
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables, SortingNetwork
@@ -89,9 +90,16 @@ class BMCParametric(BMCSafety):
                 trace = self.generate_trace(model, time, get_free_variables(prop))
                 traces.append(trace)
 
+        region = []
+
+        for dp in disjunctive_partition(self.region):
+            ndp = [(el.serialize(threshold=100), el) for el in list(conjunctive_partition(dp))]
+            ndp.sort()
+            region.append([x[1] for x in ndp])
+                
         if status == True:
-            return (VerificationStatus.TRUE, traces, self.region)
+            return (VerificationStatus.TRUE, traces, region)
         elif status is not None:
-            return (VerificationStatus.FALSE, traces, self.region)
+            return (VerificationStatus.FALSE, traces, region)
         else:
-            return (VerificationStatus.UNK, traces, self.region)
+            return (VerificationStatus.UNK, traces, region)
