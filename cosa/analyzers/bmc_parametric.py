@@ -55,7 +55,7 @@ class BMCParametric(BMCSafety):
         
         return (p_ass, False)
 
-    def parametric_safety(self, prop, k, k_min, parameters, monotonic=True, at_most=-2):
+    def parametric_safety(self, prop, k, k_min, parameters, monotonic=True, at_most=-1):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
 
@@ -90,8 +90,8 @@ class BMCParametric(BMCSafety):
                 traces.append(trace)
 
         if status == True:
-            return (VerificationStatus.TRUE, traces, t)
+            return (VerificationStatus.TRUE, traces, self.region)
         elif status is not None:
-            return (VerificationStatus.FALSE, traces, t)
+            return (VerificationStatus.FALSE, traces, self.region)
         else:
-            return (VerificationStatus.UNK, traces, t)
+            return (VerificationStatus.UNK, traces, self.region)

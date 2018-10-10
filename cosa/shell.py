@@ -17,6 +17,8 @@ import os
 from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
 
+from pysmt.rewritings import disjunctive_partition
+
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.modifiers.model_extension import ModelExtension
@@ -117,8 +119,8 @@ def print_traces(msg, traces, index, prefix, tracecount):
     if (tracecount > 0) and (len(trace_files) > 0):
         traces_idx = " and ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
         Logger.log("%s: %s"%(msg, traces_idx), 0)
-        tracelen = traces[0].length
-        Logger.log("Trace length: %d"%(tracelen), 0)
+        tracelen = max(t.length for t in traces)
+        Logger.log("Traces max length: %d"%(tracelen), 0)
             
     if (tracecount < 0) and (len(trace_files) > 0):
         traces_printed(msg, trace_files)
@@ -154,6 +156,9 @@ def print_problem_result(pbm, config, count=-1):
     if pbm.formula is not None:
         Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+    if pbm.verification == VerificationType.PARAMETRIC:
+        region = [p.serialize(threshold=100) for p in list(disjunctive_partition(pbm.region))]
+        Logger.log("Region: %s"%(" or ".join(region)), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
         Logger.log("Expected: %s"%(expected), 0)

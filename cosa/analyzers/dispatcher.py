@@ -189,7 +189,7 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.PARAMETRIC:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, traces, _ = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts))
+            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts))
             
         hts = problem.hts
             
