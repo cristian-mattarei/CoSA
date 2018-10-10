@@ -25,6 +25,8 @@ and verifications:
 - Linear Temporal Logic (LTL) Properties
 - Proving capabilities
 - Equivalence Checking
+- Parametric (Invariant) Model Checking
+- Fault Analysis
 - Automated Lemma Extraction
 
 ========================

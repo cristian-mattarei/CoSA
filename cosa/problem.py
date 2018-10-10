@@ -125,6 +125,7 @@ class Problems(object):
     verification = None
     zero_init = None
     model_extension = None
+    region = None
     
     _hts = None
     _hts2 = None
