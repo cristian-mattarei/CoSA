@@ -92,7 +92,50 @@ Development
 - ``pip3 install -e .`` to install CoSA from the source
   
 - ``nosetests tests`` to run the tests
-   
+
+========================
+License
+========================
+
+CoSA is released under the modified BSD (3-clause BSD) License.
+
+If you use CoSA in your work, please consider citing the following publications:
+
+.. code::
+
+   @inproceedings{DBLP:conf/fmcad/MattareiMBDHH18,
+     author    = {Cristian Mattarei and
+                 Makai Mann and
+                 Clark Barrett and
+                 Ross G. Daly and
+                 Dillon Huff and
+                 Pat Hanrahan},
+    title     = {{CoSA: Integrated Verification for Agile Hardware Design}},
+    booktitle = {Formal Methods in Computer-Aided Design, {FMCAD} 2018, Austin, Texas,
+                 USA, October 30 - November 2, 2018.},
+    publisher = {{IEEE}},
+    year      = {2018}
+  }
+  
+  @inproceedings{DBLP:conf/cav/BozzanoCGM15,
+    author    = {Marco Bozzano and
+                 Alessandro Cimatti and
+                 Alberto Griggio and
+                 Cristian Mattarei},
+    editor    = {Daniel Kroening and
+                 Corina S. Pasareanu},
+    title     = {{Efficient Anytime Techniques for Model-Based Safety Analysis}},
+    booktitle = {Computer Aided Verification - 27th International Conference, {CAV}
+                 2015, San Francisco, CA, USA, July 18-24, 2015, Proceedings, Part
+                 {I}},
+    series    = {Lecture Notes in Computer Science},
+    volume    = {9206},
+    pages     = {603--621},
+    publisher = {Springer},
+    year      = {2015}
+  }
+
+
 ========================
 Build Status
 ========================
