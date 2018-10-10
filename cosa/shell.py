@@ -543,6 +543,9 @@ def main():
     config.assume_if_true = args.assume_if_true
     config.debug = args.debug
 
+    if sys.version_info[0] < 3:
+        Logger.warning("This software is not tested with Python 2, we recommend to use Python 3 instead")
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
