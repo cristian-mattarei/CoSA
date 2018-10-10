@@ -8,28 +8,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
-import copy
-from six.moves import cStringIO
-
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.shortcuts import Interpolator
 from pysmt.oracles import get_logic
-from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
 
 from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.utils.generic import status_bar
 from cosa.representation import TS, HTS
-from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.problem import VerificationStatus
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
 NL = "\n"
-
-S1 = "sys1"+SEP
-S2 = "sys2"+SEP
 
 class BMCSafety(BMCSolver):
 
@@ -40,6 +31,8 @@ class BMCSafety(BMCSolver):
 
     total_time = 0.0
     tracefile = None
+
+    preferred = None
 
     def __init__(self, hts, config):
         BMCSolver.__init__(self, hts, config)
@@ -66,6 +59,11 @@ class BMCSafety(BMCSolver):
 
         return And(formula)
 
+    def set_preferred(self, preferred):
+        if self.preferred is None:
+            self.preferred = []
+        self.preferred.append(preferred)
+    
     def simulate(self, prop, k):
         if self.config.strategy == VerificationStrategy.NU:
             self._init_at_time(self.hts.vars, 1)
@@ -352,7 +350,7 @@ class BMCSafety(BMCSolver):
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
 
-    def solve_safety_inc_fwd(self, hts, prop, k, k_min, all_vars=False):
+    def solve_safety_inc_fwd(self, hts, prop, k, k_min, all_vars=False, generalize=None):
         self._reset_assertions(self.solver)
 
         add_unsat_cons = False
@@ -419,10 +417,22 @@ class BMCSafety(BMCSolver):
             if t >= k_min:
                 Logger.log("\nSolving for k=%s"%(t), 1)
 
+                if self.preferred is not None:
+                    for (var, val) in self.preferred:
+                        for t in range(t+1):
+                            self.solver.solver.set_preferred_var(TS.get_timed(var, t), val)
+                
                 if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(self.solver)
-                    return (t, model)
+
+                    if generalize is not None:
+                        constr, res = generalize(model, t)
+                        if res:
+                            return (t, model)
+                        prop = Or(prop, constr)
+                    else:
+                        return (t, model)
                 else:
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))

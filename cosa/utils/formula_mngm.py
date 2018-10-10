@@ -75,7 +75,7 @@ def quote_names(strformula, prefix=None, replace_ops=True):
         lst_names.append(prefix)
     strformula = strformula.replace("\\","")
 
-    lits = [(len(x), x) for x in list(re.findall("([a-zA-Z][a-zA-Z_$\.0-9\[\]]*)+", strformula)) if x not in KEYWORDS]
+    lits = [(len(x), x) for x in list(re.findall("([a-zA-Z][a-zA-|Z_$\.0-9\[\]]*)+", strformula)) if x not in KEYWORDS]
     lits.sort()
     lits.reverse()
     lits = [x[1] for x in lits]
@@ -106,43 +106,42 @@ def mem_access(address, locations, width_idx, idx=0):
 class SortingNetwork(object):
     simplify = False
     
-    def __init__(self):
-        pass
-
-    def sorting_network(self, inputs, simplify=False):
-        self.simplify = simplify
-        return self.sorting_network_int(inputs)
+    @staticmethod
+    def sorting_network(inputs):
+        return SortingNetwork.sorting_network_int(inputs)
     
-    def sorting_network_int(self, inputs):
+    @staticmethod
+    def sorting_network_int(inputs):
         if len(inputs) == 1:
             return inputs;
 
         if len(inputs) == 2:
             el1 = inputs[0]
             el2 = inputs[1]
-            return self.two_comparator(el1, el2)
+            return SortingNetwork.two_comparator(el1, el2)
 
         pivot = int(len(inputs) / 2)
         left_inputs = inputs[:pivot]
         right_inputs = inputs[pivot:]
 
-        left_outputs = self.sorting_network_int(left_inputs)
-        right_outputs = self.sorting_network_int(right_inputs)
+        left_outputs = SortingNetwork.sorting_network_int(left_inputs)
+        right_outputs = SortingNetwork.sorting_network_int(right_inputs)
         
-        outputs = self.merge(left_outputs, right_outputs)
+        outputs = SortingNetwork.merge(left_outputs, right_outputs)
 
         return outputs
 
     # Basic comparator for two inputs.
-    def two_comparator(self, input1, input2):
-        if self.simplify:
+    @staticmethod
+    def two_comparator(input1, input2):
+        if SortingNetwork.simplify:
             return [simplify(Or(input1, input2)), simplify(And(input1, input2))]
         else:
             return [Or(input1, input2), And(input1, input2)]
 
     # Function that merges two arrays of signals.
-
-    def merge(self, input1, input2):
+    @staticmethod
+    def merge(input1, input2):
         output = []
 
         if len(input1) == 0:
@@ -154,7 +153,7 @@ class SortingNetwork(object):
         if (len(input1) == 1) and (len(input2) == 1):
             el1 = input1[0]
             el2 = input2[0];
-            return self.two_comparator(el1, el2);
+            return SortingNetwork.two_comparator(el1, el2);
 
 
         is_input1_even = ((len(input1) % 2) == 0)
@@ -164,7 +163,7 @@ class SortingNetwork(object):
         is_input2_odd = not is_input2_even
 
         if is_input1_odd and is_input2_even:
-            return self.merge(input2, input1)
+            return SortingNetwork.merge(input2, input1)
 
         size_h1 = (len(input1) / 2);
         res_h1 = (len(input1) % 2);
@@ -190,8 +189,8 @@ class SortingNetwork(object):
             else:
                 input2_odd.append(element)
 
-        output_odd = self.merge(input1_odd, input2_odd);
-        output_even = self.merge(input1_even, input2_even);
+        output_odd = SortingNetwork.merge(input1_odd, input2_odd);
+        output_even = SortingNetwork.merge(input1_even, input2_even);
 
         # is_input1_even && is_input2_even
 
@@ -205,7 +204,7 @@ class SortingNetwork(object):
                 el_odd = output_odd[i+1]
                 el_even = output_even[i]
 
-                res = self.two_comparator(el_odd, el_even)
+                res = SortingNetwork.two_comparator(el_odd, el_even)
                 output.append(res[0])
                 output.append(res[1])
 
@@ -224,7 +223,7 @@ class SortingNetwork(object):
                 el_odd = output_odd[i+1]
                 el_even = output_even[i]
 
-                res = self.two_comparator(el_odd, el_even)
+                res = SortingNetwork.two_comparator(el_odd, el_even)
                 output.append(res[0])
                 output.append(res[1])
 
@@ -242,7 +241,7 @@ class SortingNetwork(object):
                 el_odd = output_odd[i+1]
                 el_even = output_even[i]
 
-                res = self.two_comparator(el_odd, el_even)
+                res = SortingNetwork.two_comparator(el_odd, el_even)
                 output.append(res[0])
                 output.append(res[1])
 

@@ -19,6 +19,7 @@ from argparse import RawTextHelpFormatter
 
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
+from cosa.modifiers.model_extension import ModelExtension
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
@@ -39,6 +40,7 @@ class Config(object):
     
     simulate = False
     safety = None
+    parametric = None
     ltl = None
     equivalence = None
     problems = None
@@ -71,6 +73,7 @@ class Config(object):
     clock_behaviors = None
     force_expected = False
     assume_if_true = False
+    model_extension = None
 
     printer = None
     strategy = None
@@ -88,16 +91,18 @@ def traces_printed(msg, trace_files):
 def print_traces(msg, traces, index, prefix, tracecount):
     trace_files = []
     trace_prefix = None
-    
+
+    i = 1
     for trace in traces:
         if prefix:
             trace_prefix = prefix
         else:
             if not trace.human_readable:
                 trace_prefix = TRACE_PREFIX
-            
+        
         if trace_prefix:
-            trace_file = "%s-%s.%s"%(trace_prefix, index, trace.extension)
+            trace_file = "%s[%d]-%s.%s"%(trace_prefix, i, index, trace.extension)
+            i+=1
             trace_files.append(trace_file)
             with open(trace_file, "w") as f:
                 f.write(str(trace))
@@ -144,7 +149,8 @@ def print_problem_result(pbm, config, count=-1):
 
     unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
     Logger.log("\n** Problem %s **"%(pbm.name), 0)
-    Logger.log("Description: %s"%(pbm.description), 0)
+    if pbm.description is not None:
+        Logger.log("Description: %s"%(pbm.description), 0)
     if pbm.formula is not None:
         Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
@@ -161,6 +167,9 @@ def print_problem_result(pbm, config, count=-1):
     prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
 
     traces = []
+
+    if (pbm.verification == VerificationType.PARAMETRIC) and (pbm.status != VerificationStatus.FALSE):
+        traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
     
     if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
         traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
@@ -264,6 +273,8 @@ def run_verification(config):
         problem.equivalence = config.equivalence
     elif config.simulate:
         problem.verification = VerificationType.SIMULATION
+    elif config.parametric:
+        problem.verification = VerificationType.PARAMETRIC
     elif config.fsm_check:
         problem.verification = VerificationType.EQUIVALENCE
         problem.equivalence = config.strfiles
@@ -358,6 +369,10 @@ def main():
     ver_options.set_defaults(fsm_check=False)
     ver_options.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
+
+    ver_options.set_defaults(parametric=False)
+    ver_options.add_argument('--parametric', dest='parametric', action='store_true',
+                       help='parametric analysis using BMC.')
     
     # Verification parameters
 
@@ -442,6 +457,12 @@ def main():
     enc_params.set_defaults(run_passes=config.run_passes)
     enc_params.add_argument('--no-run-passes', dest='run_passes', action='store_false',
                         help='does not run CoreIR passes. (Default is \"%s\")'%config.run_passes)
+
+    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in ModelExtension.get_strategies()]
+    defmodel_extension = ModelExtension.get_strategies()[0][0]
+    enc_params.set_defaults(model_extension=defmodel_extension)
+    enc_params.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
+                        help='select the BMC model_extension between (Default is \"%s\"):\n%s'%(defmodel_extension, "\n".join(strategies)))
     
     # Printing parameters
 
@@ -510,6 +531,7 @@ def main():
     config.strfiles = args.input_files
     config.simulate = args.simulate
     config.safety = args.safety
+    config.parametric = args.parametric
     config.ltl = args.ltl
     config.properties = args.properties
     config.lemmas = args.lemmas
@@ -541,6 +563,7 @@ def main():
     config.generators = args.generators
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
+    config.model_extension = args.model_extension
     config.debug = args.debug
 
     if len(sys.argv)==1:
@@ -572,6 +595,7 @@ def main():
 
     if not(config.simulate or \
            (config.safety) or \
+           (config.parametric) or \
            (config.ltl) or \
            (config.equivalence is not None) or\
            (config.translate is not None) or\
