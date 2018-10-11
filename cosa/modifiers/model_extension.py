@@ -13,10 +13,11 @@ from pysmt.typing import BOOL, BVType
 
 from cosa.representation import HTS, TS
 from cosa.utils.logger import Logger
-from cosa.utils.formula_mngm import substitute
+from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.printers.template import HIDDEN_VAR
 
 NOMIN = HIDDEN_VAR+"%s_REF_"
+#NOMIN = "%s_REF_"
 FAIL = "|FAILURE|"
 FAULT = "%s"+FAIL
 
@@ -30,7 +31,7 @@ class ModelExtension(object):
     def get_strategies():
         strategies = []
         strategies.append((ModelExtensionStrategy.NONE, "Not applied"))
-        strategies.append((ModelExtensionStrategy.ALL,  "Extends all state variables"))
+        strategies.append((ModelExtensionStrategy.ALL,  "Extends all state variables with a non-deterministic behavior"))
 
         return strategies
     
@@ -38,14 +39,23 @@ class ModelExtension(object):
     def extend(hts, strategy):
         if strategy == ModelExtensionStrategy.NONE:
             return hts
-        return ModelExtension.extend_all(hts)
-    
-    @staticmethod
-    def extend_all(hts):
+
+        if strategy not in [x[0] for x in ModelExtension.get_strategies()]:
+            Logger.error("Invalid model extension mode \"%s\""%(strategy))
+        
         is_flatten = hts.is_flatten
         if is_flatten:
             hts.reset_flatten()
-        
+
+        ModelExtension.extend_all(hts)
+
+        if is_flatten:
+            hts.flatten()
+            
+        return hts
+    
+    @staticmethod
+    def extend_all(hts):
         tss = []
         for ts in hts.tss:
             ts, vars = ModelExtension.extend_ts(ts)
@@ -56,9 +66,6 @@ class ModelExtension(object):
 
         for sub in hts.subs:
             ModelExtension.extend_all(sub[2])
-
-        if is_flatten:
-            hts.flatten()
 
     @staticmethod
     def get_parameters(hts):
@@ -74,16 +81,23 @@ class ModelExtension(object):
         
         new_ftrans = {}
         
-        for (var, cond_assign_list) in ts.ftrans.items():
+        for (assign, cond_assign_list) in ts.ftrans.items():
+            fv = get_free_variables(assign)
+            assert len(fv) == 1
+            var = fv.pop()
             is_next = TS.has_next(var)
+
             refvar = TS.get_ref_var(var)
             nomvar = Symbol(NOMIN%refvar.symbol_name(), var.symbol_type())
-            ts.add_var(nomvar)
-            repldic = dict([(refvar.symbol_name(), nomvar.symbol_name()), (TS.get_prime(refvar).symbol_name(), TS.get_prime(nomvar).symbol_name())])
-            new_ftrans[TS.get_prime(nomvar) if is_next else nomvar] = [(substitute(c[0], repldic), substitute(c[1], repldic)) for c in cond_assign_list]
-
             fvar = Symbol(FAULT%refvar.symbol_name(), BOOL)
+
+            ts.add_var(nomvar)
             ts.add_var(fvar)
+            
+            repldic = dict([(refvar.symbol_name(), nomvar.symbol_name()), \
+                            (TS.get_prime(refvar).symbol_name(), TS.get_prime(nomvar).symbol_name())])
+
+            new_ftrans[substitute(assign, repldic)] = [(substitute(c[0], repldic), substitute(c[1], repldic)) for c in cond_assign_list]
 
             #new_ftrans[refvar] = [(Not(fvar), nomvar), (fvar, BV(1, nomvar.symbol_type().width))]
             new_ftrans[refvar] = [(Not(fvar), nomvar)]

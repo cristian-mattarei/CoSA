@@ -125,6 +125,7 @@ class Problems(object):
     verification = None
     zero_init = None
     model_extension = None
+    cardinality = -1
     region = None
     
     _hts = None
@@ -252,6 +253,7 @@ class Problem(object):
     symbolic_init = False
     smt2_tracing = None
     model_extension = None
+    cardinality = -1
 
     full_trace = False
     trace_vars_change = False

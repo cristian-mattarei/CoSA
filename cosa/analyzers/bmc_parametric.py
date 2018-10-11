@@ -34,6 +34,7 @@ class BMCParametric(BMCSafety):
 
     region = None
     models = None
+    cs_count = -1
     
     def _get_param_assignments(self, model, time, parameters, monotonic=True):
         p_ass = []
@@ -53,12 +54,15 @@ class BMCParametric(BMCSafety):
         if self.models is None:
             self.models = []
         self.models.append((model, time))
-        
+
+        Logger.msg("+", 0, not(Logger.level(1)))
+        self.cs_count += 1
+        Logger.log("Found assignment \"%s\""%(p_ass.serialize(threshold=100)), 1)
         return (p_ass, False)
 
-    def parametric_safety(self, prop, k, k_min, parameters, monotonic=True, at_most=-1):
+    def parametric_safety(self, prop, k_max, k_min, parameters, monotonic=True, at_most=-1):
         lemmas = self.hts.lemmas
-        self._init_at_time(self.hts.vars, k)
+        self._init_at_time(self.hts.vars, k_max)
 
         monotonic = True
 
@@ -72,15 +76,50 @@ class BMCParametric(BMCSafety):
 
         if at_most == -1:
             at_most = len(parameters)
+
+        prev_cs_count = 0
+
+        prove = self.config.prove
+
+        step = 5
+        same_res_counter = 0
+        k = step
+        end = False
         
         if at_most == -2:
-            (t, status) = self.solve_safety_inc_fwd(self.hts, prop, k, k_min, all_vars=False, generalize=generalize)
+            (t, status) = self.solve_safety_inc_fwd(self.hts, prop, k_max, k_min, all_vars=False, generalize=generalize)
         else:
             sn = SortingNetwork.sorting_network(parameters)
-            for at in range(at_most):
-                sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
-                bprop = Or(prop, sn_k)
-                (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k, k_min, all_vars=False, generalize=generalize)
+            while k < k_max+1:
+                for at in range(at_most):
+                    sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
+                    bprop = Or(prop, sn_k)
+                    Logger.msg("[%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
+                    self.config.prove = False
+                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k, max(k_min, k-step), all_vars=False, generalize=generalize)
+
+                    if (prev_cs_count == self.cs_count):
+                        same_res_counter += 1
+                    else:
+                        same_res_counter = 0
+
+                    prev_cs_count = self.cs_count
+                        
+                    if (same_res_counter > 1) and (prove == True):
+                        self.config.prove = True
+                        Logger.msg("[>%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
+                        bprop = Or(prop, Not(sn_k))
+                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, self.region), k, max(k_min, k-step), all_vars=False)
+                        if status == True:
+                            end = True
+                            break
+                        
+                    if (same_res_counter > 2) and (k < k_max):
+                        break
+
+                if end:
+                    break
+                k += step
 
         traces = None
         if self.models is not None:
@@ -91,11 +130,20 @@ class BMCParametric(BMCSafety):
                 traces.append(trace)
 
         region = []
+        dass = {}
 
-        for dp in disjunctive_partition(self.region):
-            ndp = [(el.serialize(threshold=100), el) for el in list(conjunctive_partition(dp))]
-            ndp.sort()
-            region.append([x[1] for x in ndp])
+        # Sorting result by size
+        for ass in list(disjunctive_partition(self.region)):
+            cp = list(conjunctive_partition(ass))
+            size = len(cp)
+            if size not in dass:
+                dass[size] = []
+            dass[size].append(ass)
+
+        indexes = list(dass.keys())
+        indexes.sort()
+        for size in indexes:
+            region += dass[size]
                 
         if status == True:
             return (VerificationStatus.TRUE, traces, region)

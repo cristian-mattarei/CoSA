@@ -17,6 +17,8 @@ import os
 from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
 
+from pysmt.shortcuts import TRUE, FALSE
+
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.modifiers.model_extension import ModelExtension
@@ -74,6 +76,7 @@ class Config(object):
     force_expected = False
     assume_if_true = False
     model_extension = None
+    cardinality = -1
 
     printer = None
     strategy = None
@@ -111,14 +114,14 @@ def print_traces(msg, traces, index, prefix, tracecount):
                 continue
 
         else:
-            Logger.log("%s:"%msg, 0)
+            Logger.log("%s%s:"%(msg, "s" if len(traces) > 1 else ""), 0)
             Logger.log(str(trace), 0)
 
     if (tracecount > 0) and (len(trace_files) > 0):
-        traces_idx = " and ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
+        traces_idx = ", ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
         Logger.log("%s: %s"%(msg, traces_idx), 0)
         tracelen = max(t.length for t in traces)
-        Logger.log("Traces max length: %d"%(tracelen), 0)
+        Logger.log("Traces max length: %d"%(tracelen+1), 0)
             
     if (tracecount < 0) and (len(trace_files) > 0):
         traces_printed(msg, trace_files)
@@ -155,8 +158,10 @@ def print_problem_result(pbm, config, count=-1):
         Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
     if pbm.verification == VerificationType.PARAMETRIC:
-        print_assign = lambda r: "(%s)"%",".join([a.serialize(threshold=100) for a in r])
-        Logger.log("Region: %s"%(", or ".join([print_assign(x) for x in pbm.region])), 0)
+        if pbm.region in [TRUE(),FALSE()]:
+            Logger.log("Region: %s"%(pbm.region), 0)
+        else:
+            Logger.log("Region:\n - %s"%(" or \n - ".join([x.serialize(threshold=100) for x in pbm.region])), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
         Logger.log("Expected: %s"%(expected), 0)
@@ -415,6 +420,14 @@ def main():
     ver_params.add_argument('--prove', dest='prove', action='store_true',
                        help='use indution to prove the satisfiability of the property.')
 
+    ver_params.set_defaults(assume_if_true=False)
+    ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
+                       help='add true properties as assumptions.')
+
+    ver_params.set_defaults(cardinality=config.cardinality)
+    ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=False,
+                       help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%config.cardinality)
+    
     strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in MCConfig.get_strategies()]
     defstrategy = MCConfig.get_strategies()[0][0]
     ver_params.set_defaults(strategy=defstrategy)
@@ -425,9 +438,6 @@ def main():
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
                        help='disables incrementality.')
 
-    ver_params.set_defaults(assume_if_true=False)
-    ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
-                       help='add true properties as assumptions.')
     
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
@@ -567,6 +577,7 @@ def main():
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
     config.model_extension = args.model_extension
+    config.cardinality = args.cardinality
     config.debug = args.debug
 
     if len(sys.argv)==1:

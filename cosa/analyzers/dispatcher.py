@@ -189,7 +189,7 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.PARAMETRIC:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts))
+            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts), at_most=problem.cardinality)
             
         hts = problem.hts
             
@@ -322,6 +322,7 @@ class ProblemSolver(object):
         HTSD = (HTSM, si)
 
         model_extension = config.model_extension if config.model_extension is not None else problems.model_extension
+        assume_if_true = config.assume_if_true or problems.assume_if_true
 
         modifier = None
         if model_extension is not None:
@@ -363,8 +364,6 @@ class ProblemSolver(object):
                 ltl_prob.formula = ltl_prop[2]
                 problems.add_problem(ltl_prob)
                 
-        assume_if_true = config.assume_if_true or problems.assume_if_true
-        
         if HTSD in systems:
             problems._hts = systems[HTSD]
 
@@ -380,7 +379,8 @@ class ProblemSolver(object):
             problem.add_clock = problems.add_clock or config.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
-
+            problem.cardinality = max(problems.cardinality, config.cardinality)
+            
             if not problem.full_trace:
                 problem.full_trace = problems.full_trace
             if not problem.trace_vars_change:

@@ -38,9 +38,9 @@ class SubstituteWalker(IdentityDagWalker):
         if formula.symbol_name() in self.mapsymbols:
             return self.mgr.Symbol(self.mapsymbols[formula.symbol_name()],
                                    formula.symbol_type())
-        else:
-            return self.mgr.Symbol(formula.symbol_name(),
-                                   formula.symbol_type())
+
+        return self.mgr.Symbol(formula.symbol_name(),
+                               formula.symbol_type())
         
 class SymbolsWalker(IdentityDagWalker):
     symbols = set([])

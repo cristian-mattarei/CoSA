@@ -99,7 +99,7 @@ License
 
 CoSA is released under the modified BSD (3-clause BSD) License.
 
-If you use CoSA in your work, please consider citing the following publications:
+If you use CoSA in your work, please consider citing the following publication:
 
 .. code::
 
@@ -116,25 +116,6 @@ If you use CoSA in your work, please consider citing the following publications:
     publisher = {{IEEE}},
     year      = {2018}
   }
-  
-  @inproceedings{DBLP:conf/cav/BozzanoCGM15,
-    author    = {Marco Bozzano and
-                 Alessandro Cimatti and
-                 Alberto Griggio and
-                 Cristian Mattarei},
-    editor    = {Daniel Kroening and
-                 Corina S. Pasareanu},
-    title     = {{Efficient Anytime Techniques for Model-Based Safety Analysis}},
-    booktitle = {Computer Aided Verification - 27th International Conference, {CAV}
-                 2015, San Francisco, CA, USA, July 18-24, 2015, Proceedings, Part
-                 {I}},
-    series    = {Lecture Notes in Computer Science},
-    volume    = {9206},
-    pages     = {603--621},
-    publisher = {Springer},
-    year      = {2015}
-  }
-
 
 ========================
 Build Status

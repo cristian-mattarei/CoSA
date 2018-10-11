@@ -400,8 +400,14 @@ class BMCSafety(BMCSolver):
             k_min = 1
 
         t = 0
+        skip_push = False
+
+        constraints = TRUE()
+        
         while (t < k+1):
-            self._push(self.solver)
+            if not skip_push:
+                self._push(self.solver)
+                skip_push = False
 
             t_prop = t-1 if next_prop else t
             
@@ -412,8 +418,11 @@ class BMCSafety(BMCSolver):
                 n_prop_t = self.at_time(Not(prop), t)
 
             Logger.log("Add not property at time %d"%t, 2)
-            self._add_assertion(self.solver, n_prop_t)
+            self._add_assertion(self.solver, n_prop_t, "Property")
 
+            if constraints != TRUE():
+                self._add_assertion(self.solver, self.at_time(constraints, t), "Addditional Constraints")
+            
             if t >= k_min:
                 Logger.log("\nSolving for k=%s"%(t), 1)
 
@@ -421,7 +430,7 @@ class BMCSafety(BMCSolver):
                     for (var, val) in self.preferred:
                         for t in range(t+1):
                             self.solver.solver.set_preferred_var(TS.get_timed(var, t), val)
-                
+
                 if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(self.solver)
@@ -430,7 +439,9 @@ class BMCSafety(BMCSolver):
                         constr, res = generalize(model, t)
                         if res:
                             return (t, model)
-                        prop = Or(prop, constr)
+                        constraints = And(constraints, Not(constr))
+                        skip_push = True
+                        continue
                     else:
                         return (t, model)
                 else:
@@ -442,9 +453,10 @@ class BMCSafety(BMCSolver):
                         self._add_assertion(self.solver, Not(n_prop_t))
             else:
                 Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
-                Logger.msg(".", 0, not(Logger.level(1)))
+                Logger.msg("_", 0, not(Logger.level(1)))
 
             self._pop(self.solver)
+            skip_push = False
             
             if self.config.prove:
                 if t > k_min:
