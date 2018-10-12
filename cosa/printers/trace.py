@@ -61,7 +61,7 @@ def revise_abstract_clock(model, abstract_clock_list):
 
 class TextTracePrinter(TracePrinter):
 
-    values_base = BV
+    values_base = HEX
     
     def __init__(self):
         self.prop_vars = None

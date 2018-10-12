@@ -14,6 +14,7 @@ import copy
 from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.analyzers.bmc_safety import BMCSafety
+from cosa.analyzers.bmc_parametric import BMCParametric
 from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.problem import VerificationType, Problem, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
@@ -27,6 +28,7 @@ from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, Ge
 from cosa.encoders.template import EncoderConfig, ModelInformation
 from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
+from cosa.modifiers.model_extension import ModelExtension
 
 FLAG_SR = "["
 FLAG_ST = "]"
@@ -89,7 +91,7 @@ class ProblemSolver(object):
 
         # VCD format
         vcd_trace = None
-        if config.vcd:
+        if problem.vcd:
             vcd_printer = VCDTracePrinter()
             vcd_trace = vcd_printer.print_trace(hts=hts, \
                                                 model=trace.model, \
@@ -110,6 +112,7 @@ class ProblemSolver(object):
         
         mc_config = self.problem2mc_config(problem, config)
         bmc_safety = BMCSafety(problem.hts, mc_config)
+        bmc_parametric = BMCParametric(problem.hts, mc_config)
         bmc_ltl = BMCLTL(problem.hts, mc_config)
         res = VerificationStatus.UNC
         bmc_length = max(problem.bmc_length, config.bmc_length)
@@ -134,6 +137,9 @@ class ProblemSolver(object):
         assumps = None
         lemmas = None
 
+        trace = None
+        traces = None
+        
         if formulae is None:
             if problem.verification == VerificationType.SIMULATION:
                 formulae = ["True"]
@@ -147,7 +153,7 @@ class ProblemSolver(object):
         
         precondition = config.precondition if config.precondition is not None else problem.precondition
         
-        if precondition:
+        if precondition and problem.verification == VerificationType.SAFETY:
             problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
         
         if (problem.verification != VerificationType.EQUIVALENCE) and (problem.formula is not None):
@@ -180,6 +186,11 @@ class ProblemSolver(object):
             accepted_ver = True
             res, trace = bmc_safety.simulate(prop, bmc_length)
 
+        if problem.verification == VerificationType.PARAMETRIC:
+            accepted_ver = True
+            Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
+            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts), at_most=problem.cardinality)
+            
         hts = problem.hts
             
         if problem.verification == VerificationType.EQUIVALENCE:
@@ -222,6 +233,11 @@ class ProblemSolver(object):
         if trace is not None:
             problem.traces = self.__process_trace(hts, trace, config, problem)
 
+        if traces is not None:
+            problem.traces = []
+            for trace in traces:
+                problem.traces += self.__process_trace(hts, trace, config, problem)
+
         if problem.assumptions is not None:
             problem.hts.assumptions = None
 
@@ -238,7 +254,8 @@ class ProblemSolver(object):
                     relative_path, \
                     model_files, \
                     encoder_config, \
-                    name=None):
+                    name=None, \
+                    modifier=None):
         
         hts = HTS("System 1")
         invar_props = []
@@ -267,6 +284,10 @@ class ProblemSolver(object):
 
                 Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
                 (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
+
+                if modifier is not None:
+                    modifier(hts_a)
+                 
                 self.model_info.combine(parser.get_model_info())
                 hts.combine(hts_a)
 
@@ -299,21 +320,29 @@ class ProblemSolver(object):
         HTSM = 0
         HTS2 = 1
         HTSD = (HTSM, si)
-            
+
+        model_extension = config.model_extension if config.model_extension is not None else problems.model_extension
+        assume_if_true = config.assume_if_true or problems.assume_if_true
+
+        modifier = None
+        if model_extension is not None:
+            modifier = lambda hts: ModelExtension.extend(hts, model_extension)
+        
         # generate systems for each problem configuration
         systems = {}
         for si in problems.symbolic_inits:
             encoder_config.symbolic_init = si
             (systems[(HTSM, si)], invar_props, ltl_props) = self.parse_model(problems.relative_path, \
-                                                                              problems.model_file, \
-                                                                              encoder_config, \
-                                                                              "System 1")
+                                                                             problems.model_file, \
+                                                                             encoder_config, \
+                                                                             "System 1", \
+                                                                             modifier)
             
         if problems.equivalence is not None:
             (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
-                                                             problems.equivalence, \
-                                                             encoder_config, \
-                                                             "System 2")
+                                                           problems.equivalence, \
+                                                           encoder_config, \
+                                                           "System 2")
         else:
             systems[(HTS2, si)] = None
 
@@ -325,14 +354,22 @@ class ProblemSolver(object):
                 inv_prob.description = invar_prop[1]
                 inv_prob.formula = invar_prop[2]
                 problems.add_problem(inv_prob)
-            
-        assume_if_true = config.assume_if_true or problems.assume_if_true
 
+        if config.ltl or config.problems:
+            for ltl_prop in ltl_props:
+                ltl_prob = problems.new_problem()
+                ltl_prob.verification = VerificationType.LTL
+                ltl_prob.name = ltl_prop[0]
+                ltl_prob.description = ltl_prop[1]
+                ltl_prob.formula = ltl_prop[2]
+                problems.add_problem(ltl_prob)
+                
         if HTSD in systems:
             problems._hts = systems[HTSD]
-        
+
         for problem in problems.problems:
             problem.hts = systems[(HTSM, problem.symbolic_init)]
+
             if problems._hts is None:
                 problems._hts = problem.hts
             problem.hts2 = systems[(HTS2, problem.symbolic_init)]
@@ -342,7 +379,8 @@ class ProblemSolver(object):
             problem.add_clock = problems.add_clock or config.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
-
+            problem.cardinality = max(problems.cardinality, config.cardinality)
+            
             if not problem.full_trace:
                 problem.full_trace = problems.full_trace
             if not problem.trace_vars_change:
@@ -417,6 +455,7 @@ class ProblemSolver(object):
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean or config.boolean
+        encoder_config.debug = config.debug
 
         return encoder_config
         

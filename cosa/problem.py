@@ -21,6 +21,7 @@ VERIFICATION = "verification"
 LIVENESS = "liveness"
 EVENTUALLY = "eventually"
 SAFETY = "safety"
+PARAMETRIC = "parametric"
 LTL = "ltl"
 EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
@@ -61,6 +62,7 @@ class VerificationType(object):
     DETERMINISTIC = 4
     SIMULATION = 5
     LTL = 6
+    PARAMETRIC = 7
 
     @staticmethod        
     def to_string(verification_type):
@@ -78,6 +80,8 @@ class VerificationType(object):
             return LTL
         if verification_type == VerificationType.DETERMINISTIC:
             return DETERMINISTIC
+        if verification_type == VerificationType.PARAMETRIC:
+            return PARAMETRIC
 
         return None
         
@@ -110,7 +114,7 @@ class Problems(object):
     smt2_tracing = None
     solver_name = None
     strategy = None
-    symbolic_init = None
+    symbolic_init = False
     time = False
     trace_all_vars = False
     trace_prefix = None
@@ -120,6 +124,9 @@ class Problems(object):
     verbosity = None
     verification = None
     zero_init = None
+    model_extension = None
+    cardinality = -1
+    region = None
     
     _hts = None
     _hts2 = None
@@ -133,6 +140,21 @@ class Problems(object):
         self.problems.append(problem)
         self.symbolic_inits.add(problem.symbolic_init)
 
+    def split_problems(self):
+        problems_dic = {}
+
+        for problem in self.problems:
+            if problem.attributes() not in problems_dic:
+                problems_dic[problem.attributes()] = []
+                
+            problems_dic[problem.attributes()].append(problem)
+
+        ret = []
+        for key,el in problems_dic.items():
+            ret.append(el)
+            
+        return ret
+        
     def get_hts(self):
         return self._hts
         
@@ -228,8 +250,11 @@ class Problem(object):
     precondition = None
     strategy = None
     incremental = None
-    symbolic_init = None
+    symbolic_init = False
     smt2_tracing = None
+    model_extension = None
+    cardinality = -1
+    region = None
 
     full_trace = False
     trace_vars_change = False
@@ -268,6 +293,26 @@ class Problem(object):
     def __repr__(self):
         return self.name
 
+    def attributes(self):
+        imp = []
+
+        imp.append(self.assumptions)
+        imp.append(self.lemmas)
+        imp.append(self.precondition)
+        imp.append(self.strategy)
+        imp.append(self.incremental)
+        imp.append(self.symbolic_init)
+        imp.append(self.verification)
+        imp.append(self.equivalence)
+    
+        imp.append(self.model_file)
+        imp.append(self.generators)
+        imp.append(self.clock_behaviors)
+        imp.append(self.skip_solving)
+        imp.append(self.solver_name)
+        
+        return tuple(imp)
+    
     def set_verification(self, value):
         if value == LIVENESS:
             self.verification = VerificationType.LIVENESS
@@ -295,6 +340,10 @@ class Problem(object):
 
         if value == LTL:
             self.verification = VerificationType.LTL
+            return
+
+        if value == PARAMETRIC:
+            self.verification = VerificationType.PARAMETRIC
             return
         
         Logger.error("Unknown verification type \"%s\""%value)

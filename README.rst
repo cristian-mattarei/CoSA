@@ -25,6 +25,8 @@ and verifications:
 - Linear Temporal Logic (LTL) Properties
 - Proving capabilities
 - Equivalence Checking
+- Parametric (Invariant) Model Checking
+- Fault Analysis
 - Automated Lemma Extraction
 
 ========================
@@ -41,6 +43,7 @@ Software requirements:
 
 - `CoreIR`_ needs to be installed in order to support CoreIR as input format
 - `Icarus Verilog`_ needs to be installed in order to support Verilog as input format
+- `Verific`_ binaries (i.e., ``verific``) and `Icarus Verilog`_ need to be installed in order to support SystemVerilog as input format
 
 .. _PyCoreIR: https://github.com/leonardt/pycoreir
 .. _PySMT: https://github.com/pysmt/pysmt
@@ -51,6 +54,7 @@ Software requirements:
 .. _CoreIR: https://github.com/rdaly525/coreir
 .. _Icarus Verilog: https://github.com/steveicarus/iverilog
 .. _PyVerilog: https://github.com/PyHDI/Pyverilog
+.. _Verific: http://www.verific.com/
 .. _BTOR2: https://github.com/Boolector/btor2tools
 .. _STS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/sts.rst
 .. _ETS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/ets.rst
@@ -88,7 +92,31 @@ Development
 - ``pip3 install -e .`` to install CoSA from the source
   
 - ``nosetests tests`` to run the tests
-   
+
+========================
+License
+========================
+
+CoSA is released under the modified BSD (3-clause BSD) License.
+
+If you use CoSA in your work, please consider citing the following publication:
+
+.. code::
+
+   @inproceedings{DBLP:conf/fmcad/MattareiMBDHH18,
+     author    = {Cristian Mattarei and
+                 Makai Mann and
+                 Clark Barrett and
+                 Ross G. Daly and
+                 Dillon Huff and
+                 Pat Hanrahan},
+    title     = {{CoSA: Integrated Verification for Agile Hardware Design}},
+    booktitle = {Formal Methods in Computer-Aided Design, {FMCAD} 2018, Austin, Texas,
+                 USA, October 30 - November 2, 2018.},
+    publisher = {{IEEE}},
+    year      = {2018}
+  }
+
 ========================
 Build Status
 ========================

@@ -481,7 +481,8 @@ class SymbolicSimpleTSParser(ModelParser):
     
     def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
-            return self.parse_string(f.readlines())
+            lines = (f.read().replace("\\\n","")).splitlines(True)
+            return self.parse_string(lines)
 
     def _define_var(self, varname, vartype):
         if vartype == T_BOOL:
