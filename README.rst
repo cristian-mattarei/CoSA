@@ -25,6 +25,8 @@ and verifications:
 - Linear Temporal Logic (LTL) Properties
 - Proving capabilities
 - Equivalence Checking
+- Parametric (Invariant) Model Checking
+- Fault Analysis
 - Automated Lemma Extraction
 
 ========================
@@ -90,7 +92,31 @@ Development
 - ``pip3 install -e .`` to install CoSA from the source
   
 - ``nosetests tests`` to run the tests
-   
+
+========================
+License
+========================
+
+CoSA is released under the modified BSD (3-clause BSD) License.
+
+If you use CoSA in your work, please consider citing the following publication:
+
+.. code::
+
+   @inproceedings{DBLP:conf/fmcad/MattareiMBDHH18,
+     author    = {Cristian Mattarei and
+                 Makai Mann and
+                 Clark Barrett and
+                 Ross G. Daly and
+                 Dillon Huff and
+                 Pat Hanrahan},
+    title     = {{CoSA: Integrated Verification for Agile Hardware Design}},
+    booktitle = {Formal Methods in Computer-Aided Design, {FMCAD} 2018, Austin, Texas,
+                 USA, October 30 - November 2, 2018.},
+    publisher = {{IEEE}},
+    year      = {2018}
+  }
+
 ========================
 Build Status
 ========================

@@ -21,6 +21,7 @@ VERIFICATION = "verification"
 LIVENESS = "liveness"
 EVENTUALLY = "eventually"
 SAFETY = "safety"
+PARAMETRIC = "parametric"
 LTL = "ltl"
 EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
@@ -61,6 +62,7 @@ class VerificationType(object):
     DETERMINISTIC = 4
     SIMULATION = 5
     LTL = 6
+    PARAMETRIC = 7
 
     @staticmethod        
     def to_string(verification_type):
@@ -78,6 +80,8 @@ class VerificationType(object):
             return LTL
         if verification_type == VerificationType.DETERMINISTIC:
             return DETERMINISTIC
+        if verification_type == VerificationType.PARAMETRIC:
+            return PARAMETRIC
 
         return None
         
@@ -120,6 +124,9 @@ class Problems(object):
     verbosity = None
     verification = None
     zero_init = None
+    model_extension = None
+    cardinality = -1
+    region = None
     
     _hts = None
     _hts2 = None
@@ -245,6 +252,9 @@ class Problem(object):
     incremental = None
     symbolic_init = False
     smt2_tracing = None
+    model_extension = None
+    cardinality = -1
+    region = None
 
     full_trace = False
     trace_vars_change = False
@@ -330,6 +340,10 @@ class Problem(object):
 
         if value == LTL:
             self.verification = VerificationType.LTL
+            return
+
+        if value == PARAMETRIC:
+            self.verification = VerificationType.PARAMETRIC
             return
         
         Logger.error("Unknown verification type \"%s\""%value)

@@ -22,6 +22,8 @@ Supported Verifications
 * LTL Properties
 * Proving capabilities
 * Equivalence Checking
+* Parametric (Invariant) Model Checking
+* Fault Analysis
 * Automated Lemma Extraction
 
 CoSA relies on PySMT (http://www.pysmt.org), which is a solver
@@ -31,7 +33,7 @@ For more information visit http://github.com/cristian-mattarei/CoSA
 """
 
 setup(name='CoSA',
-      version='0.2.4',
+      version='0.2.5',
       description='CoreIR Symbolic Analyzer',
       long_description=long_description,
       url='http://github.com/cristian-mattarei/CoSA',

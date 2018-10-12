@@ -20,6 +20,8 @@ ATP = "_ATP"
 L_ABV = "QF_ABV"
 L_BV = "QF_BV"
 
+FLATTEN = "FLATTEN"
+
 apply_prefix = lambda name, prefix: ".".join(name.split(".")[:-1]+[prefix+name.split(".")[-1]])
 
 class HTS(object):
@@ -41,6 +43,7 @@ class HTS(object):
 
     logic = None
     en_simplify = False
+    is_flatten = False
     
     def __init__(self, name=""):
         self.tss = set([])
@@ -61,7 +64,7 @@ class HTS(object):
 
         self.logic = L_BV
         self.en_simplify = False
-
+        
     def apply_var_prefix(self, prefix):
         remapdic = dict([(v.symbol_name(), apply_prefix(v.symbol_name(), prefix)) for v in self.vars]+\
                         [(TS.get_prime(v).symbol_name(), apply_prefix(TS.get_prime(v).symbol_name(), prefix)) for v in self.vars])
@@ -141,6 +144,9 @@ class HTS(object):
             
         self.update_logic(ts.logic)
 
+    def remove_ts(self, name):
+        self.tss = set([ts for ts in self.tss if ts.comment != name])
+        
     def add_assumption(self, assumption):
         if self.assumptions is None:
             self.assumptions = set([])
@@ -204,6 +210,24 @@ class HTS(object):
         self._s_invar = None
         self._s_trans = None
 
+        for sub in self.subs:
+            instance, actual, module = sub
+            module.reset_formulae()
+
+    def reset_flatten(self):
+        self.is_flatten = False
+        self._s_init = None
+        self._s_invar = None
+        self._s_trans = None
+
+        self.remove_ts(FLATTEN)
+        
+        for sub in self.subs:
+            instance, actual, module = sub
+            module.reset_formulae()
+            module.is_flatten = False
+            module.remove_ts(FLATTEN)
+            
     def combine(self, other_hts):
         for ts in other_hts.tss:
             self.add_ts(ts)
@@ -247,6 +271,7 @@ class HTS(object):
         return ts
     
     def flatten(self, path=[]):
+        self.is_flatten = True
         vardic = dict([(v.symbol_name(), v) for v in self.vars])
 
         def full_path(name, path):
@@ -257,9 +282,10 @@ class HTS(object):
         
         for sub in self.subs:
             instance, actual, module = sub
+            module.is_flatten = True
             formal = module.params
 
-            ts = TS("FLATTEN")
+            ts = TS(FLATTEN)
             (sub_vars, sub_state_vars, ts.init, ts.trans, ts.invar) = module.flatten(path+[instance])
             self.add_ts(ts)
             

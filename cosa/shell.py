@@ -17,12 +17,15 @@ import os
 from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
 
+from pysmt.shortcuts import TRUE, FALSE
+
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
+from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 from cosa.utils.generic import bold_text
@@ -39,6 +42,7 @@ class Config(object):
     
     simulate = False
     safety = None
+    parametric = None
     ltl = None
     equivalence = None
     problems = None
@@ -71,6 +75,8 @@ class Config(object):
     clock_behaviors = None
     force_expected = False
     assume_if_true = False
+    model_extension = None
+    cardinality = 5
 
     printer = None
     strategy = None
@@ -88,16 +94,18 @@ def traces_printed(msg, trace_files):
 def print_traces(msg, traces, index, prefix, tracecount):
     trace_files = []
     trace_prefix = None
-    
+
+    i = 1
     for trace in traces:
         if prefix:
             trace_prefix = prefix
         else:
             if not trace.human_readable:
                 trace_prefix = TRACE_PREFIX
-            
+        
         if trace_prefix:
-            trace_file = "%s-%s.%s"%(trace_prefix, index, trace.extension)
+            trace_file = "%s[%d]-%s.%s"%(trace_prefix, i, index, trace.extension)
+            i+=1
             trace_files.append(trace_file)
             with open(trace_file, "w") as f:
                 f.write(str(trace))
@@ -106,14 +114,14 @@ def print_traces(msg, traces, index, prefix, tracecount):
                 continue
 
         else:
-            Logger.log("%s:"%msg, 0)
+            Logger.log("%s:"%(msg), 0)
             Logger.log(str(trace), 0)
 
     if (tracecount > 0) and (len(trace_files) > 0):
-        traces_idx = " and ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
-        Logger.log("%s: %s"%(msg, traces_idx), 0)
-        tracelen = traces[0].length
-        Logger.log("Trace length: %d"%(tracelen), 0)
+        traces_idx = ", ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
+        Logger.log("%s%s: %s"%(msg, "s" if len(traces) > 1 else "", traces_idx), 0)
+        tracelen = max(t.length for t in traces)
+        Logger.log("Trace%s: %d"%("s (max) length" if len(traces) > 1 else " length", tracelen+1), 0)
             
     if (tracecount < 0) and (len(trace_files) > 0):
         traces_printed(msg, trace_files)
@@ -144,10 +152,16 @@ def print_problem_result(pbm, config, count=-1):
 
     unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
     Logger.log("\n** Problem %s **"%(pbm.name), 0)
-    Logger.log("Description: %s"%(pbm.description), 0)
+    if pbm.description is not None:
+        Logger.log("Description: %s"%(pbm.description), 0)
     if pbm.formula is not None:
         Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+    if pbm.verification == VerificationType.PARAMETRIC:
+        if pbm.region in [TRUE(),FALSE(),None]:
+            Logger.log("Region: %s"%(pbm.region), 0)
+        else:
+            Logger.log("Region:\n - %s"%(" or \n - ".join([x.serialize(threshold=100) for x in pbm.region])), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
         Logger.log("Expected: %s"%(expected), 0)
@@ -161,12 +175,16 @@ def print_problem_result(pbm, config, count=-1):
     prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
 
     traces = []
-    
-    if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-        traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
 
-    if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-        traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
+    if (pbm.traces is not None) and (len(pbm.traces) > 0):
+        if (pbm.verification == VerificationType.PARAMETRIC) and (pbm.status != VerificationStatus.FALSE):
+            traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
+
+        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
+            traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
+
+        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+            traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
 
     if pbm.time:
         Logger.log("Time: %.2f sec"%(pbm.time), 0)
@@ -271,6 +289,8 @@ def run_verification(config):
         problem.equivalence = config.equivalence
     elif config.simulate:
         problem.verification = VerificationType.SIMULATION
+    elif config.parametric:
+        problem.verification = VerificationType.PARAMETRIC
     elif config.fsm_check:
         problem.verification = VerificationType.EQUIVALENCE
         problem.equivalence = config.strfiles
@@ -314,7 +334,14 @@ def main():
     
     extra_info.append('\nModule generators:\n%s'%("\n".join(generators)))
 
-                            
+    modifiers = []
+    modifiers.append(" - \"None\": No extension")
+    for x in ModelModifiersFactory.get_modifiers():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        modifiers.append("\n".join(wrapper.wrap("\"%s\": %s"%(x.get_name(), x.get_desc()))))
+    
+    extra_info.append('\nModel modifiers:\n%s'%("\n".join(modifiers)))
+    
     parser = argparse.ArgumentParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'), \
                                      #usage='%(prog)s [options]', \
                                      formatter_class=RawTextHelpFormatter, \
@@ -365,6 +392,10 @@ def main():
     ver_options.set_defaults(fsm_check=False)
     ver_options.add_argument('--fsm-check', dest='fsm_check', action='store_true',
                        help='check if the state machine is deterministic.')
+
+    ver_options.set_defaults(parametric=False)
+    ver_options.add_argument('--parametric', dest='parametric', action='store_true',
+                       help='parametric analysis using BMC.')
     
     # Verification parameters
 
@@ -404,6 +435,14 @@ def main():
     ver_params.add_argument('--prove', dest='prove', action='store_true',
                        help='use indution to prove the satisfiability of the property.')
 
+    ver_params.set_defaults(assume_if_true=False)
+    ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
+                       help='add true properties as assumptions.')
+
+    ver_params.set_defaults(cardinality=config.cardinality)
+    ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=False,
+                       help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%config.cardinality)
+    
     strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in MCConfig.get_strategies()]
     defstrategy = MCConfig.get_strategies()[0][0]
     ver_params.set_defaults(strategy=defstrategy)
@@ -414,10 +453,6 @@ def main():
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
                        help='disables incrementality.')
 
-    ver_params.set_defaults(assume_if_true=False)
-    ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
-                       help='add true properties as assumptions.')
-    
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
@@ -449,6 +484,10 @@ def main():
     enc_params.set_defaults(run_passes=config.run_passes)
     enc_params.add_argument('--no-run-passes', dest='run_passes', action='store_false',
                         help='does not run CoreIR passes. (Default is \"%s\")'%config.run_passes)
+
+    enc_params.set_defaults(model_extension=config.model_extension)
+    enc_params.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
+                            help='select the model modifier. (Default is \"%s\")'%(config.model_extension))
     
     # Printing parameters
 
@@ -517,6 +556,7 @@ def main():
     config.strfiles = args.input_files
     config.simulate = args.simulate
     config.safety = args.safety
+    config.parametric = args.parametric
     config.ltl = args.ltl
     config.properties = args.properties
     config.lemmas = args.lemmas
@@ -548,6 +588,8 @@ def main():
     config.generators = args.generators
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
+    config.model_extension = args.model_extension
+    config.cardinality = args.cardinality
     config.debug = args.debug
 
     if len(sys.argv)==1:
@@ -579,6 +621,7 @@ def main():
 
     if not(config.simulate or \
            (config.safety) or \
+           (config.parametric) or \
            (config.ltl) or \
            (config.equivalence is not None) or\
            (config.translate is not None) or\
