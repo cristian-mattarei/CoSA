@@ -430,9 +430,12 @@ class BMCSafety(BMCSolver):
                 Logger.log("\nSolving for k=%s"%(t), 1)
 
                 if self.preferred is not None:
-                    for (var, val) in self.preferred:
-                        for t in range(t+1):
-                            self.solver.solver.set_preferred_var(TS.get_timed(var, t), val)
+                    try:
+                        for (var, val) in self.preferred:
+                            for t in range(t+1):
+                                self.solver.solver.set_preferred_var(TS.get_timed(var, t), val)
+                    except:
+                        Logger.warning("Current solver does not support preferred variables")
 
                 if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
