@@ -76,7 +76,7 @@ class Config(object):
     force_expected = False
     assume_if_true = False
     model_extension = None
-    cardinality = -1
+    cardinality = 5
 
     printer = None
     strategy = None
@@ -114,12 +114,12 @@ def print_traces(msg, traces, index, prefix, tracecount):
                 continue
 
         else:
-            Logger.log("%s%s:"%(msg, "s" if len(traces) > 1 else ""), 0)
+            Logger.log("%s:"%(msg), 0)
             Logger.log(str(trace), 0)
 
     if (tracecount > 0) and (len(trace_files) > 0):
         traces_idx = ", ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
-        Logger.log("%s: %s"%(msg, traces_idx), 0)
+        Logger.log("%s%s: %s"%(msg, "s" if len(traces) > 1 else "", traces_idx), 0)
         tracelen = max(t.length for t in traces)
         Logger.log("Traces max length: %d"%(tracelen+1), 0)
             
@@ -158,7 +158,7 @@ def print_problem_result(pbm, config, count=-1):
         Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
     Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
     if pbm.verification == VerificationType.PARAMETRIC:
-        if pbm.region in [TRUE(),FALSE()]:
+        if pbm.region in [TRUE(),FALSE(),None]:
             Logger.log("Region: %s"%(pbm.region), 0)
         else:
             Logger.log("Region:\n - %s"%(" or \n - ".join([x.serialize(threshold=100) for x in pbm.region])), 0)
@@ -176,14 +176,15 @@ def print_problem_result(pbm, config, count=-1):
 
     traces = []
 
-    if (pbm.verification == VerificationType.PARAMETRIC) and (pbm.status != VerificationStatus.FALSE):
-        traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
-    
-    if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-        traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
+    if (pbm.traces is not None) and (len(pbm.traces) > 0):
+        if (pbm.verification == VerificationType.PARAMETRIC) and (pbm.status != VerificationStatus.FALSE):
+            traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
 
-    if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-        traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
+        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
+            traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
+
+        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+            traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
 
     if pbm.time:
         Logger.log("Time: %.2f sec"%(pbm.time), 0)

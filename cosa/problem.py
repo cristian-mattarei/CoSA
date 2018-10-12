@@ -254,6 +254,7 @@ class Problem(object):
     smt2_tracing = None
     model_extension = None
     cardinality = -1
+    region = None
 
     full_trace = False
     trace_vars_change = False

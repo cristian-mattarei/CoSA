@@ -75,7 +75,9 @@ class BMCParametric(BMCSafety):
         generalize = lambda model, t: self._get_param_assignments(model, t, parameters, monotonic)
 
         if at_most == -1:
-            at_most = len(parameters)
+            cardinality = len(parameters)
+        else:
+            cardinality = at_most
 
         prev_cs_count = 0
 
@@ -85,18 +87,57 @@ class BMCParametric(BMCSafety):
         same_res_counter = 0
         k = step
         end = False
+
+        # Strategy selection
+        increase_k = False
         
-        if at_most == -2:
+        if cardinality == -2:
             (t, status) = self.solve_safety_inc_fwd(self.hts, prop, k_max, k_min, all_vars=False, generalize=generalize)
         else:
             sn = SortingNetwork.sorting_network(parameters)
-            while k < k_max+1:
-                for at in range(at_most):
+
+            if increase_k:
+                # Approach with incremental increase of bmc k
+                while k < k_max+1:
+                    for at in range(cardinality):
+                        sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
+                        bprop = Or(prop, sn_k)
+                        Logger.msg("[%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
+                        self.config.prove = False
+                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k, max(k_min, k-step), all_vars=False, generalize=generalize)
+
+                        if (prev_cs_count == self.cs_count):
+                            same_res_counter += 1
+                        else:
+                            same_res_counter = 0
+
+                        prev_cs_count = self.cs_count
+
+                        if (prove == True) and ((same_res_counter > 1) or (at == cardinality-1)): 
+                            self.config.prove = True
+                            Logger.msg("[>%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
+                            bprop = Or(prop, Not(sn_k))
+                            if (at_most > -1) and (at_most < cardinality):
+                                bprop = Or(prop, sn[at_most-1])
+                            (t, status) = self.solve_safety(self.hts, Or(bprop, self.region), k, max(k_min, k-step))
+                            if status == True:
+                                end = True
+                                break
+
+                        if (same_res_counter > 2) and (k < k_max):
+                            break
+
+                    if end:
+                        break
+                    k += step
+            else:
+                # Approach with fixed bmc k
+                for at in range(cardinality):
                     sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
                     bprop = Or(prop, sn_k)
-                    Logger.msg("[%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
+                    Logger.msg("[%d]"%((at+1)), 0, not(Logger.level(1)))
                     self.config.prove = False
-                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k, max(k_min, k-step), all_vars=False, generalize=generalize)
+                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k_max, k_min, all_vars=False, generalize=generalize)
 
                     if (prev_cs_count == self.cs_count):
                         same_res_counter += 1
@@ -104,22 +145,16 @@ class BMCParametric(BMCSafety):
                         same_res_counter = 0
 
                     prev_cs_count = self.cs_count
-                        
-                    if (same_res_counter > 1) and (prove == True):
-                        self.config.prove = True
-                        Logger.msg("[>%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
-                        bprop = Or(prop, Not(sn_k))
-                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, self.region), k, max(k_min, k-step), all_vars=False)
-                        if status == True:
-                            end = True
-                            break
-                        
-                    if (same_res_counter > 2) and (k < k_max):
-                        break
 
-                if end:
-                    break
-                k += step
+                    if (prove == True) and ((same_res_counter > 1) or (at == cardinality-1)):
+                        self.config.prove = True
+                        Logger.msg("[>%d]"%((at+1)), 0, not(Logger.level(1)))
+                        bprop = prop
+                        if (at_most > -1) and (at_most < cardinality):
+                            bprop = Or(prop, sn[at_most-1])
+                        (t, status) = self.solve_safety(self.hts, Or(bprop, self.region), k_max, k_min)
+                        if status == True:
+                            break
 
         traces = None
         if self.models is not None:
