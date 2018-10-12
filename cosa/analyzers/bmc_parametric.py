@@ -8,6 +8,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This module implements the BMC-based techniques described in
+# "Efficient Anytime Techniques for Model-Based Safety Analysis" by
+# M. Bozzano, A. Cimatti, A. Griggio, and C. Mattarei.
+
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.typing import BOOL, BVType, ArrayType
 from pysmt.rewritings import disjunctive_partition, conjunctive_partition

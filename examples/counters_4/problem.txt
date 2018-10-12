@@ -36,5 +36,3 @@ assumptions: reset_performed -> (rst = 0_1);out < 240_16
 verification: safety
 prove: True
 expected: True
-
-

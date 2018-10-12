@@ -2,7 +2,7 @@
 model_file: counters_4.v[Counters_4],rst_beh.ets
 add_clock: True
 assume_if_true: True
-model_extension: ALL
+model_extension: NonDeterministic
 
 [DEFAULT]
 bmc_length: 30
@@ -14,10 +14,3 @@ formula: (reset_performed & ! posedge(rst) & posedge(clk) & (out < 10_16) & (out
 assumptions: reset_performed -> (rst = 0_1);out < 10_16
 verification: parametric
 prove: True
-
-# [fair_count_2]
-# description: "Below 10 it counts correctly"
-# formula: (reset_performed & ! posedge(rst) & posedge(clk)) -> ((next(out) < (out + 2_16)))
-# assumptions: reset_performed -> (rst = 0_1);out < 240_16
-# verification: parametric
-# prove: True
