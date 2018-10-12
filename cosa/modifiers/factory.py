@@ -16,9 +16,12 @@ class ModelModifiersFactory(object):
     # Additional modifiers should be registered here #
     @staticmethod
     def init_modifiers():
-        from cosa.modifiers.behavior import NonDeterministic
+        from cosa.modifiers.behavior import NonDeterministic, Zero, High, Inverted
     
         ModelModifiersFactory.register_modifier(NonDeterministic(), True)
+        ModelModifiersFactory.register_modifier(Zero())
+        ModelModifiersFactory.register_modifier(High())
+        ModelModifiersFactory.register_modifier(Inverted())
         
     @staticmethod
     def register_modifier(modifier, default=False):

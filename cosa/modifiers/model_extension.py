@@ -16,8 +16,8 @@ from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.printers.template import HIDDEN_VAR
 
-NOMIN = HIDDEN_VAR+"%s_REF_"
-#NOMIN = "%s_REF_"
+#NOMIN = HIDDEN_VAR+"%s_REF_"
+NOMIN = "%s_REF_"
 FAIL = "|FAILURE|"
 FAULT = "%s"+FAIL
 
@@ -86,10 +86,10 @@ class ModelExtension(object):
             new_ftrans[substitute(assign, repldic)] = [(substitute(c[0], repldic), substitute(c[1], repldic)) for c in cond_assign_list]
 
             # Definition of the nominal behavior
-            new_ftrans[refvar] = [(Not(fvar), nomvar), (fvar, modifier.get_behavior(refvar, nomvar))]
+            new_ftrans[refvar] = [(Not(fvar), nomvar)]
 
             # Application of the faulty behavior
-            new_ftrans[refvar].append((fvar, modifier.get_behavior(refvar, nomvar)))
+            new_ftrans[refvar].append((fvar, modifier.get_behavior(nomvar, refvar)))
             
             ts.trans = And(ts.trans, Implies(fvar, TS.get_prime(fvar)))
 

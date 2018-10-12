@@ -108,12 +108,14 @@ class BMCParametric(BMCSafety):
                 # Approach with incremental increase of bmc k
                 while k < k_max+1:
                     for at in range(cardinality):
-                        sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
-                        bprop = Or(prop, sn_k)
                         Logger.msg("[%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
+                        
+                        sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
+                        bound_constr = Or(sn_k, self.region)
+                        bound_constr = bound_constr if not has_next else Or(bound_constr, TS.to_next(bound_constr))
+                        
                         self.config.prove = False
-                        region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
-                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, region), k, max(k_min, k-step), all_vars=False, generalize=generalize)
+                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, bound_constr), k, max(k_min, k-step), all_vars=False, generalize=generalize)
 
                         if (prev_cs_count == self.cs_count):
                             same_res_counter += 1
@@ -123,13 +125,17 @@ class BMCParametric(BMCSafety):
                         prev_cs_count = self.cs_count
 
                         if (prove == True) and ((same_res_counter > 1) or (at == cardinality-1)): 
-                            self.config.prove = True
                             Logger.msg("[>%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
-                            bprop = Or(prop, Not(sn_k))
+
                             if (at_most > -1) and (at_most < cardinality):
-                                bprop = Or(prop, sn[at_most-1])
-                            region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
-                            (t, status) = self.solve_safety(self.hts, Or(bprop, region), k, max(k_min, k-step))
+                                sn_k = sn[at_most-1]
+                            else:
+                                sn_k = FALSE()
+                            bound_constr = Or(sn_k, self.region)
+                            bound_constr = bound_constr if not has_next else Or(bound_constr, TS.to_next(bound_constr))
+                            
+                            self.config.prove = True
+                            (t, status) = self.solve_safety(self.hts, Or(prop, bound_constr), k, max(k_min, k-step))
                             if status == True:
                                 end = True
                                 break
@@ -143,12 +149,14 @@ class BMCParametric(BMCSafety):
             else:
                 # Approach with fixed bmc k
                 for at in range(cardinality):
-                    sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
-                    bprop = Or(prop, sn_k)
                     Logger.msg("[%d]"%((at+1)), 0, not(Logger.level(1)))
+                    
+                    sn_k = sn[at+1] if at+1 < len(sn) else FALSE()
+                    bound_constr = Or(sn_k, self.region)
+                    bound_constr = bound_constr if not has_next else Or(bound_constr, TS.to_next(bound_constr))
+                    
                     self.config.prove = False
-                    region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
-                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, region), k_max, k_min, all_vars=False, generalize=generalize)
+                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, bound_constr), k_max, k_min, all_vars=False, generalize=generalize)
 
                     if simplify(self.region) in [TRUE(), FALSE()]:
                         break
@@ -161,13 +169,17 @@ class BMCParametric(BMCSafety):
                     prev_cs_count = self.cs_count
 
                     if (prove == True) and ((same_res_counter > 1) or (at == cardinality-1)):
-                        self.config.prove = True
                         Logger.msg("[>%d]"%((at+1)), 0, not(Logger.level(1)))
-                        bprop = prop
+                        
                         if (at_most > -1) and (at_most < cardinality):
-                            bprop = Or(prop, sn[at_most-1])
-                        region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
-                        (t, status) = self.solve_safety(self.hts, Or(bprop, region), k_max, k_min)
+                            sn_k = sn[at_most-1]
+                        else:
+                            sn_k = FALSE()
+                        bound_constr = Or(sn_k, self.region)
+                        bound_constr = bound_constr if not has_next else Or(bound_constr, TS.to_next(bound_constr))
+                        
+                        self.config.prove = True
+                        (t, status) = self.solve_safety(self.hts, Or(prop, bound_constr), k_max, k_min)
                         if status == True:
                             break
         
