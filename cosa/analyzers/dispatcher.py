@@ -25,6 +25,7 @@ from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicS
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
+from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.encoders.template import EncoderConfig, ModelInformation
 from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
@@ -326,7 +327,7 @@ class ProblemSolver(object):
 
         modifier = None
         if model_extension is not None:
-            modifier = lambda hts: ModelExtension.extend(hts, model_extension)
+            modifier = lambda hts: ModelExtension.extend(hts, ModelModifiersFactory.modifier_by_name(model_extension))
         
         # generate systems for each problem configuration
         systems = {}

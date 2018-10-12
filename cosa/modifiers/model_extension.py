@@ -21,33 +21,18 @@ NOMIN = HIDDEN_VAR+"%s_REF_"
 FAIL = "|FAILURE|"
 FAULT = "%s"+FAIL
 
-class ModelExtensionStrategy(object):
-    NONE = None
-    ALL = "ALL"
-
 class ModelExtension(object):
-
-    @staticmethod
-    def get_strategies():
-        strategies = []
-        strategies.append((ModelExtensionStrategy.NONE, "Not applied"))
-        strategies.append((ModelExtensionStrategy.ALL,  "Extends all state variables with a non-deterministic behavior"))
-
-        return strategies
     
     @staticmethod
-    def extend(hts, strategy):
-        if strategy == ModelExtensionStrategy.NONE:
+    def extend(hts, modifier):
+        if modifier == None:
             return hts
-
-        if strategy not in [x[0] for x in ModelExtension.get_strategies()]:
-            Logger.error("Invalid model extension mode \"%s\""%(strategy))
         
         is_flatten = hts.is_flatten
         if is_flatten:
             hts.reset_flatten()
 
-        ModelExtension.extend_all(hts)
+        ModelExtension.extend_all(hts, modifier)
 
         if is_flatten:
             hts.flatten()
@@ -55,24 +40,24 @@ class ModelExtension(object):
         return hts
     
     @staticmethod
-    def extend_all(hts):
+    def extend_all(hts, modifier):
         tss = []
         for ts in hts.tss:
-            ts, vars = ModelExtension.extend_ts(ts)
+            ts, vars = ModelExtension.extend_ts(ts, modifier)
             tss.append(ts)
             for v in vars:
                 hts.add_var(v)
         hts.tss = set(tss)
 
         for sub in hts.subs:
-            ModelExtension.extend_all(sub[2])
+            ModelExtension.extend_all(sub[2], modifier)
 
     @staticmethod
     def get_parameters(hts):
         return [v for v in hts.vars if FAIL in v.symbol_name()]
             
     @staticmethod
-    def extend_ts(ts):
+    def extend_ts(ts, modifier):
 
         affect_init = False
         
@@ -97,11 +82,15 @@ class ModelExtension(object):
             repldic = dict([(refvar.symbol_name(), nomvar.symbol_name()), \
                             (TS.get_prime(refvar).symbol_name(), TS.get_prime(nomvar).symbol_name())])
 
+            # Remapping nominal behavior to new variable
             new_ftrans[substitute(assign, repldic)] = [(substitute(c[0], repldic), substitute(c[1], repldic)) for c in cond_assign_list]
 
-            #new_ftrans[refvar] = [(Not(fvar), nomvar), (fvar, BV(1, nomvar.symbol_type().width))]
-            new_ftrans[refvar] = [(Not(fvar), nomvar)]
+            # Definition of the nominal behavior
+            new_ftrans[refvar] = [(Not(fvar), nomvar), (fvar, modifier.get_behavior(refvar, nomvar))]
 
+            # Application of the faulty behavior
+            new_ftrans[refvar].append((fvar, modifier.get_behavior(refvar, nomvar)))
+            
             ts.trans = And(ts.trans, Implies(fvar, TS.get_prime(fvar)))
 
             if affect_init:

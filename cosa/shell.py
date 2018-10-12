@@ -21,11 +21,11 @@ from pysmt.shortcuts import TRUE, FALSE
 
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
-from cosa.modifiers.model_extension import ModelExtension
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
+from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
 from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
 from cosa.utils.generic import bold_text
@@ -334,7 +334,14 @@ def main():
     
     extra_info.append('\nModule generators:\n%s'%("\n".join(generators)))
 
-                            
+    modifiers = []
+    modifiers.append(" - \"None\": No extension")
+    for x in ModelModifiersFactory.get_modifiers():
+        wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
+        modifiers.append("\n".join(wrapper.wrap("\"%s\": %s"%(x.get_name(), x.get_desc()))))
+    
+    extra_info.append('\nModel modifiers:\n%s'%("\n".join(modifiers)))
+    
     parser = argparse.ArgumentParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'), \
                                      #usage='%(prog)s [options]', \
                                      formatter_class=RawTextHelpFormatter, \
@@ -446,7 +453,6 @@ def main():
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
                        help='disables incrementality.')
 
-    
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
@@ -479,11 +485,9 @@ def main():
     enc_params.add_argument('--no-run-passes', dest='run_passes', action='store_false',
                         help='does not run CoreIR passes. (Default is \"%s\")'%config.run_passes)
 
-    strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in ModelExtension.get_strategies()]
-    defmodel_extension = ModelExtension.get_strategies()[0][0]
-    enc_params.set_defaults(model_extension=defmodel_extension)
+    enc_params.set_defaults(model_extension=config.model_extension)
     enc_params.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
-                        help='select the BMC model_extension between (Default is \"%s\"):\n%s'%(defmodel_extension, "\n".join(strategies)))
+                            help='select the model modifier. (Default is \"%s\")'%(config.model_extension))
     
     # Printing parameters
 
