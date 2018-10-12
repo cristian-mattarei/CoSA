@@ -192,6 +192,13 @@ def print_problem_result(pbm, config, count=-1):
     return (ret_status, traces)
 
 def run_problems(problems_file, config, problems=None):
+    
+    if sys.version_info[0] < 3:
+        if config.debug:
+            Logger.warning("This software is not tested for Python 2, we recommend to use Python 3 instead")
+        else:
+            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in debug mode")
+
     reset_env()
     Logger.verbosity = config.verbosity
     Logger.time = config.time
