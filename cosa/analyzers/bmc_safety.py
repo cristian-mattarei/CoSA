@@ -436,6 +436,7 @@ class BMCSafety(BMCSolver):
                                 self.solver.solver.set_preferred_var(TS.get_timed(var, t), val)
                     except:
                         Logger.warning("Current solver does not support preferred variables")
+                        self.preferred = None
 
                 if self._solve(self.solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
