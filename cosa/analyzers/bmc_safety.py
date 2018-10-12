@@ -413,7 +413,10 @@ class BMCSafety(BMCSolver):
             
             if k_min > 0:
                 if (not next_prop) or (next_prop and t>0):
-                    n_prop_t = Or(n_prop_t, self.at_time(Not(prop), t_prop))
+                    if n_prop_t == FALSE():
+                        n_prop_t = self.at_time(Not(prop), t_prop)
+                    else:
+                        n_prop_t = Or(n_prop_t, self.at_time(Not(prop), t_prop))
             else:
                 n_prop_t = self.at_time(Not(prop), t)
 

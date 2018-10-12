@@ -321,7 +321,7 @@ class ProblemSolver(object):
         HTS2 = 1
         HTSD = (HTSM, si)
 
-        model_extension = config.model_extension if config.model_extension is not None else problems.model_extension
+        model_extension = config.model_extension if problems.model_extension is None else problems.model_extension
         assume_if_true = config.assume_if_true or problems.assume_if_true
 
         modifier = None

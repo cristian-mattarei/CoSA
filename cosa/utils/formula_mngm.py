@@ -108,6 +108,8 @@ class SortingNetwork(object):
     
     @staticmethod
     def sorting_network(inputs):
+        if len(inputs) == 0:
+            return []
         return SortingNetwork.sorting_network_int(inputs)
     
     @staticmethod

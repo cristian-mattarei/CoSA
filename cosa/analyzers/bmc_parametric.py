@@ -61,6 +61,9 @@ class BMCParametric(BMCSafety):
         return (p_ass, False)
 
     def parametric_safety(self, prop, k_max, k_min, parameters, monotonic=True, at_most=-1):
+        if len(parameters) == 0:
+            Logger.error("Parameters size cannot be 0")
+        
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k_max)
 
@@ -87,7 +90,8 @@ class BMCParametric(BMCSafety):
         same_res_counter = 0
         k = step
         end = False
-
+        has_next = TS.has_next(prop)
+        
         # Strategy selection
         increase_k = False
         
@@ -104,7 +108,8 @@ class BMCParametric(BMCSafety):
                         bprop = Or(prop, sn_k)
                         Logger.msg("[%d,%d]"%((at+1), k), 0, not(Logger.level(1)))
                         self.config.prove = False
-                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k, max(k_min, k-step), all_vars=False, generalize=generalize)
+                        region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
+                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, region), k, max(k_min, k-step), all_vars=False, generalize=generalize)
 
                         if (prev_cs_count == self.cs_count):
                             same_res_counter += 1
@@ -119,7 +124,8 @@ class BMCParametric(BMCSafety):
                             bprop = Or(prop, Not(sn_k))
                             if (at_most > -1) and (at_most < cardinality):
                                 bprop = Or(prop, sn[at_most-1])
-                            (t, status) = self.solve_safety(self.hts, Or(bprop, self.region), k, max(k_min, k-step))
+                            region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
+                            (t, status) = self.solve_safety(self.hts, Or(bprop, region), k, max(k_min, k-step))
                             if status == True:
                                 end = True
                                 break
@@ -137,8 +143,12 @@ class BMCParametric(BMCSafety):
                     bprop = Or(prop, sn_k)
                     Logger.msg("[%d]"%((at+1)), 0, not(Logger.level(1)))
                     self.config.prove = False
-                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, self.region), k_max, k_min, all_vars=False, generalize=generalize)
+                    region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
+                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(bprop, region), k_max, k_min, all_vars=False, generalize=generalize)
 
+                    if simplify(self.region) in [TRUE(), FALSE()]:
+                        break
+                    
                     if (prev_cs_count == self.cs_count):
                         same_res_counter += 1
                     else:
@@ -152,12 +162,13 @@ class BMCParametric(BMCSafety):
                         bprop = prop
                         if (at_most > -1) and (at_most < cardinality):
                             bprop = Or(prop, sn[at_most-1])
-                        (t, status) = self.solve_safety(self.hts, Or(bprop, self.region), k_max, k_min)
+                        region = self.region if not has_next else Or(self.region, TS.to_next(self.region))
+                        (t, status) = self.solve_safety(self.hts, Or(bprop, region), k_max, k_min)
                         if status == True:
                             break
-
+        
         traces = None
-        if self.models is not None:
+        if (self.models is not None) and (simplify(self.region) not in [TRUE(), FALSE()]):
             traces = []
             for (model, time) in self.models:
                 model = self._remap_model(self.hts.vars, model, time)
