@@ -375,6 +375,7 @@ class ProblemSolver(object):
             problem.hts2 = systems[(HTS2, problem.symbolic_init)]
             if problems._hts2 is None:
                 problems._hts2 = problem.hts2
+            problem.vcd = problems.vcd or config.vcd or problem.vcd
             problem.abstract_clock = problems.abstract_clock or config.abstract_clock
             problem.add_clock = problems.add_clock or config.add_clock
             problem.run_coreir_passes = problems.run_coreir_passes

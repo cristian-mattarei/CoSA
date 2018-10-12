@@ -121,7 +121,7 @@ def print_traces(msg, traces, index, prefix, tracecount):
         traces_idx = ", ".join("[%s]"%(idx) for idx in range(tracecount, tracecount+len(traces), 1))
         Logger.log("%s%s: %s"%(msg, "s" if len(traces) > 1 else "", traces_idx), 0)
         tracelen = max(t.length for t in traces)
-        Logger.log("Traces max length: %d"%(tracelen+1), 0)
+        Logger.log("Trace%s: %d"%("s (max) length" if len(traces) > 1 else " length", tracelen+1), 0)
             
     if (tracecount < 0) and (len(trace_files) > 0):
         traces_printed(msg, trace_files)
