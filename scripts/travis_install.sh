@@ -37,10 +37,10 @@ fi
 
 if [ ! -f "$BITVECTOR" ]; then
     rm -fr bit_vector*
-    wget https://github.com/leonardt/bit_vector/archive/320f1637271635840bade21c064cd011b740bdda.zip
-    unzip 320f1637271635840bade21c064cd011b740bdda.zip
-    rm 320f1637271635840bade21c064cd011b740bdda.zip
-    mv bit_vector-320f1637271635840bade21c064cd011b740bdda bit_vector
+    wget https://github.com/leonardt/bit_vector/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv bit_vector-master bit_vector
     cd bit_vector
     sed -i -e 's/f"BitVector({self._value}, {self.num_bits})"/"BitVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
     sed -i -e 's/f"UIntVector({self._value}, {self.num_bits})"/"UIntVector({self_value}, {selfnum_bits})".format(self_value=self._value, selfnum_bits=self.num_bits)/g' bit_vector/bit_vector.py
