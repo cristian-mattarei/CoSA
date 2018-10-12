@@ -98,9 +98,9 @@ class TextTracePrinter(TracePrinter):
                 continue
             varass = (var[0], model[var_0])
             if (self.values_base == HEX) and (var[1].symbol_type().is_bv_type()):
-                varass = (varass[0], dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
+                varass = (varass[0], "%d'h%s"%(var[1].symbol_type().width, dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4))))
             if (self.values_base == BIN) and (var[1].symbol_type().is_bv_type()):
-                varass = (varass[0], dec_to_bin(varass[1].constant_value(), var[1].symbol_type().width))
+                varass = (varass[0], "%d'b%s"%(var[1].symbol_type().width, dec_to_bin(varass[1].constant_value(), int(var[1].symbol_type().width))))
             if self.diff_only: prevass.append(varass)
             trace.append("  I: %s = %s"%(varass[0], varass[1]))
 
@@ -117,9 +117,9 @@ class TextTracePrinter(TracePrinter):
                     continue
                 varass = (var[0], model[var_t])
                 if (self.values_base == HEX) and (var[1].symbol_type().is_bv_type()):
-                    varass = (varass[0], dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4)))
+                    varass = (varass[0], "%d'h%s"%(var[1].symbol_type().width, dec_to_hex(varass[1].constant_value(), int(var[1].symbol_type().width/4))))
                 if (self.values_base == BIN) and (var[1].symbol_type().is_bv_type()):
-                    varass = (varass[0], dec_to_bin(varass[1].constant_value(), var[1].symbol_type().width))
+                    varass = (varass[0], "%d'b%s"%(var[1].symbol_type().width, dec_to_bin(varass[1].constant_value(), int(var[1].symbol_type().width))))
                 if (not self.diff_only) or (prevass[varass[0]] != varass[1]):
                     trace.append("  S%s: %s = %s"%(t+1, varass[0], varass[1]))
                     if self.diff_only: prevass[varass[0]] = varass[1]
