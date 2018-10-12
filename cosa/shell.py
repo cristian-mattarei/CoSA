@@ -174,6 +174,13 @@ def print_problem_result(pbm, config, count=-1):
     return (ret_status, traces)
 
 def run_problems(problems_file, config, problems=None):
+    
+    if sys.version_info[0] < 3:
+        if config.debug:
+            Logger.warning("This software is not tested for Python 2, we recommend to use Python 3 instead")
+        else:
+            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in debug mode")
+
     reset_env()
     Logger.verbosity = config.verbosity
     Logger.time = config.time
@@ -542,9 +549,6 @@ def main():
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
     config.debug = args.debug
-
-    if sys.version_info[0] < 3:
-        Logger.warning("This software is not tested with Python 2, we recommend to use Python 3 instead")
 
     if len(sys.argv)==1:
         parser.print_help()
