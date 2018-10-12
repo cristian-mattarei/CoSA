@@ -980,9 +980,9 @@ class VerilogSTSWalker(VerilogWalker):
 
         if lft_width != rgt_width:
             if lft_width < rgt_width:
-                left = BVConcat(left, BV(0, rgt_width-lft_width))
+                left = BVConcat(BV(0, rgt_width-lft_width), left)
             if lft_width > rgt_width:
-                right = BVConcat(right, BV(0, lft_width-rgt_width))
+                right = BVConcat(BV(0, lft_width-rgt_width), right)
 
         return BVAdd(left, right)
 
@@ -1208,13 +1208,13 @@ class VerilogSTSWalker(VerilogWalker):
 
             if lft_width == rgt_width + 1:
                 fv = get_free_variables(right)
-                right = right.substitute(dict([(v, BVConcat(v, BV(0, 1))) for v in fv]))
+                right = right.substitute(dict([(v, BVConcat(BV(0, 1), v)) for v in fv]))
 
             lft_width = get_type(left).width
             rgt_width = get_type(right).width
 
             if lft_width > rgt_width:
-                right = BVConcat(right, BV(0, lft_width-rgt_width))
+                right = BVConcat(BV(0, lft_width-rgt_width), right)
 
         invar = EqualsOrIff(B2BV(left), B2BV(right))
         self.add_invar(invar)
@@ -1281,6 +1281,13 @@ class VerilogSTSWalker(VerilogWalker):
         width_idx = [el_child.index(p) for p in el_child if type(p) == Width]
 
         portargs = [args[i] for i in portargs_idx]
+
+        l_formalp = len(set([p[0] for p in portargs]))
+        l_actualp = len(set([p[1] for p in portargs]))
+        l_totalp = len(portargs)
+        if len(set([l_formalp, l_actualp, l_totalp])) > 1:
+            Logger.error("Not matching parameter definition, line %d"%(el.lineno))
+        
         if len([p[0] for p in portargs if p[0] is None]) == 0:
             portargs.sort()
         paramargs = [args[i] for i in paramargs_idx]
