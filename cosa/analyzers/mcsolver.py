@@ -22,6 +22,9 @@ from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 from cosa.problem import Trace
 
 
+ESCAPE_CHARS_SMTLIB="[]$"
+
+
 class VerificationStrategy(object):
     FWD = "FWD"
     BWD = "BWD"
@@ -238,7 +241,7 @@ class BMCSolver(object):
                 if v in solver.smt2vars:
                     continue
 
-                if any(char in "[]$" for char in v.symbol_name()):
+                if any(char in ESCAPE_CHARS_SMTLIB for char in v.symbol_name()):
                     # need to use smt-lib quote character "|" if contains special characters
                     symbol_name = "|%s|"%v.symbol_name()
                 else:
