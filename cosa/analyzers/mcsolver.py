@@ -205,6 +205,11 @@ class BMCSolver(object):
         return substitute(formula, self.varmapb_t[t])
     
     def _write_smt2_log(self, solver, line):
+        # don't include any escape characters in smt2 output
+        # they can't be quoted away with "|" and should only
+        # be a part of a name, because auto-generated names don't
+        # use escape characters
+        line = line.replace("\\", "")
         tracefile = solver.trace_file
         if tracefile is not None:
             with open(tracefile, "a") as f:
@@ -232,16 +237,22 @@ class BMCSolver(object):
             for v in formula_fv:
                 if v in solver.smt2vars:
                     continue
-                
+
+                if any(char in "[]$" for char in v.symbol_name()):
+                    # need to use smt-lib quote character "|" if contains special characters
+                    symbol_name = "|%s|"%v.symbol_name()
+                else:
+                    symbol_name = v.symbol_name()
+
                 if v.symbol_type() == BOOL:
-                    self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (v.symbol_name()))
+                    self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (symbol_name))
                 elif v.symbol_type().is_array_type():
                     st = v.symbol_type()
                     assert st.index_type.is_bv_type(), "Expecting BV indices"
                     assert st.elem_type.is_bv_type(), "Expecting BV elements"
-                    self._write_smt2_log(solver, "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))"%(v.symbol_name(), st.index_type.width, st.elem_type.width))
+                    self._write_smt2_log(solver, "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))"%(symbol_name, st.index_type.width, st.elem_type.width))
                 elif v.symbol_type().is_bv_type():
-                    self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                    self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (symbol_name, v.symbol_type().width))
                 else:
                     Logger.error("Unhandled type in smt2 translation")
 
