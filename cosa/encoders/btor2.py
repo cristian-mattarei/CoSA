@@ -81,8 +81,9 @@ class BTOR2Parser(ModelParser):
         return None
 
     def parse_file(self, strfile, config, flags=None):
+        self.symbolic_init = config.symbolic_init
         with open(strfile, "r") as f:
-            return self.parse_string(f.read(), config)
+            return self.parse_string(f.read())
 
     def is_available(self):
         return True
@@ -100,7 +101,7 @@ class BTOR2Parser(ModelParser):
     def remap_or2an(self, name):
         return name
 
-    def parse_string(self, strinput, config):
+    def parse_string(self, strinput):
 
         hts = HTS()
         ts = TS()
@@ -114,8 +115,6 @@ class BTOR2Parser(ModelParser):
 
         invar_props = []
         ltl_props = []
-
-        symbolic_init = config.symbolic_init
 
         def getnode(nid):
             node_covered.add(nid)
@@ -313,7 +312,7 @@ class BTOR2Parser(ModelParser):
             if len(uncovered) > 0:
                 Logger.warning("Unlinked nodes \"%s\""%",".join(uncovered))
 
-        if not symbolic_init:
+        if not self.symbolic_init:
             init = simplify(And(initlist))
         else:
             init = TRUE()
