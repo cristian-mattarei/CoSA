@@ -77,6 +77,9 @@ class BTOR2Parser(ModelParser):
     def __init__(self):
         pass
 
+    def get_model_info(self):
+        return None
+
     def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
             return self.parse_string(f.read(), config)
