@@ -9,8 +9,8 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
-    Implies, BVMul, BVExtract, BVUGT, BVULT, BVULE, Ite, BVZExt, BVXor, BVConcat, get_type, BVSub, \
-    Xor, Select, Store
+    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, Ite, BVZExt, BVXor, BVConcat, get_type, BVSub, \
+    Xor, Select, Store, BVComp, simplify, BVLShl, BVAShr, BVLShr
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import HTS, TS
@@ -44,6 +44,7 @@ SLICE="slice"
 CONST="const"
 CONSTD="constd"
 UGT="ugt"
+UGTE="ugte"
 ULT="ult"
 ULTE="ulte"
 AND="and"
@@ -58,6 +59,9 @@ REDAND="redand"
 UEXT="uext"
 CONCAT="concat"
 SUB="sub"
+SLL="sll"
+SRA="sra"
+SRL="srl"
 
 INIT="init"
 NEXT="next"
@@ -68,13 +72,14 @@ class BTOR2Parser(ModelParser):
     parser = None
     extensions = ["btor2","btor"]
     name = "BTOR2"
-    
+    symbolic_init = False
+
     def __init__(self):
         pass
 
     def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
-            return self.parse_string(f.read())
+            return self.parse_string(f.read(), config)
 
     def is_available(self):
         return True
@@ -92,7 +97,7 @@ class BTOR2Parser(ModelParser):
     def remap_or2an(self, name):
         return name
 
-    def parse_string(self, strinput):
+    def parse_string(self, strinput, config):
 
         hts = HTS()
         ts = TS()
@@ -106,6 +111,8 @@ class BTOR2Parser(ModelParser):
 
         invar_props = []
         ltl_props = []
+
+        symbolic_init = config.symbolic_init
 
         def getnode(nid):
             node_covered.add(nid)
@@ -160,12 +167,12 @@ class BTOR2Parser(ModelParser):
             if ntype == REDOR:
                 width = get_type(getnode(nids[1])).width
                 zeros = BV(0, width)
-                nodemap[nid] = Not(EqualsOrIff(getnode(nids[1]), zeros))
+                nodemap[nid] = BVNot(BVComp(getnode(nids[1]), zeros))
 
             if ntype == REDAND:
                 width = get_type(getnode(nids[1])).width
                 ones = BV((2**width)-1, width)
-                nodemap[nid] = EqualsOrIff(getnode(nids[1]), ones)
+                nodemap[nid] = BVComp(getnode(nids[1]), ones)
 
             if ntype == CONSTD:
                 width = getnode(nids[0]).width
@@ -215,7 +222,7 @@ class BTOR2Parser(ModelParser):
                 nodemap[nid] = binary_op(bvop, bop, getnode(nids[1]), getnode(nids[2]))
 
             if ntype == IMPLIES:
-                nodemap[nid] = Implies(BV2B(getnode(nids[1])), BV2B(getnode(nids[2])))
+                nodemap[nid] = BVOr(BVNot(getnode(nids[1])), getnode(nids[2]))
 
             if ntype == NOT:
                 nodemap[nid] = unary_op(BVNot, Not, getnode(nids[1]))
@@ -235,6 +242,9 @@ class BTOR2Parser(ModelParser):
             if ntype == UGT:
                 nodemap[nid] = BVUGT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
+            if ntype == UGTE:
+                nodemap[nid] = BVUGE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
             if ntype == ULT:
                 nodemap[nid] = BVULT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
@@ -242,16 +252,25 @@ class BTOR2Parser(ModelParser):
                 nodemap[nid] = BVULE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == EQ:
-                nodemap[nid] = EqualsOrIff(getnode(nids[1]), getnode(nids[2]))
+                nodemap[nid] = BVComp(getnode(nids[1]), getnode(nids[2]))
 
             if ntype == NE:
-                nodemap[nid] = Not(EqualsOrIff(getnode(nids[1]), getnode(nids[2])))
+                nodemap[nid] = BVNot(BVComp(getnode(nids[1]), getnode(nids[2])))
 
             if ntype == MUL:
                 nodemap[nid] = BVMul(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == SLICE:
                 nodemap[nid] = BVExtract(B2BV(getnode(nids[1])), int(nids[3]), int(nids[2]))
+
+            if ntype == SLL:
+                nodemap[nid] = BVLShl(getnode(nids[1]), getnode(nids[2]))
+
+            if ntype == SRA:
+                nodemap[nid] = BVAShr(getnode(nids[1]), getnode(nids[2]))
+
+            if ntype == SRL:
+                nodemap[nid] = BVLShr(getnode(nids[1]), getnode(nids[2]))
 
             if ntype == ITE:
                 if (get_type(getnode(nids[2])) == BOOL) or (get_type(getnode(nids[3])) == BOOL):
@@ -290,10 +309,13 @@ class BTOR2Parser(ModelParser):
             uncovered.sort()
             if len(uncovered) > 0:
                 Logger.warning("Unlinked nodes \"%s\""%",".join(uncovered))
-        
-        init = And(initlist)
-        trans = And(translist)
-        invar = And(invarlist)
+
+        if not symbolic_init:
+            init = simplify(And(initlist))
+        else:
+            init = TRUE()
+        trans = simplify(And(translist))
+        invar = simplify(And(invarlist))
 
         ts.set_behavior(init, trans, invar)
         hts.add_ts(ts)
