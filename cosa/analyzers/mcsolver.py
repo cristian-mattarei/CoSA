@@ -31,6 +31,7 @@ class VerificationStrategy(object):
     LTL  = "LTL"
     AUTO = "AUTO"
     ALL = "ALL"
+    MULTI = "MULTI"
 
 class MCConfig(object):
 
@@ -57,14 +58,15 @@ class MCConfig(object):
     @staticmethod
     def get_strategies():
         strategies = []
-        strategies.append((VerificationStrategy.AUTO, "Automatic selection"))
-        strategies.append((VerificationStrategy.FWD,  "Forward reachability"))
-        strategies.append((VerificationStrategy.BWD,  "Backward reachability"))
-        strategies.append((VerificationStrategy.ZZ,   "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((VerificationStrategy.INT,  "Interpolation (not incremental only)"))
-        strategies.append((VerificationStrategy.NU,   "States picking without unrolling (only for simulation)"))
-        strategies.append((VerificationStrategy.LTL,  "Pure LTL verification (without optimizations)"))
-        strategies.append((VerificationStrategy.ALL,  "Use all techniques"))
+        strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
+        strategies.append((VerificationStrategy.MULTI, "Parallel multiple techniques"))
+        strategies.append((VerificationStrategy.FWD,   "Forward reachability"))
+        strategies.append((VerificationStrategy.BWD,   "Backward reachability"))
+        strategies.append((VerificationStrategy.ZZ,    "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((VerificationStrategy.INT,   "Interpolation"))
+        strategies.append((VerificationStrategy.NU,    "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.LTL,   "Pure LTL verification (without optimizations)"))
+        strategies.append((VerificationStrategy.ALL,   "Use all techniques"))
 
         return strategies
 
@@ -149,8 +151,9 @@ class BMCSolver(object):
                                     VerificationStrategy.FWD, \
                                     VerificationStrategy.NU, \
                                     VerificationStrategy.INT, \
-                                    VerificationStrategy.LTL,
-                                    VerificationStrategy.ALL]:
+                                    VerificationStrategy.LTL, \
+                                    VerificationStrategy.ALL, \
+                                    VerificationStrategy.MULTI]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
@@ -267,6 +270,7 @@ class BMCSolver(object):
                                 
 
     def _push(self, solver):
+        Logger.log("Push solver \"%s\""%solver.name, 2)
         if not self.config.skip_solving:
             solver.solver.push()
 
@@ -274,6 +278,7 @@ class BMCSolver(object):
         self._write_smt2_log(solver, "(push 1)")
 
     def _pop(self, solver):
+        Logger.log("Pop solver \"%s\""%solver.name, 2)
         if not self.config.skip_solving:
             solver.solver.pop()
 
@@ -298,6 +303,8 @@ class BMCSolver(object):
                 f.write("(set-logic %s)\n"%self.hts.logic)
 
     def _solve(self, solver):
+        Logger.log("Solve solver \"%s\""%solver.name, 2)
+        
         self._write_smt2_log(solver, "(check-sat)")
         self._write_smt2_log(solver, "")
 
@@ -394,7 +401,12 @@ class BMCSolver(object):
 
         for var in vars:
             for t in range(k+1):
-                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+                if TS.get_ptimed(var, k-t) in model:
+                    val = model[TS.get_ptimed(var, k-t)]
+                else:
+                    val = FALSE() if var.symbol_type() == BOOL else BV(0, var.symbol_type().width)
+                    
+                retmodel[TS.get_timed(var, t)] = val
 
         return retmodel
 
