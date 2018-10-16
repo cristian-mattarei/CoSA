@@ -24,8 +24,6 @@ COMMANDS = []
 COMMANDS.append("read -sysv {FILES} -top {TARGET}")
 COMMANDS.append("write -format verilog {FILE}")
 
-EXPIRED = "asdads"
-
 TMPFILE = "__verific_verilog__.v"
 TMPCMDFILE = "__verific_commands__.txt"
 
@@ -73,6 +71,10 @@ class SystemVerilogVerificParser(ModelParser):
 
         files = [absstrfile]
 
+        with open(strfile, "r") as f:
+            if topmodule not in f.read():
+                Logger.error("Module \"%s\" not found"%topmodule)
+            
         commands = "\n".join(COMMANDS)
         commands = commands.format(FILES=" ".join(files), \
                                    TARGET=topmodule, \

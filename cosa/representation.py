@@ -444,6 +444,13 @@ class TS(object):
         p_trans = substitute(self.trans, remapdic)
         p_invar = substitute(self.invar, remapdic)
 
+        p_ftrans = None
+
+        if self.ftrans is not None:
+            p_ftrans = {}
+            for var, cond_assign_list in self.ftrans.items():
+                p_ftrans[substitute(var, remapdic)] = [(substitute(condition, remapdic), substitute(value, remapdic)) for (condition, value) in cond_assign_list]
+
         self.vars = p_vars
         self.state_vars = p_state_vars
         self.input_vars = p_input_vars
@@ -451,6 +458,7 @@ class TS(object):
         self.hidden_vars = p_hidden_vars
         self.init = p_init
         self.trans = p_trans
+        self.ftrans = p_ftrans
         self.invar = p_invar
 
         return self
