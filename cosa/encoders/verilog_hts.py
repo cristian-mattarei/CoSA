@@ -1282,12 +1282,13 @@ class VerilogSTSWalker(VerilogWalker):
 
         portargs = [args[i] for i in portargs_idx]
 
-        l_formalp = len(set([p[0] for p in portargs]))
-        l_actualp = len(set([p[1] for p in portargs]))
+        l_formalp = len(list([p[0] for p in portargs]))
+        l_actualp = len(list([p[1] for p in portargs]))
         l_totalp = len(portargs)
+
         if len(set([l_formalp, l_actualp, l_totalp])) > 1:
-            Logger.error("Not matching parameter definition, line %d"%(el.lineno))
-        
+            Logger.error("Number of arguments don't match module interface, line %d"%(el.lineno))
+
         if len([p[0] for p in portargs if p[0] is None]) == 0:
             portargs.sort()
         paramargs = [args[i] for i in paramargs_idx]
