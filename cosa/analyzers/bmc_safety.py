@@ -149,28 +149,28 @@ class BMCSafety(BMCSolver):
             
         # Redirecting strategy selection error
         if self.config.strategy == VerificationStrategy.INT:
-            Logger.warning("Interpolation is not available in incremental mode. Switching to not incremental")
-            return self.solve_safety_ninc(hts, prop, k)
+            #Logger.warning("Interpolation is not available in incremental mode. Switching to not incremental")
+            return self.solve_safety_inc_int(hts, prop, k)
             
         Logger.error("Invalid configuration strategy")
 
         return None
+
 
     def solve_safety_int(self, hts, prop, k):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        if TS.has_next(prop):
-            Logger.error("Interpolation does not support properties with next variables")
+        has_next = TS.has_next(prop)
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
-            
+
         itp = Interpolator(logic=get_logic(trans))
         init = And(init, invar)
         nprop = Not(prop)
-        
-        t = 0
+
+        t = 1 if has_next else 0
         while (t < k+1):
             Logger.log("\nSolving for k=%s"%t, 1)
             int_c = 0
@@ -180,7 +180,7 @@ class BMCSafety(BMCSolver):
             trans_t = self.unroll(trans, invar, t, gen_list=True)
             trans_tA = And(trans_t[0]) if t > 0 else TRUE()
             trans_tB = And(trans_t[1:]) if t > 0 else TRUE()
-            
+
             while True:
                 self._reset_assertions(self.solver)
                 Logger.log("Add init and invar", 2)
@@ -188,7 +188,7 @@ class BMCSafety(BMCSolver):
 
                 self._add_assertion(self.solver, And(trans_tA, trans_tB))
 
-                npropt = self.at_time(nprop, t)
+                npropt = self.at_time(nprop, t-1 if has_next else t)
                 Logger.log("Add property time %d"%t, 2)
                 self._add_assertion(self.solver, npropt)
 
@@ -209,7 +209,7 @@ class BMCSafety(BMCSolver):
 
                     Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, npropt)]))
                     Ri = substitute(Ri, map_10)
-                    
+
                     self._reset_assertions(self.solver)
                     self._add_assertion(self.solver, And(Ri, Not(R)))
 
@@ -221,6 +221,90 @@ class BMCSafety(BMCSolver):
                         int_c += 1
 
                     Logger.log("Extending initial states (%s)"%int_c, 1)
+
+            t += 1
+
+        return (t-1, None)
+
+    def solve_safety_inc_int(self, hts, prop, k):
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+
+        self.solver_proof = self.solver.copy("proof")
+
+        has_next = TS.has_next(prop)
+
+        map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
+
+        itp = Interpolator(logic=get_logic(trans))
+        init = And(init, invar)
+        nprop = Not(prop)
+
+        def check_overappr(Ri, R):
+            self._reset_assertions(self.solver_proof)
+            self._add_assertion(self.solver_proof, And(Ri, Not(R)))
+
+            if not self._solve(self.solver_proof):
+                Logger.log("Proof found with k=%s"%(t), 1)
+                return TRUE()
+
+            Logger.log("Extending initial states (%s)"%int_c, 1)
+            return Or(R, Ri)
+
+
+
+        
+        t = 1 if has_next else 0
+        while (t < k+1):
+            Logger.log("\nSolving for k=%s"%t, 1)
+            int_c = 0
+            init_0 = self.at_time(init, 0)
+            R = init_0
+
+            # trans_t is composed as trans_i, invar_i, trans_i+1, invar_i+1, ...
+
+            trans_t = self.unroll(trans, invar, t, gen_list=True)
+            
+            trans_tA = And(trans_t[:2]) if t > 0 else TRUE()
+            trans_tB = And(trans_t[1:]) if t > 0 else TRUE()
+
+            while True:
+                self._reset_assertions(self.solver)
+                Logger.log("Add init and invar", 2)
+                self._add_assertion(self.solver, R)
+
+                self._add_assertion(self.solver, And(trans_tA, trans_tB))
+
+                npropt = self.at_time(nprop, t-1 if has_next else t)
+                Logger.log("Add property time %d"%t, 2)
+                self._add_assertion(self.solver, npropt)
+
+                if self._solve(self.solver):
+                    if R == init_0:
+                        Logger.log("Counterexample found with k=%s"%(t), 1)
+                        model = self._get_model(self.solver)
+                        return (t, model)
+                    else:
+                        Logger.log("No counterexample or proof found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
+                        break
+                else:
+                    if len(trans_t) < 2:
+                        Logger.log("No counterexample found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
+                        break
+
+                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
+                    Ri = substitute(Ri, map_10)
+
+                    res = check_overappr(Ri, R)
+                    if res == TRUE():
+                        Logger.log("Proof found with k=%s"%(t), 1)
+                        return (t, True)
+
+                    R = res
+                    int_c += 1
 
             t += 1
 
