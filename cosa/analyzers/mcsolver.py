@@ -218,15 +218,19 @@ class BMCSolver(object):
     def _write_smt2_comment(self, solver, line):
         return self._write_smt2_log(solver, ";; %s"%line)
 
+
+    def _formula_to_smt2(self, formula):
+        buf = cStringIO()
+        printer = SmtPrinter(buf)
+        printer.printer(formula)
+        return buf.getvalue()
+    
     def _add_assertion(self, solver, formula, comment=None):
         if not self.config.skip_solving:
             solver.solver.add_assertion(formula)
 
         if Logger.level(3):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue()+"\n")
+            print(self.formula_to_smt2(formula)+"\n")
 
         if solver.trace_file is not None:
             if comment:
@@ -238,10 +242,7 @@ class BMCSolver(object):
                 if v in solver.smt2vars:
                     continue
 
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(v)
-                symbol_name = buf.getvalue()
+                symbol_name = self._formula_to_smt2(v)
 
                 if v.symbol_type() == BOOL:
                     self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (symbol_name))
@@ -262,15 +263,9 @@ class BMCSolver(object):
 
             if formula.is_and():
                 for f in conjunctive_partition(formula):
-                    buf = cStringIO()
-                    printer = SmtPrinter(buf)
-                    printer.printer(f)
-                    self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
+                    self._write_smt2_log(solver, "(assert %s)"%self._formula_to_smt2(f))
             else:
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(formula)
-                self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
+                self._write_smt2_log(solver, "(assert %s)"%self._formula_to_smt2(formula))
 
             if comment:
                 self._write_smt2_comment(solver, "%s: END"%comment)
