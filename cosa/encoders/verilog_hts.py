@@ -506,8 +506,7 @@ class VerilogSTSWalker(VerilogWalker):
                 self.ts.add_output_var(var)
                 self.outputlist.append(var)
             elif type(direction) == Reg:
-                if var not in self.ts.output_vars:
-                    self.ts.add_state_var(var)
+                self.ts.add_state_var(var)
             else:
                 self.ts.add_var(var)
 
