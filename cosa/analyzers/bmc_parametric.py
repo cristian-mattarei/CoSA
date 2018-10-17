@@ -136,6 +136,7 @@ class BMCParametric(BMCSafety):
                             
                             self.config.prove = True
                             (t, status) = self.solve_safety(self.hts, Or(prop, bound_constr), k, max(k_min, k-step))
+
                             if status == True:
                                 end = True
                                 break
@@ -157,8 +158,8 @@ class BMCParametric(BMCSafety):
                     
                     self.config.prove = False
                     (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, bound_constr), k_max, k_min, all_vars=False, generalize=generalize)
-
-                    if simplify(self.region) in [TRUE(), FALSE()]:
+                    
+                    if simplify(self.region) == TRUE():
                         break
                     
                     if (prev_cs_count == self.cs_count):
