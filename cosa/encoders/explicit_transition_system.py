@@ -150,7 +150,6 @@ class ExplicitTSParser(ModelParser):
                     state = TRUE() if line.init.value == T_TRUE else FALSE()
                 
                 states[T_I] = And(states[T_I], state)
-                init = And(init, state)
                 
             state = TRUE()
             if line.state:
