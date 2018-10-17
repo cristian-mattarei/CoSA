@@ -77,7 +77,7 @@ class TraceSolver(object):
     solver = None
     smt2vars = None
     smt2vars_inc = None
-    
+
     def __init__(self, solver_name, name, basename=None):
         self.solver_name = solver_name
         self.name = name
@@ -94,7 +94,7 @@ class TraceSolver(object):
 
     def copy(self, name=None):
         return TraceSolver(self.solver_name, self.name if name is None else name, self.basename)
-        
+
 class BMCSolver(object):
 
     def __init__(self, hts, config):
@@ -132,9 +132,9 @@ class BMCSolver(object):
 
         if gen_list:
             return formula
-            
+
         return And(formula)
-        
+
     def _remap_model(self, vars, model, k):
         if model is None:
             return model
@@ -155,7 +155,7 @@ class BMCSolver(object):
 
         Logger.error("Invalid configuration strategy")
         return None
-        
+
     def _init_at_time(self, vars, maxtime):
 
         previous = self.config.strategy != VerificationStrategy.FWD
@@ -165,7 +165,7 @@ class BMCSolver(object):
 
         if self.varmapb_t is not None:
             del(self.varmapb_t)
-            
+
         self.varmapf_t = {}
         self.varmapb_t = {}
 
@@ -203,8 +203,13 @@ class BMCSolver(object):
 
     def at_ptime(self, formula, t):
         return substitute(formula, self.varmapb_t[t])
-    
+
     def _write_smt2_log(self, solver, line):
+        # don't include any escape characters in smt2 output
+        # they can't be quoted away with "|" and should only
+        # be a part of a name, because auto-generated names don't
+        # use escape characters
+        line = line.replace("\\", "")
         tracefile = solver.trace_file
         if tracefile is not None:
             with open(tracefile, "a") as f:
@@ -213,35 +218,41 @@ class BMCSolver(object):
     def _write_smt2_comment(self, solver, line):
         return self._write_smt2_log(solver, ";; %s"%line)
 
+
+    def _formula_to_smt2(self, formula):
+        buf = cStringIO()
+        printer = SmtPrinter(buf)
+        printer.printer(formula)
+        return buf.getvalue()
+    
     def _add_assertion(self, solver, formula, comment=None):
         if not self.config.skip_solving:
             solver.solver.add_assertion(formula)
 
         if Logger.level(3):
-            buf = cStringIO()
-            printer = SmtPrinter(buf)
-            printer.printer(formula)
-            print(buf.getvalue()+"\n")
+            print(self.formula_to_smt2(formula)+"\n")
 
         if solver.trace_file is not None:
             if comment:
                 self._write_smt2_comment(solver, "%s: START"%comment)
 
             formula_fv = get_free_variables(formula)
-                
+
             for v in formula_fv:
                 if v in solver.smt2vars:
                     continue
-                
+
+                symbol_name = self._formula_to_smt2(v)
+
                 if v.symbol_type() == BOOL:
-                    self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (v.symbol_name()))
+                    self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (symbol_name))
                 elif v.symbol_type().is_array_type():
                     st = v.symbol_type()
                     assert st.index_type.is_bv_type(), "Expecting BV indices"
                     assert st.elem_type.is_bv_type(), "Expecting BV elements"
-                    self._write_smt2_log(solver, "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))"%(v.symbol_name(), st.index_type.width, st.elem_type.width))
+                    self._write_smt2_log(solver, "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))"%(symbol_name, st.index_type.width, st.elem_type.width))
                 elif v.symbol_type().is_bv_type():
-                    self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (v.symbol_name(), v.symbol_type().width))
+                    self._write_smt2_log(solver, "(declare-fun %s () (_ BitVec %s))" % (symbol_name, v.symbol_type().width))
                 else:
                     Logger.error("Unhandled type in smt2 translation")
 
@@ -252,19 +263,13 @@ class BMCSolver(object):
 
             if formula.is_and():
                 for f in conjunctive_partition(formula):
-                    buf = cStringIO()
-                    printer = SmtPrinter(buf)
-                    printer.printer(f)
-                    self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
+                    self._write_smt2_log(solver, "(assert %s)"%self._formula_to_smt2(f))
             else:
-                buf = cStringIO()
-                printer = SmtPrinter(buf)
-                printer.printer(formula)
-                self._write_smt2_log(solver, "(assert %s)"%buf.getvalue())
+                self._write_smt2_log(solver, "(assert %s)"%self._formula_to_smt2(formula))
 
             if comment:
                 self._write_smt2_comment(solver, "%s: END"%comment)
-                                
+
 
     def _push(self, solver):
         if not self.config.skip_solving:
@@ -285,7 +290,7 @@ class BMCSolver(object):
             return dict(solver.solver.get_model())
 
         return dict([(v, solver.solver.get_value(v)) for v in relevant_vars])
-        
+
     def _reset_assertions(self, solver, clear=False):
         if clear:
             solver.clear()
@@ -314,7 +319,7 @@ class BMCSolver(object):
             Logger.log("Total time solve: %.2f sec"%self.total_time, 1)
 
         return r
-                
+
 
     def _check_lemma(self, hts, lemma, init, trans):
 
@@ -330,16 +335,16 @@ class BMCSolver(object):
             if res:
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
                 return False
-            
+
             Logger.log("Lemma \"%s\" holds for I -> L"%lemma, 2)
             return True
 
-    
+
     def _suff_lemmas(self, prop, lemmas):
         self._reset_assertions(self.solver)
 
         self._add_assertion(self.solver, And(And(lemmas), Not(prop)))
-        
+
         if self._solve(self.solver):
             return False
 
@@ -353,7 +358,7 @@ class BMCSolver(object):
 
         h_init = hts.single_init()
         h_trans = hts.single_trans()
-        
+
         holding_lemmas = []
         lindex = 1
         nlemmas = len(lemmas)
@@ -368,7 +373,7 @@ class BMCSolver(object):
                 holding_lemmas.append(lemma)
                 hts.add_assumption(lemma)
                 hts.reset_formulae()
-                
+
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
@@ -376,16 +381,16 @@ class BMCSolver(object):
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
                 flemmas += 1
-                
+
             msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
-            Logger.inline(msg, 0, not(Logger.level(1))) 
+            Logger.inline(msg, 0, not(Logger.level(1)))
             lindex += 1
-            
+
         Logger.clear_inline(0, not(Logger.level(1)))
-        
+
         hts.assumptions = And(holding_lemmas)
         return (hts, False)
-    
+
     def _remap_model_fwd(self, vars, model, k):
         return model
 
@@ -418,6 +423,5 @@ class BMCSolver(object):
         trace.length = length
         trace.infinite = find_loop
         trace.prop_vars = xvars
-        
+
         return trace
-    
