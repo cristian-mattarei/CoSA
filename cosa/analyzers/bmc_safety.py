@@ -129,8 +129,10 @@ class BMCSafety(BMCSolver):
         return None
 
     def _check_mt_status(self, status):
-        if (status is not None) and (len(status) > 0):
-            return True
+        if (status is not None) and (len(status.keys()) > 0):
+            (t, model) = [val for key,val in status.items() if val is not None][0]
+            if (model != None):
+                return True
         return False
     
     def _run_as_process(self, function, name, ret, *args):
@@ -228,8 +230,8 @@ class BMCSafety(BMCSolver):
             R = init_0
 
             trans_t = self.unroll(trans, invar, t, gen_list=True)
-            trans_tA = And(trans_t[0]) if t > 0 else TRUE()
-            trans_tB = And(trans_t[1:]) if t > 0 else TRUE()
+            trans_tA = And(trans_t[:2]) if t > 0 else TRUE()
+            trans_tB = And(trans_t[2:]) if t > 0 else TRUE()
 
             while True:
                 self._reset_assertions(self.solver)
@@ -308,22 +310,19 @@ class BMCSafety(BMCSolver):
         t = 1 if has_next else 0
 
         trans_t = self.unroll(trans, invar, k, gen_list=True)
-        trans_tAl = trans_t[:2]
-        trans_tA = And(trans_tAl)
+
+        pivot = 2
+        trans_tA = And(trans_t[:pivot])
+        init_0 = self.at_time(init, 0)
 
         self._reset_assertions(solver)
         
         while (t < k+1):
             Logger.log("\nSolving for k=%s"%t, 1)
             int_c = 0
-            init_0 = self.at_time(init, 0)
             R = init_0
 
             # trans_t is composed as trans_i, invar_i, trans_i+1, invar_i+1, ...
-
-            trans_tBl = trans_t[1:(t*2)]
-            trans_tB = And(trans_tBl) if t > 0 else TRUE()
-
             self._add_assertion(solver, trans_t[2*t])
             self._add_assertion(solver, trans_t[(2*t)+1])
             
@@ -357,6 +356,8 @@ class BMCSafety(BMCSolver):
 
                     Logger.log("Interpolation at k=%s"%(t), 2)
                     if self._check_mt_status(mt_status): return None
+
+                    trans_tB = And(trans_t[pivot:(t*2)])
                     Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
                     Ri = substitute(Ri, map_10)
 

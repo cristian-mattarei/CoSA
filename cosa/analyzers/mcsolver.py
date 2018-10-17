@@ -402,11 +402,7 @@ class BMCSolver(object):
         for var in vars:
             for t in range(k+1):
                 if TS.get_ptimed(var, k-t) in model:
-                    val = model[TS.get_ptimed(var, k-t)]
-                else:
-                    val = FALSE() if var.symbol_type() == BOOL else BV(0, var.symbol_type().width)
-                    
-                retmodel[TS.get_timed(var, t)] = val
+                    retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
 
         return retmodel
 
