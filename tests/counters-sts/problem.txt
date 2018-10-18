@@ -38,13 +38,13 @@ verification: safety
 strategy: BWD
 expected: Unknown
 
-[counter_out-INT]
-description: "Check that the out is always < 12"
-formula: out < 12_8
-prove: True
-verification: safety
-strategy: INT
-expected: True
+# [counter_out-INT]
+# description: "Check that the out is always < 12"
+# formula: out < 12_8
+# prove: True
+# verification: safety
+# strategy: INT
+# expected: True
 
 [counter_out-MULTI]
 description: "Check that the out is always < 12"
