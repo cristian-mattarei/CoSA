@@ -15,26 +15,9 @@ strategy: FWD
 prove: True
 expected: False
 
-[Counters-EQ-FWD-INC]
-description: "Two counters are always equal"
-formula: count0.r.reg0.out = count1.r.reg0.out
-verification: safety
-strategy: FWD
-prove: True
-expected: False
-
 [Counter0-LT18-FWD]
 description: "Counter 0 is always less than 18"
 formula: count0.r.reg0.out < 18_16
-verification: safety
-incremental: False
-strategy: FWD
-prove: True
-expected: False
-
-[Counters-EQ-FWD]
-description: "Two counters are always equal"
-formula: count0.r.reg0.out = count1.r.reg0.out
 verification: safety
 incremental: False
 strategy: FWD
@@ -49,19 +32,52 @@ strategy: BWD
 prove: True
 expected: False
 
-[Counters-EQ-BWD]
-description: "Two counters are always equal"
-formula: count0.r.reg0.out = count1.r.reg0.out
-verification: safety
-strategy: BWD
-prove: True
-expected: False
-
 [Counter0-LT18-ZZ]
 description: "Counter 0 is always less than 18"
 formula: count0.r.reg0.out < 18_16
 verification: safety
 strategy: ZZ
+prove: True
+expected: False
+
+[Counter0-LT18-INT]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: INT
+incremental: False
+expected: False
+
+[Counter0-LT18-MULTI]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: MULTI
+prove: True
+expected: False
+
+[Counters-EQ-FWD-INC]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: FWD
+prove: True
+expected: False
+
+[Counters-EQ-FWD]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+incremental: False
+strategy: FWD
+prove: True
+expected: False
+
+[Counters-EQ-BWD]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: BWD
 prove: True
 expected: False
 
@@ -72,6 +88,15 @@ verification: safety
 strategy: ZZ
 prove: True
 expected: False
+
+[Counters-EQ-MULTI]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: MULTI
+prove: True
+expected: False
+
 
 [Counters-SIM]
 description: "Simulation"
@@ -86,28 +111,13 @@ verification: simulation
 strategy: NU
 expected: True
 
-[Counter1-LT19]
-description: "Counter 1 is always less than 18"
-formula: count1.r.reg0.out < 19_16
-verification: safety
-prove: True
-expected: True
-
-[Counter0-LT18-INT]
-description: "Counter 0 is always less than 18"
-formula: count0.r.reg0.out < 18_16
-verification: safety
-strategy: INT
-incremental: False
-expected: False
-
 [Counters-EQ-INT]
 description: "Two counters are always equal"
 formula: count0.r.reg0.out = count1.r.reg0.out
 verification: safety
 prove: True
 strategy: INT
-incremental: False
+#incremental: False
 expected: False
 
 [Counter1-LT19-INT]
@@ -116,5 +126,38 @@ formula: count1.r.reg0.out < 19_16
 verification: safety
 prove: True
 strategy: INT
-incremental: False
+#incremental: False
 expected: True
+
+[Counter1-LT19-FWD]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
+verification: safety
+strategy: FWD
+prove: True
+expected: True
+
+[Counter1-LT19-BWD]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
+verification: safety
+strategy: BWD
+prove: True
+expected: Unknown
+
+[Counter1-LT19-ZZ]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
+verification: safety
+strategy: ZZ
+prove: True
+expected: Unknown
+
+[Counter1-LT19-MULTI]
+description: "Counter 1 is always less than 18"
+formula: count1.r.reg0.out < 19_16
+verification: safety
+strategy: MULTI
+prove: True
+expected: True
+

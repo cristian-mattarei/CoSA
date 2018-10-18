@@ -6,12 +6,44 @@ assume_if_true: True
 bmc_length: 40
 assumptions: posedge(rst) -> ((counter_1.out > 1_8) & (counter_2.out > 1_8))
 
-[counter_out]
+[counter_out-ALL]
 description: "Check that the out is always < 12"
 formula: out < 12_8
 prove: True
 verification: safety
 strategy: ALL
+expected: True
+
+[counter_out-FWD]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: FWD
+expected: True
+
+[counter_out-BWD]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: BWD
+expected: Unknown
+
+[counter_out-ZZ]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: BWD
+expected: Unknown
+
+[counter_out-MULTI]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: MULTI
 expected: True
 
 [counter_2_reaches_1]

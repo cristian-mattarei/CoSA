@@ -222,6 +222,8 @@ class BMCSafety(BMCSolver):
         init = And(init, invar)
         nprop = Not(prop)
 
+        pivot = 2
+        
         t = 1 if has_next else 0
         while (t < k+1):
             Logger.log("\nSolving for k=%s"%t, 1)
@@ -230,8 +232,8 @@ class BMCSafety(BMCSolver):
             R = init_0
 
             trans_t = self.unroll(trans, invar, t, gen_list=True)
-            trans_tA = And(trans_t[:2]) if t > 0 else TRUE()
-            trans_tB = And(trans_t[2:]) if t > 0 else TRUE()
+            trans_tA = And(trans_t[:pivot]) if t > 0 else TRUE()
+            trans_tB = And(trans_t[pivot:]) if t > 0 else TRUE()
 
             while True:
                 self._reset_assertions(self.solver)
