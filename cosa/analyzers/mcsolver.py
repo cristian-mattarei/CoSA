@@ -233,7 +233,7 @@ class BMCSolver(object):
             solver.solver.add_assertion(formula)
 
         if Logger.level(3):
-            print(self.formula_to_smt2(formula)+"\n")
+            print(self._formula_to_smt2(formula)+"\n")
 
         if solver.trace_file is not None:
             if comment:
