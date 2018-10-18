@@ -1,0 +1,57 @@
+[GENERAL]
+model_file: counters.json
+abstract_clock: True
+add_clock: True
+boolean: True
+
+[DEFAULT]
+bmc_length: 20
+smt2_tracing: /tmp/tracing.smt2
+
+[Counter0-LT18-FWD-INC]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: FWD
+prove: True
+expected: False
+
+[Counter0-LT18-FWD]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+incremental: False
+strategy: FWD
+prove: True
+expected: False
+
+[Counter0-LT18-BWD]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: BWD
+prove: True
+expected: False
+
+[Counter0-LT18-ZZ]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: ZZ
+prove: True
+expected: False
+
+[Counter0-LT18-INT]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: INT
+expected: False
+
+[Counter0-LT18-MULTI]
+description: "Counter 0 is always less than 18"
+formula: count0.r.reg0.out < 18_16
+verification: safety
+strategy: MULTI
+prove: True
+expected: False

@@ -318,6 +318,7 @@ class BMCSafety(BMCSolver):
         init_0 = self.at_time(init, 0)
 
         is_sat = True
+        Ri = None
 
         self._reset_assertions(solver)
         
@@ -361,16 +362,11 @@ class BMCSafety(BMCSolver):
                         self._pop(solver)
                         break
                 else:
-                    if t < 1:
-                        Logger.log("No counterexample found with k=%s"%(t), 1)
-                        Logger.msg(".", 0, not(Logger.level(1)))
-                        self._pop(solver)
+                    self._pop(solver)
+                    if Ri is None:
                         break
 
                     Ri = substitute(Ri, map_10)
-
-                    self._pop(solver)
-                    
                     res = check_overappr(Ri, R)
                     if self._check_mt_status(mt_status): return None
                     

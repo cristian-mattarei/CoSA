@@ -1,0 +1,58 @@
+[GENERAL]
+model_file: counters.json
+abstract_clock: True
+add_clock: True
+boolean: True
+
+[DEFAULT]
+bmc_length: 20
+smt2_tracing: /tmp/tracing.smt2
+
+[Counters-EQ-FWD-INC]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: FWD
+prove: True
+expected: False
+
+[Counters-EQ-FWD]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+incremental: False
+strategy: FWD
+prove: True
+expected: False
+
+[Counters-EQ-BWD]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: BWD
+prove: True
+expected: False
+
+[Counters-EQ-ZZ]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: ZZ
+prove: True
+expected: False
+
+[Counters-EQ-MULTI]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+strategy: MULTI
+prove: True
+expected: False
+
+[Counters-EQ-INT]
+description: "Two counters are always equal"
+formula: count0.r.reg0.out = count1.r.reg0.out
+verification: safety
+prove: True
+strategy: INT
+expected: False
