@@ -23,7 +23,7 @@ def runtest(example):
     config = Config()
 
     config.safety = True
-    config.verbosity = 3
+    config.verbosity = 2
     config.solver_name = "msat"
     config.prove = True
     config.vcd = True
