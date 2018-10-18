@@ -21,6 +21,7 @@ L_ABV = "QF_ABV"
 L_BV = "QF_BV"
 
 FLATTEN = "FLATTEN"
+LINKS = FLATTEN+"_LINKS"
 
 apply_prefix = lambda name, prefix: ".".join(name.split(".")[:-1]+[prefix+name.split(".")[-1]])
 
@@ -145,7 +146,7 @@ class HTS(object):
         self.update_logic(ts.logic)
 
     def remove_ts(self, name):
-        self.tss = set([ts for ts in self.tss if ts.comment != name])
+        self.tss = set([ts for ts in self.tss if name not in ts.comment])
         
     def add_assumption(self, assumption):
         if self.assumptions is None:
@@ -166,8 +167,8 @@ class HTS(object):
         for ts in self.tss:
             ts.remove_invar()
 
-    def single_init(self):
-        if self._s_init is None:
+    def single_init(self, rebuild=False):
+        if (self._s_init is None) or rebuild:
             self._s_init = TRUE()
             for ts in self.tss:
                 init = ts.init
@@ -176,13 +177,14 @@ class HTS(object):
 
         return self._s_init
 
-    def single_trans(self):
-        if self._s_trans is None:
+    def single_trans(self, rebuild=False, include_ftrans=True):
+        if (self._s_trans is None) or (rebuild):
             self._s_trans = TRUE()
             for ts in self.tss:
-                ftrans = ts.compile_ftrans()
-                if ftrans is not None:
-                    self._s_trans = And(self._s_trans, ftrans[1])
+                if include_ftrans:
+                    ftrans = ts.compile_ftrans()
+                    if ftrans is not None:
+                        self._s_trans = And(self._s_trans, ftrans[1])
                 trans = ts.trans
                 if trans is not None:
                     self._s_trans = And(self._s_trans, trans)
@@ -211,8 +213,7 @@ class HTS(object):
         self._s_trans = None
 
         for sub in self.subs:
-            instance, actual, module = sub
-            module.reset_formulae()
+            sub[2].reset_formulae()
 
     def reset_flatten(self):
         self.is_flatten = False
@@ -221,12 +222,11 @@ class HTS(object):
         self._s_trans = None
 
         self.remove_ts(FLATTEN)
-        
+
+        self.reset_formulae()
+
         for sub in self.subs:
-            instance, actual, module = sub
-            module.reset_formulae()
-            module.is_flatten = False
-            module.remove_ts(FLATTEN)
+            sub[2].reset_flatten()
             
     def combine(self, other_hts):
         for ts in other_hts.tss:
@@ -310,13 +310,13 @@ class HTS(object):
                     vardic[module_var] = modulevar
                 links = And(links, EqualsOrIff(local_expr, vardic[module_var]))
                 
-            ts = TS("LINKS")
+            ts = TS(LINKS)
             ts.invar = links
             self.add_ts(ts)
 
-        s_init = self.single_init()
-        s_invar = self.single_invar()
-        s_trans = self.single_trans()
+        s_init = self.single_init(rebuild=True)
+        s_invar = self.single_invar(rebuild=True)
+        s_trans = self.single_trans(rebuild=True)
         
         replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
                            [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) for v in self.vars])
@@ -501,7 +501,7 @@ class TS(object):
         ret_trans = TRUE()
         ret_invar = TRUE()
         
-        use_ites = False
+        use_ites = True
 
         if use_ites:
             for var, cond_assign_list in self.ftrans.items():

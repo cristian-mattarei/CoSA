@@ -18,7 +18,7 @@ from cosa.printers.template import HIDDEN_VAR
 
 #NOMIN = HIDDEN_VAR+"%s_REF_"
 NOMIN = "%s_REF_"
-FAIL = "|FAILURE|"
+FAIL = "$FAILURE$"
 FAULT = "%s"+FAIL
 
 class ModelExtension(object):
@@ -51,6 +51,8 @@ class ModelExtension(object):
 
         for sub in hts.subs:
             ModelExtension.extend_all(sub[2], modifier)
+
+        return hts
 
     @staticmethod
     def get_parameters(hts):
