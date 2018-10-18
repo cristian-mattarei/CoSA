@@ -261,7 +261,7 @@ class BMCSafety(BMCSolver):
                         Logger.msg(".", 0, not(Logger.level(1)))
                         break
 
-                    Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, npropt)]))
+                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
                     Ri = substitute(Ri, map_10)
 
                     self._reset_assertions(self.solver)
@@ -317,6 +317,8 @@ class BMCSafety(BMCSolver):
         trans_tA = And(trans_t[:pivot])
         init_0 = self.at_time(init, 0)
 
+        is_sat = True
+
         self._reset_assertions(solver)
         
         while (t < k+1):
@@ -337,9 +339,18 @@ class BMCSafety(BMCSolver):
                 Logger.log("Add property time %d"%t, 2)
                 self._add_assertion(solver, npropt)
 
+
+                Logger.log("Interpolation at k=%s"%(t), 2)
+                if self._check_mt_status(mt_status): return None
+
+                if t > 0:
+                    trans_tB = And(trans_t[pivot:(t*2)])
+                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
+                    is_sat = Ri == None
+
                 if self._check_mt_status(mt_status): return None
                 
-                if self._solve(solver):
+                if is_sat and self._solve(solver):
                     if R == init_0:
                         Logger.log("Counterexample found with k=%s"%(t), 1)
                         model = self._get_model(solver)
@@ -356,11 +367,6 @@ class BMCSafety(BMCSolver):
                         self._pop(solver)
                         break
 
-                    Logger.log("Interpolation at k=%s"%(t), 2)
-                    if self._check_mt_status(mt_status): return None
-
-                    trans_tB = And(trans_t[pivot:(t*2)])
-                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
                     Ri = substitute(Ri, map_10)
 
                     self._pop(solver)
