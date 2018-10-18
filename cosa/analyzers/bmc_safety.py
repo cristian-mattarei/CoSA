@@ -604,10 +604,7 @@ class BMCSafety(BMCSolver):
                         Logger.warning("Current solver does not support preferred variables")
                         self.preferred = None
 
-                #print("A")
-                res = self._solve(solver)
-                #print("B")
-                if res:
+                if self._solve(solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
                     model = self._get_model(solver)
 
