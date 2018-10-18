@@ -19,7 +19,7 @@ testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
 
 problem_files = []
 for testdir in testdirs:
-    for problem in [p for p in list(os.walk(testdirs[0]))[0][2] if "problem" in p]:
+    for problem in [p for p in list(os.walk(testdir))[0][2] if "problem" in p and ".txt" == p[-4:]]:
         problem_files.append("%s/%s"%(testdir, problem))
     
 def runtest(problem_file):
