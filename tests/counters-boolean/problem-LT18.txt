@@ -41,12 +41,12 @@ strategy: ZZ
 prove: True
 expected: False
 
-[Counter0-LT18-INT]
-description: "Counter 0 is always less than 18"
-formula: count0.r.reg0.out < 18_16
-verification: safety
-strategy: INT
-expected: False
+# [Counter0-LT18-INT]
+# description: "Counter 0 is always less than 18"
+# formula: count0.r.reg0.out < 18_16
+# verification: safety
+# strategy: INT
+# expected: False
 
 [Counter0-LT18-MULTI]
 description: "Counter 0 is always less than 18"
