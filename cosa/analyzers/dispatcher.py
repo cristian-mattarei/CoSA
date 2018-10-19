@@ -617,6 +617,7 @@ class ProblemSolver(object):
         mc_config.incremental = config_selection(problem.incremental, config.incremental)
         mc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
         mc_config.solver_name = config_selection(problem.solver_name, config.solver_name)
+        mc_config.solver_options = config_selection(problem.solver_options, config.solver_options)
         mc_config.prove = config_selection(problem.prove, config.prove)
 
         return mc_config

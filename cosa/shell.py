@@ -70,6 +70,8 @@ class Config(object):
     add_clock = False
     skip_solving = False
     solver_name = "msat"
+    solver_options = {}
+
     vcd = False
     prove = False
     incremental = True
@@ -598,6 +600,11 @@ def main():
         devel_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
                            help='generates the smtlib2 tracing file for each solver call.')
 
+        devel_params.set_defaults(solver_options=config.solver_options)
+        devel_params.add_argument('--solver-options', metavar='[key:value options]', type=str, required=False,
+                            help='space delimited key:value pairs to set specific SMT solver options (EXPERTS ONLY)')
+
+
     args = parser.parse_args()
 
     config.strfiles = args.input_files
@@ -630,6 +637,9 @@ def main():
     config.vcd = args.vcd
     config.prove = args.prove
     config.solver_name = args.solver_name
+    if args.devel and args.solver_options:
+        # interpret string as a dictionary
+        config.solver_options = dict([tuple([item.strip() for item in kvpair.split(":")]) for kvpair in args.solver_options.split()])
     config.incremental = not args.ninc
     config.time = args.time
     config.add_clock = args.add_clock
