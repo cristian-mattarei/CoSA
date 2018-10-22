@@ -207,7 +207,8 @@ class STSHTSPrinter(HTSPrinter):
                 cp = list(conjunctive_partition(formula))
                 if self.simplify:
                     cp = self._simplify_cp(cp)
-    
+
+                cp = [x for x in cp if x.is_equals()]+[x for x in cp if not x.is_equals()]
                 for i in range(len(cp)):
                     f = cp[i]
                     if self.simplify:

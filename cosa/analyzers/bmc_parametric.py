@@ -42,15 +42,19 @@ class BMCParametric(BMCSafety):
     
     def _get_param_assignments(self, model, time, parameters, monotonic=True):
         p_ass = []
+
+        fwd = False
+        
         for p in parameters:
+            p_time = model[TS.get_ptimed(p, 0)]
             if p.symbol_type() == BOOL:
                 if monotonic:
-                    if model[TS.get_timed(p, time)] == TRUE():
+                    if p_time == TRUE():
                         p_ass.append(p)
                 else:
-                    p_ass.append(p if model[TS.get_timed(p, time)] == TRUE() else Not(p))
+                    p_ass.append(p if p_time == TRUE() else Not(p))
             else:
-                p_ass.append(EqualsOrIff(p, model[TS.get_timed(p, time)]))
+                p_ass.append(EqualsOrIff(p, p_time))
 
         p_ass = And(p_ass)
         self.region = simplify(Or(self.region, p_ass))
@@ -62,6 +66,7 @@ class BMCParametric(BMCSafety):
         Logger.msg("+", 0, not(Logger.level(1)))
         self.cs_count += 1
         Logger.log("Found assignment \"%s\""%(p_ass.serialize(threshold=100)), 1)
+
         return (p_ass, False)
 
     def parametric_safety(self, prop, k_max, k_min, parameters, monotonic=True, at_most=-1):
@@ -73,9 +78,9 @@ class BMCParametric(BMCSafety):
 
         monotonic = True
 
-        if monotonic:
-            for p in parameters:
-                self.set_preferred((p, False))
+        # if monotonic:
+        #     for p in parameters:
+        #         self.set_preferred((p, False))
         
         self.region = FALSE()
 
@@ -95,7 +100,8 @@ class BMCParametric(BMCSafety):
         k = step
         end = False
         has_next = TS.has_next(prop)
-        
+
+
         # Strategy selection
         increase_k = False
         
@@ -115,7 +121,7 @@ class BMCParametric(BMCSafety):
                         bound_constr = bound_constr if not has_next else Or(bound_constr, TS.to_next(bound_constr))
                         
                         self.config.prove = False
-                        (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, bound_constr), k, max(k_min, k-step), all_vars=False, generalize=generalize)
+                        (t, status) = self.solve_safety_inc_bwd(self.hts, Or(prop, bound_constr), k, generalize=generalize)
 
                         if (prev_cs_count == self.cs_count):
                             same_res_counter += 1
@@ -157,7 +163,7 @@ class BMCParametric(BMCSafety):
                     bound_constr = bound_constr if not has_next else Or(bound_constr, TS.to_next(bound_constr))
                     
                     self.config.prove = False
-                    (t, status) = self.solve_safety_inc_fwd(self.hts, Or(prop, bound_constr), k_max, k_min, all_vars=False, generalize=generalize)
+                    (t, status) = self.solve_safety_inc_bwd(self.hts, Or(prop, bound_constr), k_max, generalize=generalize)
                     
                     if simplify(self.region) == TRUE():
                         break
