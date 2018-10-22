@@ -26,6 +26,5 @@ formula: sb.end -> (sb.packet = output)
 generators: sb=FixedScoreboard(input, 6, posedge(clk))
 verification: safety
 strategy: INT
-incremental: False
 prove: True
 expected: True
