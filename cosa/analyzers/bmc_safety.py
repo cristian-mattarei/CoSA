@@ -333,7 +333,7 @@ class BMCSafety(BMCSolver):
 
         t = 1 if has_next else 0
 
-        trans_t = self.unroll(trans, invar, k, gen_list=True)
+        trans_t = self.unroll(trans, invar, k+1, gen_list=True)
 
         pivot = 2
         trans_tA = And(trans_t[:pivot])
