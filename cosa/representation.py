@@ -189,6 +189,9 @@ class HTS(object):
                 if trans is not None:
                     self._s_trans = And(self._s_trans, trans)
 
+        if self.assumptions is not None:
+            return And(self._s_trans, And([a for a in self.assumptions if TS.has_next(a)]))
+                    
         return self._s_trans
 
     def single_invar(self, rebuild=False):
@@ -203,7 +206,7 @@ class HTS(object):
                     self._s_invar = And(self._s_invar, invar)
 
         if self.assumptions is not None:
-            return And(self._s_invar, And(self.assumptions))
+            return And(self._s_invar, And([a for a in self.assumptions if not TS.has_next(a)]))
 
         return self._s_invar
 
