@@ -504,7 +504,7 @@ class TS(object):
         ret_trans = TRUE()
         ret_invar = TRUE()
         
-        use_ites = True
+        use_ites = False
 
         if use_ites:
             for var, cond_assign_list in self.ftrans.items():
