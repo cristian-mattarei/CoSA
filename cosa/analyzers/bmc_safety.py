@@ -495,47 +495,6 @@ class BMCSafety(BMCSolver):
 
         return True
 
-    def add_lemmas(self, hts, prop, lemmas):
-        if len(lemmas) == 0:
-            return (hts, False)
-
-        self._reset_assertions(self.solver)
-
-        h_init = hts.single_init()
-        h_trans = hts.single_trans()
-        
-        holding_lemmas = []
-        lindex = 1
-        nlemmas = len(lemmas)
-        tlemmas = 0
-        flemmas = 0
-        for lemma in lemmas:
-            Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
-            invar = hts.single_invar()
-            init = And(h_init, invar)
-            trans = And(invar, h_trans, TS.to_next(invar))
-            if self._check_lemma(hts, lemma, init, trans):
-                holding_lemmas.append(lemma)
-                hts.add_assumption(lemma)
-                hts.reset_formulae()
-                
-                Logger.log("Lemma %s holds"%(lindex), 1)
-                tlemmas += 1
-                if self._suff_lemmas(prop, holding_lemmas):
-                    return (hts, True)
-            else:
-                Logger.log("Lemma %s does not hold"%(lindex), 1)
-                flemmas += 1
-                
-            msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
-            Logger.inline(msg, 0, not(Logger.level(1))) 
-            lindex += 1
-            
-        Logger.clear_inline(0, not(Logger.level(1)))
-        
-        hts.assumptions = And(holding_lemmas)
-        return (hts, False)
-
     def solve_safety_inc_fwd(self, hts, prop, k, k_min, \
                              all_vars=False, generalize=None, prove=None):
 

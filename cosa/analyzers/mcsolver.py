@@ -20,7 +20,7 @@ from cosa.representation import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 from cosa.problem import Trace
-
+from cosa.utils.generic import status_bar
 
 class VerificationStrategy(object):
     FWD = "FWD"
@@ -357,6 +357,7 @@ class BMCSolver(object):
 
         return True
 
+
     def add_lemmas(self, hts, prop, lemmas):
         if len(lemmas) == 0:
             return (hts, False)
@@ -365,7 +366,7 @@ class BMCSolver(object):
 
         h_init = hts.single_init()
         h_trans = hts.single_trans()
-
+        
         holding_lemmas = []
         lindex = 1
         nlemmas = len(lemmas)
@@ -380,7 +381,7 @@ class BMCSolver(object):
                 holding_lemmas.append(lemma)
                 hts.add_assumption(lemma)
                 hts.reset_formulae()
-
+                
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
@@ -388,14 +389,15 @@ class BMCSolver(object):
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
                 flemmas += 1
-
+                
             msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
-            Logger.inline(msg, 0, not(Logger.level(1)))
+            Logger.inline(msg, 0, not(Logger.level(1))) 
             lindex += 1
-
+            
         Logger.clear_inline(0, not(Logger.level(1)))
 
-        hts.assumptions = And(holding_lemmas)
+        for lemma in holding_lemmas:
+            hts.add_assumption(lemma)
         return (hts, False)
 
     def _remap_model_fwd(self, vars, model, k):
