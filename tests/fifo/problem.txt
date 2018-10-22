@@ -25,6 +25,6 @@ description: "FIFO correctness with scoreboard"
 formula: sb.end -> (sb.packet = output)
 generators: sb=FixedScoreboard(input, 6, posedge(clk))
 verification: safety
-strategy: INT
+strategy: MULTI
 prove: True
 expected: True

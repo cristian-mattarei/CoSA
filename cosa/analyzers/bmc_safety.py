@@ -191,14 +191,28 @@ class BMCSafety(BMCSolver):
                 for key,val in ret.items():
                     retdic[key] = val
 
-            winning = [key for key,val in retdic.items() if val is not None][0]
-                    
-            Logger.msg("(%s)"%(winning), 0, not(Logger.level(1)))
+            tru_res = [(key,val) for key,val in retdic.items() if (val is not None) and (val[1] is not None) and (val[1] == True)]
+            fal_res = [(key,val) for key,val in retdic.items() if (val is not None) and (val[1] is not None) and (val[1] != True)]
+            unk_res = [(key,val) for key,val in retdic.items() if (val is not None) and (val[1] is None)]
 
-            if winning == VerificationStrategy.BWD:
+            if (len(tru_res) > 0) and (len(fal_res) > 0):
+                Logger.warning("Unconsistent results")
+
+            if len(fal_res) > 0:
+                winning = fal_res[0]
+            elif len(tru_res) > 0:
+                winning = tru_res[0]
+            elif len(unk_res) > 0:
+                winning = unk_res[0]
+            else:
+                Logger.error("No solution")
+                
+            Logger.msg("(%s)"%(winning[0]), 0, not(Logger.level(1)))
+
+            if winning[0] == VerificationStrategy.BWD:
                 self.config.strategy = VerificationStrategy.BWD
                 
-            return [val for key,val in retdic.items() if val is not None][0]
+            return winning[1]
         
         if self.config.strategy == VerificationStrategy.ALL:
             res = self.solve_safety_inc_fwd(hts, prop, k, k_min)
