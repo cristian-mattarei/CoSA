@@ -1382,21 +1382,21 @@ class VerilogSTSWalker(VerilogWalker):
             subhts = instancewalker.walk_module(self.modulesdic[el.module], param_modulename)
             subhts.name = param_modulename
                 
-            # Setting parameters to value 0 in case they are not provided
+            # Setting parameters to value None in case they are not provided
             if len(subhts.params) != len(actualargs):
                 dic_form = dict([(".".join(p.symbol_name().split(".")[1:]), p) for p in subhts.params])
                 lst_actu = [str(a[0]) for a in actualargs]
 
                 for par in dic_form:
                     if par not in lst_actu:
-                        actualargs.append((par, BV(0, dic_form[par].symbol_type().width)))
+                        actualargs.append((par, None))
                 actualargs.sort()
 
             if hide_sub_vars:
                 subhts.apply_var_prefix(HIDDEN_VAR)
-                
-            formal_ptype = [get_type(p) for p in subhts.params]
-            actual_ptype = [get_type(a[1]) for a in actualargs]
+
+            actual_ptype = [get_type(a[1]) for a in actualargs if a[1] is not None]
+            formal_ptype = [get_type(p) for p in subhts.params if actualargs[subhts.params.index(p)][1] is not None]
             if formal_ptype != actual_ptype:
                 formal = ["%s:%s"%(".".join(p.symbol_name().split(".")[1:]), get_type(p)) for p in subhts.params]
                 actual = ["%s:%s"%(a[0], get_type(a[1])) for a in actualargs]

@@ -297,6 +297,9 @@ class HTS(object):
 
             links = TRUE()
             for i in range(len(actual)):
+                # Unset parameter
+                if actual[i] == None:
+                    continue
                 if type(actual[i]) == str:
                     local_expr = vardic[full_path(actual[i], path)]
                 else:
