@@ -177,7 +177,7 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min)
+            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min, config.processes)
 
         if problem.verification == VerificationType.LTL:
             accepted_ver = True

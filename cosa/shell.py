@@ -13,6 +13,7 @@
 import sys
 import argparse
 import os
+import multiprocessing
 
 from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
@@ -80,6 +81,7 @@ class Config(object):
 
     printer = None
     strategy = None
+    processes = int(multiprocessing.cpu_count()/2)
     
     def __init__(self):
         HTSPrintersFactory.init_printers()
@@ -449,6 +451,10 @@ def main():
     ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                         help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
 
+    ver_params.set_defaults(processes=config.processes)
+    ver_params.add_argument('-j', dest='processes', metavar="<integer level>", type=int,
+                        help="number of multi-processes for MULTI strategy. (Default is \"%s\")"%config.processes)
+
     ver_params.set_defaults(ninc=False)
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
                        help='disables incrementality.')
@@ -456,7 +462,8 @@ def main():
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
-    
+
+     
     # Encoding parameters
 
     enc_params = parser.add_argument_group('encoding')
@@ -575,6 +582,7 @@ def main():
     config.translate = args.translate
     config.smt2file = args.smt2
     config.strategy = args.strategy
+    config.processes = args.processes
     config.skip_solving = args.skip_solving
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean

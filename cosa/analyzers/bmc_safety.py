@@ -10,7 +10,6 @@
 
 import time
 
-import multiprocessing
 from multiprocessing import Process, Manager
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
@@ -25,7 +24,7 @@ from cosa.representation import TS, HTS
 from cosa.problem import VerificationStatus
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
-NL = "\n"
+FWDK = "FWD-K"
 
 class BMCSafety(BMCSolver):
 
@@ -90,7 +89,7 @@ class BMCSafety(BMCSolver):
             Logger.log("Deadlock wit k=%s"%k, 1)
             return (VerificationStatus.FALSE, None)
 
-    def solve_safety(self, hts, prop, k, k_min=0, lemmas=None):
+    def solve_safety(self, hts, prop, k, k_min=0, lemmas=None, processes=1):
         if lemmas is not None:
             (hts, res) = self.add_lemmas(hts, prop, lemmas)
             if res:
@@ -101,7 +100,7 @@ class BMCSafety(BMCSolver):
         hts.reset_formulae()
 
         if self.config.incremental:
-            return self.solve_safety_inc(hts, prop, k, k_min)
+            return self.solve_safety_inc(hts, prop, k, k_min, processes)
 
         return self.solve_safety_ninc(hts, prop, k)
 
@@ -153,31 +152,56 @@ class BMCSafety(BMCSolver):
                 if (model != None):
                     return True
         
-    def solve_safety_inc(self, hts, prop, k, k_min):
+    def solve_safety_inc(self, hts, prop, k, k_min, processes=1):
         retdic = {}
 
         if self.config.strategy == VerificationStrategy.MULTI:
             solvers = []
 
-            threads = 4 if self.config.prove else 2
+
+            if self.config.prove:
+                active_workers = [FWDK, VerificationStrategy.INT, VerificationStrategy.BWD, VerificationStrategy.FWD]
+            else:
+                active_workers = [VerificationStrategy.FWD, VerificationStrategy.BWD]
+
+            active_workers = active_workers[:min(processes, len(active_workers))]
+            workers = len(active_workers)
             
             with Manager() as manager:
                 ret = manager.dict({})
-                solvers.append(Process(target=self._run_as_process, \
-                                       args=(self.solve_safety_inc_fwd, VerificationStrategy.FWD, ret, \
-                                             *[hts, prop, k, k_min, False, None, False])))
-                solvers.append(Process(target=self._run_as_process, \
-                                       args=(self.solve_safety_inc_bwd, VerificationStrategy.BWD, ret, \
-                                             *[hts, prop, k, False])))
-                status_checker = Process(target=self._status_checker, args=[ret, threads])
+
+                # Forward
+                if VerificationStrategy.FWD in active_workers:
+                    Logger.log("Starting \"%s\""%(VerificationStrategy.FWD), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_fwd, VerificationStrategy.FWD, ret, \
+                                                 *[hts, prop, k, k_min, False, None, False])))
                 
-                if self.config.prove:
+                # Backward
+                if VerificationStrategy.BWD in active_workers:
+                    Logger.log("Starting \"%s\""%(VerificationStrategy.BWD), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_bwd, VerificationStrategy.BWD, ret, \
+                                                 *[hts, prop, k, False])))
+
+                # K-Induction
+                if FWDK in active_workers:
+                    Logger.log("Starting \"%s\""%(FWDK), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_fwd, FWDK, ret, \
+                                                 *[hts, prop, k, k_min, False, None, True])))
+
+                
+                # Interpolation
+                if VerificationStrategy.INT in active_workers:
+                    Logger.log("Starting \"%s\""%(VerificationStrategy.INT), 1)
                     solvers.append(Process(target=self._run_as_process, \
                                            args=(self.solve_safety_inc_int, VerificationStrategy.INT, ret, \
                                                  *[hts, prop, k])))
-                    solvers.append(Process(target=self._run_as_process, \
-                                           args=(self.solve_safety_inc_fwd, "FWD-K", ret, \
-                                                 *[hts, prop, k, k_min, False, None, True])))
+
+                # Monitoring of the status
+                status_checker = Process(target=self._status_checker, args=[ret, workers])
+                
                 
                 for solver in solvers:
                     solver.start()
@@ -800,10 +824,10 @@ class BMCSafety(BMCSolver):
         return (t-1, None)
 
     
-    def safety(self, prop, k, k_min):
+    def safety(self, prop, k, k_min, processes=1):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve_safety(self.hts, prop, k, k_min, lemmas)
+        (t, model) = self.solve_safety(self.hts, prop, k, k_min, lemmas, processes)
 
         if model == True:
             return (VerificationStatus.TRUE, None, t)
