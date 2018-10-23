@@ -105,19 +105,168 @@ class ProblemSolver(object):
             traces.append(traceV)
 
         return traces
+
+    def coi(self, hts, prop):
+        from pysmt.rewritings import conjunctive_partition
+        from cosa.utils.formula_mngm import get_func_free_variables
+        from pysmt.shortcuts import And
+        from cosa.printers.factory import HTSPrintersFactory
+
+        # hts.reset_flatten()
+        # hts.flatten(cleanup=False)
         
+        def intersect(min_int, set1, set2):
+            count = 0
+            for el in set1:
+                if el in set2:
+                    count += 1
+                    if count >= min_int:
+                        return True
+
+            return False
+
+        def superset(set1, set2):
+            for el in set2:
+                if el not in set1:
+                    return False
+            return True
+
+        def depth(var):
+            return var.symbol_name().split(".")
+        
+        coi_vars = get_func_free_variables(prop, TS.get_ref_var)
+
+        if hts.assumptions is not None:
+            for assumption in hts.assumptions:
+                for v in get_func_free_variables(assumption, TS.get_ref_var):
+                    coi_vars.add(v)
+                    
+        print(coi_vars)
+        
+        coits = TS("COI")
+        trans = list(conjunctive_partition(hts.single_trans(rebuild=True, include_ftrans=False)))
+        invar = list(conjunctive_partition(hts.single_invar(rebuild=True, include_ftrans=False)))
+        init = list(conjunctive_partition(hts.single_init()))
+
+        output_vars = hts.output_vars
+        input_vars = hts.input_vars
+        state_vars = hts.state_vars
+        
+        ftrans_dep = {}
+        
+        ftrans = hts.single_ftrans()
+        for var, cond_assign_list in ftrans.items():
+            for refvar in get_func_free_variables(var, TS.get_ref_var):
+                if refvar not in ftrans_dep:
+                    ftrans_dep[refvar] = []
+
+                for cass in cond_assign_list:
+                    ftrans_dep[refvar] += [x for x in get_func_free_variables(cass[0], TS.get_ref_var) if x != refvar]
+                    ftrans_dep[refvar] += [x for x in get_func_free_variables(cass[1], TS.get_ref_var) if x != refvar]
+                
+
+        while True:
+            coi_size = len(coi_vars)
+            for f in invar+trans+init:
+                fv = get_func_free_variables(f, TS.get_ref_var)
+                for v in fv:
+                    if v not in ftrans_dep:
+                        ftrans_dep[v] = []
+                    ftrans_dep[v] += [a for a in list(fv) if a != v]
+                    ftrans_dep[v] = list(set(ftrans_dep[v]))
+
+            if coi_size == len(coi_vars):
+                break
+                        
+        # print("dep", len(ftrans_dep))
+        # for var, deps in ftrans_dep.items():
+        #     print(var, deps)
+        #     print()
+        
+
+        all_formulas = trans+invar+init
+
+        freevar_dic = {}
+
+        # while True:
+        #     coi_size = len(coi_vars)
+        #     for f in all_formulas:
+        #         if f not in freevar_dic:
+        #             freevar_dic[f] = get_func_free_variables(f, TS.get_ref_var)
+        #         f_fv = freevar_dic[f]
+        #         if not intersect(f_fv, coi_vars):
+        #             continue
+
+        #         for v in f_fv:
+        #             coi_vars.add(v)
+
+        #     if coi_size == len(coi_vars):
+        #         break
+            
+        #print("Vars", len(hts.vars), len(coi_vars))
+
+        while True:
+            added = False
+            for v in coi_vars:
+                #print("checking %s"%v)
+                if v in ftrans_dep:
+                    #print("adding %s"%ftrans_dep[v])
+
+                    for dv in ftrans_dep[v]:
+                        coi_vars.add(dv)
+                    added = True
+                    del(ftrans_dep[v])
+                    break
+
+            if not added:
+                break
+
+
+        trans = list(conjunctive_partition(hts.single_trans(rebuild=True, include_ftrans=True)))
+        invar = list(conjunctive_partition(hts.single_invar(rebuild=True, include_ftrans=True)))
+
+        coits.trans = [f for f in trans if intersect(2, coi_vars, get_func_free_variables(f, TS.get_ref_var))]
+        coits.invar = [f for f in invar if intersect(2, coi_vars, get_func_free_variables(f, TS.get_ref_var))]
+        coits.init = [f for f in init if intersect(2, coi_vars, get_func_free_variables(f, TS.get_ref_var))]
+
+        print("Vars", len(hts.vars), len(coi_vars))
+        print("Trans", len(trans), len(coits.trans))
+        print("Invar", len(invar), len(coits.invar))
+        print("Init", len(init), len(coits.init))
+
+        #print(coi_vars)
+        
+        coits.trans = And(coits.trans)
+        coits.invar = And(coits.invar)
+        coits.init = And(coits.init)
+
+        coits.vars = hts.vars#set(coi_vars)
+        coits.input_vars = hts.input_vars#set([])
+        coits.output_vars = hts.output_vars#set([])
+        coits.state_vars = hts.state_vars#set([])
+
+        # for var in coits.vars:
+        #     if var in input_vars:
+        #         coits.input_vars.add(var)
+        #     if var in output_vars:
+        #         coits.output_vars.add(var)
+        #     if var in state_vars:
+        #         coits.state_vars.add(var)
+
+        new_hts = HTS("COI")
+        new_hts.add_ts(coits)
+
+        printer = HTSPrintersFactory.printer_by_name("STS")
+        with open("/tmp/coi_model.ssts", "w") as f:
+            f.write(printer.print_hts(new_hts, []))
+        
+        return new_hts
+    
     def __solve_problem(self, problem, config):
         if problem.name is not None:
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
-        
-        mc_config = self.problem2mc_config(problem, config)
-        bmc_safety = BMCSafety(problem.hts, mc_config)
-        bmc_parametric = BMCParametric(problem.hts, mc_config)
-        bmc_ltl = BMCLTL(problem.hts, mc_config)
-        res = VerificationStatus.UNC
-        bmc_length = max(problem.bmc_length, config.bmc_length)
-        bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
+
 
         parsing_defs = [problem.formula, problem.lemmas, problem.assumptions]
         for i in range(len(parsing_defs)):
@@ -153,7 +302,7 @@ class ProblemSolver(object):
             problem.formula = formulae[0]
         
         precondition = config.precondition if config.precondition is not None else problem.precondition
-        
+
         if precondition and problem.verification == VerificationType.SAFETY:
             problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
         
@@ -173,7 +322,18 @@ class ProblemSolver(object):
 
         if problem.verification is None:
             return problem
+
+        problem.hts = self.coi(problem.hts, problem.formula)
             
+        mc_config = self.problem2mc_config(problem, config)
+        bmc_safety = BMCSafety(problem.hts, mc_config)
+        bmc_parametric = BMCParametric(problem.hts, mc_config)
+        bmc_ltl = BMCLTL(problem.hts, mc_config)
+        res = VerificationStatus.UNC
+        bmc_length = max(problem.bmc_length, config.bmc_length)
+        bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
+
+        
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)

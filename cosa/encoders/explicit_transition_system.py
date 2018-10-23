@@ -182,7 +182,9 @@ class ExplicitTSParser(ModelParser):
         states[T_I] = EqualsOrIff(stateid_var, BV(0, stateid_width))
         
         count = 1
-        for state in states:
+        state_items = list(states.keys())
+        state_items.sort()
+        for state in state_items:
             if state == T_I:
                 continue
             invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(count, stateid_width)), states[state]))

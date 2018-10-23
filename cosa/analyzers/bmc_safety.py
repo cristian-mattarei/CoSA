@@ -158,7 +158,6 @@ class BMCSafety(BMCSolver):
         if self.config.strategy == VerificationStrategy.MULTI:
             solvers = []
 
-
             if self.config.prove:
                 active_workers = [FWDK, VerificationStrategy.INT, VerificationStrategy.BWD, VerificationStrategy.FWD]
             else:

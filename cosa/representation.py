@@ -40,6 +40,7 @@ class HTS(object):
 
     _s_init = None
     _s_trans = None
+    _s_ftrans = None
     _s_invar = None
 
     logic = None
@@ -61,6 +62,7 @@ class HTS(object):
 
         self._s_init = None
         self._s_trans = None
+        self._s_ftrans = None
         self._s_invar = None
 
         self.logic = L_BV
@@ -90,6 +92,7 @@ class HTS(object):
         
         self._s_init = None
         self._s_trans = None
+        self._s_ftrans = None
         self._s_invar = None
 
         self.assumptions = p_assumptions
@@ -194,13 +197,24 @@ class HTS(object):
                     
         return self._s_trans
 
-    def single_invar(self, rebuild=False):
+    def single_ftrans(self, rebuild=False):
+        if (self._s_ftrans is None) or (rebuild):
+            self._s_ftrans = {}
+            for ts in self.tss:
+                if ts.ftrans is not None:
+                    for var, cond_assign_list in ts.ftrans.items():
+                        self._s_ftrans[var] = cond_assign_list
+
+        return self._s_ftrans
+    
+    def single_invar(self, rebuild=False, include_ftrans=True):
         if (self._s_invar is None) or (rebuild):
             self._s_invar = TRUE()
             for ts in self.tss:
-                finvar = ts.compile_ftrans()
-                if finvar is not None:
-                    self._s_invar = And(self._s_invar, finvar[0])
+                if include_ftrans:
+                    finvar = ts.compile_ftrans()
+                    if finvar is not None:
+                        self._s_invar = And(self._s_invar, finvar[0])
                 invar = ts.invar
                 if invar is not None:
                     self._s_invar = And(self._s_invar, invar)
@@ -214,6 +228,7 @@ class HTS(object):
         self._s_init = None
         self._s_invar = None
         self._s_trans = None
+        self._s_ftrans = None
 
         for sub in self.subs:
             sub[2].reset_formulae()
@@ -223,6 +238,7 @@ class HTS(object):
         self._s_init = None
         self._s_invar = None
         self._s_trans = None
+        self._s_ftrans = None
 
         self.remove_ts(FLATTEN)
 
@@ -270,10 +286,21 @@ class HTS(object):
         ts.init = self.single_init()
         ts.invar = self.single_invar()
         ts.trans = self.single_trans()
+        ts.ftrans = self.single_ftrans()
 
         return ts
-    
-    def flatten(self, path=[]):
+
+    def cleanup_interface_vars(self):
+        self.input_vars = set([v for v in self.input_vars if len(v.symbol_name().split("."))==1])
+        self.output_vars = set([v for v in self.output_vars if len(v.symbol_name().split("."))==1])
+
+
+    def flatten(self, cleanup=False):
+        self._flatten_rec()
+        if cleanup: 
+            self.cleanup_interface_vars()
+        
+    def _flatten_rec(self, path=[]):
         self.is_flatten = True
         vardic = dict([(v.symbol_name(), v) for v in self.vars])
 
@@ -289,7 +316,7 @@ class HTS(object):
             formal = module.params
 
             ts = TS(FLATTEN)
-            (sub_vars, sub_state_vars, ts.init, ts.trans, ts.invar) = module.flatten(path+[instance])
+            (sub_vars, sub_state_vars, sub_input_vars, sub_output_vars, ts.init, ts.trans, ts.ftrans, ts.invar) = module._flatten_rec(path+[instance])
             self.add_ts(ts)
             
             for var in sub_vars:
@@ -298,7 +325,13 @@ class HTS(object):
             for var in sub_state_vars:
                 self.add_state_var(var)
 
-            links = TRUE()
+            for var in sub_input_vars:
+                self.add_input_var(var)
+
+            for var in sub_output_vars:
+                self.add_output_var(var)
+                
+            links = {}
             for i in range(len(actual)):
                 # Unset parameter
                 if actual[i] == None:
@@ -314,15 +347,15 @@ class HTS(object):
                     modulevar = Symbol(module_var, formal[i].symbol_type())
                     self.vars.add(modulevar)
                     vardic[module_var] = modulevar
-                links = And(links, EqualsOrIff(local_expr, vardic[module_var]))
+                links[local_expr] = [(TRUE(), vardic[module_var])]#And(links, EqualsOrIff(local_expr, vardic[module_var]))
                 
             ts = TS(LINKS)
-            ts.invar = links
+            ts.ftrans = links
             self.add_ts(ts)
 
         s_init = self.single_init(rebuild=True)
-        s_invar = self.single_invar(rebuild=True)
-        s_trans = self.single_trans(rebuild=True)
+        s_invar = self.single_invar(rebuild=True, include_ftrans=False)
+        s_trans = self.single_trans(rebuild=True, include_ftrans=False)
         
         replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
                            [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) for v in self.vars])
@@ -331,14 +364,28 @@ class HTS(object):
         s_invar = substitute(s_invar, replace_dic)
         s_trans = substitute(s_trans, replace_dic)
 
+        s_ftrans = {}
+        for var, cond_assign_list in self.single_ftrans(rebuild=True).items():
+            s_ftrans[substitute(var, replace_dic)] = [(substitute(condition, replace_dic), substitute(value, replace_dic)) for (condition, value) in cond_assign_list]
+        
         local_vars = []
         local_state_vars = []
+        local_input_vars = []
+        local_output_vars = []
+        
         for var in self.vars:
             local_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
 
         for var in self.state_vars:
             local_state_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
-        return (local_vars, local_state_vars, s_init, s_trans, s_invar)
+
+        for var in self.input_vars:
+            local_input_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
+
+        for var in self.output_vars:
+            local_output_vars.append(Symbol(replace_dic[var.symbol_name()], var.symbol_type()))
+            
+        return (local_vars, local_state_vars, local_input_vars, local_output_vars, s_init, s_trans, s_ftrans, s_invar)
                 
     def __copy__(self):
         cls = self.__class__
@@ -507,7 +554,7 @@ class TS(object):
         ret_trans = TRUE()
         ret_invar = TRUE()
         
-        use_ites = False
+        use_ites = True
 
         if use_ites:
             for var, cond_assign_list in self.ftrans.items():

@@ -51,6 +51,16 @@ class SymbolsWalker(IdentityDagWalker):
     def walk_symbol(self, formula, args, **kwargs):
         self.symbols.add(formula)
         return formula
+
+class FuncSymbolsWalker(IdentityDagWalker):
+    symbols = set([])
+
+    def reset_symbols(self):
+        self.symbols = set([])
+    
+    def walk_symbol(self, formula, args, **kwargs):
+        self.symbols.add(self.function(formula))
+        return formula
     
 def substitute(formula, mapsym, reset_walker=False):
     subwalker = SubstituteWalker()
@@ -60,6 +70,13 @@ def substitute(formula, mapsym, reset_walker=False):
 def get_free_variables(formula):
     symwalker = SymbolsWalker()
     symwalker.reset_symbols()
+    symwalker.walk(formula)
+    return symwalker.symbols
+
+def get_func_free_variables(formula, function):
+    symwalker = FuncSymbolsWalker()
+    symwalker.reset_symbols()
+    symwalker.function = function
     symwalker.walk(formula)
     return symwalker.symbols
 
