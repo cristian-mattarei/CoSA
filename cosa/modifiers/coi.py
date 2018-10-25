@@ -25,7 +25,6 @@ class ConeOfInfluence(object):
     save_model = False
     
     def __init__(self):
-        self.var_deps = {}
         self.fv_dict = {}
         self.int_dict = {}
 
@@ -54,8 +53,10 @@ class ConeOfInfluence(object):
 
     def _build_var_deps(self, hts):
 
-        if self.var_deps != {}:
+        if self.var_deps is not None:
             return
+
+        self.var_deps = {}
         
         ftrans = hts.single_ftrans()
         for var, cond_assign_list in ftrans.items():
@@ -88,7 +89,7 @@ class ConeOfInfluence(object):
          
         coi_vars = set(self._free_variables(prop))
 
-        if len(coi_vars) < 1:
+        if (len(coi_vars) < 1) or (self.var_deps == {}):
             return hts
 
         if hts.assumptions is not None:
