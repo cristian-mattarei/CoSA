@@ -27,4 +27,4 @@ generators: sb=FixedScoreboard(input, 6, posedge(clk))
 verification: safety
 strategy: MULTI
 prove: True
-expected: True
+expected: Unknown
