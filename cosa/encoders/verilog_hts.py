@@ -1216,8 +1216,7 @@ class VerilogSTSWalker(VerilogWalker):
             if lft_width > rgt_width:
                 right = BVConcat(BV(0, lft_width-rgt_width), right)
 
-        invar = EqualsOrIff(B2BV(left), B2BV(right))
-        self.add_invar(invar)
+        self.add_ftrans(B2BV(left), [(TRUE(), B2BV(right))])
         return el
     
     def Pointer(self, modulename, el, args):
