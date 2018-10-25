@@ -377,7 +377,7 @@ class HTS(object):
                     modulevar = Symbol(module_var, formal[i].symbol_type())
                     self.vars.add(modulevar)
                     vardic[module_var] = modulevar
-                if vardic[module_var] in self.output_vars:
+                if vardic[module_var] in sub_output_vars:
                     links[local_expr] = [(TRUE(), vardic[module_var])]
                 else:
                     links[vardic[module_var]] = [(TRUE(), local_expr)]
