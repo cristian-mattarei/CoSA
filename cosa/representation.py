@@ -318,14 +318,17 @@ class HTS(object):
         self.output_vars = set([v for v in self.output_vars if len(v.symbol_name().split("."))==1])
 
 
-    def flatten(self, cleanup=False):
+    def flatten(self, cleanup=True):
         if cleanup:
-            tmp_input_vars = self.input_vars
-            tmp_output_vars = self.input_vars
-        self._flatten_rec()
+            tmp_input_vars = set([v for v in self.input_vars])
+            tmp_output_vars = set([v for v in self.output_vars])
+        output_vars = self._flatten_rec()[3]
         if cleanup: 
             self.input_vars = tmp_input_vars
             self.output_vars = tmp_output_vars
+            for var in output_vars:
+                if var not in self.output_vars:
+                    self.add_state_var(var)
         
     def _flatten_rec(self, path=[]):
         self.is_flatten = True

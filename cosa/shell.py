@@ -78,6 +78,7 @@ class Config(object):
     assume_if_true = False
     model_extension = None
     cardinality = 5
+    coi = False
 
     printer = None
     strategy = None
@@ -435,12 +436,16 @@ def main():
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
-                       help='use indution to prove the satisfiability of the property.')
+                            help="use indution to prove the satisfiability of the property. (Default is \"%s\")"%config.prove)
 
     ver_params.set_defaults(assume_if_true=False)
     ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
-                       help='add true properties as assumptions.')
+                            help="add true properties as assumptions. (Default is \"%s\")"%config.assume_if_true)
 
+    ver_params.set_defaults(coi=False)
+    ver_params.add_argument('--coi', dest='coi', action='store_true',
+                            help="enables Cone of Influence. (Default is \"%s\")"%config.coi)
+    
     ver_params.set_defaults(cardinality=config.cardinality)
     ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=False,
                        help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%config.cardinality)
@@ -457,7 +462,7 @@ def main():
 
     ver_params.set_defaults(ninc=False)
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
-                       help='disables incrementality.')
+                            help="disables incrementality. (Default is \"%s\")"%(not config.incremental))
 
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
@@ -470,11 +475,11 @@ def main():
 
     enc_params.set_defaults(add_clock=False)
     enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
-                       help='adds clock behavior.')
+                       help="adds clock behavior. (Default is \"%s\")"%config.add_clock)
     
     enc_params.set_defaults(abstract_clock=False)
     enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
-                       help='abstracts the clock behavior.')
+                       help="abstracts the clock behavior. (Default is \"%s\")"%config.abstract_clock)
 
     enc_params.set_defaults(symbolic_init=config.symbolic_init)
     enc_params.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
@@ -518,7 +523,7 @@ def main():
     
     print_params.set_defaults(vcd=False)
     print_params.add_argument('--vcd', dest='vcd', action='store_true',
-                       help='generate traces also in vcd format.')
+                       help="generate traces also in vcd format. (Default is \"%s\")"%config.vcd)
 
     # Translation parameters
 
@@ -540,7 +545,7 @@ def main():
 
     trans_params.set_defaults(skip_solving=False)
     trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',
-                        help='does not call the solver (used with --smt2 or --translate parameters).')
+                        help="does not call the solver. (Default is \"%s\")"%config.skip_solving)
 
     # Debugging
 
@@ -552,11 +557,11 @@ def main():
 
     deb_params.set_defaults(debug=False)
     deb_params.add_argument('--debug', dest='debug', action='store_true',
-                       help='enables debug mode.')
+                       help="enables debug mode. (Default is \"%s\")"%config.debug)
 
     deb_params.set_defaults(time=False)
     deb_params.add_argument('--time', dest='time', action='store_true',
-                       help='prints time for every verification.')
+                            help="prints time for every verification. (Default is \"%s\")"%config.time)
     
     args = parser.parse_args()
 
@@ -596,6 +601,7 @@ def main():
     config.generators = args.generators
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
+    config.coi = args.coi
     config.model_extension = args.model_extension
     config.cardinality = args.cardinality
     config.debug = args.debug

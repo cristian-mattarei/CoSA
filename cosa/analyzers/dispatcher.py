@@ -26,6 +26,7 @@ from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
 from cosa.modifiers.factory import ModelModifiersFactory
+from cosa.modifiers.coi import ConeOfInfluence
 from cosa.encoders.template import EncoderConfig, ModelInformation
 from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
@@ -43,14 +44,17 @@ class ProblemSolver(object):
     sparser = None
     lparser = None
     model_info = None
+    coi = None
 
     def __init__(self):
         self.sparser = None
         self.lparser = None
+        self.coi = None
         self.model_info = ModelInformation()
 
         GeneratorsFactory.init_generators()
         ClockBehaviorsFactory.init_clockbehaviors()
+
 
     def __process_trace(self, hts, trace, config, problem):
         prevass = []
@@ -106,154 +110,6 @@ class ProblemSolver(object):
 
         return traces
 
-    def coi(self, hts, prop):
-        #return hts
-        
-        from pysmt.rewritings import conjunctive_partition
-        from cosa.utils.formula_mngm import get_func_free_variables, get_free_variables
-        from pysmt.shortcuts import And
-        from cosa.printers.factory import HTSPrintersFactory
-
-        # hts.reset_flatten()
-        # hts.flatten(cleanup=False)
-
-        int_dic = {}
-        def intersect(set1, set2):
-            el1 = (set1,set2)
-            el2 = (set2,set1)
-            if (el1 in int_dic) or (el2 in int_dic):
-                return int_dic[el1]
-
-            ret = False
-            for el in set1:
-                if el in set2:
-                    ret = True
-                    break
-
-            int_dic[el1] = ret
-            return ret
-
-        # def intersect(set1, set2):
-        #     ret = False
-        #     for el in set1:
-        #         if el in set2:
-        #             ret = True
-        #             break
-        #     return ret
-        
-        fv_dic = {}
-        def free_variables(formula):
-            if formula not in fv_dic:
-                fv = get_free_variables(formula)
-                fv_dic[formula] = frozenset([TS.get_ref_var(v) for v in fv])
-                #fv_dic[formula] = get_func_free_variables(formula, TS.get_ref_var)
-
-            return fv_dic[formula]
-        
-        coi_vars = set(free_variables(prop))
-
-        if hts.assumptions is not None:
-            for assumption in hts.assumptions:
-                for v in free_variables(assumption):
-                    coi_vars.add(v)
-                    
-        coits = TS("COI")
-
-        ftrans_dep = {}
-
-        timer = Logger.start_timer("A")
-        ftrans = hts.single_ftrans()
-        for var, cond_assign_list in ftrans.items():
-            for refvar in free_variables(var):
-                if refvar not in ftrans_dep:
-                    ftrans_dep[refvar] = []
-
-                for cass in cond_assign_list:
-                    ftrans_dep[refvar] += list(free_variables(cass[0]))
-                    ftrans_dep[refvar] += list(free_variables(cass[1]))
-
-        Logger.get_timer(timer)
-
-        timer = Logger.start_timer("B")
-
-        trans = (conjunctive_partition(hts.single_trans(include_ftrans=False)))
-        invar = (conjunctive_partition(hts.single_invar(include_ftrans=False)))
-        init = (conjunctive_partition(hts.single_init()))
-
-        for ts_formula in [invar, trans, init]:
-            for f in ts_formula:
-                fv = free_variables(f)
-                for v in fv:
-                    if v not in ftrans_dep:
-                        ftrans_dep[v] = []
-                    ftrans_dep[v] += list(fv)
-                    # ftrans_dep[v] = list(set(ftrans_dep[v]))
-
-
-        Logger.get_timer(timer)
-
-        timer = Logger.start_timer("C")
-
-        visited = []
-        while True:
-            added = False
-            for v in coi_vars:
-                if v in visited:
-                    continue
-                
-                for dv in ftrans_dep[v]:
-                    coi_vars.add(dv)
-                added = True
-                visited.append(v)
-                break
-
-            if not added:
-                break
-
-        Logger.get_timer(timer)
-
-        timer = Logger.start_timer("D")
-
-        trans = (conjunctive_partition(hts.single_trans(include_ftrans=True)))
-        invar = (conjunctive_partition(hts.single_invar(include_ftrans=True)))
-
-        Logger.get_timer(timer)
-
-        timer = Logger.start_timer("E")
-
-        coi_vars = frozenset(coi_vars)
-        
-        coits.trans = [f for f in trans if intersect(coi_vars, free_variables(f))]
-        coits.invar = [f for f in invar if intersect(coi_vars, free_variables(f))]
-        coits.init = [f for f in init if intersect(coi_vars, free_variables(f))]
-
-        Logger.get_timer(timer)
-        
-        Logger.log("COI reduction", 0)
-        Logger.log(" - Vars %s -> %s"%(len(hts.vars), len(coi_vars)), 0)
-        # Logger.log(" - Init %s -> %s"%(len(init), len(coits.init)), 0)
-        # Logger.log(" - Invar %s -> %s"%(len(invar), len(coits.invar)), 0)
-        # Logger.log(" - Trans %s -> %s"%(len(trans), len(coits.trans)), 0)
-
-        coits.trans = And(coits.trans)
-        coits.invar = And(coits.invar)
-        coits.init = And(coits.init)
-
-        coits.vars = hts.vars
-        coits.input_vars = hts.input_vars
-        coits.output_vars = hts.output_vars
-        coits.state_vars = hts.state_vars
-
-        new_hts = HTS("COI")
-        new_hts.add_ts(coits)
-
-        # printer = HTSPrintersFactory.printer_by_name("STS")
-        # with open("/tmp/coi_model.ssts", "w") as f:
-        #     f.write(printer.print_hts(new_hts, []))
-
-
-        return new_hts
-    
     def __solve_problem(self, problem, config):
         if problem.name is not None:
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
@@ -315,10 +171,12 @@ class ProblemSolver(object):
         if problem.verification is None:
             return problem
 
-        timer = Logger.start_timer("COI")
-        problem.hts = self.coi(problem.hts, problem.formula)
-        Logger.get_timer(timer)
-        quit(0)
+        if problem.coi:
+            if Logger.level(2):
+                timer = Logger.start_timer("COI")
+            problem.hts = self.coi.compute(problem.hts, problem.formula)
+            if Logger.level(2):
+                Logger.get_timer(timer)
             
         mc_config = self.problem2mc_config(problem, config)
         bmc_safety = BMCSafety(problem.hts, mc_config)
@@ -466,6 +324,8 @@ class ProblemSolver(object):
         self.sparser = StringParser(encoder_config)
         self.lparser = LTLParser()
 
+        self.coi = ConeOfInfluence()
+        
         invar_props = []
         ltl_props = []
         si = False
@@ -534,6 +394,7 @@ class ProblemSolver(object):
             problem.vcd = problems.vcd or config.vcd or problem.vcd
             problem.abstract_clock = problems.abstract_clock or config.abstract_clock
             problem.add_clock = problems.add_clock or config.add_clock
+            problem.coi = problems.coi or config.coi
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
             problem.cardinality = max(problems.cardinality, config.cardinality)

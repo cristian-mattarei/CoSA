@@ -11,32 +11,45 @@
 from pysmt.rewritings import conjunctive_partition
 from pysmt.shortcuts import And, TRUE
 
+from cosa.representation import TS, HTS
 from cosa.utils.formula_mngm import get_free_variables
 from cosa.printers.factory import HTSPrintersFactory
+from cosa.utils.logger import Logger
 
 class ConeOfInfluence(object):
 
     var_deps = None
     fv_dict = None
+    int_dict = None
+
+    save_model = False
     
     def __init__(self):
         self.var_deps = {}
         self.fv_dict = {}
+        self.int_dict = {}
 
     def _intersect(self, set1, set2):
-        for el in set2:
-            if el in set1:
-                return True
+        el1 = (set1,set2)
+        el2 = (set2,set1)
+        if (el1 in self.int_dict) or (el2 in self.int_dict):
+            return self.int_dict[el1]
 
-        return False
+        ret = False
+        for el in set1:
+            if el in set2:
+                ret = True
+                break
 
-    def _free_variables(formula):
-        if formula not in fv_dic:
+        self.int_dict[el1] = ret
+        return ret
+
+    def _free_variables(self, formula):
+        if formula not in self.fv_dict:
             fv = get_free_variables(formula)
-            fv_dic[formula] = set([TS.get_ref_var(v) for v in fv])
-            #fv_dic[formula] = get_func_free_variables(formula, TS.get_ref_var)
+            self.fv_dict[formula] = frozenset([TS.get_ref_var(v) for v in fv])
 
-        return fv_dic[formula]
+        return self.fv_dict[formula]
 
 
     def _build_var_deps(self, hts):
@@ -65,13 +78,18 @@ class ConeOfInfluence(object):
                     if v not in self.var_deps:
                         self.var_deps[v] = []
                     self.var_deps[v] += list(fv)
+                    self.var_deps[v] = [x for x in set(self.var_deps[v]) if x != v]
         
     
-    def coi(self, hts, prop):
+    def compute(self, hts, prop):
+        Logger.log("Building COI", 1)
 
         self._build_var_deps(hts)
          
-        coi_vars = self._free_variables(prop)
+        coi_vars = set(self._free_variables(prop))
+
+        if len(coi_vars) < 1:
+            return hts
 
         if hts.assumptions is not None:
             for assumption in hts.assumptions:
@@ -82,37 +100,39 @@ class ConeOfInfluence(object):
             for lemma in hts.lemmas:
                 for v in self._free_variables(lemma):
                     coi_vars.add(v)
-                    
+
         coits = TS("COI")
 
+
+        coi_vars = list(coi_vars)
+        i = 0
         visited = []
-        while True:
-            added = False
-            for v in coi_vars:
-                if v in visited:
-                    continue
-                
-                for dv in self.var_deps[v]:
-                    coi_vars.add(dv)
-                added = True
-                visited.append(v)
-                break
-
-            if not added:
-                break
-
+        while i < len(coi_vars):
+            var = coi_vars[i]
+            if (var in visited) or (var not in self.var_deps):
+                i += 1
+                continue
+            
+            coi_vars = coi_vars[:i+1] + list(self.var_deps[var]) + coi_vars[i+1:]
+            
+            visited.insert(0, var)
+            i += 1
+            
+        coi_vars = frozenset(coi_vars)
+            
         trans = list(conjunctive_partition(hts.single_trans(include_ftrans=True)))
         invar = list(conjunctive_partition(hts.single_invar(include_ftrans=True)))
+        init = list(conjunctive_partition(hts.single_init()))
 
         coits.trans = [f for f in trans if self._intersect(coi_vars, self._free_variables(f))]
         coits.invar = [f for f in invar if self._intersect(coi_vars, self._free_variables(f))]
         coits.init = [f for f in init if self._intersect(coi_vars, self._free_variables(f))]
 
-        Logger.log("COI reduction", 0)
-        Logger.log(" - Vars %s -> %s"%(len(hts.vars), len(coi_vars)), 0)
-        Logger.log(" - Init %s -> %s"%(len(init), len(coits.init)), 0)
-        Logger.log(" - Invar %s -> %s"%(len(invar), len(coits.invar)), 0)
-        Logger.log(" - Trans %s -> %s"%(len(trans), len(coits.trans)), 0)
+        Logger.log("COI statistics:", 1)
+        Logger.log("  Vars:  %s -> %s"%(len(hts.vars), len(coi_vars)), 1)
+        Logger.log("  Init:  %s -> %s"%(len(init), len(coits.init)), 1)
+        Logger.log("  Invar: %s -> %s"%(len(invar), len(coits.invar)), 1)
+        Logger.log("  Trans: %s -> %s"%(len(trans), len(coits.trans)), 1)
 
         coits.trans = And(coits.trans)
         coits.invar = And(coits.invar)
@@ -126,9 +146,10 @@ class ConeOfInfluence(object):
         new_hts = HTS("COI")
         new_hts.add_ts(coits)
 
-        # printer = HTSPrintersFactory.printer_by_name("STS")
-        # with open("/tmp/coi_model.ssts", "w") as f:
-        #     f.write(printer.print_hts(new_hts, []))
+        if self.save_model:
+            printer = HTSPrintersFactory.printer_by_name("STS")
+            with open("/tmp/coi_model.ssts", "w") as f:
+                f.write(printer.print_hts(new_hts, []))
 
 
         return new_hts

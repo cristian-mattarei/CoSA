@@ -536,7 +536,7 @@ class BMCSafety(BMCSolver):
             if all_vars:
                 relevant_vars = hts.vars
             else:
-                relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
+                relevant_vars = hts.state_vars | hts.output_vars
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -852,7 +852,7 @@ class BMCSafety(BMCSolver):
         if all_vars:
             relevant_vars = hts.vars
         else:
-            relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
+            relevant_vars = hts.state_vars | hts.output_vars
         
         relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]
