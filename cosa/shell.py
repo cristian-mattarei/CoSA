@@ -32,6 +32,7 @@ from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
 
+
 class Config(object):
     parser = None
     strfiles = None
