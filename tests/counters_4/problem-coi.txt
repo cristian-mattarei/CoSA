@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: counters_4.v[Counters_4],rst_beh.ets
+model_file: Counters_4.v[Counters_4],rst_beh.ets
 add_clock: True
 assume_if_true: True
 coi: True
