@@ -111,7 +111,7 @@ class HTS(object):
         tss = self.tss
         self.tss = set([])
         for ts in tss:
-            self.add_ts(ts.apply_var_prefix(prefix))
+            self.add_ts(ts.apply_var_prefix(prefix), reset=False)
 
         self.reset_formulae()
         
@@ -123,8 +123,6 @@ class HTS(object):
     def add_param(self, param):
         self.params.append(param)
         self.vars.add(param)
-
-        self.reset_formulae()
 
     def add_input_var(self, var):
         self.input_vars.add(var)
@@ -145,7 +143,7 @@ class HTS(object):
         if (self.logic == L_BV) and (logic == L_ABV):
             self.logic = L_ABV
         
-    def add_ts(self, ts, add_vars=True):
+    def add_ts(self, ts, add_vars=True, reset=True):
         if self.en_simplify:
             ts.init = simplify(ts.init)
             ts.invar = simplify(ts.invar)
@@ -167,7 +165,26 @@ class HTS(object):
                     self.output_vars.add(v)
             
         self.update_logic(ts.logic)
-        self.reset_formulae()
+
+        if reset:
+            init = True
+            trans = True
+            invar = True
+            ftrans = True
+
+            if (ts.init is None) or (ts.init == TRUE()):
+                init = False
+
+            if (ts.invar is None) or (ts.invar == TRUE()):
+                invar = False
+
+            if (ts.trans is None) or (ts.trans == TRUE()):
+                trans = False
+
+            if (ts.ftrans is None) or (ts.ftrans == {}):
+                trans = False
+
+            self.reset_formulae(init=init, invar=invar, trans=trans, ftrans=ftrans)
 
     def remove_ts(self, name):
         self.tss = set([ts for ts in self.tss if name not in ts.comment])
@@ -259,17 +276,21 @@ class HTS(object):
         
         return And(self._s_invar, ftrans, ainvar)
 
-    def reset_formulae(self):
-        self._s_init = None
-        self._s_trans = None
-        self._s_ftrans_t = None
-        self._s_ftrans_i = None
-        self._s_ftrans = None
-        self._s_invar = None
+    def reset_formulae(self, init=True, invar=True, trans=True, ftrans=True):
+        if init:
+            self._s_init = None
+        if trans:
+            self._s_trans = None
+        if ftrans:
+            self._s_ftrans_t = None
+            self._s_ftrans_i = None
+            self._s_ftrans = None
+        if invar:
+            self._s_invar = None
 
         for sub in self.subs:
-            sub[2].reset_formulae()
-
+            sub[2].reset_formulae(init, invar, trans, ftrans)
+            
     def reset_flatten(self):
         self.is_flatten = False
         self._s_init = None
@@ -286,7 +307,7 @@ class HTS(object):
             
     def combine(self, other_hts):
         for ts in other_hts.tss:
-            self.add_ts(ts, add_vars=False)
+            self.add_ts(ts, add_vars=False, reset=False)
 
         for v in other_hts.state_vars:
             if v not in self.input_vars:
@@ -311,7 +332,7 @@ class HTS(object):
                 self.add_lemma(lemma)
 
         self.reset_formulae()
-
+                
     def newname(self, varname, path=[]):
         ret = varname.replace(self.name, ".".join(path)).strip()
         if ret[0] == ".":
@@ -371,7 +392,7 @@ class HTS(object):
              ts.ftrans, \
              ts.invar) = module._flatten_rec(path+[instance])
             
-            self.add_ts(ts)
+            self.add_ts(ts, reset=False)
             
             links = {}
             for i in range(len(actual)):
@@ -397,7 +418,7 @@ class HTS(object):
                     
             ts = TS(LINKS)
             ts.ftrans = links
-            self.add_ts(ts)
+            self.add_ts(ts, reset=False)
 
         s_init = self.single_init()
         s_invar = self.single_invar(include_ftrans=False)
