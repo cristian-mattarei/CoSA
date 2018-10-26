@@ -8,11 +8,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
-import os
-import math
-import shutil
 import copy
+import math
+import os
+import re
+import shutil
+
+from collections import defaultdict
+from typing import Dict, List, Tuple
 
 VPARSER = True
 
@@ -855,7 +858,7 @@ class VerilogSTSWalker(VerilogWalker):
         for i in range(len(statements)):
             statements[i] = substitute(statements[i], sensedict)
 
-        assign_conditions = self.collect_assign_conditions(And(statements))
+        assign_conditions = self.frame_conditions(statements)
 
         # The variable assignments apply only when the "always condition" is true
         for v in assign_conditions:
@@ -1472,6 +1475,177 @@ class VerilogSTSWalker(VerilogWalker):
         for el in [And(a) for a in args]:
             self.add_constraint(el)
         return TRUE()
+
+    def frame_conditions(self, statements : List[FNode]) -> Dict[FNode, List[Tuple[FNode, FNode]]]:
+        '''
+        Gets frame condition (when a transition canNOT happen), taking into consideration SSA (single static assignment) semantics for DEFINEs.
+        '''
+        def get_lhs(left):
+            if not left.is_symbol():
+                fv = get_free_variables(left)
+                mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
+                idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
+
+                # TODO: Check if this is correct
+                # seems like we want to consider extracted BVs
+                if left.is_bv_extract():
+                    left = left.args()[0]
+
+            return left
+
+        # External function for collect_conditions_rec. Assigns and Defines collection
+        def assign_define_fun(formula, assign_list, collected):
+            if len(formula.args()) == 0:
+                return (assign_list, collected)
+
+            left = formula.args()[0]
+            if formula.node_type() in [ASSIGN, DEFINE]:
+                if not left.is_symbol():
+                    fv = get_free_variables(left)
+                    mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
+                    idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
+
+                    # TODO: Check if this is correct
+                    # seems like we want to consider extracted BVs
+                    if left.is_bv_extract():
+                        left = left.args()[0]
+
+                    var_conditions = self.collect_conditions_rec(left, var_fun, assign_list=[], collected={})[1]
+
+                    lstlen = len(assign_list)
+                    for var, conditions in var_conditions.items():
+                        for cond in conditions:
+                            assign_list = assign_list[:lstlen]
+                            newcond = And(cond[1])
+                            newcond = simplify_assign_list(newcond)
+                            assign_list.append(newcond)
+                            if var not in collected:
+                                collected[var] = []
+                            collected[var].append((formula, And(assign_list)))
+                else:
+                    ref_var = TS.get_ref_var(left)
+                    if ref_var not in collected:
+                        collected[ref_var] = []
+                    collected[ref_var].append((formula, And(assign_list)))
+
+            # TODO: Correct action
+            # keep track of all defines
+            # for any unquarded defines, remove defines in previous line numbers
+            # for each define, add frame conditions for all conditions in subsequent line numbers
+            return (assign_list, collected)
+
+
+        # collected is { var : list[ (ASSIGN/DEFINE, conditions where it holds) ] }
+        # TODO: Figure out if we need to separate assigns and defines
+        # shouldn't be able to assign twice or both inside and outside of branching (no SSA)
+        collected = defaultdict(list)
+
+        define_frame_conditions = defaultdict(list)
+
+        for stmt in statements:
+            frame_conditions = []
+            conditions = []
+            # TODO: Factor this out
+            print()
+            assert not stmt.is_and(), "Expecting a sequence of independent statements, no AND"
+
+            if stmt.node_type() == DEFINE:
+                left, right = stmt.args()
+                # handles non-trivial left-hand sides such as memories
+                lef = get_lhs(left)
+                # unguarded DEFINE
+                # SSA semantics so overwrites previous defines
+                collected[left] = [(stmt, TRUE())]
+                define_frame_conditions[left] = []
+
+            to_process = [stmt]
+            while to_process:
+                term, to_process = to_process[0], to_process[1:]
+
+                last_cond = [conditions[-1]] if len(conditions) else []
+
+                if term.node_type() == ASSIGN:
+                    left, right = term.args()
+                    left = get_lhs(left)
+                    cond = simplify(And(frame_conditions + last_cond))
+                    collected[left].append((term, cond))
+
+                elif term.node_type() == DEFINE:
+                    left, right = term.args()
+                    left = get_lhs(left)
+                    # TODO: Use simplify_assign_list here
+                    cond = And(frame_conditions + last_cond)
+                    collected[left].append((term, cond))
+                    # if cond == TRUE():
+                    #     # DEFINE is SSA -- overwrites previous defines
+                    #     collected[left] = [(term, cond)]
+                    # else:
+                    #     collected[left].append((term, cond))
+
+                    # keep track of overall frame conditions per variable
+                    # for SSA of defines
+                    if last_cond:
+                        define_frame_conditions[left].append(Not(last_cond[0]))
+
+                elif term.is_and():
+                    # prepend to list (want to explore this first)
+                    to_process = list(term.args()) + to_process
+                elif term.is_ite():
+                    if last_cond:
+                        frame_conditions.append(Not(last_cond[0]))
+                    to_process += term.args()[1:]
+                    conditions.append(term.args()[0])
+                elif term.is_implies():
+                    if last_cond:
+                        frame_conditions.append(Not(last_cond[0]))
+                    # prepend to list, need to process next
+                    to_process = [term.args()[1]] + to_process
+                    conditions.append(term.args()[0])
+                elif term.is_bool_constant():
+                    continue
+                else:
+                    print(term)
+                    raise RuntimeError("Unhandled node type %s when gathering frame conditions"%term.node_type())
+
+        # handle SSA defines
+        for lhs, assign_defines in collected.items():
+            # TODO: Should I check for incorrect use of assigns here? Does Pyverilog handle it?
+            for idx, (d, cond) in enumerate(assign_defines):
+                if d.node_type() != DEFINE:
+                    continue
+                elif cond != TRUE():
+                    # as soon as we hit a guarded define for this lhs, we can stop
+                    # there should be no more unquarded defines after this
+                    break
+                else:
+                    # add frame conditions for unquarded DEFINEs that have been
+                    # overwritten later on
+                    collected[lhs][idx] = (d, And(define_frame_conditions[lhs]))
+
+#            print("to_process:", to_process)
+
+            # if s.node_type() == DEFINE:
+            #     print("unguarded define", s)
+            # (assign_list, collected) = self.collect_conditions_rec(s, assign_define_fun, assign_list, collected)
+
+        print("collected", collected)
+
+        return collected
+
+    def traverse(self, formula : FNode, assign_list : List[Dict[FNode, FNode]],
+                 define_list : List[Dict[FNode, FNode]]):
+        to_visit = [formula]
+        visited = set()
+        while to_visit:
+            term = to_visit.pop()
+            if term not in visited:
+                visited.add(term)
+                to_visit.append(term)
+                for c in term.args():
+                    to_visit.append(c)
+            else:
+                # do work
+                print("reached", term)
 
     def collect_conditions_rec(self, formula, ext_function, assign_list=[], collected={}):
 
