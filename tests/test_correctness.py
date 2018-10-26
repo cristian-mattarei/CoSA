@@ -23,7 +23,9 @@ problem_files = []
 for testdir in testdirs:
     for problem in [p for p in list(os.walk(testdir))[0][2] if "problem" in p and ".txt" == p[-4:]]:
         problem_files.append("%s/%s"%(testdir, problem))
-    
+problem_files.sort()
+problem_files.reverse()
+
 def runtest(problem_file):
     reset_env()
 
