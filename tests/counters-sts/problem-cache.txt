@@ -1,0 +1,85 @@
+[GENERAL]
+model_file: counters.sts
+assume_if_true: True
+cache_files: True
+
+[DEFAULT]
+bmc_length: 40
+assumptions: posedge(rst) -> ((counter_1.out > 1_8) & (counter_2.out > 1_8))
+
+[counter_out-ALL]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: ALL
+expected: True
+
+[counter_out-FWD]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: FWD
+expected: True
+
+[counter_out-BWD]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: BWD
+expected: Unknown
+
+[counter_out-ZZ]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: BWD
+expected: Unknown
+
+[counter_out-INT]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: INT
+expected: True
+
+[counter_out-MULTI]
+description: "Check that the out is always < 12"
+formula: out < 12_8
+prove: True
+verification: safety
+strategy: MULTI
+expected: True
+
+[counter_2_reaches_1]
+description: "Check that counter 2 eventually reaches 1"
+formula: F(counter_2.out = 1_8)
+prove: True
+verification: ltl
+expected: True
+
+[counter_2_io_reaches_1]
+description: "Check that counter 2 reaches 1 infinitely often"
+formula: G(F(counter_2.out = 1_8))
+prove: True
+verification: ltl
+expected: True
+
+[counter_1_reaches_1]
+description: "Check that counter 1 eventually reaches 1"
+formula: F(counter_1.out = 1_8)
+prove: True
+verification: ltl
+expected: True
+
+[counter_1_io_reaches_1]
+description: "Check that counter 1 reaches 1 infinitely often"
+formula: G(F(counter_1.out = 1_8))
+prove: True
+verification: ltl
+expected: True
+

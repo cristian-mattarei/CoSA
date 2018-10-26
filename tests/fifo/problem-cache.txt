@@ -1,0 +1,31 @@
+[GENERAL]
+model_file: fifo.sts
+full_trace: True
+cache_files: True
+
+[DEFAULT]
+bmc_length: 80
+
+[scoreboard_end]
+description: "Scoreboard does not reach the end value"
+formula: !sb.end
+generators: sb=FixedScoreboard(input, 6, posedge(clk))
+verification: safety
+prove: True
+expected: False
+
+[scoreboard_always_end]
+description: "Scoreboard does not reach the end value"
+formula: G(F(sb.end))
+generators: sb=FixedScoreboard(input, 6, posedge(clk))
+verification: ltl
+expected: False
+
+[fifocorrectness]
+description: "FIFO correctness with scoreboard"
+formula: sb.end -> (sb.packet = output)
+generators: sb=FixedScoreboard(input, 6, posedge(clk))
+verification: safety
+strategy: MULTI
+prove: True
+expected: Unknown

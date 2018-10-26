@@ -182,7 +182,7 @@ class HTS(object):
                 trans = False
 
             if (ts.ftrans is None) or (ts.ftrans == {}):
-                trans = False
+                ftrans = False
 
             self.reset_formulae(init=init, invar=invar, trans=trans, ftrans=ftrans)
 
@@ -238,7 +238,7 @@ class HTS(object):
         if self.assumptions is not None:
             atrans = And([a for a in self.assumptions if TS.has_next(a)])
 
-        if include_ftrans:
+        if include_ftrans and (self._s_ftrans_t is not None):
             ftrans = self._s_ftrans_t
         
         return And(self._s_trans, ftrans, atrans)
@@ -271,7 +271,7 @@ class HTS(object):
         if self.assumptions is not None:
             ainvar = And([a for a in self.assumptions if not TS.has_next(a)])
 
-        if include_ftrans:
+        if include_ftrans and (self._s_ftrans_i is not None):
             ftrans = self._s_ftrans_i
         
         return And(self._s_invar, ftrans, ainvar)
