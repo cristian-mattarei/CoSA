@@ -446,13 +446,14 @@ class ProblemSolver(object):
                                                                              encoder_config, \
                                                                              "System 1", \
                                                                              modifier, \
-                                                                             cache_files)
+                                                                             cache_files=cache_files)
             
         if problems.equivalence is not None:
             (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
                                                            problems.equivalence, \
                                                            encoder_config, \
-                                                           "System 2")
+                                                           "System 2", \
+                                                           cache_files=cache_files)
         else:
             systems[(HTS2, si)] = None
 
