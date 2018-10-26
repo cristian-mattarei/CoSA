@@ -50,7 +50,6 @@ class ConeOfInfluence(object):
 
         return self.fv_dict[formula]
 
-
     def _build_var_deps(self, hts):
 
         if self.var_deps is not None:
@@ -80,8 +79,7 @@ class ConeOfInfluence(object):
                         self.var_deps[v] = []
                     self.var_deps[v] += list(fv)
                     self.var_deps[v] = [x for x in set(self.var_deps[v]) if x != v]
-        
-    
+
     def compute(self, hts, prop):
         Logger.log("Building COI", 1)
 
@@ -107,7 +105,7 @@ class ConeOfInfluence(object):
 
         coi_vars = list(coi_vars)
         i = 0
-        visited = []
+        visited = set([])
         while i < len(coi_vars):
             var = coi_vars[i]
             if (var in visited) or (var not in self.var_deps):
@@ -116,7 +114,7 @@ class ConeOfInfluence(object):
             
             coi_vars = coi_vars[:i+1] + list(self.var_deps[var]) + coi_vars[i+1:]
             
-            visited.insert(0, var)
+            visited.add(var)
             i += 1
             
         coi_vars = frozenset(coi_vars)
@@ -124,7 +122,7 @@ class ConeOfInfluence(object):
         trans = list(conjunctive_partition(hts.single_trans(include_ftrans=True)))
         invar = list(conjunctive_partition(hts.single_invar(include_ftrans=True)))
         init = list(conjunctive_partition(hts.single_init()))
-
+        
         coits.trans = [f for f in trans if self._intersect(coi_vars, self._free_variables(f))]
         coits.invar = [f for f in invar if self._intersect(coi_vars, self._free_variables(f))]
         coits.init = [f for f in init if self._intersect(coi_vars, self._free_variables(f))]
@@ -139,10 +137,15 @@ class ConeOfInfluence(object):
         coits.invar = And(coits.invar)
         coits.init = And(coits.init)
 
-        coits.vars = hts.vars
-        coits.input_vars = hts.input_vars
-        coits.output_vars = hts.output_vars
-        coits.state_vars = hts.state_vars
+        coits.vars = set([])
+        for bf in [init,invar,trans]:
+            for f in bf:
+                for v in self._free_variables(f):
+                    coits.vars.add(v)
+
+        coits.input_vars = set([v for v in coi_vars if v in hts.input_vars])
+        coits.output_vars = set([v for v in coi_vars if v in hts.output_vars])
+        coits.state_vars = set([v for v in coi_vars if v in hts.state_vars])
 
         new_hts = HTS("COI")
         new_hts.add_ts(coits)
@@ -151,7 +154,6 @@ class ConeOfInfluence(object):
             printer = HTSPrintersFactory.printer_by_name("STS")
             with open("/tmp/coi_model.ssts", "w") as f:
                 f.write(printer.print_hts(new_hts, []))
-
 
         return new_hts
         

@@ -50,6 +50,7 @@ T_INPUT = "INPUT"
 T_OUTPUT = "OUTPUT"
 T_INIT = "INIT"
 T_TRANS = "TRANS"
+T_FTRANS = "FUNC"
 T_INVAR = "INVAR"
 T_DEF = "DEF"
 
@@ -496,12 +497,13 @@ class SymbolicSimpleTSParser(ModelParser):
         
     def parse_string(self, lines):
 
-        [none, var, state, input, output, init, invar, trans] = range(8)
+        [none, var, state, input, output, init, invar, trans, ftrans] = range(9)
         section = none
         
         inits = TRUE()
         invars = TRUE()
         transs = TRUE()
+        ftranss = {}
 
         sparser = StringParser()
 
@@ -546,6 +548,10 @@ class SymbolicSimpleTSParser(ModelParser):
             if T_TRANS == line[:len(T_TRANS)]:
                 section = trans
                 continue
+
+            if T_FTRANS == line[:len(T_FTRANS)]:
+                section = ftrans
+                continue
             
             if section in [var, state, input, output]:
                 line = line[:-2].replace(" ","").split(":")
@@ -573,7 +579,19 @@ class SymbolicSimpleTSParser(ModelParser):
 
             if section == trans:
                 transs = And(transs, sparser.parse_formula(qline))
-                
+
+            if section == ftrans:
+                strvar = line[:line.find(":=")]
+                var = sparser.parse_formula(quote_names(strvar, replace_ops=False))
+                cond_ass = line[line.find(":=")+2:].strip()
+                ftranss[var] = []
+
+                for cond_as in cond_ass.split("{"):
+                    if cond_as == "":
+                        continue
+                    cond = cond_as[:cond_as.find(",")]
+                    ass = cond_as[cond_as.find(",")+1:cond_as.find("}")]
+                    ftranss[var].append((sparser.parse_formula(quote_names(cond, replace_ops=False)), sparser.parse_formula(quote_names(ass, replace_ops=False))))
 
         hts = HTS("STS")
         ts = TS()
@@ -585,6 +603,7 @@ class SymbolicSimpleTSParser(ModelParser):
         ts.init = inits
         ts.invar = invars
         ts.trans = transs
+        ts.ftrans = ftranss
         
         hts.add_ts(ts)
 

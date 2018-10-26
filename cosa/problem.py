@@ -128,6 +128,7 @@ class Problems(object):
     cardinality = -1
     region = None
     coi = False
+    cache_files = False
     
     _hts = None
     _hts2 = None

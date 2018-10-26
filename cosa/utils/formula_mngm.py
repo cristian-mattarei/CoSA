@@ -52,33 +52,22 @@ class SymbolsWalker(IdentityDagWalker):
         self.symbols.add(formula)
         return formula
 
-class FuncSymbolsWalker(IdentityDagWalker):
-    symbols = set([])
-
-    def reset_symbols(self):
-        self.symbols = set([])
-    
-    def walk_symbol(self, formula, args, **kwargs):
-        self.symbols.add(self.function(formula))
-        return formula
-    
 def substitute(formula, mapsym, reset_walker=False):
     subwalker = SubstituteWalker()
     subwalker.set_substitute_map(mapsym)
     return subwalker.walk(formula)
 
+free_variables_dic = {}
+
 def get_free_variables(formula):
+    if formula in free_variables_dic:
+        return free_variables_dic[formula]
     symwalker = SymbolsWalker()
     symwalker.reset_symbols()
     symwalker.walk(formula)
-    return symwalker.symbols
-
-def get_func_free_variables(formula, function):
-    symwalker = FuncSymbolsWalker()
-    symwalker.reset_symbols()
-    symwalker.function = function
-    symwalker.walk(formula)
-    return symwalker.symbols
+    ret = symwalker.symbols
+    free_variables_dic[formula] = ret
+    return ret
 
 KEYWORDS = ["not","xor","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
 OPERATORS = [(" < "," u< "), \

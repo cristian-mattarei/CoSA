@@ -79,6 +79,7 @@ class Config(object):
     model_extension = None
     cardinality = 5
     coi = False
+    cache_files = False
 
     printer = None
     strategy = None
@@ -417,7 +418,7 @@ def main():
                         help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
 
     ver_params.set_defaults(precondition=None)
-    ver_params.add_argument('-c', '--precondition', metavar='<invar>', type=str, required=False,
+    ver_params.add_argument('-r', '--precondition', metavar='<invar>', type=str, required=False,
                        help='invariant properties precondition.')
     
     ver_params.set_defaults(lemmas=None)
@@ -467,12 +468,15 @@ def main():
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
-
      
     # Encoding parameters
 
     enc_params = parser.add_argument_group('encoding')
 
+    enc_params.set_defaults(cache_files=False)
+    enc_params.add_argument('-c', '--cache-files', dest='cache_files', action='store_true',
+                       help="caches encoded files to speed-up parsing. (Default is \"%s\")"%config.cache_files)
+    
     enc_params.set_defaults(add_clock=False)
     enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
                        help="adds clock behavior. (Default is \"%s\")"%config.add_clock)
@@ -604,6 +608,7 @@ def main():
     config.coi = args.coi
     config.model_extension = args.model_extension
     config.cardinality = args.cardinality
+    config.cache_files = args.cache_files
     config.debug = args.debug
 
     if len(sys.argv)==1:
