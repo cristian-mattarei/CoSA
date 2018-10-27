@@ -541,10 +541,6 @@ def main():
 
     trans_params = parser.add_argument_group('translation')
     
-    # trans_params.set_defaults(smt2=None)
-    # trans_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
-    #                    help='generates the smtlib2 encoding for a BMC call.')
-
     trans_params.set_defaults(translate=None)
     trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
