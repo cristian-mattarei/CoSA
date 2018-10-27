@@ -589,7 +589,6 @@ def main():
         devel_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
                            help='generates the smtlib2 tracing file for each solver call.')
 
-    
     args = parser.parse_args()
 
     config.strfiles = args.input_files
