@@ -39,7 +39,6 @@ class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
-    debug = False
     devel = False
     bmc_length = 10
     bmc_length_min = 0
@@ -201,10 +200,10 @@ def print_problem_result(pbm, config, count=-1):
 def run_problems(problems_file, config, problems=None):
     
     if sys.version_info[0] < 3:
-        if config.debug:
+        if config.devel:
             Logger.warning("This software is not tested for Python 2, we recommend to use Python 3 instead")
         else:
-            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in debug mode")
+            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in developer mode")
 
     reset_env()
     Logger.verbosity = config.verbosity
@@ -567,13 +566,9 @@ def main():
     deb_params.add_argument('--time', dest='time', action='store_true',
                             help="prints time for every verification. (Default is \"%s\")"%config.time)
     
-    deb_params.set_defaults(debug=False)
-    deb_params.add_argument('--debug', dest='debug', action='store_true',
-                       help="enables debug mode. (Default is \"%s\")"%config.debug)
-
     deb_params.set_defaults(devel=False)
     deb_params.add_argument('--devel', dest='devel', action='store_true',
-                            help="enables devel mode. (Default is \"%s\")"%config.devel)
+                            help="enables developer mode. (Default is \"%s\")"%config.devel)
 
     # Developers
 
@@ -626,7 +621,6 @@ def main():
     config.model_extension = args.model_extension
     config.cardinality = args.cardinality
     config.cache_files = args.cache_files
-    config.debug = args.debug
 
     if devel:
         config.smt2file = args.smt2
@@ -641,7 +635,7 @@ def main():
         Logger.error("Printer \"%s\" not found"%(args.printer))
         
     if args.problems:
-        if args.debug:
+        if config.devel:
             sys.exit(run_problems(args.problems, config))
         else:
             try:
@@ -669,7 +663,7 @@ def main():
 
     Logger.error_raise_exept = True
     
-    if args.debug:
+    if config.devel:
         sys.exit(run_verification(config))
     else:
         try:
