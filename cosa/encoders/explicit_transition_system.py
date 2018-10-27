@@ -150,6 +150,8 @@ class ExplicitTSParser(ModelParser):
                     state = TRUE() if line.init.value == T_TRUE else FALSE()
                 
                 states[T_I] = And(states[T_I], state)
+
+                # Optimization for the initial state assignment
                 init = And(init, state)
                 
             state = TRUE()
@@ -180,7 +182,9 @@ class ExplicitTSParser(ModelParser):
         states[T_I] = EqualsOrIff(stateid_var, BV(0, stateid_width))
         
         count = 1
-        for state in states:
+        state_items = list(states.keys())
+        state_items.sort()
+        for state in state_items:
             if state == T_I:
                 continue
             invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(count, stateid_width)), states[state]))

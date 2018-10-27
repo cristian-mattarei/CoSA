@@ -1,6 +1,7 @@
 [GENERAL]
 model_file: counters.sts
 assume_if_true: True
+cache_files: True
 
 [DEFAULT]
 bmc_length: 40

@@ -47,8 +47,8 @@ class ModelInformation(object):
                         self.clock_list.append(el)
 
     def __repr__(self):
-        return "CL(%s) ACL(%s)"%(", ".join([s.symbol_name() for s in self.clock_list]) if self.clock_list is not None else "", \
-                                 ", ".join([s.symbol_name() for s in self.abstract_clock_list]) if self.abstract_clock_list is not None else "")
+        return "CL(%s) ACL(%s)"%(", ".join([str(s) for s in self.clock_list]) if self.clock_list is not None else "", \
+                                 ", ".join([str(s) for s in self.abstract_clock_list]) if self.abstract_clock_list is not None else "")
                 
 class ModelParser(object):
     extensions = None

@@ -127,6 +127,8 @@ class Problems(object):
     model_extension = None
     cardinality = -1
     region = None
+    coi = False
+    cache_files = False
     
     _hts = None
     _hts2 = None
@@ -255,6 +257,7 @@ class Problem(object):
     model_extension = None
     cardinality = -1
     region = None
+    coi = False
 
     full_trace = False
     trace_vars_change = False

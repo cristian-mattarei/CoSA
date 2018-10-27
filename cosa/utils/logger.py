@@ -89,19 +89,22 @@ class Logger(object):
 
     @staticmethod        
     def warning(msg):
-        if not Logger.newline:
-            sys.stderr.write("\n")
-            Logger.newline = True
-            
         if Logger.single_warnings:
             if Logger.prev_warnings is None:
                 Logger.prev_warnings = []
 
             if msg not in Logger.prev_warnings:
+                if not Logger.newline:
+                    sys.stderr.write("\n")
+                    Logger.newline = True
+                
                 sys.stderr.write("WARNING: "+msg+"\n")
                 sys.stderr.flush()
                 Logger.prev_warnings.append(msg)
         else:
+            if not Logger.newline:
+                sys.stderr.write("\n")
+                Logger.newline = True
             sys.stderr.write("WARNING: "+msg+"\n")
             sys.stderr.flush()
         

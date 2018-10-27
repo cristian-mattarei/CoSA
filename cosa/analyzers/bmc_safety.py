@@ -8,6 +8,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
+from multiprocessing import Process, Manager
+
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.shortcuts import Interpolator
 from pysmt.oracles import get_logic
@@ -20,7 +24,7 @@ from cosa.representation import TS, HTS
 from cosa.problem import VerificationStatus
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
-NL = "\n"
+FWDK = "FWD-K"
 
 class BMCSafety(BMCSolver):
 
@@ -85,7 +89,7 @@ class BMCSafety(BMCSolver):
             Logger.log("Deadlock wit k=%s"%k, 1)
             return (VerificationStatus.FALSE, None)
 
-    def solve_safety(self, hts, prop, k, k_min=0, lemmas=None):
+    def solve_safety(self, hts, prop, k, k_min=0, lemmas=None, processes=1):
         if lemmas is not None:
             (hts, res) = self.add_lemmas(hts, prop, lemmas)
             if res:
@@ -96,7 +100,7 @@ class BMCSafety(BMCSolver):
         hts.reset_formulae()
 
         if self.config.incremental:
-            return self.solve_safety_inc(hts, prop, k, k_min)
+            return self.solve_safety_inc(hts, prop, k, k_min, processes)
 
         return self.solve_safety_ninc(hts, prop, k)
 
@@ -116,12 +120,123 @@ class BMCSafety(BMCSolver):
 
         if self.config.strategy == VerificationStrategy.INT:
             return self.solve_safety_int(hts, prop, k)
+
+        # Redirecting strategy selection error
+        if self.config.strategy == VerificationStrategy.MULTI:
+            Logger.warning("Multithreaded is not available in not incremental mode. Switching to incremental")
+            return self.solve_safety_inc(hts, prop, k, 0)
         
         Logger.error("Invalid configuration strategy")
 
         return None
-    
-    def solve_safety_inc(self, hts, prop, k, k_min):
+
+    def _run_as_process(self, function, name, ret, *args):
+        if ret is None: ret = {}
+        ret[name] = function(*args)
+
+    def _status_checker(self, status, threads):
+
+        terminated = 0
+        
+        while True:
+            time.sleep(0.1)
+
+            if len(status.keys()) > terminated:
+                terminated = len(status.keys())
+                Logger.log("Solver done: %s"%(list(status.keys())), 1)
+            
+            if (len(status.keys()) >= threads):
+                return False
+            if (status is not None) and (len(status.keys()) > 0):
+                (t, model) = [val for key,val in status.items() if val is not None][0]
+                if (model != None):
+                    return True
+        
+    def solve_safety_inc(self, hts, prop, k, k_min, processes=1):
+        retdic = {}
+
+        if self.config.strategy == VerificationStrategy.MULTI:
+            solvers = []
+
+            if self.config.prove:
+                active_workers = [FWDK, VerificationStrategy.INT, VerificationStrategy.BWD, VerificationStrategy.FWD]
+            else:
+                active_workers = [VerificationStrategy.FWD, VerificationStrategy.BWD]
+
+            active_workers = active_workers[:min(processes, len(active_workers))]
+            workers = len(active_workers)
+            
+            with Manager() as manager:
+                ret = manager.dict({})
+
+                # Forward
+                if VerificationStrategy.FWD in active_workers:
+                    Logger.log("Starting \"%s\""%(VerificationStrategy.FWD), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_fwd, VerificationStrategy.FWD, ret, \
+                                                 *[hts, prop, k, k_min, False, None, False])))
+                
+                # Backward
+                if VerificationStrategy.BWD in active_workers:
+                    Logger.log("Starting \"%s\""%(VerificationStrategy.BWD), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_bwd, VerificationStrategy.BWD, ret, \
+                                                 *[hts, prop, k, False])))
+
+                # K-Induction
+                if FWDK in active_workers:
+                    Logger.log("Starting \"%s\""%(FWDK), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_fwd, FWDK, ret, \
+                                                 *[hts, prop, k, k_min, False, None, True])))
+
+                
+                # Interpolation
+                if VerificationStrategy.INT in active_workers:
+                    Logger.log("Starting \"%s\""%(VerificationStrategy.INT), 1)
+                    solvers.append(Process(target=self._run_as_process, \
+                                           args=(self.solve_safety_inc_int, VerificationStrategy.INT, ret, \
+                                                 *[hts, prop, k])))
+
+                # Monitoring of the status
+                status_checker = Process(target=self._status_checker, args=[ret, workers])
+                
+                
+                for solver in solvers:
+                    solver.start()
+
+                status_checker.start()
+                status_checker.join()
+                
+                for solver in solvers:
+                    solver.terminate()
+
+                for key,val in ret.items():
+                    retdic[key] = val
+
+            tru_res = [(key,val) for key,val in retdic.items() if (val is not None) and (val[1] is not None) and (val[1] == True)]
+            fal_res = [(key,val) for key,val in retdic.items() if (val is not None) and (val[1] is not None) and (val[1] != True)]
+            unk_res = [(key,val) for key,val in retdic.items() if (val is not None) and (val[1] is None)]
+
+            if (len(tru_res) > 0) and (len(fal_res) > 0):
+                Logger.warning("Unconsistent results")
+
+            if len(fal_res) > 0:
+                winning = fal_res[0]
+            elif len(tru_res) > 0:
+                winning = tru_res[0]
+            elif len(unk_res) > 0:
+                winning = unk_res[0]
+            else:
+                Logger.error("No solution")
+                
+            Logger.msg("(%s)"%(winning[0]), 0, not(Logger.level(1)))
+
+            if winning[0] == VerificationStrategy.BWD:
+                self.config.strategy = VerificationStrategy.BWD
+                
+            return winning[1]
+        
         if self.config.strategy == VerificationStrategy.ALL:
             res = self.solve_safety_inc_fwd(hts, prop, k, k_min)
             if res[1] is not None:
@@ -147,30 +262,30 @@ class BMCSafety(BMCSolver):
         if self.config.strategy == VerificationStrategy.ZZ:
             return self.solve_safety_inc_zz(hts, prop, k)
             
-        # Redirecting strategy selection error
         if self.config.strategy == VerificationStrategy.INT:
-            Logger.warning("Interpolation is not available in incremental mode. Switching to not incremental")
-            return self.solve_safety_ninc(hts, prop, k)
+            return self.solve_safety_inc_int(hts, prop, k)
             
         Logger.error("Invalid configuration strategy")
 
         return None
+
 
     def solve_safety_int(self, hts, prop, k):
         init = hts.single_init()
         trans = hts.single_trans()
         invar = hts.single_invar()
 
-        if TS.has_next(prop):
-            Logger.error("Interpolation does not support properties with next variables")
+        has_next = TS.has_next(prop)
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
-            
+
         itp = Interpolator(logic=get_logic(trans))
         init = And(init, invar)
         nprop = Not(prop)
+
+        pivot = 2
         
-        t = 0
+        t = 1 if has_next else 0
         while (t < k+1):
             Logger.log("\nSolving for k=%s"%t, 1)
             int_c = 0
@@ -178,9 +293,9 @@ class BMCSafety(BMCSolver):
             R = init_0
 
             trans_t = self.unroll(trans, invar, t, gen_list=True)
-            trans_tA = And(trans_t[0]) if t > 0 else TRUE()
-            trans_tB = And(trans_t[1:]) if t > 0 else TRUE()
-            
+            trans_tA = And(trans_t[:pivot]) if t > 0 else TRUE()
+            trans_tB = And(trans_t[pivot:]) if t > 0 else TRUE()
+
             while True:
                 self._reset_assertions(self.solver)
                 Logger.log("Add init and invar", 2)
@@ -188,7 +303,7 @@ class BMCSafety(BMCSolver):
 
                 self._add_assertion(self.solver, And(trans_tA, trans_tB))
 
-                npropt = self.at_time(nprop, t)
+                npropt = self.at_time(nprop, t-1 if has_next else t)
                 Logger.log("Add property time %d"%t, 2)
                 self._add_assertion(self.solver, npropt)
 
@@ -207,9 +322,9 @@ class BMCSafety(BMCSolver):
                         Logger.msg(".", 0, not(Logger.level(1)))
                         break
 
-                    Ri = And(itp.sequence_interpolant([And(R, trans_tA), And(trans_tB, npropt)]))
+                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
                     Ri = substitute(Ri, map_10)
-                    
+
                     self._reset_assertions(self.solver)
                     self._add_assertion(self.solver, And(Ri, Not(R)))
 
@@ -221,6 +336,100 @@ class BMCSafety(BMCSolver):
                         int_c += 1
 
                     Logger.log("Extending initial states (%s)"%int_c, 1)
+
+            t += 1
+
+        return (t-1, None)
+
+    def solve_safety_inc_int(self, hts, prop, k):
+        init = hts.single_init()
+        trans = hts.single_trans()
+        invar = hts.single_invar()
+
+        solver_proof = self.solver.copy("inc_int_proof")
+        solver = self.solver.copy("inc_int")
+
+        has_next = TS.has_next(prop)
+
+        map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
+
+        itp = Interpolator(logic=get_logic(trans))
+        init = And(init, invar)
+        nprop = Not(prop)
+
+        def check_overappr(Ri, R):
+            self._reset_assertions(solver_proof)
+            self._add_assertion(solver_proof, And(Ri, Not(R)))
+
+            if not self._solve(solver_proof):
+                Logger.log("Proof found with k=%s"%(t), 1)
+                return TRUE()
+
+            Logger.log("Extending initial states (%s)"%int_c, 1)
+            return Or(R, Ri)
+
+        t = 1 if has_next else 0
+
+        trans_t = self.unroll(trans, invar, k+1, gen_list=True)
+
+        pivot = 2
+        trans_tA = And(trans_t[:pivot])
+        init_0 = self.at_time(init, 0)
+
+        is_sat = True
+        Ri = None
+
+        self._reset_assertions(solver)
+        
+        while (t < k+1):
+            Logger.log("\nSolving for k=%s"%t, 1)
+            int_c = 0
+            R = init_0
+
+            # trans_t is composed as trans_i, invar_i, trans_i+1, invar_i+1, ...
+            self._add_assertion(solver, trans_t[2*t])
+            self._add_assertion(solver, trans_t[(2*t)+1])
+            
+            while True:
+                Logger.log("Add init and invar", 2)
+                self._push(solver)
+                self._add_assertion(solver, R)
+
+                npropt = self.at_time(nprop, t-1 if has_next else t)
+                Logger.log("Add property time %d"%t, 2)
+                self._add_assertion(solver, npropt)
+
+                Logger.log("Interpolation at k=%s"%(t), 2)
+
+                if t > 0:
+                    trans_tB = And(trans_t[pivot:(t*2)])
+                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
+                    is_sat = Ri == None
+
+                if is_sat and self._solve(solver):
+                    if R == init_0:
+                        Logger.log("Counterexample found with k=%s"%(t), 1)
+                        model = self._get_model(solver)
+                        return (t, model)
+                    else:
+                        Logger.log("No counterexample or proof found with k=%s"%(t), 1)
+                        Logger.msg(".", 0, not(Logger.level(1)))
+                        self._pop(solver)
+                        break
+                else:
+                    self._pop(solver)
+                    if Ri is None:
+                        break
+
+                    Ri = substitute(Ri, map_10)
+                    res = check_overappr(Ri, R)
+                    
+                    if res == TRUE():
+                        Logger.log("Proof found with k=%s"%(t), 1)
+                        return (t, True)
+
+                    R = res
+                    int_c += 1
 
             t += 1
 
@@ -309,60 +518,25 @@ class BMCSafety(BMCSolver):
 
         return True
 
-    def add_lemmas(self, hts, prop, lemmas):
-        if len(lemmas) == 0:
-            return (hts, False)
-
-        self._reset_assertions(self.solver)
-
-        h_init = hts.single_init()
-        h_trans = hts.single_trans()
-        
-        holding_lemmas = []
-        lindex = 1
-        nlemmas = len(lemmas)
-        tlemmas = 0
-        flemmas = 0
-        for lemma in lemmas:
-            Logger.log("\nChecking Lemma %s/%s"%(lindex,nlemmas), 1)
-            invar = hts.single_invar()
-            init = And(h_init, invar)
-            trans = And(invar, h_trans, TS.to_next(invar))
-            if self._check_lemma(hts, lemma, init, trans):
-                holding_lemmas.append(lemma)
-                hts.add_assumption(lemma)
-                hts.reset_formulae()
-                
-                Logger.log("Lemma %s holds"%(lindex), 1)
-                tlemmas += 1
-                if self._suff_lemmas(prop, holding_lemmas):
-                    return (hts, True)
-            else:
-                Logger.log("Lemma %s does not hold"%(lindex), 1)
-                flemmas += 1
-                
-            msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
-            Logger.inline(msg, 0, not(Logger.level(1))) 
-            lindex += 1
-            
-        Logger.clear_inline(0, not(Logger.level(1)))
-        
-        hts.assumptions = And(holding_lemmas)
-        return (hts, False)
-
-    def solve_safety_inc_fwd(self, hts, prop, k, k_min, all_vars=False, generalize=None):
-        self._reset_assertions(self.solver)
+    def solve_safety_inc_fwd(self, hts, prop, k, k_min, \
+                             all_vars=False, generalize=None, prove=None):
 
         add_unsat_cons = False
-
-        if self.config.prove:
-            self.solver_ind = self.solver.copy("ind")
-            self._reset_assertions(self.solver_ind)
+        prove = self.config.prove if prove is None else prove
+        
+        solver_name = "inc_fwd%s"%("_prove" if prove else "")
+        solver = self.solver.copy(solver_name)
+        
+        self._reset_assertions(solver)
+        
+        if prove:
+            solver_ind = self.solver.copy("%s_ind"%solver_name)
+            self._reset_assertions(solver_ind)
 
             if all_vars:
                 relevant_vars = hts.vars
             else:
-                relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
+                relevant_vars = hts.state_vars | hts.output_vars
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -387,11 +561,11 @@ class BMCSafety(BMCSolver):
         n_prop_t = FALSE()
         init_0 = self.at_time(And(init, invar), 0)
         Logger.log("Add init and invar", 2)
-        self._add_assertion(self.solver, init_0)
+        self._add_assertion(solver, init_0)
 
-        if self.config.prove:
+        if prove:
             # add invariants at time 0, but not init
-            self._add_assertion(self.solver_ind, self.at_time(invar, 0), "invar")
+            self._add_assertion(solver_ind, self.at_time(invar, 0), "invar")
 
         next_prop = TS.has_next(prop)
         if next_prop:
@@ -406,7 +580,7 @@ class BMCSafety(BMCSolver):
         
         while (t < k+1):
             if not skip_push:
-                self._push(self.solver)
+                self._push(solver)
                 skip_push = False
 
             t_prop = t-1 if next_prop else t
@@ -421,10 +595,11 @@ class BMCSafety(BMCSolver):
                 n_prop_t = self.at_time(Not(prop), t)
 
             Logger.log("Add not property at time %d"%t, 2)
-            self._add_assertion(self.solver, n_prop_t, "Property")
+            if not skip_push:
+                self._add_assertion(solver, n_prop_t, "Property")
 
             if constraints != TRUE():
-                self._add_assertion(self.solver, self.at_time(constraints, t), "Addditional Constraints")
+                self._add_assertion(solver, self.at_time(constraints, t), "Addditional Constraints")
             
             if t >= k_min:
                 Logger.log("\nSolving for k=%s"%(t), 1)
@@ -432,14 +607,15 @@ class BMCSafety(BMCSolver):
                 if self.preferred is not None:
                     try:
                         for (var, val) in self.preferred:
-                            for t in range(t+1):
-                                self.solver.solver.set_preferred_var(TS.get_timed(var, t), val)
+                            for j in range(t+1):
+                                solver.solver.set_preferred_var(TS.get_timed(var, j), val)
                     except:
                         Logger.warning("Current solver does not support preferred variables")
+                        self.preferred = None
 
-                if self._solve(self.solver):
+                if self._solve(solver):
                     Logger.log("Counterexample found with k=%s"%(t), 1)
-                    model = self._get_model(self.solver)
+                    model = self._get_model(solver)
 
                     if generalize is not None:
                         constr, res = generalize(model, t)
@@ -454,17 +630,17 @@ class BMCSafety(BMCSolver):
                     Logger.log("No counterexample found with k=%s"%(t), 1)
                     Logger.msg(".", 0, not(Logger.level(1)))
 
-                    if add_unsat_cons and self.config.prove:
-                        self._add_assertion(self.solver, Implies(self.at_time(And(init, invar), 1), self.at_time(Not(prop), t_prop+1)))
-                        self._add_assertion(self.solver, Not(n_prop_t))
+                    if add_unsat_cons and prove:
+                        self._add_assertion(solver, Implies(self.at_time(And(init, invar), 1), self.at_time(Not(prop), t_prop+1)))
+                        self._add_assertion(solver, Not(n_prop_t))
             else:
                 Logger.log("\nSkipping solving for k=%s (k_min=%s)"%(t,k_min), 1)
                 Logger.msg("_", 0, not(Logger.level(1)))
 
-            self._pop(self.solver)
+            self._pop(solver)
             skip_push = False
             
-            if self.config.prove:
+            if prove:
                 if t > k_min:
                     loop_free = self.loop_free(relevant_vars, t, t-1)
 
@@ -472,52 +648,56 @@ class BMCSafety(BMCSolver):
                     acc_init = And(acc_init, self.at_time(Not(init), t))
                     acc_loop_free = And(acc_loop_free, loop_free)
                     
-                    self._push(self.solver)
+                    self._push(solver)
 
-                    self._add_assertion(self.solver, acc_init)
-                    self._add_assertion(self.solver, acc_loop_free)
-                    
-                    if self._solve(self.solver):
+                    self._add_assertion(solver, acc_init)
+                    self._add_assertion(solver, acc_loop_free)
+
+                    if self._solve(solver):
                         Logger.log("Induction (I & lF) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction (I & lF) holds with k=%s"%(t), 1)
                         return (t, True)
 
-                    self._pop(self.solver)
+                    self._pop(solver)
 
                     # Checking T & loopFree & !P
-                    self._add_assertion(self.solver_ind, trans_t, comment="trans")
-                    self._add_assertion(self.solver_ind, loop_free, comment="loop_free")
+                    self._add_assertion(solver_ind, trans_t, comment="trans")
+                    self._add_assertion(solver_ind, loop_free, comment="loop_free")
                     
-                    self._push(self.solver_ind)
+                    self._push(solver_ind)
 
-                    self._add_assertion(self.solver_ind, self.at_time(Not(prop), t_prop))
+                    self._add_assertion(solver_ind, self.at_time(Not(prop), t_prop))
 
-                    if self._solve(self.solver_ind):
+                    if self._solve(solver_ind):
                         Logger.log("Induction (lF & !P) failed with k=%s"%(t), 1)
                     else:
                         Logger.log("Induction (lF & !P) holds with k=%s"%(t), 1)
                         return (t, True)
 
-                    self._pop(self.solver_ind)
+                    self._pop(solver_ind)
 
-                    self._add_assertion(self.solver_ind, self.at_time(prop, t_prop), "prop")
+                    self._add_assertion(solver_ind, self.at_time(prop, t_prop), "prop")
                 else:
                     if not next_prop:
-                        self._add_assertion(self.solver_ind, self.at_time(prop, t_prop), "prop")
+                        self._add_assertion(solver_ind, self.at_time(prop, t_prop), "prop")
 
             trans_t = self.unroll(trans, invar, t+1, t)
-            self._add_assertion(self.solver, trans_t)
+            self._add_assertion(solver, trans_t)
                     
             t += 1
             
         return (t-1, None)
 
-    def solve_safety_inc_bwd(self, hts, prop, k, assert_property=False):
-        self._reset_assertions(self.solver)
+    def solve_safety_inc_bwd(self, hts, prop, k, assert_property=False, generalize=None):
+        solver = self.solver.copy("inc_bwd")
 
-        if TS.has_next(prop):
-            Logger.error("Invariant checking with next variables only supports FWD strategy")
+        self._reset_assertions(solver)
+
+        has_next = TS.has_next(prop)
+        
+        if has_next:
+            prop = TS.to_prev(prop)
 
         init = hts.single_init()
         trans = hts.single_trans()
@@ -525,32 +705,62 @@ class BMCSafety(BMCSolver):
 
         formula = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add not property at time %d"%0, 2)
-        self._add_assertion(self.solver, formula)
+        self._add_assertion(solver, formula)
 
+        skip_push = False
+        constraints = TRUE()
+
+        models = 0
+        
         t = 0
+        k_min = 1 if has_next else 0
         while (t < k+1):
-            self._push(self.solver)
+            if not skip_push:
+                self._push(solver)
+                skip_push = False
 
-            pinit = self.at_ptime(init, t-1)
-            Logger.log("Add init at time %d"%t, 2)
-            self._add_assertion(self.solver, pinit)
+            if not skip_push:
+                pinit = self.at_ptime(init, t-1)
+                Logger.log("Add init at time %d"%t, 2)
+                self._add_assertion(solver, pinit)
 
-            if self._solve(self.solver):
+            if constraints != TRUE():
+                for j in range(t+1):
+                    self._add_assertion(solver, self.at_ptime(constraints, j-1), "Addditional Constraints")
+                
+            if (t >= k_min) and self._solve(solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self._get_model(self.solver)
-                return (t, model)
+                model = self._get_model(solver)
+                models += 1
+
+                if models > 20:
+                    Logger.msg("R", 0, not(Logger.level(1)))
+                    self._reset_solver(solver)
+                    models = 0
+
+                if generalize is not None:
+                    constr, res = generalize(model, t)
+                    if res:
+                        return (t, model)
+                    constraints = And(constraints, Not(constr))
+                    skip_push = True
+                    continue
+                else:
+                    return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self._pop(self.solver)
+            self._pop(solver)
+            skip_push = False
 
             trans_t = self.unroll(trans, invar, t, t+1)
-            self._add_assertion(self.solver, trans_t)
+            self._add_assertion(solver, trans_t)
 
             if assert_property and t > 0:
                 prop_t = self.unroll(TRUE(), prop, t-1, t)
-                self._add_assertion(self.solver, prop_t)
+                self._add_assertion(solver, prop_t)
+
                 Logger.log("Add property at time %d"%t, 2)
 
             t += 1
@@ -558,7 +768,9 @@ class BMCSafety(BMCSolver):
         return (t-1, None)
 
     def solve_safety_inc_zz(self, hts, prop, k):
-        self._reset_assertions(self.solver)
+        solver = self.solver.copy("inc_zz")
+        
+        self._reset_assertions(solver)
 
         if TS.has_next(prop):
             Logger.error("Invariant checking with next variables only supports FWD strategy")
@@ -569,15 +781,15 @@ class BMCSafety(BMCSolver):
 
         initt = self.at_time(And(init, invar), 0)
         Logger.log("Add init at_0", 2)
-        self._add_assertion(self.solver, initt)
+        self._add_assertion(solver, initt)
 
         propt = self.at_ptime(And(Not(prop), invar), -1)
         Logger.log("Add property pat_%d"%0, 2)
-        self._add_assertion(self.solver, propt)
+        self._add_assertion(solver, propt)
 
         t = 0
         while (t < k+1):
-            self._push(self.solver)
+            self._push(solver)
             even = (t % 2) == 0
             th = int(t/2)
 
@@ -587,34 +799,34 @@ class BMCSafety(BMCSolver):
                 eq = And([EqualsOrIff(self.at_time(v, th+1), self.at_ptime(v, th-1)) for v in hts.vars])
 
             Logger.log("Add equivalence time %d"%t, 2)
-            self._add_assertion(self.solver, eq)
+            self._add_assertion(solver, eq)
 
-            if self._solve(self.solver):
+            if self._solve(solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
-                model = self._get_model(self.solver)
+                model = self._get_model(solver)
                 return (t, model)
             else:
                 Logger.log("No counterexample found with k=%s"%(t), 1)
                 Logger.msg(".", 0, not(Logger.level(1)))
 
-            self._pop(self.solver)
+            self._pop(solver)
 
             if even:
                 trans_t = self.unroll(trans, invar, th+1, th)
             else:
                 trans_t = self.unroll(trans, invar, th, th+1)
 
-            self._add_assertion(self.solver, trans_t)
+            self._add_assertion(solver, trans_t)
 
             t += 1
 
         return (t-1, None)
 
     
-    def safety(self, prop, k, k_min):
+    def safety(self, prop, k, k_min, processes=1):
         lemmas = self.hts.lemmas
         self._init_at_time(self.hts.vars, k)
-        (t, model) = self.solve_safety(self.hts, prop, k, k_min, lemmas)
+        (t, model) = self.solve_safety(self.hts, prop, k, k_min, lemmas, processes)
 
         if model == True:
             return (VerificationStatus.TRUE, None, t)
@@ -640,7 +852,7 @@ class BMCSafety(BMCSolver):
         if all_vars:
             relevant_vars = hts.vars
         else:
-            relevant_vars = hts.state_vars | hts.input_vars | hts.output_vars
+            relevant_vars = hts.state_vars | hts.output_vars
         
         relevant_vars_0 = [TS.get_timed(v, 0) for v in relevant_vars]
         relevant_vars_1 = [TS.get_timed(v, 1) for v in relevant_vars]

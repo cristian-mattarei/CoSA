@@ -20,7 +20,7 @@ from cosa.representation import TS, HTS
 from cosa.utils.formula_mngm import substitute, get_free_variables
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 from cosa.problem import Trace
-
+from cosa.utils.generic import status_bar
 
 class VerificationStrategy(object):
     FWD = "FWD"
@@ -31,6 +31,7 @@ class VerificationStrategy(object):
     LTL  = "LTL"
     AUTO = "AUTO"
     ALL = "ALL"
+    MULTI = "MULTI"
 
 class MCConfig(object):
 
@@ -57,14 +58,15 @@ class MCConfig(object):
     @staticmethod
     def get_strategies():
         strategies = []
-        strategies.append((VerificationStrategy.AUTO, "Automatic selection"))
-        strategies.append((VerificationStrategy.FWD,  "Forward reachability"))
-        strategies.append((VerificationStrategy.BWD,  "Backward reachability"))
-        strategies.append((VerificationStrategy.ZZ,   "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((VerificationStrategy.INT,  "Interpolation (not incremental only)"))
-        strategies.append((VerificationStrategy.NU,   "States picking without unrolling (only for simulation)"))
-        strategies.append((VerificationStrategy.LTL,  "Pure LTL verification (without optimizations)"))
-        strategies.append((VerificationStrategy.ALL,  "Use all techniques"))
+        strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
+        strategies.append((VerificationStrategy.MULTI, "Parallel multiple techniques"))
+        strategies.append((VerificationStrategy.FWD,   "Forward reachability"))
+        strategies.append((VerificationStrategy.BWD,   "Backward reachability"))
+        strategies.append((VerificationStrategy.ZZ,    "Mixed Forward and Backward reachability (Zig-Zag)"))
+        strategies.append((VerificationStrategy.INT,   "Interpolation"))
+        strategies.append((VerificationStrategy.NU,    "States picking without unrolling (only for simulation)"))
+        strategies.append((VerificationStrategy.LTL,   "Pure LTL verification (without optimizations)"))
+        strategies.append((VerificationStrategy.ALL,   "Use all techniques"))
 
         return strategies
 
@@ -149,8 +151,9 @@ class BMCSolver(object):
                                     VerificationStrategy.FWD, \
                                     VerificationStrategy.NU, \
                                     VerificationStrategy.INT, \
-                                    VerificationStrategy.LTL,
-                                    VerificationStrategy.ALL]:
+                                    VerificationStrategy.LTL, \
+                                    VerificationStrategy.ALL, \
+                                    VerificationStrategy.MULTI]:
             return self._remap_model_fwd(vars, model, k)
 
         Logger.error("Invalid configuration strategy")
@@ -230,7 +233,7 @@ class BMCSolver(object):
             solver.solver.add_assertion(formula)
 
         if Logger.level(3):
-            print(self.formula_to_smt2(formula)+"\n")
+            print(self._formula_to_smt2(formula)+"\n")
 
         if solver.trace_file is not None:
             if comment:
@@ -272,6 +275,7 @@ class BMCSolver(object):
 
 
     def _push(self, solver):
+        Logger.log("Push solver \"%s\""%solver.name, 2)
         if not self.config.skip_solving:
             solver.solver.push()
 
@@ -279,6 +283,7 @@ class BMCSolver(object):
         self._write_smt2_log(solver, "(push 1)")
 
     def _pop(self, solver):
+        Logger.log("Pop solver \"%s\""%solver.name, 2)
         if not self.config.skip_solving:
             solver.solver.pop()
 
@@ -303,6 +308,8 @@ class BMCSolver(object):
                 f.write("(set-logic %s)\n"%self.hts.logic)
 
     def _solve(self, solver):
+        Logger.log("Solve solver \"%s\""%solver.name, 2)
+        
         self._write_smt2_log(solver, "(check-sat)")
         self._write_smt2_log(solver, "")
 
@@ -350,6 +357,7 @@ class BMCSolver(object):
 
         return True
 
+
     def add_lemmas(self, hts, prop, lemmas):
         if len(lemmas) == 0:
             return (hts, False)
@@ -358,7 +366,7 @@ class BMCSolver(object):
 
         h_init = hts.single_init()
         h_trans = hts.single_trans()
-
+        
         holding_lemmas = []
         lindex = 1
         nlemmas = len(lemmas)
@@ -373,7 +381,7 @@ class BMCSolver(object):
                 holding_lemmas.append(lemma)
                 hts.add_assumption(lemma)
                 hts.reset_formulae()
-
+                
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
@@ -381,14 +389,15 @@ class BMCSolver(object):
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
                 flemmas += 1
-
+                
             msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
-            Logger.inline(msg, 0, not(Logger.level(1)))
+            Logger.inline(msg, 0, not(Logger.level(1))) 
             lindex += 1
-
+            
         Logger.clear_inline(0, not(Logger.level(1)))
 
-        hts.assumptions = And(holding_lemmas)
+        for lemma in holding_lemmas:
+            hts.add_assumption(lemma)
         return (hts, False)
 
     def _remap_model_fwd(self, vars, model, k):
@@ -399,7 +408,8 @@ class BMCSolver(object):
 
         for var in vars:
             for t in range(k+1):
-                retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
+                if TS.get_ptimed(var, k-t) in model:
+                    retmodel[TS.get_timed(var, t)] = model[TS.get_ptimed(var, k-t)]
 
         return retmodel
 

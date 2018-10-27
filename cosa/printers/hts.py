@@ -138,7 +138,7 @@ class STSHTSPrinter(HTSPrinter):
         printer = STSPrinter(self.stream)
         self.printer = printer.printer
 
-    def print_hts(self, hts, properties=None):
+    def print_hts(self, hts, properties=None, ftrans=False):
         if hts.assumptions is not None:
             self.write("\n# ASSUMPTIONS\n")
             for assmp in hts.assumptions:
@@ -146,7 +146,7 @@ class STSHTSPrinter(HTSPrinter):
                 self.printer(assmp)
                 self.write(";\n")
 
-        self.__print_single_ts(hts.get_TS())
+        self.__print_single_ts(hts.get_TS(ftrans=ftrans), ftrans)
 
         ret = self.stream.getvalue()
         self.stream.truncate(0)
@@ -172,7 +172,7 @@ class STSHTSPrinter(HTSPrinter):
                 newcp.append(cp[i])
         return newcp
     
-    def __print_single_ts(self, ts):
+    def __print_single_ts(self, ts, ftrans=False):
 
         has_comment = len(ts.comment) > 0
         
@@ -207,7 +207,8 @@ class STSHTSPrinter(HTSPrinter):
                 cp = list(conjunctive_partition(formula))
                 if self.simplify:
                     cp = self._simplify_cp(cp)
-    
+
+                cp = [x for x in cp if x.is_equals()]+[x for x in cp if not x.is_equals()]
                 for i in range(len(cp)):
                     f = cp[i]
                     if self.simplify:
@@ -219,7 +220,21 @@ class STSHTSPrinter(HTSPrinter):
                     if f == FALSE():
                         break
                 self.write("\n")
-                    
+
+        if ftrans:
+            if ts.ftrans is not None:
+                self.write("FUNC\n")
+                for var, var_ass in ts.ftrans.items():
+                    self.printer(var)
+                    self.write(" :=")
+                    for cond, value in var_ass:
+                        self.write(" {")
+                        self.printer(cond)
+                        self.write(", ")
+                        self.printer(value)
+                        self.write("}")
+                    self.write(";\n")
+                
         if has_comment:
             self.write("\n%s\n"%("-"*lenstr))
     

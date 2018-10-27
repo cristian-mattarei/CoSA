@@ -13,12 +13,13 @@ import os
 from cosa.shell import Config, run_verification
 from pysmt.shortcuts import reset_env
 
-abspath = os.path.abspath(__file__)
-path = ("/".join(abspath.split("/")[:-1]))
-testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
-
+COSADIR = ".CoSA"
 EXPECTED = "/expected.smv"
 GENERATED = "/test.smv"
+
+abspath = os.path.abspath(__file__)
+path = ("/".join(abspath.split("/")[:-1]))
+testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0] and COSADIR not in d[0]]
 
 def files_eq(file1, file2):
     with open(file1, "r") as f1:
@@ -54,7 +55,8 @@ def run_translation(path):
     if os.path.isfile("%s/lemmas.txt"%path):
         config.lemmas = "%s/lemmas.txt"%path
 
-    models = list(os.walk(path))[-1][-1]
+    models = list([x for x in list(os.walk(path)) if COSADIR not in x[0]])[-1][-1]
+        
     j_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] == "json"]
     s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["sts","ets"]]
     v_files = ["%s/%s[%s]"%(path,f, f.split(".")[0]) for f in models if f.split(".")[1] in ["v"]]
@@ -71,7 +73,7 @@ def run_translation(path):
                 parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(",")][0]
 
     [config.properties, config.lemmas, config.assumptions] = parsing_defs
-        
+
     run_verification(config)
 
     # status = files_eq(path+EXPECTED, path+GENERATED)

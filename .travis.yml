@@ -39,7 +39,7 @@ addons:
      - iverilog
 
 install:
-  - pip install six pyparsing bit_vector pyverilog
+  - pip install six pyparsing coreir pyverilog
   - bash scripts/travis_install.sh
 
 env:

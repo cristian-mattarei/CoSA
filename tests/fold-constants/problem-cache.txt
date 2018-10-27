@@ -1,0 +1,15 @@
+[GENERAL]
+model_file: mpe.json
+equivalence: mpe_fc.json
+add_clock: True
+cache_files: True
+
+[DEFAULT]
+bmc_length: 10
+
+[Equivalence Checking with Lemmas]
+description: "Use the collateral from CoreIR to help the equivalence check go through"
+lemmas: eq-lemmas.txt
+verification: equivalence
+prove: True
+expected: True

@@ -51,19 +51,30 @@ class SymbolsWalker(IdentityDagWalker):
     def walk_symbol(self, formula, args, **kwargs):
         self.symbols.add(formula)
         return formula
-    
+
 def substitute(formula, mapsym, reset_walker=False):
     subwalker = SubstituteWalker()
     subwalker.set_substitute_map(mapsym)
     return subwalker.walk(formula)
 
+free_variables_dic = {}
+
 def get_free_variables(formula):
+    if formula in free_variables_dic:
+        return free_variables_dic[formula]
     symwalker = SymbolsWalker()
     symwalker.reset_symbols()
     symwalker.walk(formula)
-    return symwalker.symbols
+    ret = symwalker.symbols
+    free_variables_dic[formula] = ret
+    return ret
 
-KEYWORDS = ["not","xor","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
+KEYWORDS = ["not","xor",\
+            "False","True",\
+            "next","prev",\
+            "G","F","X","U","R","O","H",\
+            "ZEXT","bvcomp",\
+            "a>>"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \
@@ -75,6 +86,9 @@ def quote_names(strformula, prefix=None, replace_ops=True):
         lst_names.append(prefix)
     strformula = strformula.replace("\\","")
 
+    for i in range(len(KEYWORDS)):
+        strformula = strformula.replace(" %s "%(KEYWORDS[i]), "@@%d@@"%i)
+    
     lits = [(len(x), x) for x in list(re.findall("([a-zA-Z][a-zA-|Z_$\.0-9\[\]]*)+", strformula)) if x not in KEYWORDS]
     lits.sort()
     lits.reverse()
@@ -90,6 +104,10 @@ def quote_names(strformula, prefix=None, replace_ops=True):
 
     for (newlit, lit) in repl_lst:
         strformula = strformula.replace(newlit, "\'%s\'"%(".".join(lst_names+[lit])))
+
+    for i in range(len(KEYWORDS)):
+        strformula = strformula.replace("@@%d@@"%i, " %s "%(KEYWORDS[i]))
+        
     if replace_ops:
         for op in OPERATORS:
             strformula = strformula.replace(op[0], op[1])
