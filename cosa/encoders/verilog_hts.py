@@ -1555,11 +1555,19 @@ class VerilogSTSWalker(VerilogWalker):
                 collected[left] = [(stmt, TRUE())]
                 define_frame_conditions[left] = []
 
+            else_b = None
+            last_cond = []
+
             to_process = [stmt]
             while to_process:
                 term, to_process = to_process[0], to_process[1:]
 
-                last_cond = [conditions[-1]] if len(conditions) else []
+                if else_b is not None and term == else_b:
+                    # in an else branch, convert condition to frame condition
+                    frame_conditions.append(Not(last_cond[0]))
+                    last_cond = []
+
+#                last_cond = [conditions[-1]] if len(conditions) else []
 
                 if term.node_type() == ASSIGN:
                     left, right = term.args()
@@ -1584,23 +1592,29 @@ class VerilogSTSWalker(VerilogWalker):
 
                     # TODO: Simplify this negated case
                     # want to handle (s = 0 | s = 1 | s != 2) --> s = 2
-                    if cond != TRUE():
-                        define_frame_conditions[left].append(Not(cond))
+                    if last_cond:
+                        # TODO: Verify that it's last_cond and not all of cond
+                        define_frame_conditions[left].append(Not(last_cond[0]))
 
                 elif term.is_and():
                     # prepend to list (want to explore this first)
                     to_process = list(term.args()) + to_process
                 elif term.is_ite():
+                    # TODO: Check if this can be removed and maybe don't use a list for last_cond
                     if last_cond:
                         frame_conditions.append(Not(last_cond[0]))
                     to_process += term.args()[1:]
-                    conditions.append(term.args()[0])
+                    last_cond = [term.args()[0]]
+#                    conditions.append(term.args()[0])
+                    # keep track of else_b (need to move condition to frame conditions)
+                    else_b = term.args()[2]
                 elif term.is_implies():
                     if last_cond:
                         frame_conditions.append(Not(last_cond[0]))
                     # prepend to list, need to process next
                     to_process = [term.args()[1]] + to_process
-                    conditions.append(term.args()[0])
+                    last_cond = [term.args()[0]]
+#                    conditions.append(term.args()[0])
                 elif term.is_bool_constant():
                     continue
                 else:
@@ -1620,13 +1634,13 @@ class VerilogSTSWalker(VerilogWalker):
                 else:
                     # add frame conditions for unquarded DEFINEs that have been
                     # overwritten later on
-                    collected[lhs][idx] = (d, And(define_frame_conditions[lhs]))
+                    # TODO: Maybe use simplify_assign_list here as well
+                    # might have to add additional cases to function
+                    collected[lhs][idx] = (d, simplify(And(define_frame_conditions[lhs])))
 
         assign_define_conditions = defaultdict(list)
         for k, v in collected.items():
-            assign_define_conditions[get_var(k)] += v
-
-        print("assign_define_conditions", assign_define_conditions)
+            assign_define_conditions[TS.get_ref_var(get_var(k))] += v
 
         return assign_define_conditions
 
