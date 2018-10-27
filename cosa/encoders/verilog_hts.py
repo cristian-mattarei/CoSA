@@ -635,8 +635,11 @@ class VerilogSTSWalker(VerilogWalker):
             width, value = el.value.split("'h")
 
             if width == "":
-                # TODO: Verify that this is Verilog semantics
+                # Verilog default is 32 bits
                 width = 32
+                bl = int(value).bit_length()
+                if bl > width:
+                    width = bl
             else:
                 width = int(width)
 
@@ -789,13 +792,8 @@ class VerilogSTSWalker(VerilogWalker):
         state_vars = set(self.reglist+self.memlist)
         possible_ass_vars = set(self.reglist+self.outputlist+self.memlist)
         ass_vars = set(g_always.keys())
-        diff_vars = ass_vars.difference(possible_ass_vars)
 
         strip_name = modulename[:modulename.find(MODPARST)] if MODPARST in modulename else modulename
-
-        if len(diff_vars) > 0:
-            Logger.error("Assignment is not allowed to variables \"%s\" in module \"%s\""%(", ".join([v.symbol_name().replace("%s."%(modulename),"") for v in diff_vars]), strip_name))
-
         ftrans = {}
 
         for var in possible_ass_vars:
@@ -1480,79 +1478,78 @@ class VerilogSTSWalker(VerilogWalker):
         '''
         Gets frame condition (when a transition canNOT happen), taking into consideration SSA (single static assignment) semantics for DEFINEs.
         '''
-        def get_lhs(left):
+
+        ###################### Internal functions for frame_conditions ##########################
+        # TODO: Potentially make this a class method that returns the var and lhs
+        def get_var(left):
+            '''
+            Returns both the variable and the actual left hand side.
+            For example, if the left side has an extract, we want to assign to the extract,
+            but need to keep track of it relative to one var
+            '''
+            var = left
             if not left.is_symbol():
                 fv = get_free_variables(left)
                 mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
                 idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
 
-                # TODO: Check if this is correct
-                # seems like we want to consider extracted BVs
+                # TODO: do the right thing for memories
+
                 if left.is_bv_extract():
-                    left = left.args()[0]
+                    var = left.args()[0]
 
-            return left
+            return var
 
-        # External function for collect_conditions_rec. Assigns and Defines collection
-        def assign_define_fun(formula, assign_list, collected):
-            if len(formula.args()) == 0:
-                return (assign_list, collected)
+        # Reduces an assignment (var = 0) & (var != 1) & (var != 2) .. into (var = 0)
+        def simplify_assign_list(assign_list):
+            cp = list(conjunctive_partition(assign_list))
+            equals = [f for f in cp if f.is_equals()]
+            if len(equals) != 1:
+                if cp[0].args():
+                    # Managing condition where all assignments are negated
+                    get_eq_val = lambda f: f.args()[0] if f.args()[0].is_bv_constant() else f.args()[1]
+                    get_eq_var = lambda f: f.args()[0] if not f.args()[0].is_bv_constant() else f.args()[1]
+                    values = [get_eq_val(f.args()[0]).constant_value() for f in cp]
+                    if len(values) == len(range(max(values)+1)):
+                        refvar = get_eq_var(cp[0].args()[0])
+                        return BVUGT(refvar, BV(max(values), refvar.symbol_type().width))
 
-            left = formula.args()[0]
-            if formula.node_type() in [ASSIGN, DEFINE]:
-                if not left.is_symbol():
-                    fv = get_free_variables(left)
-                    mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
-                    idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
+                return assign_list
 
-                    # TODO: Check if this is correct
-                    # seems like we want to consider extracted BVs
-                    if left.is_bv_extract():
-                        left = left.args()[0]
+            refel = equals[0]
+            left, right = refel.args()[0], refel.args()[1]
+            pos_var = left if left.is_symbol() else right
+            pos_val = right if left.is_symbol() else left
 
-                    var_conditions = self.collect_conditions_rec(left, var_fun, assign_list=[], collected={})[1]
+            ret = [refel]
+            for neq in [f.args()[0] for f in cp if f.is_not()]:
+                if not neq.is_equals():
+                    return assign_list
 
-                    lstlen = len(assign_list)
-                    for var, conditions in var_conditions.items():
-                        for cond in conditions:
-                            assign_list = assign_list[:lstlen]
-                            newcond = And(cond[1])
-                            newcond = simplify_assign_list(newcond)
-                            assign_list.append(newcond)
-                            if var not in collected:
-                                collected[var] = []
-                            collected[var].append((formula, And(assign_list)))
-                else:
-                    ref_var = TS.get_ref_var(left)
-                    if ref_var not in collected:
-                        collected[ref_var] = []
-                    collected[ref_var].append((formula, And(assign_list)))
+                left, right = neq.args()[0], neq.args()[1]
+                neg_var = left if left.is_symbol() else right
+                neg_val = right if left.is_symbol() else left
 
-            # TODO: Correct action
-            # keep track of all defines
-            # for any unquarded defines, remove defines in previous line numbers
-            # for each define, add frame conditions for all conditions in subsequent line numbers
-            return (assign_list, collected)
+                if not((pos_var == neg_var) & (pos_val != neg_val)):
+                    ret.append(neq)
 
+            return And(ret)
+
+        ###################### END: Internal functions for frame_conditions #########################
 
         # collected is { var : list[ (ASSIGN/DEFINE, conditions where it holds) ] }
-        # TODO: Figure out if we need to separate assigns and defines
-        # shouldn't be able to assign twice or both inside and outside of branching (no SSA)
         collected = defaultdict(list)
-
         define_frame_conditions = defaultdict(list)
 
         for stmt in statements:
             frame_conditions = []
             conditions = []
-            # TODO: Factor this out
-            print()
             assert not stmt.is_and(), "Expecting a sequence of independent statements, no AND"
 
             if stmt.node_type() == DEFINE:
                 left, right = stmt.args()
                 # handles non-trivial left-hand sides such as memories
-                lef = get_lhs(left)
+                var = get_var(left)
                 # unguarded DEFINE
                 # SSA semantics so overwrites previous defines
                 collected[left] = [(stmt, TRUE())]
@@ -1566,26 +1563,29 @@ class VerilogSTSWalker(VerilogWalker):
 
                 if term.node_type() == ASSIGN:
                     left, right = term.args()
-                    left = get_lhs(left)
-                    cond = simplify(And(frame_conditions + last_cond))
+                    var = get_var(left)
+                    cond = simplify_assign_list(And(frame_conditions + last_cond))
                     collected[left].append((term, cond))
 
                 elif term.node_type() == DEFINE:
                     left, right = term.args()
-                    left = get_lhs(left)
-                    # TODO: Use simplify_assign_list here
-                    cond = And(frame_conditions + last_cond)
-                    collected[left].append((term, cond))
-                    # if cond == TRUE():
-                    #     # DEFINE is SSA -- overwrites previous defines
-                    #     collected[left] = [(term, cond)]
-                    # else:
-                    #     collected[left].append((term, cond))
+                    var = get_var(left)
+                    cond = simplify_assign_list(And(frame_conditions + last_cond))
+                    # This might not be necessary
+                    # Depends on types of statements passed up from blocks
+                    if cond == TRUE():
+                        # DEFINE is SSA -- overwrites previous defines
+                        collected[left] = [(term, cond)]
+                    else:
+                        collected[left].append((term, cond))
 
                     # keep track of overall frame conditions per variable
                     # for SSA of defines
-                    if last_cond:
-                        define_frame_conditions[left].append(Not(last_cond[0]))
+
+                    # TODO: Simplify this negated case
+                    # want to handle (s = 0 | s = 1 | s != 2) --> s = 2
+                    if cond != TRUE():
+                        define_frame_conditions[left].append(Not(cond))
 
                 elif term.is_and():
                     # prepend to list (want to explore this first)
@@ -1604,33 +1604,31 @@ class VerilogSTSWalker(VerilogWalker):
                 elif term.is_bool_constant():
                     continue
                 else:
-                    print(term)
                     raise RuntimeError("Unhandled node type %s when gathering frame conditions"%term.node_type())
 
         # handle SSA defines
         for lhs, assign_defines in collected.items():
-            # TODO: Should I check for incorrect use of assigns here? Does Pyverilog handle it?
+            assign_defines = collected[lhs]
             for idx, (d, cond) in enumerate(assign_defines):
                 if d.node_type() != DEFINE:
                     continue
                 elif cond != TRUE():
                     # as soon as we hit a guarded define for this lhs, we can stop
-                    # there should be no more unquarded defines after this
+                    # there should be no more unquarded defines after this, based on
+                    # processing above
                     break
                 else:
                     # add frame conditions for unquarded DEFINEs that have been
                     # overwritten later on
                     collected[lhs][idx] = (d, And(define_frame_conditions[lhs]))
 
-#            print("to_process:", to_process)
+        assign_define_conditions = defaultdict(list)
+        for k, v in collected.items():
+            assign_define_conditions[get_var(k)] += v
 
-            # if s.node_type() == DEFINE:
-            #     print("unguarded define", s)
-            # (assign_list, collected) = self.collect_conditions_rec(s, assign_define_fun, assign_list, collected)
+        print("assign_define_conditions", assign_define_conditions)
 
-        print("collected", collected)
-
-        return collected
+        return assign_define_conditions
 
     def traverse(self, formula : FNode, assign_list : List[Dict[FNode, FNode]],
                  define_list : List[Dict[FNode, FNode]]):
@@ -1730,8 +1728,6 @@ class VerilogSTSWalker(VerilogWalker):
                     mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
                     idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
 
-                    # TODO: Check if this is correct
-                    # seems like we want to consider extracted BVs
                     if left.is_bv_extract():
                         left = left.args()[0]
 
@@ -1753,10 +1749,6 @@ class VerilogSTSWalker(VerilogWalker):
                         collected[ref_var] = []
                     collected[ref_var].append((formula, And(assign_list)))
 
-            # TODO: Correct action
-            # keep track of all defines
-            # for any unquarded defines, remove defines in previous line numbers
-            # for each define, add frame conditions for all conditions in subsequent line numbers
             return (assign_list, collected)
 
         (assign_list, collected) = self.collect_conditions_rec(formula, assign_define_fun, assign_list=[], collected={})
