@@ -33,11 +33,14 @@ from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
 
+DEVEL_OPT = "--devel"
+
 class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
     debug = False
+    devel = False
     bmc_length = 10
     bmc_length_min = 0
     
@@ -313,6 +316,11 @@ def main():
     wrapper = TextWrapper(initial_indent=" - ")
     extra_info = []
 
+    devel = False
+    if DEVEL_OPT in sys.argv:
+        sys.argv = [a for a in sys.argv if a != DEVEL_OPT]
+        devel = True
+    
     extra_info.append(bold_text("\nADDITIONAL INFORMATION:"))
     
     clock_behaviors = []
@@ -533,9 +541,9 @@ def main():
 
     trans_params = parser.add_argument_group('translation')
     
-    trans_params.set_defaults(smt2=None)
-    trans_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
-                       help='generates the smtlib2 encoding for a BMC call.')
+    # trans_params.set_defaults(smt2=None)
+    # trans_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+    #                    help='generates the smtlib2 encoding for a BMC call.')
 
     trans_params.set_defaults(translate=None)
     trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
@@ -559,13 +567,28 @@ def main():
     deb_params.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
 
+    deb_params.set_defaults(time=False)
+    deb_params.add_argument('--time', dest='time', action='store_true',
+                            help="prints time for every verification. (Default is \"%s\")"%config.time)
+    
     deb_params.set_defaults(debug=False)
     deb_params.add_argument('--debug', dest='debug', action='store_true',
                        help="enables debug mode. (Default is \"%s\")"%config.debug)
 
-    deb_params.set_defaults(time=False)
-    deb_params.add_argument('--time', dest='time', action='store_true',
-                            help="prints time for every verification. (Default is \"%s\")"%config.time)
+    deb_params.set_defaults(devel=False)
+    deb_params.add_argument('--devel', dest='devel', action='store_true',
+                            help="enables devel mode. (Default is \"%s\")"%config.devel)
+
+    # Developers
+
+    if devel:
+        config.devel = True
+        devel_params = parser.add_argument_group('developer')
+
+        devel_params.set_defaults(smt2=None)
+        devel_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+                           help='generates the smtlib2 tracing file for each solver call.')
+
     
     args = parser.parse_args()
 
@@ -589,7 +612,6 @@ def main():
     config.trace_all_vars = args.trace_all_vars
     config.prefix = args.prefix
     config.translate = args.translate
-    config.smt2file = args.smt2
     config.strategy = args.strategy
     config.processes = args.processes
     config.skip_solving = args.skip_solving
@@ -611,6 +633,9 @@ def main():
     config.cache_files = args.cache_files
     config.debug = args.debug
 
+    if devel:
+        config.smt2file = args.smt2
+    
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
