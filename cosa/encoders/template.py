@@ -21,7 +21,7 @@ class EncoderConfig(object):
     deterministic = False
     run_passes = True
     boolean = False
-    debug = False
+    devel = False
 
     def __init__(self):
         pass
