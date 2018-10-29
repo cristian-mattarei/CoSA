@@ -78,7 +78,7 @@ The main inputs to CoSA to define a model checking
   (\textsection~\ref{sec:problem_definition}) e.g.; safety
   (\textsection~\ref{sec:safety}), LTL (\textsection~\ref{sec:ltl}),
   or equivalence checking (\textsection~\ref{sec:equivalence}); and
-\item a property (not needed for equivalence checking and simulation).
+\item a property (\textsection~\ref{sec:properties}).
 \end{itemize}
 
 \noindent
@@ -372,17 +372,32 @@ S2 -> SE
 SE -> SE
 \end{lstlisting}
 
+\section{Properties}
+\label{sec:properties}
 
 \section{Verification problems}
 \label{sec:problem_definition}
 
+
 \subsection{Environmental assumptions}
+
+\subsection{Simulation}
+The simulation generates a system execution of a provided depth. This
+verification does not require a property, in that case it will be set
+to \emph{True}.
+
+\begin{example}
+  Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
+  will generate a system execution of length equal to the default
+  setting for the parameter \texttt{-k}, which is 10.
+\end{example}
 
 \subsection{Safety and LTL verification}
 
 \subsection{Equivalence checking}
 
 \subsection{Parametric model checking}
+
 
 
 \section{Problem file}
