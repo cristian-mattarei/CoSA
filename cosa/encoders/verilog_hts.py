@@ -1544,7 +1544,9 @@ class VerilogSTSWalker(VerilogWalker):
         def simplify_assign_list(assign_list):
             cp = list(conjunctive_partition(assign_list))
             equals = [f for f in cp if f.is_equals()]
-            if len(equals) != 1:
+            if len(equals) <= 1:
+                return And(assign_list)
+            else:
                 if cp[0].args():
                     # Managing condition where all assignments are negated
                     get_eq_val = lambda f: f.args()[0] if f.args()[0].is_bv_constant() else f.args()[1]
