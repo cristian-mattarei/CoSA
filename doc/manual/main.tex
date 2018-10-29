@@ -5,8 +5,47 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{amsthm}
+\usepackage{xcolor}
+
 \theoremstyle{definition}
 \newtheorem{example}{Example}[section]
+\renewcommand\lstlistingname{Figure}
+
+\lstdefinelanguage{ets}
+{
+morekeywords={->,True, False},%
+morecomment=[l]\#,%
+commentstyle=\color{red}\ttfamily,
+%backgroundcolor=\color{gray!10},
+keywordstyle=\color{blue}\bfseries,
+numbers=left,
+basicstyle=\footnotesize\ttfamily,
+numberstyle=\small\ttfamily,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em,
+}
+
+\lstdefinelanguage{sts}
+{
+morekeywords={->,True, False, VAR, OUTPUT, TRANS, DEF, INIT, INVAR},%
+morecomment=[l]\#,%
+commentstyle=\color{red}\ttfamily,
+%backgroundcolor=\color{gray!10},
+keywordstyle=\color{blue}\bfseries,
+numbers=left,
+basicstyle=\footnotesize\ttfamily,
+numberstyle=\small\ttfamily,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em,
+}
 
 \begin{document}
 
@@ -217,7 +256,7 @@ in Figures \ref{counter-sts}, and \ref{counterh-sts}. The latter is
 defined using sub-modules instantiation, and the lines that starts
 with \texttt{\#} are comments.
 
-\begin{lstlisting}[frame=single,basicstyle=\tiny,caption=Counter example,label=counter-sts]
+\begin{lstlisting}[frame=single,language=sts,caption=Counter example,label=counter-sts]
 VAR
 clk: BV(1);
 rst: BV(1);
@@ -241,7 +280,7 @@ posedge(rst) -> (next(out) = 0);
 \end{lstlisting}
 
 
-\begin{lstlisting}[frame=single,basicstyle=\tiny,caption=Counter example (hierarchical),label=counterh-sts]
+\begin{lstlisting}[frame=single,language=sts,caption=Counter example (hierarchical),label=counterh-sts]
 VAR
   clk: BV(1);
   rst: BV(1);
@@ -277,6 +316,62 @@ DEF Counter(clk: BV(1), rst: BV(1)):
 
 
 \subsection{Explicit state Transition System (ETS)}
+
+This format allows for the definition of an Explicit States Transition System, which is characterized by two sections:
+\begin{itemize}
+\item states definition, expressed as values assignments to system
+  variables, e.g., \texttt{I: clk = 0\_1} for the initial state or
+  \texttt{S1: output = 4\_8} for the state S1, and so on
+\item transitions definition, e.g., \texttt{I -> S1} defines a
+  transition from the state I to the state S1
+\end{itemize}
+
+The language does not require types definitions, because they are
+inferred by the values assignment. Figure~\ref{counter-ets} shows a an
+example of a 2-bit counter, and the lines that starts with \texttt{\#}
+are comments.
+
+\begin{lstlisting}[frame=single,language=ets,caption=2-bit Counter,label=counter-ets]
+# States definition
+I: output = 0_2
+S1: output = 1_2
+S2: output = 2_2
+S3: output = 3_2
+
+# Transitions
+I -> S1
+S1 -> S2
+S2 -> S3
+S3 -> I
+\end{lstlisting}
+
+The ETS format is particularly suited for the definition of sequential
+behaviors such as the \textbf{reset procedures}. In fact, most
+hardware definitions require to be properly initialized before
+performing any analysis. In the following example, the
+\texttt{reset\_done} variable is used to keep track of the reset
+status, and it is used to specify a pre-condition for the verification
+properties.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Reset procedure example,label=reset]
+I: rst = 0_1
+I: reset_done = False
+
+S1: rst = 1_1
+S1: reset_done = False
+
+S2: rst = 0_1
+S2: reset_done = True
+
+SE: reset_done = True
+
+I -> S1
+S1 -> S2
+S2 -> SE
+# the reset_done signal remains up forever, defined as a self-loop on the SE state
+SE -> SE
+\end{lstlisting}
+
 
 \section{Verification problems}
 \label{sec:problem_definition}
@@ -331,7 +426,7 @@ Gradually increase system complexity
 \section{Debugging}
 \label{sec:debugging}
 
-
+\newpage
 \bibliographystyle{abbrv}
 \bibliography{refs}
 
