@@ -368,7 +368,16 @@ class VerilogSTSWalker(VerilogWalker):
         mod_map.append(("not",  Modules.Not_M))
         mod_map.append(("xor",  Modules.Xor_M))
 
+        # Verilog specific operators
+        mod_map.append(("buf", self.Buf))
+
         self.mod_map = dict(mod_map)
+
+    def Buf(self, o, i):
+        assign = EqualsOrIff(o, i)
+        ts = TS()
+        ts.vars, ts.invar = get_free_variables(assign), assign
+        return ts
 
     def Paramlist(self, modulename, el, args):
         return el
@@ -710,9 +719,15 @@ class VerilogSTSWalker(VerilogWalker):
         # build chained ITE bottom-up
         ite_chain = TRUE()
         for case in reversed(cases):
-            val, actions = case[0], case[1:][0]
-            action = And(actions)
-            ite_chain = Ite(EqualsOrIff(select, val), action, ite_chain)
+            if len(case) == 2:
+                val, actions = case[0], case[1:][0]
+                ite_chain = Ite(EqualsOrIff(select, val), And(actions), ite_chain)
+
+            elif len(case) == 1:
+                # default case
+                actions = case[0]
+                assert ite_chain == TRUE(), "Expecting default to be at the end"
+                ite_chain = And(actions)
 
         return ite_chain
 
@@ -1191,8 +1206,10 @@ class VerilogSTSWalker(VerilogWalker):
     def Unot(self, modulename, el, args):
         if type(args[0]) == int:
             return Not(self.to_bool(args[0]))
-        zero = BV(0, get_type(args[0]).width)
-        return EqualsOrIff(args[0], zero)
+        # zero = BV(0, get_type(args[0]).width)
+        # return EqualsOrIff(args[0], zero)
+        # TODO: Verify that this always works
+        return BVNot(args[0])
 
     def Parameter(self, modulename, el, args):
         if el.name not in self.paramdic:
@@ -1220,7 +1237,13 @@ class VerilogSTSWalker(VerilogWalker):
     def Partselect(self, modulename, el, args):
         if abs(args[1]-args[2])+1 == get_type(args[0]).width:
             return args[0]
-        return BVExtract(args[0], args[2], args[1])
+        msb,lsb =args[1],args[2]
+        if msb < lsb:
+            msb = lsb
+            if isinstance(el.lsb, Plus):
+                msb -= 1
+            lsb = args[1]
+        return BVExtract(args[0], lsb, msb)
 
     def Assign(self, modulename, el, args):
         left, right = args[0], args[1]
@@ -1242,6 +1265,10 @@ class VerilogSTSWalker(VerilogWalker):
 
             if lft_width > rgt_width:
                 right = BVConcat(BV(0, lft_width-rgt_width), right)
+
+            elif lft_width < rgt_width:
+                # TODO: Check Verilog standard
+                right = BVExtract(right, 0, lft_width-1)
 
         invar = EqualsOrIff(B2BV(left), B2BV(right))
         self.add_invar(invar)
@@ -1299,7 +1326,13 @@ class VerilogSTSWalker(VerilogWalker):
         return self._rec_repeat(args[0], args[1])
 
     def PortArg(self, modulename, el, args):
-        return (el.portname, args[0])
+        if args:
+            assert len(args) == 1, "Expecting just one argument"
+            portarg = args[0]
+        else:
+            portarg = None
+
+        return (el.portname, portarg)
 
     def Instance(self, modulename, el, args):
         el_child = el.children()
@@ -1493,7 +1526,14 @@ class VerilogSTSWalker(VerilogWalker):
                 mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
                 idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
 
-                # TODO: do the right thing for memories
+                # FIXME: TODO: do the right thing for memories
+                # For now, can I just pick a representative?
+                if mem_vars:
+                    var = mem_vars[0]
+                elif fv:
+                    var = fv.pop()
+                else:
+                    raise RuntimeError("Could not find representative variable on left-hand side of assign in: %s"%left)
 
                 if left.is_bv_extract():
                     var = left.args()[0]
@@ -1643,21 +1683,6 @@ class VerilogSTSWalker(VerilogWalker):
             assign_define_conditions[TS.get_ref_var(get_var(k))] += v
 
         return assign_define_conditions
-
-    def traverse(self, formula : FNode, assign_list : List[Dict[FNode, FNode]],
-                 define_list : List[Dict[FNode, FNode]]):
-        to_visit = [formula]
-        visited = set()
-        while to_visit:
-            term = to_visit.pop()
-            if term not in visited:
-                visited.add(term)
-                to_visit.append(term)
-                for c in term.args():
-                    to_visit.append(c)
-            else:
-                # do work
-                print("reached", term)
 
     def collect_conditions_rec(self, formula, ext_function, assign_list=[], collected={}):
 
