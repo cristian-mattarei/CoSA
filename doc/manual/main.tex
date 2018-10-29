@@ -1,0 +1,448 @@
+\documentclass{article}
+\usepackage[margin=1.0in]{geometry}
+\usepackage{graphicx}
+\usepackage{paralist}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{amsthm}
+\usepackage{xcolor}
+
+\theoremstyle{definition}
+\newtheorem{example}{Example}[section]
+\renewcommand\lstlistingname{Figure}
+
+\lstdefinelanguage{ets}
+{
+morekeywords={->,True, False},%
+morecomment=[l]\#,%
+commentstyle=\color{red}\ttfamily,
+%backgroundcolor=\color{gray!10},
+keywordstyle=\color{blue}\bfseries,
+numbers=left,
+basicstyle=\footnotesize\ttfamily,
+numberstyle=\small\ttfamily,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em,
+}
+
+\lstdefinelanguage{sts}
+{
+morekeywords={->,True, False, VAR, OUTPUT, TRANS, DEF, INIT, INVAR},%
+morecomment=[l]\#,%
+commentstyle=\color{red}\ttfamily,
+%backgroundcolor=\color{gray!10},
+keywordstyle=\color{blue}\bfseries,
+numbers=left,
+basicstyle=\footnotesize\ttfamily,
+numberstyle=\small\ttfamily,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em,
+}
+
+\begin{document}
+
+\title{\textbf{CoSA}\\Manual}
+\author{Cristian Mattarei}
+
+\maketitle
+
+\newpage
+\tableofcontents
+
+\newpage
+\section*{Introduction}
+
+CoSA is a symbolic model checker for hardware design. It incorporates
+a variety of state-of-the-art techniques to achieve performance, while
+providing a simple and intuitive interface. This document describes
+all functionalities provided by CoSA, including also a series of
+running examples. 
+
+
+\section{Overview}
+
+The main inputs to CoSA to define a model checking
+(\textsection~\ref{sec:model_checking}) verification task are:
+\begin{itemize}
+\item a list of comma-separated input files
+  (\textsection~\ref{sec:input_formats}) describing the hardware;
+\item a verification problem
+  (\textsection~\ref{sec:problem_definition}) e.g.; safety
+  (\textsection~\ref{sec:safety}), LTL (\textsection~\ref{sec:ltl}),
+  or equivalence checking (\textsection~\ref{sec:equivalence}); and
+\item a property (\textsection~\ref{sec:properties}).
+\end{itemize}
+
+\noindent
+The other parameters can be divided into:
+\begin{itemize}
+\item encoding options (\textsection~\ref{sec:encodings});
+\item performance optimizations parameters
+  (\textsection~\ref{sec:optimizations}); and
+\item debugging (\textsection~\ref{sec:debugging}).
+\end{itemize}
+
+\noindent
+The results of the analyses, as counterexample traces, are provided in
+multiple formats (\textsection~\ref{sec:results_analysis}).
+
+\
+
+\noindent
+All these options can be either provided as parameters to CoSA on the
+command line, or as a single problem file
+(\textsection~\ref{sec:problem_file}).
+
+\
+
+\noindent
+For more information on the actual parameters, run CoSA with
+\texttt{-h}.
+
+
+\section{Background}
+
+\subsection{Model checking}
+\label{sec:model_checking}
+Model checking is a technology that allows for an efficient and
+exhaustive testing of a system. Model checking can be applied to
+different domains, and the common problem this technique can solve is
+to prove that a system - in our case a hardware design - meets a set
+of predefined and expected behaviors, usually represented as system
+assertions. A model checking problem is usually denoted as $M \models
+\varphi$, where $M$ is a mathematical representation of the system,
+and $\varphi$ is the expected behavior. For instance, given a hardware
+component \emph{Sum} that computes the sum of its input ports $I_1$
+and $I_2$, and that provides the result to the output $O$, a
+conventional testing procedure for \emph{Sum} would require to check
+that if $I_1=0$ and $I_2=0$ then $O=0$, and that $I_1=1$ and $I_2=0$
+results into $O=1$, and so on. However, with model checking we can
+directly evaluate if \emph{Sum} $ \models (O=I_1+I_2)$, and if this is
+not the case the model checker (such as CoSA) will provide a
+counterexample to the expected behavior (i.e., $O=I_1+I_2$), which is
+represented as a series of assignments to the ports such as $I_1=16,
+I_2=13, O=32$.
+
+Model checking is a fundamental technology when developing complex
+systems, thus over the years multiple different techniques have been
+developed to efficiently solve the problem. A major distinction is
+between symbolic and explicit state (model checking), and the
+different resides in the technique used to represent the system. 
+
+\subsection{Symbolic transition system}
+\label{sec:sts}
+
+todo: describe also synchronous product
+
+
+\subsection{Linear Temporal Logic (LTL)}
+\label{sec:ltl}
+
+\subsection{Safety verification}
+\label{sec:safety}
+
+\subsection{Equivalence checking}
+\label{sec:equivalence}
+
+
+\section{Input formats}
+\label{sec:input_formats}
+
+\subsection{System description}
+
+CoSA supports multiple input formats, and while being equivalent from
+an expressivity point of view, they are tailored and design to
+accomplish different purposes. CoSA distinguish between different
+formats by relying on their file extension. Running \texttt{CoSA -h}
+shows the list of accepted input formats, and make sure that the
+configuration is correct.
+
+CoSA accepts a comma-separated list of files, and the resulting model
+is \textbf{synchronous product} (\textsection~\ref{sec:sts}) between
+all of them. This allows for a clear and explicit definition of
+\textbf{reset procedures}, as well as environmental assumptions.
+
+An input file can be provided with additional model flags listed in
+squared brackets, which instruct the encoder of how to process the
+file.
+
+\begin{example}[Model flags]
+   \texttt{CoSA -i input\_file.extension[model\_flag]} provides
+   \texttt{input\_file.extension} as input file, with
+   \texttt{model\_flag} as a model flag.
+\end{example}
+
+
+Following, we cover all the formats supported by CoSA.
+
+\subsection{Verilog}
+This format is natively supported by relying on PyVerilog, and it
+requires a top-level model flag.
+
+\begin{example}
+  \texttt{CoSA -i examples/counters\_4/counters\_4.v[Counters\_4]}
+  provides \texttt{examples/counters\_4/} \texttt{counters\_4.v} as input model,
+  with \texttt{Counters\_4} as a top module.
+\end{example}
+
+\subsection{SystemVerilog}
+SystemVerilog is supported using Verific, which is an industrial tool
+that can translate SystemVerilog to Verilog. After translating the
+file using Verific, CoSA relies on the internal Verilog encoder to
+process the model. The SystemVerilog encoder also requires to provide
+the top module as model flag.
+
+\begin{example}
+  \texttt{CoSA -i examples/counters\_4/counters\_4.sv[Counters\_4]}
+  provides \texttt{examples/counters\_4/} \texttt{counters\_4.sv} as input model,
+  with \texttt{Counters\_4} as a top module.
+\end{example}
+
+\subsection{CoreIR}
+CoreIR~\cite{CoreIR} is supported by relying on PyCoreIR. Its file
+extension is \texttt{.json}. The format accepts model flags to
+instruct the encoder to extract additional information from the model
+such as lemmas from CoreIR optimization passes \cite{cosa-paper}.
+
+Currently, CoSA supports the following CoreIR model flags:
+\begin{itemize}
+\item \texttt{FC-LEMMAS}: it automatically extracts the lemmas from
+  the fold constants CoreIR pass.
+\end{itemize}
+
+\begin{example}
+  \texttt{CoSA -i examples/counters/counters.json} to load the
+  \texttt{examples/counters/counters.json} design, or \texttt{CoSA -i
+    examples/fold-constants/mpe\_fc.json[FC-LEMMAS]} to load
+  \texttt{examples/fold-constants/} \texttt{mpe\_fc.json} with
+  \texttt{FC-LEMMAS} as model flag.
+\end{example}
+
+\subsection{BTOR2}
+BTOR2~\cite{btormc} is a very concise format to represent SMT-based
+hardware designs. Its extension is \texttt{.btor} or \texttt{.btor2},
+and it is mainly used to interface with other tools such as
+Yosys~\cite{wolf2013yosys}, since it can produce such format.
+
+\subsection{Symbolic Transition System (STS)}
+
+This format allows for the definition of a component-based Symbolic
+Transition System, which is characterized by:
+
+\begin{itemize}
+\item system variables, divided into \texttt{STATE}, \texttt{INPUT},
+  \texttt{OUTPUT}, and \texttt{VAR}
+\item initial states formula, i.e., \texttt{INIT}
+\item transition relation formula, i.e., \texttt{TRANS}
+\item invariant formula, i.e., \texttt{INVAR}, which constraints every
+  states of the system, including the initial ones
+\end{itemize}
+
+The language supports also a typed modules definition and
+instantiation. A module can be defined using the keyword \texttt{DEF}, followed
+by a list of parameters, while its instantiation should be defined in
+the \texttt{VAR} section.
+
+Simple definition of an 8-bit counter with clock and reset is reported
+in Figures \ref{counter-sts}, and \ref{counterh-sts}. The latter is
+defined using sub-modules instantiation, and the lines that starts
+with \texttt{\#} are comments.
+
+\begin{lstlisting}[frame=single,language=sts,caption=Counter example,label=counter-sts]
+VAR
+clk: BV(1);
+rst: BV(1);
+
+OUTPUT
+out: BV(8);
+
+INIT
+out = 0_8;
+clk = 0_1;
+
+TRANS
+# Clock behavior definition
+(clk = 0_1) <-> (next(clk) = 1_1);
+# When posedge and not reset we increase out by 1
+(posedge(clk) & ! posedge(rst)) -> (next(out) = (out + 1_8));
+# When not posedge and not reset we keep the value of the out
+(! posedge(clk) & ! posedge(rst)) -> (next(out) = (out));
+# When reset we set out to 0
+posedge(rst) -> (next(out) = 0);
+\end{lstlisting}
+
+
+\begin{lstlisting}[frame=single,language=sts,caption=Counter example (hierarchical),label=counterh-sts]
+VAR
+  clk: BV(1);
+  rst: BV(1);
+  counter_1: Counter(clk, rst);
+
+OUTPUT
+  out: BV(8);
+
+TRANS
+  # Clock behavior definition
+  (clk = 0_1) <-> (next(clk) = 1_1);
+
+INVAR
+  # Enforcement of the equivalence between local output value
+  # and the output of the sub-module
+  out = counter_1.out;
+
+DEF Counter(clk: BV(1), rst: BV(1)):
+  VAR
+  out: BV(8);
+
+  INIT
+  out = 0_8;
+
+  TRANS
+  # When posedge and not reset we increase out by 1
+  (posedge(clk) & ! posedge(rst)) -> (next(out) = (out + 1_8));
+  # When not posedge and not reset we keep the value of the out
+  (! posedge(clk) & ! posedge(rst)) -> (next(out) = (out));
+  # When reset we set out to 0
+  posedge(rst) -> (next(out) = 0);
+\end{lstlisting}
+
+
+\subsection{Explicit state Transition System (ETS)}
+
+This format allows for the definition of an Explicit States Transition System, which is characterized by two sections:
+\begin{itemize}
+\item states definition, expressed as values assignments to system
+  variables, e.g., \texttt{I: clk = 0\_1} for the initial state or
+  \texttt{S1: output = 4\_8} for the state S1, and so on
+\item transitions definition, e.g., \texttt{I -> S1} defines a
+  transition from the state I to the state S1
+\end{itemize}
+
+The language does not require types definitions, because they are
+inferred by the values assignment. Figure~\ref{counter-ets} shows a an
+example of a 2-bit counter, and the lines that starts with \texttt{\#}
+are comments.
+
+\begin{lstlisting}[frame=single,language=ets,caption=2-bit Counter,label=counter-ets]
+# States definition
+I: output = 0_2
+S1: output = 1_2
+S2: output = 2_2
+S3: output = 3_2
+
+# Transitions
+I -> S1
+S1 -> S2
+S2 -> S3
+S3 -> I
+\end{lstlisting}
+
+The ETS format is particularly suited for the definition of sequential
+behaviors such as the \textbf{reset procedures}. In fact, most
+hardware definitions require to be properly initialized before
+performing any analysis. In the following example, the
+\texttt{reset\_done} variable is used to keep track of the reset
+status, and it is used to specify a pre-condition for the verification
+properties.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Reset procedure example,label=reset]
+I: rst = 0_1
+I: reset_done = False
+
+S1: rst = 1_1
+S1: reset_done = False
+
+S2: rst = 0_1
+S2: reset_done = True
+
+SE: reset_done = True
+
+I -> S1
+S1 -> S2
+S2 -> SE
+# the reset_done signal remains up forever, defined as a self-loop on the SE state
+SE -> SE
+\end{lstlisting}
+
+\section{Properties}
+\label{sec:properties}
+
+\section{Verification problems}
+\label{sec:problem_definition}
+
+
+\subsection{Environmental assumptions}
+
+\subsection{Simulation}
+The simulation generates a system execution of a provided depth. This
+verification does not require a property, in that case it will be set
+to \emph{True}.
+
+\begin{example}
+  Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
+  will generate a system execution of length equal to the default
+  setting for the parameter \texttt{-k}, which is 10.
+\end{example}
+
+\subsection{Safety and LTL verification}
+
+\subsection{Equivalence checking}
+
+\subsection{Parametric model checking}
+
+
+
+\section{Problem file}
+\label{sec:problem_file}
+
+
+\section{Results analysis}
+\label{sec:results_analysis}
+
+\section{Good practice}
+
+Gradually increase system complexity
+
+\begin{itemize}
+\item bottom-up verification
+\item simple properties
+\item awareness of property semantics
+\end{itemize}
+
+
+\section{Encodings}
+\label{sec:encodings}
+
+
+\section{Optimizations}
+\label{sec:optimizations}
+
+\subsection{Multi processing}
+
+\subsection{Clock abstraction}
+
+\subsection{Assume if true}
+
+\subsection{Lemmas}
+
+\subsection{Cone of Influence}
+
+\subsection{Files Caching}
+
+
+\section{Debugging}
+\label{sec:debugging}
+
+\newpage
+\bibliographystyle{abbrv}
+\bibliography{refs}
+
+\end{document}
