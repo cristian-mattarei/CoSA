@@ -70,6 +70,7 @@ class ProblemSolver(object):
         full_trace = problem.full_trace or config.full_trace
         trace_vars_change = problem.trace_vars_change or config.trace_vars_change
         trace_all_vars = problem.trace_all_vars or config.trace_all_vars
+        trace_values_base = problem.trace_values_base or config.trace_values_base
 
         diff_only = not trace_vars_change
         all_vars = trace_all_vars
@@ -91,6 +92,7 @@ class ProblemSolver(object):
         hr_printer.prop_vars = trace.prop_vars
         hr_printer.diff_only = diff_only
         hr_printer.all_vars = all_vars
+        hr_printer.values_base = trace_values_base
         hr_trace = hr_printer.print_trace(hts=hts, \
                                           model=trace.model, \
                                           length=trace.length, \

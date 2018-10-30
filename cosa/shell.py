@@ -24,7 +24,7 @@ from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
-from cosa.printers.template import HTSPrinterType
+from cosa.printers.template import HTSPrinterType, TraceValuesBase
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
@@ -60,6 +60,7 @@ class Config(object):
     full_trace = False
     trace_vars_change = False
     trace_all_vars = False
+    trace_values_base = TraceValuesBase.get_all()[0]
     prefix = None
     run_passes = True
     translate = None
@@ -273,6 +274,7 @@ def run_verification(config):
     problems.zero_init = config.zero_init
     problems.time = config.time
     problems.trace_all_vars = config.trace_all_vars
+    problems.trace_values_base = config.trace_values_base
     problems.trace_vars_change = config.trace_vars_change
     problems.vcd = config.vcd
     problems.verbosity = config.verbosity
@@ -527,6 +529,10 @@ def main():
     print_params.set_defaults(full_trace=config.full_trace)
     print_params.add_argument('--full-trace', dest='full_trace', action='store_true',
                        help="sets trace-vars-unchanged and trace-all-vars to True. (Default is \"%s\")"%config.full_trace)
+
+    print_params.set_defaults(trace_values_base=config.trace_values_base)
+    print_params.add_argument('--trace-values-base', metavar='trace_values_base', type=str, nargs='?',
+                       help="sets the style of Bit-Vector values printing. (Default is \"%s\")"%config.trace_values_base)
     
     print_params.set_defaults(prefix=None)
     print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
@@ -598,6 +604,7 @@ def main():
     config.bmc_length = args.bmc_length
     config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
+    config.trace_values_base = args.trace_values_base
     config.trace_vars_change = args.trace_vars_change
     config.trace_all_vars = args.trace_all_vars
     config.prefix = args.prefix
