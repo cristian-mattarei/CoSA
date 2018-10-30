@@ -482,6 +482,49 @@ following syntactic sugar:
 
 \subsection{Generators}
 
+More complex behaviors sometimes require the definition of parametric
+modules to support the verification. The generators help on
+simplifying those properties, by providing a parametric way to defined
+commonly used symbolic transition systems. A common example of a
+generator is the definition of a \emph{scoreboard} to verify the
+behavior of a \emph{FIFO}. The purpose of a \emph{scoreboard} is to
+keep track of a packet that goes into the \emph{FIFO}, and tells when
+it is supposed to come out, according with the number of pushes and
+pops that have been performed. An approach to define such behavior
+would be to define an STS that models the \emph{scoreboard}, which in
+synchronous product with the original system would allow the user to
+specify the appropriate property. However, with the CoSA generators
+this verification is much simpler.
+
+\begin{example}
+  Given the FIFO implementation in \texttt{examples/fifo/fifo.sts},
+  the property that verify its behavior is defined as \texttt{sb.end
+    -> (sb.packet = output)} by instantiating the generator
+  \texttt{sb=FixedScoreboard} \texttt{(input, 6, posedge(clk))}. The meaning of
+  the property is that when signal \texttt{end} from the
+  \emph{scoreboard} \texttt{sb} is \emph{True}, then the
+  \texttt{packet} should be equivalent to the \texttt{output} of the
+  \emph{FIFO}. While the instantiation of the \emph{scoreboard} takes
+  as input the \texttt{input} of the \emph{FIFO}, its length (in this
+  case is 6), and the signal that triggers the coming of a new packet.
+\end{example}
+
+The generators can be defined in \texttt{cosa/encoders/generators.py}
+and should be registered in \texttt{cosa/}
+\texttt{encoders/template.py}. CoSA currently provides this set of
+generators:
+
+\begin{itemize}
+\item \texttt{FixedScoreboard}: \emph{scoreboard} for a FIFO with no
+  pop. The parameters are (input\_port, max\_value, push\_signal);
+\item \texttt{Scoreboard}: \emph{scoreboard} for a FIFO with push and
+  pop. The parameters are (input\_port, max\_value, push\_signal,
+  pop\_signal);
+\item \texttt{Random}: provides a non-deterministic value. The
+  parameter is (size), and it can be either a variable (it would
+  consider its size), or a decimal value.
+\end{itemize}  
+
 \section{Verification problems}
 \label{sec:problem_definition}
 
