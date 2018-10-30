@@ -360,20 +360,127 @@ I: reset_done = False
 S1: rst = 1_1
 S1: reset_done = False
 
-S2: rst = 0_1
-S2: reset_done = True
-
+SE: rst = 0_1
 SE: reset_done = True
 
 I -> S1
-S1 -> S2
-S2 -> SE
+S1 -> SE
 # the reset_done signal remains up forever, defined as a self-loop on the SE state
 SE -> SE
 \end{lstlisting}
 
+\begin{example}
+  \texttt{CoSA -i
+    examples/counters\_4.v[Counters\_4],examples/counters\_4/rst\_beh.ets}
+  to load the \texttt{examples/counters\_4.v} design and the ETS
+  \texttt{examples/counters\_4/rst\_beh.ets} and perform a synchronous
+  product between them.
+\end{example}
+
 \section{Properties}
 \label{sec:properties}
+
+CoSA supports the definition of invariant and Linear Temporal Logic
+(LTL) properties. Moreover, the tool allows for the definition of
+syntactic sugar and parametric generators. CoSA relies on
+PySMT~\cite{gario2015pysmt} for the formulae management, thus the
+syntax is going to related to this tool.
+
+\subsection{Invariant}
+An invariant property is a propositional formula over the system
+variables that has to hold at any time. 
+
+\begin{example}
+  Given the \texttt{examples/counters\_4.v} model, the invariant property
+  \texttt{out < 10\_16} states that the value of \texttt{out} should
+  be always less than the decimal encoding of \texttt{10} as a
+  bit-vector of size {16}.
+\end{example}
+
+An invariant property can predicate also over the \texttt{next}
+variables, which are the primed version of each variable.
+
+\begin{example}
+  Given the \texttt{examples/counters\_4.v} model, the invariant property
+  \texttt{(rst = 1\_1) -> (next(out) = 0\_16)} states that when the reset
+  signal \texttt{rst} is equal to 1 (encoded as a bit-vector of size
+  {1}), the primed value of \texttt{out} should be \texttt{0} (encoded
+  as a bit-vector of size {16}).
+\end{example}
+
+\subsection{Linear Temporal Logic}
+The support for LTL extends propositional logic with additional
+temporal operators:
+\begin{itemize}
+\item \texttt{G}: globally, e.g., $G(\varphi)$ means that $\varphi$
+  has to hold for every states;
+\item \texttt{F}: finally or eventually, e.g., $F(\varphi)$ means that $\varphi$
+  has to eventually hold;
+\item \texttt{X}: next, e.g., $X(\varphi)$ means that $\varphi$
+  has to hold at the next state;
+\item \texttt{U}: until, e.g., $\gamma U \varphi$ means that $\gamma$
+  has to hold until $\varphi$ becomes \emph{True};
+\item \texttt{R}: release, e.g., $\gamma R \varphi$ means that $\varphi$
+  is \emph{True} until $\gamma$ becomes \emph{True}.
+\end{itemize}
+
+\begin{example}
+  Given the \texttt{examples/counters.json} model, the LTL property
+  \texttt{F(self.out = 4\_16)} states that the signal
+  \texttt{self.out} must reach the value \texttt{4} at some time in
+  the future.
+\end{example}
+
+\begin{example}
+  Given the \texttt{examples/counters.json} model, the LTL property
+  \texttt{F(G(self.out = 4\_16))} states that the signal
+  \texttt{self.out} must reach the value \texttt{4} at some time in
+  the future, and keep the value forever.
+\end{example}
+
+\begin{example}
+  Given the \texttt{examples/counters.json} model, the LTL property
+  \texttt{G(F(self.out = 4\_16))} states that the signal
+  \texttt{self.out} must reach the value \texttt{4} infinitely many
+  times.
+\end{example}
+
+
+\subsection{Syntactic sugar}
+
+In order to simplify the definition of hardware properties, CoSA
+integrates an expandable support for syntactic sugar. Additional
+syntactic sugars should be defined in \texttt{cosa/encoders/sugar.py},
+and registered in \texttt{cosa/encoders/template.py}. The one that are
+registered can be seen in the \texttt{special operators} section of
+the CoSA helper (parameter \texttt{-h}). Currently, CoSA supports the
+following syntactic sugar:
+
+\begin{itemize}
+\item \texttt{posedge}, with a single
+  parameter. \texttt{posedge(variable)} is equivalent to \texttt{(variable
+    = 0\_1) \& next(variable = 1\_1)}, if \texttt{variable} is a
+  bit-vector of size 1, while \texttt{(variable) \& next(! variable)} if
+  \texttt{variable} is of Boolean type;
+\item \texttt{negedge}, which is implemented as \texttt{posedge} with
+  inverted polarity;
+\item \texttt{change}, with a single
+  parameter. \texttt{change(variable)} is equivalent to
+  \texttt{(variable != next(variable)};
+\item \texttt{nochange}, with a single
+  parameter. \texttt{nochange(variable)} is equivalent to
+  \texttt{(variable = next(variable)};
+\item \texttt{ones}, with a single parameter. \texttt{ones(variable)}
+  provides the highest possible value of \texttt{variable};
+\item \texttt{zero}, with a single parameter. \texttt{zero(variable)}
+  provides the bit-vector encoding of all zeros, given the size of
+  \texttt{variable};
+\item \texttt{dec2bv}, with a two parameters. \texttt{dec2bv(value,
+  variable)} provides the bit-vector encoding of value, given the size
+  of \texttt{variable}.
+\end{itemize}
+
+\subsection{Generators}
 
 \section{Verification problems}
 \label{sec:problem_definition}
