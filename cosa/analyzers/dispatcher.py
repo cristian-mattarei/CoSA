@@ -276,11 +276,21 @@ class ProblemSolver(object):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
-    def _is_cached(self, cachedir, filename):
+    def _is_cached(self, cachedir, filename, clean):
         hts_file = "%s/%s.ssts"%(cachedir, filename)
         mi_file = "%s/%s.mi"%(cachedir, filename)
         inv_file = "%s/%s.inv"%(cachedir, filename)
         ltl_file = "%s/%s.ltl"%(cachedir, filename)
+
+        if clean:
+            if os.path.isfile(hts_file):
+                os.remove(hts_file)
+            if os.path.isfile(mi_file):
+                os.remove(mi_file)
+            if os.path.isfile(inv_file):
+                os.remove(inv_file)
+            if os.path.isfile(ltl_file):
+                os.remove(ltl_file)
         
         return os.path.isfile(hts_file) and \
             os.path.isfile(mi_file) and \
@@ -340,7 +350,8 @@ class ProblemSolver(object):
                     encoder_config, \
                     name=None, \
                     modifier=None, \
-                    cache_files=False):
+                    cache_files=False, \
+                    clean_cache=False):
         
         hts = HTS(name if name is not None else "System")
         invar_props = []
@@ -375,7 +386,7 @@ class ProblemSolver(object):
                     cachefile = "%s-%s"%(md5, cf)
                     cachedir = "%s/%s"%("/".join(strfile.split("/")[:-1]), COSACACHEDIR)
                 
-                if cache_files and self._is_cached(cachedir, cachefile):
+                if cache_files and self._is_cached(cachedir, cachefile, clean_cache):
                     Logger.msg("Loading from cache file \"%s\"... "%(strfile), 0)
                     (hts_a, inv_a, ltl_a, model_info) = self._from_cache(cachedir, cachefile, encoder_config, flags)
                 else:
@@ -387,7 +398,7 @@ class ProblemSolver(object):
                     if modifier is not None:
                         modifier(hts_a)
 
-                    if cache_files:
+                    if cache_files and not clean_cache:
                         self._to_cache(cachedir, cachefile, hts_a, inv_a, ltl_a, model_info)
 
                 self.model_info.combine(model_info)
@@ -428,6 +439,7 @@ class ProblemSolver(object):
         model_extension = config.model_extension if problems.model_extension is None else problems.model_extension
         assume_if_true = config.assume_if_true or problems.assume_if_true
         cache_files = config.cache_files or problems.cache_files
+        clean_cache = config.clean_cache
         
         modifier = None
         if model_extension is not None:
@@ -442,14 +454,16 @@ class ProblemSolver(object):
                                                                              encoder_config, \
                                                                              "System 1", \
                                                                              modifier, \
-                                                                             cache_files=cache_files)
+                                                                             cache_files=cache_files, \
+                                                                             clean_cache=clean_cache)
             
         if problems.equivalence is not None:
             (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
                                                            problems.equivalence, \
                                                            encoder_config, \
                                                            "System 2", \
-                                                           cache_files=cache_files)
+                                                           cache_files=cache_files, \
+                                                           clean_cache=clean_cache)
         else:
             systems[(HTS2, si)] = None
 

@@ -83,6 +83,7 @@ class Config(object):
     cardinality = 5
     coi = False
     cache_files = False
+    clean_cache = False
 
     printer = None
     strategy = None
@@ -486,6 +487,10 @@ def main():
     enc_params.set_defaults(cache_files=False)
     enc_params.add_argument('-c', '--cache-files', dest='cache_files', action='store_true',
                        help="caches encoded files to speed-up parsing. (Default is \"%s\")"%config.cache_files)
+
+    enc_params.set_defaults(clean_cache=False)
+    enc_params.add_argument('--clean-cache', dest='clean_cache', action='store_true',
+                       help="deletes the stored cache. (Default is \"%s\")"%config.clean_cache)
     
     enc_params.set_defaults(add_clock=False)
     enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
@@ -629,6 +634,7 @@ def main():
     config.model_extension = args.model_extension
     config.cardinality = args.cardinality
     config.cache_files = args.cache_files
+    config.clean_cache = args.clean_cache
 
     if devel:
         config.smt2file = args.smt2

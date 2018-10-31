@@ -651,8 +651,38 @@ BMC depth: 15
 
 \subsection{Parametric model checking}
 
+CoSA supports also parametric model checking analysis on extended
+models. At the current stage, CoSA supports only to extend a model
+with the internal model extension, which requires to select one of the
+possible faulty behaviors using the parameter
+\texttt{--model-extension}. The possible extension can be shown in the
+CoSA helper (\texttt{CoSA -h}) under the section \texttt{model
+  modifiers}. Additional modifiers can be defined in the
+\texttt{cosa/modifiers/model\_extension.py} and should be registered
+in \texttt{cosa/modifiers/factory.py}. At the current stage, CoSA
+supports the following variable modifiers:
+
+\begin{itemize}
+\item \texttt{NonDeterministic}: allows for any possible value;
+\item \texttt{Zero}: fixes the value to 0;
+\item \texttt{High}: fixes the value to the highest possible value;
+\item \texttt{Inverted}: inverts the correct value.
+\end{itemize}
+
+The result of a parametric model checking analysis is the region of
+parameters (in this case the fault variables) that allow the system to
+violate the property. As a precondition to this analysis, such
+property should hold in the original model, otherwise the region of
+parameters will be equal to \emph{True}. For instance, the property in
+the Example~\ref{ex:param_nominal} holds for the given model, while
+performing the parametric analysis on the extended model, as in the
+Example~\ref{ex:param_extended}, it provides a region required to be
+negated in order to satisfy the property. The parametric analysis is
+also dependent to the parameter \texttt{--cardinality}, which provides
+the upper bound of the number of failure that can occur in the system.
 
 \begin{example}
+  \label{ex:param_nominal}
   Running \texttt{CoSA -i
     examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
     rst\_beh.ets
@@ -670,17 +700,16 @@ Result: True
 \end{example}
 
 \begin{example}
-
+\label{ex:param_extended}
   Running \texttt{CoSA -i
     examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
-    rst\_beh.ets
-    --add-clock --model-extension High --parametric -p
-    "(reset\_performed \& ! posedge(rst) \& posedge(clk)) ->\\
-    ((next(out) < (out + 2\_16)))" -a "reset\_performed -> (rst =
-    0\_1);out < 240\_16" --prefix trace} performs a parametric
-  model checking analysis extending the model with a \texttt{high}
-  faulty behavior. The result is shown in
-  Figure~\ref{parametric_res}.
+    rst\_beh.ets --add-clock --model-extension High --parametric -p
+    "(reset\_performed \& ! posedge(rst) \& posedge(clk))
+    ->\\ ((next(out) < (out + 2\_16)))" -a "reset\_performed -> (rst =
+    0\_1);out < 240\_16" --prefix trace} performs a parametric model
+  checking analysis extending the model with a \texttt{high} faulty
+  behavior. The result is shown in Figure~\ref{parametric_res}, and
+  the region three possible (minimal) assignments of cardinality 2.
 
 \begin{lstlisting}[frame=single,language=ets,caption=Parametric analysis example,label=parametric_res]
 ** Problem parametric **
@@ -882,13 +911,70 @@ Counterexample:
 
 \section{Good practice}
 
-Gradually increase system complexity
+This section provides an high-level guidance for the users that are
+not familiar with model checking and formal verification in general.
 
 \begin{itemize}
-\item bottom-up verification
-\item simple properties
-\item awareness of property semantics
+\item \textit{Make sure that the formalization correctly represents
+  what you want to verify}.
+
+  This might seem a trivial statement, but is the most common mistake
+  when verifying a system. An example could be that the translation of
+  ``if the output value is $> 10$, the reset can be triggered'' to
+  $(output > 10) \rightarrow reset$. However, this forces the reset to
+  happen when output = 11, but the actual translation should be $reset
+  \rightarrow (output > 10)$.
+
+\item \textit{Be aware of property semantics}
+
+  This is related to the previous point, but it assumes that the
+  property correctly represents the intended behavior. An example of
+  possible misleading results for not considering the property
+  semantics could be that $\alpha \rightarrow \gamma$ holds because
+  $\alpha$ never happens.
+
+  For certain properties, such as implications, make sure that the
+  pre-conditions can happen, for instance checking that the invariant
+  $\neg \alpha$ is \emph{False}.
+
+\item \textit{Be aware of verification semantics}
+
+  Most formal verifications have a ``hidden'' quantification in the
+  problem that they solve. In case of safety, the check verifies if
+  the property $\varphi$ holds for every reachable states of the
+  system. However, the set of reachable states can be reduced if the
+  system reaches a deadlock state, or it does not have all the
+  behaviors that you expect.
+
+  As an example, we might want to verify that a counter never reaches
+  the value $10$, and we expect it to count from $0$ to $9$ for each
+  posedge and then it resets to $0$. The safety verification of the
+  property $output < 10$ is \emph{True}.  However, the model checker
+  can return this result also if the counter always resets at the
+  value 2, or if it deadlocks before reaching $10$.
+
+  In this case, a simulation of depth $30$ can rule out some unwanted
+  behaviors, especially deadlocks.
+
+  
+\item \textit{Gradually increase the verification complexity.}
+
+  Sometimes the formal verification might be an expensive analysis,
+  and a solving a model checking problem might take hours, and can
+  cause frustration when no results are provided. Moreover, even if a
+  counterexample is produced, its complexity might be very hard to
+  decipher.
+
+  Proceed incrementally by reducing the size of the parameters in the
+  model, analyzing trivial property first, and proceeding bottom up in
+  the hierarchy is always a good practice to increase the confidence
+  that the model is correct.
+
+  Moreover, model checkers like CoSA can take advantage of the
+  properties that have proven to be \emph{True}, and this can improve
+  the performance of the successive analyses.
 \end{itemize}
+  
 
 
 \section{Encodings}
