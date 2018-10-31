@@ -216,15 +216,9 @@ class ProblemSolver(object):
             res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts), at_most=problem.cardinality)
             
         hts = problem.hts
-            
+
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
-            if problem.equivalence:
-                (problem.hts2, _, _) = self.parse_model(problem.relative_path, \
-                                                        problem.equivalence, \
-                                                        encoder_config, \
-                                                        "System 2")
-
             htseq, miter_out = Miter.combine_systems(problem.hts, \
                                                      problem.hts2, \
                                                      bmc_length, \
@@ -348,7 +342,7 @@ class ProblemSolver(object):
                     modifier=None, \
                     cache_files=False):
         
-        hts = HTS("System 1")
+        hts = HTS(name if name is not None else "System")
         invar_props = []
         ltl_props = []
 

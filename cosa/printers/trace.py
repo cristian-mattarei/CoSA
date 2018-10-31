@@ -129,8 +129,9 @@ class TextTracePrinter(TracePrinter):
                 if state_i == last_state:
                     loop_id = i
                     break
-            if loop_id >= 0: 
-                trace.append("\n---> STATE %s loop to STATE %s <---"%(length, loop_id))
+            if loop_id >= 0:
+                end = ("STATE %s"%loop_id) if loop_id > 0 else "INIT"
+                trace.append("\n---> %s (Loop) <---"%(end))
 
         strtrace = NL.join(trace)
         trace = Trace(strtrace, length)

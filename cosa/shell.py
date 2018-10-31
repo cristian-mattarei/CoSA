@@ -295,6 +295,7 @@ def run_verification(config):
     elif config.equivalence is not None:
         problem.verification = VerificationType.EQUIVALENCE
         problem.equivalence = config.equivalence
+        problems.equivalence = config.equivalence
     elif config.simulate:
         problem.verification = VerificationType.SIMULATION
     elif config.parametric:

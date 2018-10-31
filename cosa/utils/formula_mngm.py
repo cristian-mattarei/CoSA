@@ -61,7 +61,7 @@ free_variables_dic = {}
 
 def get_free_variables(formula):
     if formula in free_variables_dic:
-        return free_variables_dic[formula]
+        return set([x for x in free_variables_dic[formula]])
     symwalker = SymbolsWalker()
     symwalker.reset_symbols()
     symwalker.walk(formula)

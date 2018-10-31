@@ -510,9 +510,9 @@ this verification is much simpler.
 \end{example}
 
 The generators can be defined in \texttt{cosa/encoders/generators.py}
-and should be registered in \texttt{cosa/}
-\texttt{encoders/template.py}. CoSA currently provides this set of
-generators:
+and should be registered in \texttt{cosa/
+  encoders/template.py}. CoSA
+currently provides this set of generators:
 
 \begin{itemize}
 \item \texttt{FixedScoreboard}: \emph{scoreboard} for a FIFO with no
@@ -534,7 +534,24 @@ generators:
 \subsection{Simulation}
 The simulation generates a system execution of a provided depth. This
 verification does not require a property, in that case it will be set
-to \emph{True}.
+to \emph{True}. If a property is provided the shortest execution
+reaching a state that satisfies the property is provided. If such a
+state does not exist, the verification
+fails. Table~\ref{tab:simulation_results} summarizes the possible
+results of the analysis, given \texttt{bmc\_length} parameter.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c | c c }
+  Property & Trace exists? & Result & Trace length \\ \hline 
+  \emph{True} & Yes & \texttt{TRUE} & k+1  \\
+  \emph{True} & No & \texttt{FALSE} & NA  \\
+  $\varphi$ & Yes & \texttt{TRUE} & min(k) : $\varphi$  \\
+  $\varphi$ & No & \texttt{FALSE} & NA  \\
+\end{tabular}
+\label{tab:simulation_results}
+\caption{Simulation results}
+\end{table}
 
 \begin{example}
   Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
@@ -544,10 +561,146 @@ to \emph{True}.
 
 \subsection{Safety and LTL verification}
 
+Safety (parameter \texttt{--safety}) and LTL (parameter
+\texttt{--ltl}) verifications require to provide a property using the
+parameter \texttt{-p}. An additional parameter \texttt{--prove}
+requires the tool to try to prove that the property holds,
+independently from the depth of the analysis (i.e.,
+\texttt{--bmc\_length}/\texttt{-k} parameter). The result of the
+analysis can be either \texttt{FALSE}, \texttt{TRUE}, or
+\texttt{UNKNOWN}. The latter is provided when only a bounded proof
+exists, and the probability to find an unbounded proof is dependent
+from the depth of the analysis. Table~\ref{tab:safety_results}
+summarizes the possible results according with the parameter
+\texttt{--prove}, and the existence of a proof.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c c c | c c }
+  Property & Prove & Trace exists? & Proof found? & Result & Trace length \\ \hline
+  $\varphi$ & Yes & Yes & NA & \texttt{FALSE} & min(k) : $\varphi$  \\
+  $\varphi$ & Yes & No & Yes & \texttt{TRUE} & NA  \\
+  $\varphi$ & Yes & No & No & \texttt{UNKNOWN} & NA  \\ \\
+  $\varphi$ & No & Yes & NA & \texttt{FALSE} & min(k) : $\varphi$  \\
+  $\varphi$ & No & No & NA & \texttt{UNKNOWN} & NA  \\
+\end{tabular}
+\label{tab:safety_results}
+\caption{Safety and LTL results}
+\end{table}
+
+\begin{example}
+  Running \texttt{CoSA -i examples/counters/counters.json --add-clock
+    --safety\\ -p "count1.r.reg0.out < 19\_16"} performs a safety
+  analysis of the property \texttt{count1.r.reg0.out < 19\_16}, and
+  the result is shown in Figure~\ref{safety_unk}. While adding the
+  parameter \texttt{--prove} to the command, CoSA is able to prove the
+  property and it provides the result shown in Figure~\ref{safety_true}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Safety example (UNKNOWN),label=safety_unk]
+** Problem safety **
+Result: UNKNOWN
+BMC depth: 10
+\end{lstlisting}
+
+\begin{lstlisting}[frame=single,language=ets,caption=Safety example (TRUE),label=safety_true]
+** Problem safety **
+Result: TRUE
+\end{lstlisting}
+
+\end{example}
+
+
 \subsection{Equivalence checking}
+
+The equivalence checking takes two systems and it verifies if they
+start from the same initial state, and if they always receive the same
+inputs they will always provide the same output. This verification
+requires that the two systems have the same interface. The results of
+this analysis is similar to the safety and LTL verification, and are
+reported in Table~\ref{tab:equivalence_results}.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c c | c c }
+  Prove & Trace exists? & Proof found? & Result & Trace length \\ \hline
+  Yes & Yes & NA & \texttt{FALSE} & min(k) : $sys_1 \neq sys_2$  \\
+  Yes & No & Yes & \texttt{TRUE} & NA  \\
+  Yes & No & No & \texttt{UNKNOWN} & NA  \\ \\
+  No & Yes & NA & \texttt{FALSE} & min(k) : $sys_1 \neq sys_2$  \\
+  No & No & NA & \texttt{UNKNOWN} & NA  \\
+\end{tabular}
+\label{tab:equivalence_results}
+\caption{Equivalence results}
+\end{table}
+
+
+\begin{example}
+  Running \texttt{CoSA -i examples/mul\_2/mul\_2.json --equivalence
+    examples/mul\_2/mul\_2\_pe.json --prove -k 15} performs an
+  equivalence checking between \texttt{examples/mul\_2/mul\_2.json}
+  and \texttt{examples/mul\_2/mul\_2\_pe.json}, and the result is
+  shown in Figure~\ref{equivalence_unk}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Equivalence example (UNKNOWN),label=equivalence_unk]
+** Problem equivalence **
+Result: UNKNOWN
+BMC depth: 15
+\end{lstlisting}
+
+\end{example}
 
 \subsection{Parametric model checking}
 
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
+    rst\_beh.ets
+    --add-clock --safety -p "(reset\_performed \& ! posedge(rst) \&
+    posedge(clk)) -> \\((next(out) < (out + 2\_16)))" -a
+    "reset\_performed -> (rst = 0\_1);out < 240\_16" --prove --prefix trace}
+  performs a safety analysis over the given model, property, and
+  assumption, and the result is shown in Figure~\ref{parametric_safety_res}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Safety analysis example,label=parametric_safety_res]
+** Problem safety **
+Result: True
+\end{lstlisting}
+
+\end{example}
+
+\begin{example}
+
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
+    rst\_beh.ets
+    --add-clock --model-extension High --parametric -p
+    "(reset\_performed \& ! posedge(rst) \& posedge(clk)) ->\\
+    ((next(out) < (out + 2\_16)))" -a "reset\_performed -> (rst =
+    0\_1);out < 240\_16" --prefix trace} performs a parametric
+  model checking analysis extending the model with a \texttt{high}
+  faulty behavior. The result is shown in
+  Figure~\ref{parametric_res}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Parametric analysis example,label=parametric_res]
+** Problem parametric **
+Result: UNKNOWN
+BMC depth: 10
+Region:
+ - (counter_clk.out$FAILURE$ & counter_2.out$FAILURE$) or 
+ - (counter_clk.out$FAILURE$ & counter_4.out$FAILURE$) or 
+ - (counter_clk.out$FAILURE$ & counter_3.out$FAILURE$)
+Executions: [1], [2], [3]
+Traces (max) length: 4
+
+*** TRACES ***
+
+[1]:	trace[1]-parametric.txt
+[2]:	trace[2]-parametric.txt
+[3]:	trace[3]-parametric.txt
+\end{lstlisting}
+
+\end{example}
 
 
 \section{Problem file}
@@ -559,11 +712,171 @@ to \emph{True}.
 
 \subsection{Counterexample traces}
 
+The result of the verification can in some cases provide a
+counterexample trace, which is an execution of the system that
+supports the result of the analysis. CoSA produces finite-state
+traces, but in case of LTL verification the trace can be infinite with
+a lasso-shaped loop. CoSA can generate traces either in a human
+readable textual format or in VCD format.
+
+
+
+\subsubsection{Finite traces}
+
+The format used by CoSA to represent traces is similar to the ETS
+format (as shown in the Figure~\ref{simulation_trace}), and it
+provides a series of states with assignments to the variables. The
+default configuration shows only the top level \texttt{INPUT} and
+\texttt{OUTPUT} ports, and all variables can be shown by using the
+parameter \texttt{--trace-all-vars}. Moreover, a trace shows only the
+variables that do not change their value, and this option can be
+disabled with the parameter \texttt{--trace-vars-change}.
 
 \begin{example}
-  Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
-  will generate a system execution of length equal to the default
-  setting for the parameter \texttt{-k}, which is 10.
+  Running \texttt{CoSA -i examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5}
+  will generate a system execution of length equal to 6 (5 steps + initial state), as
+  shown in Figure~\ref{simulation_trace}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 ,label=simulation_trace]
+** Problem simulation **
+Result: TRUE
+Execution:
+---> INIT <---
+  I: clk = 1_1
+  I: out = 8_16
+  I: rst = 1_1
+
+---> STATE 1 <---
+
+---> STATE 2 <---
+
+---> STATE 3 <---
+
+---> STATE 4 <---
+  S4: clk = 0_1
+  S4: rst = 0_1
+
+---> STATE 5 <---
+  S5: out = 0_16
+  S5: rst = 1_1
+\end{lstlisting}
+
+\end{example}
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5\\
+    --trace-vars-change} will generate a system execution of length
+  equal to 6 (5 steps + initial state), showing also the variables
+  that change value, as shown in Figure~\ref{simulation_trace_change}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 (with changing values),label=simulation_trace_change]
+** Problem simulation **
+Result: TRUE
+Execution:
+---> INIT <---
+  I: clk = 1_1
+  I: out = 8_16
+  I: rst = 1_1
+
+---> STATE 1 <---
+  S1: clk = 1_1
+  S1: out = 8_16
+  S1: rst = 1_1
+
+---> STATE 2 <---
+  S2: clk = 1_1
+  S2: out = 8_16
+  S2: rst = 1_1
+
+---> STATE 3 <---
+  S3: clk = 1_1
+  S3: out = 8_16
+  S3: rst = 1_1
+
+---> STATE 4 <---
+  S4: clk = 0_1
+  S4: out = 8_16
+  S4: rst = 0_1
+
+---> STATE 5 <---
+  S5: clk = 1_1
+  S5: out = 9_16
+  S5: rst = 0_1
+\end{lstlisting}
+
+\end{example}
+
+
+We can notice that state 5 differs between traces in Figures
+\ref{simulation_trace} and \ref{simulation_trace_change}. In fact CoSA
+does not guarantee a deterministic result in terms because the
+internal solver can produce different models according with the state
+space exploration that has been performed.
+
+The parameter \texttt{--prefix} allows the user to save the trace to
+file.
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5
+    --vcd --prefix trace} will generate a system execution of length
+  equal to 6, and save it to a file with prefix ``trace'', as shown in
+  Figure~\ref{simulation_trace_prefix}. A VCD trace is also generated
+  when \texttt{--vcd} is set.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 (with prefix),label=simulation_trace_prefix]
+** Problem simulation **
+Result: TRUE
+Executions: [1], [2]
+Traces (max) length: 6
+
+*** TRACES ***
+
+[1]:	trace[1]-simulation.txt
+[2]:	trace[2]-simulation.vcd
+\end{lstlisting}
+
+\end{example}
+
+
+
+\subsubsection{Infinite traces}
+
+The counterexample showing the violation of an LTL property usually
+requires an infinite trace. For instance, if the property $F(\varphi)$
+does not hold it means that the system can start in $\neg \varphi$,
+and never reach a state where $\varphi$ holds. A trace that will show
+this behavior is usually represented with a lasso-shaped loop. An
+example is shown in Figure~\ref{ltl_trace}, where the system can loop
+forever from \texttt{STATE 1} to \texttt{INIT} to \texttt{STATE 1},
+and so on.
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counter/counter.json,examples/counter/counter\_live.sts
+    --ltl -a "en\_clr = 0\_1 -> self.clr = 0\_1" -p "F(self.out =
+    4\_16)" --trace-vars-change} will generate a counterexample trace
+  for the property \texttt{F(self.out = 4\_16)}, as shown in
+  Figure~\ref{ltl_trace}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 (with changing values),label=ltl_trace]
+** Problem ltl **
+Result: FALSE
+Counterexample:
+---> INIT <---
+  I: self.clk = 1_1
+  I: self.clr = 0_1
+  I: self.out = 0_16
+
+---> STATE 1 <---
+  S1: self.clk = 1_1
+  S1: self.clr = 0_1
+  S1: self.out = 0_16
+
+---> INIT (Loop) <---
+\end{lstlisting}
+
 \end{example}
 
 
