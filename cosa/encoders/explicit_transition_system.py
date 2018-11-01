@@ -154,8 +154,8 @@ class ExplicitTSParser(ModelParser):
                     init_value = line.init.value
                 else:
                     dline = dict(line)
-                    init_varname = dline[P_VARNAME]
-                    init_value = line[P_VALUE]
+                    init_varname = dline[P_VARNAME] if P_VARNAME in dline else ""
+                    init_value = dline[P_VALUE]
                     
                 if init_varname != "":
                     (value, typev) = self.__get_value(init_value)
@@ -178,8 +178,8 @@ class ExplicitTSParser(ModelParser):
                 else:
                     dline = dict(line)
                     sname = T_S + dline[P_ID]
-                    state_varname = dline[P_VARNAME]
-                    state_value = line[P_VALUE]
+                    state_varname = dline[P_VARNAME] if P_VARNAME in dline else ""
+                    state_value = dline[P_VALUE]
 
                 if (state_varname != ""):
                     (value, typev) = self.__get_value(state_value)
