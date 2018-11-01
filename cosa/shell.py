@@ -345,7 +345,7 @@ def main():
     generators = []
     for x in GeneratorsFactory.get_generators():
         wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
-        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s) values (%s)"%(x.get_name(), x.get_desc(), x.get_interface(), x.get_values()))))
     
     extra_info.append('\nModule generators:\n%s'%("\n".join(generators)))
 

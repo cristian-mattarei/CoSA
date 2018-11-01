@@ -539,13 +539,14 @@ currently provides this set of generators:
 
 \begin{itemize}
 \item \texttt{FixedScoreboard}: \emph{scoreboard} for a FIFO with no
-  pop. The parameters are (input\_port, max\_value, push\_signal);
+  pop. The parameters are (input\_port, max\_value, push\_signal), and
+  its values are (end, tracking);
 \item \texttt{Scoreboard}: \emph{scoreboard} for a FIFO with push and
   pop. The parameters are (input\_port, max\_value, push\_signal,
-  pop\_signal);
+  pop\_signal), and its values are (end, tracking);
 \item \texttt{Random}: provides a non-deterministic value. The
-  parameter is (size), and it can be either a variable (it would
-  consider its size), or a decimal value.
+  parameter is (size) and its value is (value), and it can be either a
+  variable (it would consider its size), or a decimal value.
 \end{itemize}  
 
 \section{Verification problems}
@@ -554,7 +555,26 @@ currently provides this set of generators:
 
 \subsection{Environmental assumptions}
 
+A circuit usually requires to be analyzed assuming a specific
+environmental behavior. This might include clock behaviors, reset
+procedures, and valid inputs configurations. This set of assumptions
+can be set relying on additional models defined using STSs or ETSs and
+include them in the list of input files. However, CoSA provides also a
+set of automated procedures to add environmental behaviors. Currently,
+the tool supports automated clock definition.
 
+\begin{figure}[ht]
+  \centering
+    \includegraphics[width=0.4\textwidth]{img/NonDetClock.pdf}
+  \caption{Non-deterministic clock behavior of period = 3}
+\end{figure}
+
+
+\begin{example}
+  Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
+  will generate a system execution of length equal to the default
+  setting for the parameter \texttt{-k}, which is 10.
+\end{example}
 
 \subsection{Simulation}
 The simulation generates a system execution of a provided depth. This

@@ -108,6 +108,7 @@ class STSGenerator(object):
     name = "GENERATOR"
     description = "MISSING DESCRIPTION!"
     interface = "MISSING INTERFACE!"
+    values = "MISSING VALUES!"
 
     def __init__(self):
         pass
@@ -132,6 +133,9 @@ class STSGenerator(object):
     def get_interface(self):
         return self.interface
 
+    def get_values(self):
+        return self.values
+    
 class ClockBehavior(object):
     name = "CLOCK BEHAVIOR"
     description = "MISSING DESCRIPTION!"
