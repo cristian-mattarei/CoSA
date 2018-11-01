@@ -391,9 +391,6 @@ class ProblemSolver(object):
                     (hts_a, inv_a, ltl_a, model_info) = self._from_cache(cachedir, cachefile, encoder_config, flags)
                 else:
                     Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                    if Logger.level(4):
-                        with open(strfile, "r") as f:
-                            print(f.read())
                     (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
 
                     model_info = parser.get_model_info()

@@ -191,6 +191,7 @@ class SymbolicTSParser(ModelParser):
                     par_str.append((varname, vartype, varpar))
 
             if P_VARDEFS in dict(psts):
+                print(dict(psts.var))
                 vardefs = list(dict(psts.var)[P_VARDEFS])
 
                 for vardef in self._split_list(vardefs, T_SC):

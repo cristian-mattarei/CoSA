@@ -5,7 +5,7 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{amsthm}
-\usepackage{xcolor}
+\usepackage[usenames,dvipsnames]{xcolor}
 
 \theoremstyle{definition}
 \newtheorem{example}{Example}[section]
@@ -14,6 +14,8 @@
 \lstdefinelanguage{ets}
 {
 morekeywords={->,True, False},%
+keywords={->,--->,<---,True, False},%
+alsoletter={-,>,<},
 morecomment=[l]\#,%
 commentstyle=\color{red}\ttfamily,
 %backgroundcolor=\color{gray!10},
@@ -31,7 +33,7 @@ xleftmargin=2.5em,
 
 \lstdefinelanguage{sts}
 {
-morekeywords={->,True, False, VAR, OUTPUT, TRANS, DEF, INIT, INVAR},%
+morekeywords={True, False, VAR, OUTPUT, TRANS, DEF, INIT, INVAR},%
 morecomment=[l]\#,%
 commentstyle=\color{red}\ttfamily,
 %backgroundcolor=\color{gray!10},
@@ -46,6 +48,27 @@ frame=lines,
 %framexleftmargin=2.5em,
 xleftmargin=2.5em,
 }
+
+\lstdefinelanguage{Ini}
+{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    tag=[s]{[]},
+    tagstyle=\color{Orchid}\bfseries,
+    usekeywordsintag=true,
+    morecomment=[l]{;},
+    commentstyle=\color{gray}\ttfamily,
+    alsoletter={=},
+    ndkeywords={=},
+    ndkeywordstyle=\color{green}\bfseries,
+numbers=left,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em
+}[html]
 
 \begin{document}
 
@@ -735,6 +758,200 @@ Traces (max) length: 4
 \section{Problem file}
 \label{sec:problem_file}
 
+In order to facilitate the usage of the tool in case of complex and
+comprehensive analysis of a model, CoSA supports the definition of
+problem files. In practice, a problem file links a model with a set of
+formal analyses that have to be performed, and it is provided to the
+tool with the parameter \texttt{--problems}.
+
+Figure~\ref{problem_file} shows an example of a problem file, which is
+composed of the following sections:
+\begin{itemize}
+\item \texttt{[GENERAL]}: it is required, and it defines the system
+  model under analysis. A problem file accepts only one model, thus
+  all encoding options have to be defined in this section. The files
+  paths are local to the problem file, unless they start with
+  \texttt{/} symbol;
+\item \texttt{[DEFAULT]}: this section is optional, and it defines the
+  default values of the verifications, in case they are not provided;
+\item a list of verifications: each of them starts with a unique
+  identifier in square brackets, and they set all the possible
+  parameters that define the verification task.
+\end{itemize}
+
+Table~\ref{tab:general_section} lists the possible parameters for the
+\texttt{[GENERAL]} section, while Table~\ref{tab:verification_section}
+lists the parameters for the \texttt{[DEFAULT]} section and each
+verification.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ l c c l c }
+  Parameter & Default & & Parameter & Default \\ \cline{1-2} \cline{4-5}
+abstract\_clock & False & ~~ & add\_clock & False \\
+assume\_if\_true & False & ~~ & boolean & None \\
+clock\_behaviors & None & ~~ & equivalence & None \\
+model\_extension & None & ~~ & model\_file & None \\
+run\_coreir\_passes & True & ~~ & symbolic\_init & False \\
+vcd & False & ~~ & verbosity & None \\
+zero\_init & None
+\end{tabular}
+\label{tab:general_section}
+\caption{\texttt{[GENERAL]} section options}
+\end{table}
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ l c c l c }
+  Parameter & Default & & Parameter & Default \\ \cline{1-2} \cline{4-5}
+assumptions & None & ~~ & bmc\_length & 10 \\
+bmc\_length\_min & 0 & ~~ & cache\_files & False \\
+cardinality & -1 & ~~ & coi & False \\
+description & None & ~~ & expected & None \\
+formula & None & ~~ & full\_trace & False \\
+generators & None & ~~ & incremental & None \\
+lemmas & None & ~~ & precondition & None \\
+prove & False & ~~ & smt2\_tracing & None \\
+solver\_name & None & ~~ & strategy & None \\
+time & False & ~~ & trace\_all\_vars & False \\
+trace\_prefix & None & ~~ & trace\_values\_base & None \\
+trace\_vars\_change & False & ~~ & vcd & False
+\end{tabular}
+\label{tab:verification_section}
+\caption{\texttt{[DEFAULT]} and verification sections options}
+\end{table}
+
+
+
+\begin{lstlisting}[frame=single,language=Ini,caption=Problem file example,label=problem_file]
+[GENERAL]
+model_file: model.v[main_module]
+add_clock: True
+
+[DEFAULT]
+bmc_length: 40
+
+[safety_verification_1_id]
+description: "Description of the safety verification 1"
+formula: <property to be verified>
+assumptions: <assumptions for the verification>
+verification: safety
+prove: True
+expected: False
+
+[safety_verification_2_id]
+description: "Description of the safety verification 2"
+...
+
+[ltl_verification_1_id]
+description: "Description of the LTL verification 1"
+...
+
+\end{lstlisting}
+
+\begin{example}
+The Figure~\ref{counter_problem} shows the problem file in
+\texttt{examples/counter/problem.txt}, and it can be run with the
+command \texttt{CoSA --problems examples/counter/problem.txt --prefix
+  trace}.
+  
+\begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/counter/problem.txt},label=counter_problem]
+[GENERAL]
+model_file: counter.json,counter_live.sts
+add_clock: True
+
+[DEFAULT]
+bmc_length: 40
+
+[Globally]
+description: "Globally Check"
+formula: self.out < 4_16
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: safety
+prove: True
+expected: False
+
+[Finally]
+description: "Finally Check"
+formula: F(self.out = 4_16)
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+prove: True
+expected: True
+
+[Liveness]
+description: "Liveness Check"
+formula: F(G(self.out = 4_16))
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+prove: True
+expected: False
+\end{lstlisting}
+
+Figure~\ref{counter_problem_exec} shows the execution of the problem
+file in Figure~\ref{counter_problem}. After performing the analysis,
+CoSA provides a summary of the results, and it grabs the attention to
+the analyses that have an unexpected result.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Analysis for the problem in Figure~\ref{counter_problem},label=counter_problem_exec]
+Parsing file "examples/counter/counter.json"... DONE
+Parsing file "examples/counter/counter_live.sts"... DONE
+Solving "Globally" ... TRUE
+Solving "Finally" ........ TRUE
+Solving "Liveness" .............. FALSE
+
+*** SUMMARY ***
+
+** Problem Globally **
+Description: "Globally Check"
+Result: TRUE
+Expected: FALSE
+TRUE != FALSE <<<---------| ERROR
+
+** Problem Finally **
+Description: "Finally Check"
+Result: TRUE
+Expected: TRUE
+
+** Problem Liveness **
+Description: "Liveness Check"
+Result: FALSE
+Expected: FALSE
+Counterexample: [1]
+Trace length: 16
+
+*** TRACES ***
+
+[1]:	trace[1]-Liveness.txt
+
+WARNING: Verifications with unexpected result
+\end{lstlisting}
+
+\end{example}
+
+\begin{example}
+The problem file reported in Figure~\ref{equivalence_problem} shows
+the definition of an equivalence checking. In this case, the model
+under analysis is the composition between \texttt{mul\_2.json}, and
+\texttt{mul\_2\_pe.json}
+  
+\begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/mul\_2/problem\_1.txt},label=equivalence_problem]
+[GENERAL]
+model_file: mul_2.json
+equivalence: mul_2_pe.json
+add_clock: True
+
+[DEFAULT]
+bmc_length: 15
+strategy: MULTI
+
+[Equivalence Checking]
+description: "Mul2 is equivalent to Mul2 PE"
+verification: equivalence
+prove: True
+expected: Unknown
+\end{lstlisting}
+\end{example}
 
 \section{Results analysis}
 \label{sec:results_analysis}
@@ -911,8 +1128,8 @@ Counterexample:
 
 \section{Good practice}
 
-This section provides an high-level guidance for the users that are
-not familiar with model checking and formal verification in general.
+This section provides an high-level guidance for the users that
+approach for the first time model checking and formal verification.
 
 \begin{itemize}
 \item \textit{Make sure that the formalization correctly represents
@@ -979,6 +1196,7 @@ not familiar with model checking and formal verification in general.
 
 \section{Encodings}
 \label{sec:encodings}
+
 
 
 \section{Optimizations}
