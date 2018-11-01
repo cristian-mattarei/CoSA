@@ -8,6 +8,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pyparsing
+
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, restOfLine, LineEnd, Combine, White, Group, SkipTo, lineEnd
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, BVType
@@ -17,6 +19,9 @@ from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import quote_names
 from cosa.encoders.template import ModelParser
 from cosa.encoders.formulae import StringParser
+
+PYPARSING_220 = "2.2.0"
+PYPARSING_230 = "2.3.0"
 
 T_NL = "\n"
 
@@ -121,10 +126,13 @@ class SymbolicTSParser(ModelParser):
     parser = None
     extensions = ["sts"]
     name = "STS"
+
+    pyparsing_version = PYPARSING_220
     
     def __init__(self):
         self.parser = self.__init_parser()
         self.parser.ignore(T_COM + SkipTo(lineEnd))
+        self.pyparsing_version = pyparsing.__version__
 
     def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
@@ -190,8 +198,13 @@ class SymbolicTSParser(ModelParser):
 
                     par_str.append((varname, vartype, varpar))
 
-            if P_VARDEFS in dict(psts):
-                vardefs = list(dict(psts.var)[P_VARDEFS])
+            dpsts = dict(psts)
+                    
+            if P_VARDEFS in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    vardefs = list(dict(psts.var)[P_VARDEFS])
+                else:
+                    vardefs = list(dpsts[P_VARDEFS])
 
                 for vardef in self._split_list(vardefs, T_SC):
                     varname = vardef[0]
@@ -206,8 +219,11 @@ class SymbolicTSParser(ModelParser):
                     else:
                         sub_str.append((varname, vartype, self._split_list(varpar, T_CM)))
 
-            if P_STATEDEFS in dict(psts):
-                statedefs = list(dict(psts.state)[P_STATEDEFS])
+            if P_STATEDEFS in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    statedefs = list(dict(psts.state)[P_STATEDEFS])
+                else:
+                    statedefs = list(dpsts[P_STATEDEFS])
 
                 for statedef in self._split_list(statedefs, T_SC):
                     statename = statedef[0]
@@ -219,8 +235,11 @@ class SymbolicTSParser(ModelParser):
 
                     state_str.append((statename, statetype, statepar))
 
-            if P_INPUTDEFS in dict(psts):
-                inputdefs = list(dict(psts.input)[P_INPUTDEFS])
+            if P_INPUTDEFS in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    inputdefs = list(dict(psts.input)[P_INPUTDEFS])
+                else:
+                    inputdefs = list(dpsts[P_INPUTDEFS])
 
                 for inputdef in self._split_list(inputdefs, T_SC):
                     inputname = inputdef[0]
@@ -232,8 +251,11 @@ class SymbolicTSParser(ModelParser):
 
                     input_str.append((inputname, inputtype, inputpar))
 
-            if P_OUTPUTDEFS in dict(psts):
-                outputdefs = list(dict(psts.output)[P_OUTPUTDEFS])
+            if P_OUTPUTDEFS in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    outputdefs = list(dict(psts.output)[P_OUTPUTDEFS])
+                else:
+                    outputdefs = list(dpsts[P_OUTPUTDEFS])
 
                 for outputdef in self._split_list(outputdefs, T_SC):
                     outputname = outputdef[0]
@@ -245,18 +267,28 @@ class SymbolicTSParser(ModelParser):
 
                     output_str.append((outputname, outputtype, outputpar))
                     
-            if P_INIT in dict(psts):
-                inits = list(dict(psts.init)[P_FORMULAE])
+            if P_INIT in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    inits = list(dict(psts.init)[P_FORMULAE])
+                else:
+                    inits = list(dpsts[P_INIT])[1:]
+                    
                 for i in range(0, len(inits), 2):
                     init_str.append(inits[i])
 
-            if P_TRANS in dict(psts):
-                transs = list(dict(psts.trans)[P_FORMULAE])
+            if P_TRANS in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    transs = list(dict(psts.trans)[P_FORMULAE])
+                else:
+                    transs = list(dpsts[P_TRANS])[1:]
                 for i in range(0, len(transs), 2):
                     trans_str.append(transs[i])
 
-            if P_INVAR in dict(psts):
-                invars = list(dict(psts.invar)[P_FORMULAE])
+            if P_INVAR in dpsts:
+                if self.pyparsing_version == PYPARSING_220:
+                    invars = list(dict(psts.invar)[P_FORMULAE])
+                else:
+                    invars = list(dpsts[P_INVAR])[1:]
                 for i in range(0, len(invars), 2):
                     invar_str.append(invars[i])
 
@@ -268,8 +300,6 @@ class SymbolicTSParser(ModelParser):
             else:
                 modulesdic[name] = module
                 
-            #hts.add_ts(self.generate_STS(var_str, init_str, invar_str, trans_str))
-
         hts = self.generate_HTS(mainmodule, modulesdic)
         hts.flatten()
         return (hts, invar_props, ltl_props)

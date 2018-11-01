@@ -630,6 +630,9 @@ class VerilogSTSWalker(VerilogWalker):
         intvar = Symbol(self.varname(modulename, el.name), BVType(MAXINT))
         self.add_var(modulename, el.name, intvar)
         return None
+
+    def Genvar(self, modulename, el, args):
+        return self.Integer(modulename, el, args)
     
     def IntConst(self, modulename, el, args):
         if "'d" in el.value:

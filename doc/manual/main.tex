@@ -5,7 +5,7 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{amsthm}
-\usepackage{xcolor}
+\usepackage[usenames,dvipsnames]{xcolor}
 
 \theoremstyle{definition}
 \newtheorem{example}{Example}[section]
@@ -14,6 +14,8 @@
 \lstdefinelanguage{ets}
 {
 morekeywords={->,True, False},%
+keywords={->,--->,<---,True, False},%
+alsoletter={-,>,<},
 morecomment=[l]\#,%
 commentstyle=\color{red}\ttfamily,
 %backgroundcolor=\color{gray!10},
@@ -31,7 +33,7 @@ xleftmargin=2.5em,
 
 \lstdefinelanguage{sts}
 {
-morekeywords={->,True, False, VAR, OUTPUT, TRANS, DEF, INIT, INVAR},%
+morekeywords={True, False, VAR, OUTPUT, TRANS, DEF, INIT, INVAR},%
 morecomment=[l]\#,%
 commentstyle=\color{red}\ttfamily,
 %backgroundcolor=\color{gray!10},
@@ -46,6 +48,27 @@ frame=lines,
 %framexleftmargin=2.5em,
 xleftmargin=2.5em,
 }
+
+\lstdefinelanguage{Ini}
+{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    tag=[s]{[]},
+    tagstyle=\color{Orchid}\bfseries,
+    usekeywordsintag=true,
+    morecomment=[l]{;},
+    commentstyle=\color{gray}\ttfamily,
+    alsoletter={=},
+    ndkeywords={=},
+    ndkeywordstyle=\color{green}\bfseries,
+numbers=left,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em
+}[html]
 
 \begin{document}
 
@@ -360,20 +383,170 @@ I: reset_done = False
 S1: rst = 1_1
 S1: reset_done = False
 
-S2: rst = 0_1
-S2: reset_done = True
-
+SE: rst = 0_1
 SE: reset_done = True
 
 I -> S1
-S1 -> S2
-S2 -> SE
+S1 -> SE
 # the reset_done signal remains up forever, defined as a self-loop on the SE state
 SE -> SE
 \end{lstlisting}
 
+\begin{example}
+  \texttt{CoSA -i
+    examples/counters\_4.v[Counters\_4],examples/counters\_4/rst\_beh.ets}
+  to load the \texttt{examples/counters\_4.v} design and the ETS
+  \texttt{examples/counters\_4/rst\_beh.ets} and perform a synchronous
+  product between them.
+\end{example}
+
 \section{Properties}
 \label{sec:properties}
+
+CoSA supports the definition of invariant and Linear Temporal Logic
+(LTL) properties. Moreover, the tool allows for the definition of
+syntactic sugar and parametric generators. CoSA relies on
+PySMT~\cite{gario2015pysmt} for the formulae management, thus the
+syntax is going to related to this tool.
+
+\subsection{Invariant}
+An invariant property is a propositional formula over the system
+variables that has to hold at any time. 
+
+\begin{example}
+  Given the \texttt{examples/counters\_4.v} model, the invariant property
+  \texttt{out < 10\_16} states that the value of \texttt{out} should
+  be always less than the decimal encoding of \texttt{10} as a
+  bit-vector of size {16}.
+\end{example}
+
+An invariant property can predicate also over the \texttt{next}
+variables, which are the primed version of each variable.
+
+\begin{example}
+  Given the \texttt{examples/counters\_4.v} model, the invariant property
+  \texttt{(rst = 1\_1) -> (next(out) = 0\_16)} states that when the reset
+  signal \texttt{rst} is equal to 1 (encoded as a bit-vector of size
+  {1}), the primed value of \texttt{out} should be \texttt{0} (encoded
+  as a bit-vector of size {16}).
+\end{example}
+
+\subsection{Linear Temporal Logic}
+The support for LTL extends propositional logic with additional
+temporal operators:
+\begin{itemize}
+\item \texttt{G}: globally, e.g., $G(\varphi)$ means that $\varphi$
+  has to hold for every states;
+\item \texttt{F}: finally or eventually, e.g., $F(\varphi)$ means that $\varphi$
+  has to eventually hold;
+\item \texttt{X}: next, e.g., $X(\varphi)$ means that $\varphi$
+  has to hold at the next state;
+\item \texttt{U}: until, e.g., $\gamma U \varphi$ means that $\gamma$
+  has to hold until $\varphi$ becomes \emph{True};
+\item \texttt{R}: release, e.g., $\gamma R \varphi$ means that $\varphi$
+  is \emph{True} until $\gamma$ becomes \emph{True}.
+\end{itemize}
+
+\begin{example}
+  Given the \texttt{examples/counters.json} model, the LTL property
+  \texttt{F(self.out = 4\_16)} states that the signal
+  \texttt{self.out} must reach the value \texttt{4} at some time in
+  the future.
+\end{example}
+
+\begin{example}
+  Given the \texttt{examples/counters.json} model, the LTL property
+  \texttt{F(G(self.out = 4\_16))} states that the signal
+  \texttt{self.out} must reach the value \texttt{4} at some time in
+  the future, and keep the value forever.
+\end{example}
+
+\begin{example}
+  Given the \texttt{examples/counters.json} model, the LTL property
+  \texttt{G(F(self.out = 4\_16))} states that the signal
+  \texttt{self.out} must reach the value \texttt{4} infinitely many
+  times.
+\end{example}
+
+
+\subsection{Syntactic sugar}
+
+In order to simplify the definition of hardware properties, CoSA
+integrates an expandable support for syntactic sugar. Additional
+syntactic sugars should be defined in \texttt{cosa/encoders/sugar.py},
+and registered in \texttt{cosa/encoders/template.py}. The one that are
+registered can be seen in the \texttt{special operators} section of
+the CoSA helper (parameter \texttt{-h}). Currently, CoSA supports the
+following syntactic sugar:
+
+\begin{itemize}
+\item \texttt{posedge}, with a single
+  parameter. \texttt{posedge(variable)} is equivalent to \texttt{(variable
+    = 0\_1) \& next(variable = 1\_1)}, if \texttt{variable} is a
+  bit-vector of size 1, while \texttt{(variable) \& next(! variable)} if
+  \texttt{variable} is of Boolean type;
+\item \texttt{negedge}, which is implemented as \texttt{posedge} with
+  inverted polarity;
+\item \texttt{change}, with a single
+  parameter. \texttt{change(variable)} is equivalent to
+  \texttt{(variable != next(variable)};
+\item \texttt{nochange}, with a single
+  parameter. \texttt{nochange(variable)} is equivalent to
+  \texttt{(variable = next(variable)};
+\item \texttt{ones}, with a single parameter. \texttt{ones(variable)}
+  provides the highest possible value of \texttt{variable};
+\item \texttt{zero}, with a single parameter. \texttt{zero(variable)}
+  provides the bit-vector encoding of all zeros, given the size of
+  \texttt{variable};
+\item \texttt{dec2bv}, with a two parameters. \texttt{dec2bv(value,
+  variable)} provides the bit-vector encoding of value, given the size
+  of \texttt{variable}.
+\end{itemize}
+
+\subsection{Generators}
+
+More complex behaviors sometimes require the definition of parametric
+modules to support the verification. The generators help on
+simplifying those properties, by providing a parametric way to defined
+commonly used symbolic transition systems. A common example of a
+generator is the definition of a \emph{scoreboard} to verify the
+behavior of a \emph{FIFO}. The purpose of a \emph{scoreboard} is to
+keep track of a packet that goes into the \emph{FIFO}, and tells when
+it is supposed to come out, according with the number of pushes and
+pops that have been performed. An approach to define such behavior
+would be to define an STS that models the \emph{scoreboard}, which in
+synchronous product with the original system would allow the user to
+specify the appropriate property. However, with the CoSA generators
+this verification is much simpler.
+
+\begin{example}
+  Given the FIFO implementation in \texttt{examples/fifo/fifo.sts},
+  the property that verify its behavior is defined as \texttt{sb.end
+    -> (sb.packet = output)} by instantiating the generator
+  \texttt{sb=FixedScoreboard} \texttt{(input, 6, posedge(clk))}. The meaning of
+  the property is that when signal \texttt{end} from the
+  \emph{scoreboard} \texttt{sb} is \emph{True}, then the
+  \texttt{packet} should be equivalent to the \texttt{output} of the
+  \emph{FIFO}. While the instantiation of the \emph{scoreboard} takes
+  as input the \texttt{input} of the \emph{FIFO}, its length (in this
+  case is 6), and the signal that triggers the coming of a new packet.
+\end{example}
+
+The generators can be defined in \texttt{cosa/encoders/generators.py}
+and should be registered in \texttt{cosa/
+  encoders/template.py}. CoSA
+currently provides this set of generators:
+
+\begin{itemize}
+\item \texttt{FixedScoreboard}: \emph{scoreboard} for a FIFO with no
+  pop. The parameters are (input\_port, max\_value, push\_signal);
+\item \texttt{Scoreboard}: \emph{scoreboard} for a FIFO with push and
+  pop. The parameters are (input\_port, max\_value, push\_signal,
+  pop\_signal);
+\item \texttt{Random}: provides a non-deterministic value. The
+  parameter is (size), and it can be either a variable (it would
+  consider its size), or a decimal value.
+\end{itemize}  
 
 \section{Verification problems}
 \label{sec:problem_definition}
@@ -381,10 +554,29 @@ SE -> SE
 
 \subsection{Environmental assumptions}
 
+
+
 \subsection{Simulation}
 The simulation generates a system execution of a provided depth. This
 verification does not require a property, in that case it will be set
-to \emph{True}.
+to \emph{True}. If a property is provided the shortest execution
+reaching a state that satisfies the property is provided. If such a
+state does not exist, the verification
+fails. Table~\ref{tab:simulation_results} summarizes the possible
+results of the analysis, given \texttt{bmc\_length} parameter.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c | c c }
+  Property & Trace exists? & Result & Trace length \\ \hline 
+  \emph{True} & Yes & \texttt{TRUE} & k+1  \\
+  \emph{True} & No & \texttt{FALSE} & NA  \\
+  $\varphi$ & Yes & \texttt{TRUE} & min(k) : $\varphi$  \\
+  $\varphi$ & No & \texttt{FALSE} & NA  \\
+\end{tabular}
+\label{tab:simulation_results}
+\caption{Simulation results}
+\end{table}
 
 \begin{example}
   Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
@@ -394,32 +586,618 @@ to \emph{True}.
 
 \subsection{Safety and LTL verification}
 
+Safety (parameter \texttt{--safety}) and LTL (parameter
+\texttt{--ltl}) verifications require to provide a property using the
+parameter \texttt{-p}. An additional parameter \texttt{--prove}
+requires the tool to try to prove that the property holds,
+independently from the depth of the analysis (i.e.,
+\texttt{--bmc\_length}/\texttt{-k} parameter). The result of the
+analysis can be either \texttt{FALSE}, \texttt{TRUE}, or
+\texttt{UNKNOWN}. The latter is provided when only a bounded proof
+exists, and the probability to find an unbounded proof is dependent
+from the depth of the analysis. Table~\ref{tab:safety_results}
+summarizes the possible results according with the parameter
+\texttt{--prove}, and the existence of a proof.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c c c | c c }
+  Property & Prove & Trace exists? & Proof found? & Result & Trace length \\ \hline
+  $\varphi$ & Yes & Yes & NA & \texttt{FALSE} & min(k) : $\varphi$  \\
+  $\varphi$ & Yes & No & Yes & \texttt{TRUE} & NA  \\
+  $\varphi$ & Yes & No & No & \texttt{UNKNOWN} & NA  \\ \\
+  $\varphi$ & No & Yes & NA & \texttt{FALSE} & min(k) : $\varphi$  \\
+  $\varphi$ & No & No & NA & \texttt{UNKNOWN} & NA  \\
+\end{tabular}
+\label{tab:safety_results}
+\caption{Safety and LTL results}
+\end{table}
+
+\begin{example}
+  Running \texttt{CoSA -i examples/counters/counters.json --add-clock
+    --safety\\ -p "count1.r.reg0.out < 19\_16"} performs a safety
+  analysis of the property \texttt{count1.r.reg0.out < 19\_16}, and
+  the result is shown in Figure~\ref{safety_unk}. While adding the
+  parameter \texttt{--prove} to the command, CoSA is able to prove the
+  property and it provides the result shown in Figure~\ref{safety_true}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Safety example (UNKNOWN),label=safety_unk]
+** Problem safety **
+Result: UNKNOWN
+BMC depth: 10
+\end{lstlisting}
+
+\begin{lstlisting}[frame=single,language=ets,caption=Safety example (TRUE),label=safety_true]
+** Problem safety **
+Result: TRUE
+\end{lstlisting}
+
+\end{example}
+
+
 \subsection{Equivalence checking}
+
+The equivalence checking takes two systems and it verifies if they
+start from the same initial state, and if they always receive the same
+inputs they will always provide the same output. This verification
+requires that the two systems have the same interface. The results of
+this analysis is similar to the safety and LTL verification, and are
+reported in Table~\ref{tab:equivalence_results}.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c c | c c }
+  Prove & Trace exists? & Proof found? & Result & Trace length \\ \hline
+  Yes & Yes & NA & \texttt{FALSE} & min(k) : $sys_1 \neq sys_2$  \\
+  Yes & No & Yes & \texttt{TRUE} & NA  \\
+  Yes & No & No & \texttt{UNKNOWN} & NA  \\ \\
+  No & Yes & NA & \texttt{FALSE} & min(k) : $sys_1 \neq sys_2$  \\
+  No & No & NA & \texttt{UNKNOWN} & NA  \\
+\end{tabular}
+\label{tab:equivalence_results}
+\caption{Equivalence results}
+\end{table}
+
+
+\begin{example}
+  Running \texttt{CoSA -i examples/mul\_2/mul\_2.json --equivalence
+    examples/mul\_2/mul\_2\_pe.json --prove -k 15} performs an
+  equivalence checking between \texttt{examples/mul\_2/mul\_2.json}
+  and \texttt{examples/mul\_2/mul\_2\_pe.json}, and the result is
+  shown in Figure~\ref{equivalence_unk}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Equivalence example (UNKNOWN),label=equivalence_unk]
+** Problem equivalence **
+Result: UNKNOWN
+BMC depth: 15
+\end{lstlisting}
+
+\end{example}
 
 \subsection{Parametric model checking}
 
+CoSA supports also parametric model checking analysis on extended
+models. At the current stage, CoSA supports only to extend a model
+with the internal model extension, which requires to select one of the
+possible faulty behaviors using the parameter
+\texttt{--model-extension}. The possible extension can be shown in the
+CoSA helper (\texttt{CoSA -h}) under the section \texttt{model
+  modifiers}. Additional modifiers can be defined in the
+\texttt{cosa/modifiers/model\_extension.py} and should be registered
+in \texttt{cosa/modifiers/factory.py}. At the current stage, CoSA
+supports the following variable modifiers:
+
+\begin{itemize}
+\item \texttt{NonDeterministic}: allows for any possible value;
+\item \texttt{Zero}: fixes the value to 0;
+\item \texttt{High}: fixes the value to the highest possible value;
+\item \texttt{Inverted}: inverts the correct value.
+\end{itemize}
+
+The result of a parametric model checking analysis is the region of
+parameters (in this case the fault variables) that allow the system to
+violate the property. As a precondition to this analysis, such
+property should hold in the original model, otherwise the region of
+parameters will be equal to \emph{True}. For instance, the property in
+the Example~\ref{ex:param_nominal} holds for the given model, while
+performing the parametric analysis on the extended model, as in the
+Example~\ref{ex:param_extended}, it provides a region required to be
+negated in order to satisfy the property. The parametric analysis is
+also dependent to the parameter \texttt{--cardinality}, which provides
+the upper bound of the number of failure that can occur in the system.
+
+\begin{example}
+  \label{ex:param_nominal}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
+    rst\_beh.ets
+    --add-clock --safety -p "(reset\_performed \& ! posedge(rst) \&
+    posedge(clk)) -> \\((next(out) < (out + 2\_16)))" -a
+    "reset\_performed -> (rst = 0\_1);out < 240\_16" --prove --prefix trace}
+  performs a safety analysis over the given model, property, and
+  assumption, and the result is shown in Figure~\ref{parametric_safety_res}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Safety analysis example,label=parametric_safety_res]
+** Problem safety **
+Result: True
+\end{lstlisting}
+
+\end{example}
+
+\begin{example}
+\label{ex:param_extended}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
+    rst\_beh.ets --add-clock --model-extension High --parametric -p
+    "(reset\_performed \& ! posedge(rst) \& posedge(clk))
+    ->\\ ((next(out) < (out + 2\_16)))" -a "reset\_performed -> (rst =
+    0\_1);out < 240\_16" --prefix trace} performs a parametric model
+  checking analysis extending the model with a \texttt{high} faulty
+  behavior. The result is shown in Figure~\ref{parametric_res}, and
+  the region three possible (minimal) assignments of cardinality 2.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Parametric analysis example,label=parametric_res]
+** Problem parametric **
+Result: UNKNOWN
+BMC depth: 10
+Region:
+ - (counter_clk.out$FAILURE$ & counter_2.out$FAILURE$) or 
+ - (counter_clk.out$FAILURE$ & counter_4.out$FAILURE$) or 
+ - (counter_clk.out$FAILURE$ & counter_3.out$FAILURE$)
+Executions: [1], [2], [3]
+Traces (max) length: 4
+
+*** TRACES ***
+
+[1]:	trace[1]-parametric.txt
+[2]:	trace[2]-parametric.txt
+[3]:	trace[3]-parametric.txt
+\end{lstlisting}
+
+\end{example}
 
 
 \section{Problem file}
 \label{sec:problem_file}
 
+In order to facilitate the usage of the tool in case of complex and
+comprehensive analysis of a model, CoSA supports the definition of
+problem files. In practice, a problem file links a model with a set of
+formal analyses that have to be performed, and it is provided to the
+tool with the parameter \texttt{--problems}.
+
+Figure~\ref{problem_file} shows an example of a problem file, which is
+composed of the following sections:
+\begin{itemize}
+\item \texttt{[GENERAL]}: it is required, and it defines the system
+  model under analysis. A problem file accepts only one model, thus
+  all encoding options have to be defined in this section. The files
+  paths are local to the problem file, unless they start with
+  \texttt{/} symbol;
+\item \texttt{[DEFAULT]}: this section is optional, and it defines the
+  default values of the verifications, in case they are not provided;
+\item a list of verifications: each of them starts with a unique
+  identifier in square brackets, and they set all the possible
+  parameters that define the verification task.
+\end{itemize}
+
+Table~\ref{tab:general_section} lists the possible parameters for the
+\texttt{[GENERAL]} section, while Table~\ref{tab:verification_section}
+lists the parameters for the \texttt{[DEFAULT]} section and each
+verification.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ l c c l c }
+  Parameter & Default & & Parameter & Default \\ \cline{1-2} \cline{4-5}
+abstract\_clock & False & ~~ & add\_clock & False \\
+assume\_if\_true & False & ~~ & boolean & None \\
+clock\_behaviors & None & ~~ & equivalence & None \\
+model\_extension & None & ~~ & model\_file & None \\
+run\_coreir\_passes & True & ~~ & symbolic\_init & False \\
+vcd & False & ~~ & verbosity & None \\
+zero\_init & None
+\end{tabular}
+\label{tab:general_section}
+\caption{\texttt{[GENERAL]} section options}
+\end{table}
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ l c c l c }
+  Parameter & Default & & Parameter & Default \\ \cline{1-2} \cline{4-5}
+assumptions & None & ~~ & bmc\_length & 10 \\
+bmc\_length\_min & 0 & ~~ & cache\_files & False \\
+cardinality & -1 & ~~ & coi & False \\
+description & None & ~~ & expected & None \\
+formula & None & ~~ & full\_trace & False \\
+generators & None & ~~ & incremental & None \\
+lemmas & None & ~~ & precondition & None \\
+prove & False & ~~ & smt2\_tracing & None \\
+solver\_name & None & ~~ & strategy & None \\
+time & False & ~~ & trace\_all\_vars & False \\
+trace\_prefix & None & ~~ & trace\_values\_base & None \\
+trace\_vars\_change & False & ~~ & vcd & False
+\end{tabular}
+\label{tab:verification_section}
+\caption{\texttt{[DEFAULT]} and verification sections options}
+\end{table}
+
+
+
+\begin{lstlisting}[frame=single,language=Ini,caption=Problem file example,label=problem_file]
+[GENERAL]
+model_file: model.v[main_module]
+add_clock: True
+
+[DEFAULT]
+bmc_length: 40
+
+[safety_verification_1_id]
+description: "Description of the safety verification 1"
+formula: <property to be verified>
+assumptions: <assumptions for the verification>
+verification: safety
+prove: True
+expected: False
+
+[safety_verification_2_id]
+description: "Description of the safety verification 2"
+...
+
+[ltl_verification_1_id]
+description: "Description of the LTL verification 1"
+...
+
+\end{lstlisting}
+
+\begin{example}
+The Figure~\ref{counter_problem} shows the problem file in
+\texttt{examples/counter/problem.txt}, and it can be run with the
+command \texttt{CoSA --problems examples/counter/problem.txt --prefix
+  trace}.
+  
+\begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/counter/problem.txt},label=counter_problem]
+[GENERAL]
+model_file: counter.json,counter_live.sts
+add_clock: True
+
+[DEFAULT]
+bmc_length: 40
+
+[Globally]
+description: "Globally Check"
+formula: self.out < 4_16
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: safety
+prove: True
+expected: False
+
+[Finally]
+description: "Finally Check"
+formula: F(self.out = 4_16)
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+prove: True
+expected: True
+
+[Liveness]
+description: "Liveness Check"
+formula: F(G(self.out = 4_16))
+assumptions: en_clr = 0_1 -> self.clr = 0_1
+verification: ltl
+prove: True
+expected: False
+\end{lstlisting}
+
+Figure~\ref{counter_problem_exec} shows the execution of the problem
+file in Figure~\ref{counter_problem}. After performing the analysis,
+CoSA provides a summary of the results, and it grabs the attention to
+the analyses that have an unexpected result.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Analysis for the problem in Figure~\ref{counter_problem},label=counter_problem_exec]
+Parsing file "examples/counter/counter.json"... DONE
+Parsing file "examples/counter/counter_live.sts"... DONE
+Solving "Globally" ... TRUE
+Solving "Finally" ........ TRUE
+Solving "Liveness" .............. FALSE
+
+*** SUMMARY ***
+
+** Problem Globally **
+Description: "Globally Check"
+Result: TRUE
+Expected: FALSE
+TRUE != FALSE <<<---------| ERROR
+
+** Problem Finally **
+Description: "Finally Check"
+Result: TRUE
+Expected: TRUE
+
+** Problem Liveness **
+Description: "Liveness Check"
+Result: FALSE
+Expected: FALSE
+Counterexample: [1]
+Trace length: 16
+
+*** TRACES ***
+
+[1]:	trace[1]-Liveness.txt
+
+WARNING: Verifications with unexpected result
+\end{lstlisting}
+
+\end{example}
+
+\begin{example}
+The problem file reported in Figure~\ref{equivalence_problem} shows
+the definition of an equivalence checking. In this case, the model
+under analysis is the composition between \texttt{mul\_2.json}, and
+\texttt{mul\_2\_pe.json}, thus all verifications are related to it.
+  
+\begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/mul\_2/problem\_1.txt},label=equivalence_problem]
+[GENERAL]
+model_file: mul_2.json
+equivalence: mul_2_pe.json
+add_clock: True
+
+[DEFAULT]
+bmc_length: 5
+
+[Equivalence Checking]
+description: "Mul2 is equivalent to Mul2 PE"
+verification: equivalence
+prove: True
+expected: Unknown
+\end{lstlisting}
+\end{example}
 
 \section{Results analysis}
 \label{sec:results_analysis}
 
+\subsection{Counterexample traces}
+
+The result of the verification can in some cases provide a
+counterexample trace, which is an execution of the system that
+supports the result of the analysis. CoSA produces finite-state
+traces, but in case of LTL verification the trace can be infinite with
+a lasso-shaped loop. CoSA can generate traces either in a human
+readable textual format or in VCD format.
+
+
+
+\subsubsection{Finite traces}
+
+The format used by CoSA to represent traces is similar to the ETS
+format (as shown in the Figure~\ref{simulation_trace}), and it
+provides a series of states with assignments to the variables. The
+default configuration shows only the top level \texttt{INPUT} and
+\texttt{OUTPUT} ports, and all variables can be shown by using the
+parameter \texttt{--trace-all-vars}. Moreover, a trace shows only the
+variables that do not change their value, and this option can be
+disabled with the parameter \texttt{--trace-vars-change}.
+
+\begin{example}
+  Running \texttt{CoSA -i examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5}
+  will generate a system execution of length equal to 6 (5 steps + initial state), as
+  shown in Figure~\ref{simulation_trace}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 ,label=simulation_trace]
+** Problem simulation **
+Result: TRUE
+Execution:
+---> INIT <---
+  I: clk = 1_1
+  I: out = 8_16
+  I: rst = 1_1
+
+---> STATE 1 <---
+
+---> STATE 2 <---
+
+---> STATE 3 <---
+
+---> STATE 4 <---
+  S4: clk = 0_1
+  S4: rst = 0_1
+
+---> STATE 5 <---
+  S5: out = 0_16
+  S5: rst = 1_1
+\end{lstlisting}
+
+\end{example}
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5\\
+    --trace-vars-change} will generate a system execution of length
+  equal to 6 (5 steps + initial state), showing also the variables
+  that change value, as shown in Figure~\ref{simulation_trace_change}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 (with changing values),label=simulation_trace_change]
+** Problem simulation **
+Result: TRUE
+Execution:
+---> INIT <---
+  I: clk = 1_1
+  I: out = 8_16
+  I: rst = 1_1
+
+---> STATE 1 <---
+  S1: clk = 1_1
+  S1: out = 8_16
+  S1: rst = 1_1
+
+---> STATE 2 <---
+  S2: clk = 1_1
+  S2: out = 8_16
+  S2: rst = 1_1
+
+---> STATE 3 <---
+  S3: clk = 1_1
+  S3: out = 8_16
+  S3: rst = 1_1
+
+---> STATE 4 <---
+  S4: clk = 0_1
+  S4: out = 8_16
+  S4: rst = 0_1
+
+---> STATE 5 <---
+  S5: clk = 1_1
+  S5: out = 9_16
+  S5: rst = 0_1
+\end{lstlisting}
+
+\end{example}
+
+
+We can notice that state 5 differs between traces in Figures
+\ref{simulation_trace} and \ref{simulation_trace_change}. In fact CoSA
+does not guarantee a deterministic result in terms because the
+internal solver can produce different models according with the state
+space exploration that has been performed.
+
+The parameter \texttt{--prefix} allows the user to save the trace to
+file.
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5
+    --vcd --prefix trace} will generate a system execution of length
+  equal to 6, and save it to a file with prefix ``trace'', as shown in
+  Figure~\ref{simulation_trace_prefix}. A VCD trace is also generated
+  when \texttt{--vcd} is set.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 (with prefix),label=simulation_trace_prefix]
+** Problem simulation **
+Result: TRUE
+Executions: [1], [2]
+Traces (max) length: 6
+
+*** TRACES ***
+
+[1]:	trace[1]-simulation.txt
+[2]:	trace[2]-simulation.vcd
+\end{lstlisting}
+
+\end{example}
+
+
+
+\subsubsection{Infinite traces}
+
+The counterexample showing the violation of an LTL property usually
+requires an infinite trace. For instance, if the property $F(\varphi)$
+does not hold it means that the system can start in $\neg \varphi$,
+and never reach a state where $\varphi$ holds. A trace that will show
+this behavior is usually represented with a lasso-shaped loop. An
+example is shown in Figure~\ref{ltl_trace}, where the system can loop
+forever from \texttt{STATE 1} to \texttt{INIT} to \texttt{STATE 1},
+and so on.
+
+\begin{example}
+  Running \texttt{CoSA -i
+    examples/counter/counter.json,examples/counter/counter\_live.sts
+    --ltl -a "en\_clr = 0\_1 -> self.clr = 0\_1" -p "F(self.out =
+    4\_16)" --trace-vars-change} will generate a counterexample trace
+  for the property \texttt{F(self.out = 4\_16)}, as shown in
+  Figure~\ref{ltl_trace}.
+
+\begin{lstlisting}[frame=single,language=ets,caption=Simulation Counter\_4 (with changing values),label=ltl_trace]
+** Problem ltl **
+Result: FALSE
+Counterexample:
+---> INIT <---
+  I: self.clk = 1_1
+  I: self.clr = 0_1
+  I: self.out = 0_16
+
+---> STATE 1 <---
+  S1: self.clk = 1_1
+  S1: self.clr = 0_1
+  S1: self.out = 0_16
+
+---> INIT (Loop) <---
+\end{lstlisting}
+
+\end{example}
+
+
 \section{Good practice}
 
-Gradually increase system complexity
+This section provides an high-level guidance for the users that
+approach for the first time model checking and formal verification.
 
 \begin{itemize}
-\item bottom-up verification
-\item simple properties
-\item awareness of property semantics
+\item \textit{Make sure that the formalization correctly represents
+  what you want to verify}.
+
+  This might seem a trivial statement, but is the most common mistake
+  when verifying a system. An example could be that the translation of
+  ``if the output value is $> 10$, the reset can be triggered'' to
+  $(output > 10) \rightarrow reset$. However, this forces the reset to
+  happen when output = 11, but the actual translation should be $reset
+  \rightarrow (output > 10)$.
+
+\item \textit{Be aware of property semantics}
+
+  This is related to the previous point, but it assumes that the
+  property correctly represents the intended behavior. An example of
+  possible misleading results for not considering the property
+  semantics could be that $\alpha \rightarrow \gamma$ holds because
+  $\alpha$ never happens.
+
+  For certain properties, such as implications, make sure that the
+  pre-conditions can happen, for instance checking that the invariant
+  $\neg \alpha$ is \emph{False}.
+
+\item \textit{Be aware of verification semantics}
+
+  Most formal verifications have a ``hidden'' quantification in the
+  problem that they solve. In case of safety, the check verifies if
+  the property $\varphi$ holds for every reachable states of the
+  system. However, the set of reachable states can be reduced if the
+  system reaches a deadlock state, or it does not have all the
+  behaviors that you expect.
+
+  As an example, we might want to verify that a counter never reaches
+  the value $10$, and we expect it to count from $0$ to $9$ for each
+  posedge and then it resets to $0$. The safety verification of the
+  property $output < 10$ is \emph{True}.  However, the model checker
+  can return this result also if the counter always resets at the
+  value 2, or if it deadlocks before reaching $10$.
+
+  In this case, a simulation of depth $30$ can rule out some unwanted
+  behaviors, especially deadlocks.
+
+  
+\item \textit{Gradually increase the verification complexity.}
+
+  Sometimes the formal verification might be an expensive analysis,
+  and a solving a model checking problem might take hours, and can
+  cause frustration when no results are provided. Moreover, even if a
+  counterexample is produced, its complexity might be very hard to
+  decipher.
+
+  Proceed incrementally by reducing the size of the parameters in the
+  model, analyzing trivial property first, and proceeding bottom up in
+  the hierarchy is always a good practice to increase the confidence
+  that the model is correct.
+
+  Moreover, model checkers like CoSA can take advantage of the
+  properties that have proven to be \emph{True}, and this can improve
+  the performance of the successive analyses.
 \end{itemize}
+  
 
 
 \section{Encodings}
 \label{sec:encodings}
+
 
 
 \section{Optimizations}

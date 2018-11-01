@@ -119,6 +119,7 @@ class Problems(object):
     trace_all_vars = False
     trace_prefix = None
     trace_vars_change = False
+    trace_values_base = None
     traces = None
     vcd = False
     verbosity = None
@@ -195,6 +196,7 @@ class Problems(object):
         problem.trace_all_vars = self.trace_all_vars 
         problem.trace_prefix = self.trace_prefix 
         problem.trace_vars_change = self.trace_vars_change 
+        problem.trace_values_base = self.trace_values_base
         problem.traces = self.traces 
         problem.vcd = self.vcd 
         problem.verbosity = self.verbosity 
@@ -261,6 +263,7 @@ class Problem(object):
 
     full_trace = False
     trace_vars_change = False
+    trace_values_base = None
     trace_all_vars = False
     trace_prefix = None
     

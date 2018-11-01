@@ -25,6 +25,15 @@ class HTSPrinterType(object):
 
     ####################
 
+class TraceValuesBase(object):
+    BV = "BV"
+    HEX = "HEX"
+    BIN = "BIN"
+
+    @staticmethod
+    def get_all():
+        return [TraceValuesBase.BV, TraceValuesBase.HEX, TraceValuesBase.BIN]
+    
 class HTSPrinter(object):
     name = "PRINTER"
     description = "MISSING DESCRIPTION!"
