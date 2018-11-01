@@ -32,7 +32,7 @@ def runtest(problem_file):
     config = Config()
 
     config.safety = True
-    config.verbosity = 6
+    config.verbosity = 2
     config.solver_name = "msat"
     config.prove = True
     config.vcd = True

@@ -554,6 +554,8 @@ currently provides this set of generators:
 
 \subsection{Environmental assumptions}
 
+
+
 \subsection{Simulation}
 The simulation generates a system execution of a provided depth. This
 verification does not require a property, in that case it will be set
@@ -933,7 +935,7 @@ WARNING: Verifications with unexpected result
 The problem file reported in Figure~\ref{equivalence_problem} shows
 the definition of an equivalence checking. In this case, the model
 under analysis is the composition between \texttt{mul\_2.json}, and
-\texttt{mul\_2\_pe.json}
+\texttt{mul\_2\_pe.json}, thus all verifications are related to it.
   
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/mul\_2/problem\_1.txt},label=equivalence_problem]
 [GENERAL]
@@ -942,8 +944,7 @@ equivalence: mul_2_pe.json
 add_clock: True
 
 [DEFAULT]
-bmc_length: 15
-strategy: MULTI
+bmc_length: 5
 
 [Equivalence Checking]
 description: "Mul2 is equivalent to Mul2 PE"
