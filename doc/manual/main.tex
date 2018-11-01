@@ -5,6 +5,7 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{amsthm}
+\usepackage{anyfontsize}
 \usepackage[usenames,dvipsnames]{xcolor}
 
 \theoremstyle{definition}
@@ -72,8 +73,8 @@ xleftmargin=2.5em
 
 \begin{document}
 
-\title{\textbf{CoSA}\\Manual}
-\author{Cristian Mattarei}
+\title{\vspace{5cm}{\fontsize{70}{70}\selectfont \textbf{CoSA}}\\ \vspace{1cm}User Manual}
+\author{\\ \\ \\ \\ \textbf{Cristian Mattarei}}
 
 \maketitle
 
@@ -474,7 +475,7 @@ temporal operators:
 In order to simplify the definition of hardware properties, CoSA
 integrates an expandable support for syntactic sugar. Additional
 syntactic sugars should be defined in \texttt{cosa/encoders/sugar.py},
-and registered in \texttt{cosa/encoders/template.py}. The one that are
+and registered in \texttt{cosa/encoders/factory.py}. The one that are
 registered can be seen in the \texttt{special operators} section of
 the CoSA helper (parameter \texttt{-h}). Currently, CoSA supports the
 following syntactic sugar:
@@ -534,7 +535,7 @@ this verification is much simpler.
 
 The generators can be defined in \texttt{cosa/encoders/generators.py}
 and should be registered in \texttt{cosa/
-  encoders/template.py}. CoSA
+  encoders/factory.py}. CoSA
 currently provides this set of generators:
 
 \begin{itemize}
@@ -549,7 +550,7 @@ currently provides this set of generators:
   variable (it would consider its size), or a decimal value.
 \end{itemize}  
 
-\section{Verification problems}
+\section{Verification definition}
 \label{sec:problem_definition}
 
 
@@ -566,15 +567,53 @@ the tool supports automated clock definition.
 \begin{figure}[ht]
   \centering
     \includegraphics[width=0.4\textwidth]{img/NonDetClock.pdf}
-  \caption{Non-deterministic clock behavior of period = 3}
+    \caption{Non-deterministic clock behavior of period = 3}
+    \label{fig:nondet_clock}
 \end{figure}
 
+The parameter \texttt{--add-clock} links a clock behavior to each
+input signals whose name contains the ``clk'', and their behavior is
+defined by the parameter \texttt{--clock-behaviors}. Clock behaviors
+can be defined in the file \texttt{cosa/encoders/clock.py} and should
+be registered in the file
+\texttt{cosa/encoders/factory.py}. Currently, CoSA supports the
+following clock behaviors:
 
-\begin{example}
-  Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
-  will generate a system execution of length equal to the default
-  setting for the parameter \texttt{-k}, which is 10.
-\end{example}
+\begin{itemize}
+\item \texttt{DetClock}: a deterministic behavior with fixed
+  period. The parameters are (clock\_variable, period), and it will
+  generate a behavior that oscillates from 0 to 1, keeping its value
+  constant for period steps;
+\item \texttt{ConstClock}: a constant behavior with fixed value. The
+  parameters are (clock\_variable, value), and it will keep the value
+  forever. This is usually used with clock abstraction (see
+  Section~\ref{sec:optimizations});
+\item \texttt{NondetClock}: a non-deterministic behavior with maximum
+  period. The parameters are (clock\_variable, period), and it will
+  generate a behavior that oscillates from 0 to 1, keeping its value
+  constant for at most period steps. Figure~\ref{fig:nondet_clock}
+  shows the transition system of a non-deterministic clock with period
+  = 3.
+\end{itemize}
+
+If \texttt{--clock-behaviors} is not defined, the default
+configuration is reported in Table~\ref{tab:clock_default}.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c | l }
+  \# of clock signals & clock abstraction & \multicolumn{1}{c}{clock behaviors} \\ \hline 
+  1 & No & \texttt{DetClock}, period = 1 \\
+  ~~~$>1$ & No & \texttt{NondetClock}, period = 3  \\
+  1 & Yes & \texttt{ConstClock}, value = 0 or 1 \textbf{*}\\
+  ~~~$>1$ & Yes & \texttt{ConstClock}, value = 0 or 1 \textbf{*} \\
+  \\
+  \multicolumn{3}{l}{\textbf{*}: 1 if its behavior is defined only on posedge, 0 otherwise}
+\end{tabular}
+\caption{Default clock behaviors}
+\label{tab:clock_default}
+\end{table}
+
 
 \subsection{Simulation}
 The simulation generates a system execution of a provided depth. This
@@ -594,8 +633,8 @@ results of the analysis, given \texttt{bmc\_length} parameter.
   $\varphi$ & Yes & \texttt{TRUE} & min(k) : $\varphi$  \\
   $\varphi$ & No & \texttt{FALSE} & NA  \\
 \end{tabular}
-\label{tab:simulation_results}
 \caption{Simulation results}
+\label{tab:simulation_results}
 \end{table}
 
 \begin{example}
@@ -629,8 +668,8 @@ summarizes the possible results according with the parameter
   $\varphi$ & No & Yes & NA & \texttt{FALSE} & min(k) : $\varphi$  \\
   $\varphi$ & No & No & NA & \texttt{UNKNOWN} & NA  \\
 \end{tabular}
-\label{tab:safety_results}
 \caption{Safety and LTL results}
+\label{tab:safety_results}
 \end{table}
 
 \begin{example}
@@ -674,8 +713,8 @@ reported in Table~\ref{tab:equivalence_results}.
   No & Yes & NA & \texttt{FALSE} & min(k) : $sys_1 \neq sys_2$  \\
   No & No & NA & \texttt{UNKNOWN} & NA  \\
 \end{tabular}
-\label{tab:equivalence_results}
 \caption{Equivalence results}
+\label{tab:equivalence_results}
 \end{table}
 
 
@@ -683,7 +722,8 @@ reported in Table~\ref{tab:equivalence_results}.
   Running \texttt{CoSA -i examples/mul\_2/mul\_2.json --equivalence
     examples/mul\_2/mul\_2\_pe.json --prove -k 15} performs an
   equivalence checking between \texttt{examples/mul\_2/mul\_2.json}
-  and \texttt{examples/mul\_2/mul\_2\_pe.json}, and the result is
+  and \texttt{examples/mul\_2/
+    mul\_2\_pe.json}, and the result is
   shown in Figure~\ref{equivalence_unk}.
 
 \begin{lstlisting}[frame=single,language=ets,caption=Equivalence example (UNKNOWN),label=equivalence_unk]
@@ -776,7 +816,6 @@ Traces (max) length: 4
 
 \end{example}
 
-
 \section{Problem file}
 \label{sec:problem_file}
 
@@ -818,8 +857,8 @@ run\_coreir\_passes & True & ~~ & symbolic\_init & False \\
 vcd & False & ~~ & verbosity & None \\
 zero\_init & None
 \end{tabular}
-\label{tab:general_section}
 \caption{\texttt{[GENERAL]} section options}
+\label{tab:general_section}
 \end{table}
 
 \begin{table}[h]
@@ -839,8 +878,8 @@ time & False & ~~ & trace\_all\_vars & False \\
 trace\_prefix & None & ~~ & trace\_values\_base & None \\
 trace\_vars\_change & False & ~~ & vcd & False
 \end{tabular}
-\label{tab:verification_section}
 \caption{\texttt{[DEFAULT]} and verification sections options}
+\label{tab:verification_section}
 \end{table}
 
 
@@ -1218,20 +1257,57 @@ approach for the first time model checking and formal verification.
 \section{Encodings}
 \label{sec:encodings}
 
+CoSA supports different encodings of the model and are oriented to
+improve the verification performance. Following the list of possible
+encoding flags:
+
+\begin{itemize}
+\item \texttt{boolean}: encodes single bits as Boolean instead of
+  bit-vectors of size 1;
+\item \texttt{clock-abstraction}: performs a clock abstraction
+  encoding, imposing to perform the operations on every transition
+  instead of on either of the clock edge. This encoding might be
+  unsound when the system has both posedge and negedge behaviors,
+  meaning that \emph{True} results might be spurious. This option has
+  an effect only on CoreIR, Verilog, and SystemVerilog models;
+\item \texttt{symbolic-init}: it relaxes the constraints on the
+  initial states, while keeping the invariants;
+\item \texttt{zero-init}: it forces every unassigned variables to 0 on
+  the initial states.
+\end{itemize}
 
 
-\section{Optimizations}
+\section{Performance optimizations}
 \label{sec:optimizations}
 
-\subsection{Multi processing}
+\subsection{Lemmas}
+Each verification accepts a list of lemmas with the parameters that
+are added as invariant to the system before performing the analysis,
+if the pass the induction check.
 
-\subsection{Clock abstraction}
+\subsection{Strategy}
+CoSA supports different verification algorithms. The possible
+algorithms are listed in the CoSA helper under the \texttt{strategy}
+section. For not experienced users, we suggest to select one of the
+following:
+\begin{itemize}
+\item \texttt{AUTO}: automatic selection, this is the default option;
+\item \texttt{ALL}: it tries all equivalent algorithms in series;
+\item \texttt{MULTI}: used in combination with the parameter
+  \texttt{-j}, it runs multiple algorithms in parallel.
+\end{itemize}
 
 \subsection{Assume if true}
-
-\subsection{Lemmas}
+Each safety property (if the assumption is \emph{True}) that hold in
+the model can be seen as a lemma, thus it can be safely added as an
+invariant to the model. This option is enabled with the parameter
+\texttt{--assume-if-true}. A (full) safety analysis is different from
+the induction performed for the lemmas, in fact this analysis is
+``cheaper'' and it does not take into account reachable states.
 
 \subsection{Cone of Influence}
+
+
 
 \subsection{Files Caching}
 
