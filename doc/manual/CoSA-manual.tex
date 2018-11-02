@@ -5,11 +5,15 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{anyfontsize}
 \usepackage[usenames,dvipsnames]{xcolor}
 
 \theoremstyle{definition}
 \newtheorem{example}{Example}[section]
+\newtheorem{definition}{Definition}[section]
 \renewcommand\lstlistingname{Figure}
 
 \lstdefinelanguage{ets}
@@ -87,9 +91,8 @@ xleftmargin=2.5em
 CoSA is a symbolic model checker for hardware design. It incorporates
 a variety of state-of-the-art techniques to achieve performance, while
 providing a simple and intuitive interface. This document describes
-all functionalities provided by CoSA, including also a series of
-running examples. 
-
+all functionalities provided by CoSA, and the description is supported
+by a series of running examples.
 
 \section{Overview}
 
@@ -164,23 +167,174 @@ different resides in the technique used to represent the system.
 \subsection{Symbolic transition system}
 \label{sec:sts}
 
-todo: describe also synchronous product
+CoSA, being a symbolic model checker, converts all the input models
+into an internal representation that is called Symbolic Transition
+System (STS). An STS has an established semantics, and we report its
+definition in \ref{def:sts}. Intuitively, an STS is composed of a set
+of variables, a formula that defines the initial state of the system,
+and a transitional relation formula that defines how the system
+evolves. 
 
+
+\begin{definition}[Symbolic Transition System]
+\label{def:sts}
+A \emph{Symbolic Transition System} is a tuple $S = \langle V, I,
+T\rangle$ where $V$ is a set of (input $V_I$, state $V_S$, and
+output $V_O$) variables, $I(V)$ is a formula representing the initial
+states, and $T(V, V')$ is a formula representing the transitions.  A
+\emph{state} of $S$ is an assignment to the variables $V_S$.
+\end{definition}
+
+\begin{example}[STS clock behavior encoding]
+  \label{sts:clock_beh}
+Given a clock signal that starts from 0, and keeps oscillating at
+every step, its representation would be a tuple $STS_c := \langle V_c,
+I_c, T_c\rangle$ where:
+\begin{itemize}
+\item $V_c := \{\text{clk}\}$,
+\item $I_c := \{\text{clk} = 0\}$,
+\item $T_c := ((\text{clk} = 0) \rightarrow (\text{clk}' = 1)) \wedge$
+
+~~~~~~~~$((\text{clk} = 1) \rightarrow (\text{clk}' = 0))$.
+\end{itemize}
+
+
+The symbols with $'$ (e.g., $\text{clk}'$) are called primed variable,
+and they represent the value after the transition. For instance, the
+formula $(\text{clk} = 0) \rightarrow (\text{clk}' = 1)$ states that
+if clk = 0 before the transition, then clk should be equal to 1 after
+the transition.
+  
+\end{example}
+
+The STS representation is important in CoSA because it allows the user
+to define complex behavior interaction via synchronous products with
+other systems. Its definition is reported in \ref{def:sync}.
+
+\begin{definition}[Synchronous Product of STS]
+  \label{def:sync}
+  Given two Symbolic Transition Systems $S_1 := \langle V_1, I_1,
+  T_1\rangle$ and $S_2 := \langle V_2, I_2, T_2\rangle$ where $V_1
+  \cap V_2 = \emptyset$, the synchronous product $S$ of $S_1$ and
+  $S_2$, namely $S_1 \times S_2$, is defined as $S := \langle V_1 \cup
+  V_2, I_1 \wedge I_2, T_1 \wedge T_2 \rangle$.
+\end{definition}
+
+\begin{example}[Synchronous product of STSs]
+This example shows how the synchronous product can be used to
+integrate multiple systems. We start to introduce a counter that goes
+from 0 to 3 at every posedge of ``clk'', defining it with the tuple
+$STS_3 := \langle V_3, I_3, T_3\rangle$ where:
+\begin{itemize}
+\item $V_3 := \{\text{output}, \text{clk}\}$,
+\item $I_3 := \{\text{output} = 0\}$,
+\item $T_3 := (((\text{clk} = 0) \rightarrow (\text{clk}' = 1)) \rightarrow $
+
+~~~~~~~~~~~~~$(((\text{output} < 3) \rightarrow (\text{output}' = \text{output} +
+  1)) \wedge$
+
+~~~~~~~~~~~~~$((\text{output} \geq 3) \rightarrow (\text{output}' = 0)))) \wedge$
+
+~~~~~~~~$(\neg((\text{clk} = 0) \rightarrow (\text{clk}' = 1)) \rightarrow$
+
+~~~~~~~~~~~~~$(\text{output}' = \text{output}))$.
+  
+\end{itemize}
+
+We can notice that the $STS_3$ does not constraint the behavior of
+``clk'', and it is used only used in the transition relation to
+defined the behavior of the variable ``output'', and in principle, the
+counter can provide the value 0 forever if the clock does not
+oscillate. The synchronous product between $S_3$ and $S_c$ (defined in
+the Example~\ref{sts:clock_beh}) integrates the formulae from both
+systems, and it defines a composed STS that imposes the counter to
+expose its expected behavior.
+
+An important aspect of the synchronous products is that it may leads
+to have deadlock states, usually from contradictory behaviors. For
+instance, if $S_1 := \langle \{v\}, v = 0, \text{True}\rangle$ and
+$S_2 := \langle \{v\}, v = 1, \text{True}\rangle$, the resulting $S_1
+\times S_2$ will be $\langle \{v\}, \text{\textbf{False}},
+\text{True}\rangle$, considering that $(v = 0) \wedge (v=1)$ is
+contradictory.
+  
+\end{example}  
 
 \subsection{Linear Temporal Logic (LTL)}
 \label{sec:ltl}
 
-\subsection{Safety verification}
-\label{sec:safety}
+Differently from safety verification (e.g., assertions), the Linear
+Temporal Logic defines a behavior over system executions.  The syntax
+of LTL is defined as follows:
 
-\subsection{Equivalence checking}
-\label{sec:equivalence}
+$\varphi ::= p\ |\ \text{True}\ |\ \text{False}\ |\ \neg
+\varphi\ |\ \varphi \wedge \gamma\ |\ \varphi \vee \gamma\ |\ \varphi
+\rightarrow
+\gamma\ |\ \text{\textbf{X}}(\varphi)\ |\ \text{\textbf{F}}(\varphi)\ |\ \text{\textbf{G}}(\varphi)\ |\ \varphi
+\text{\textbf{U}} \gamma\ |\ \varphi \text{\textbf{R}} \gamma$
+
+where:
+\begin{itemize}
+\item $p$ is an atomic proposition,
+\item $\wedge$, $\vee$, $\rightarrow$, and $\neg$ are Boolean
+  operators respectively for and, or, implies, and negation, and
+\item \textbf{X}, \textbf{F}, \textbf{G}, \textbf{U}, and \textbf{R}
+  are temporal operators:
+\begin{itemize}
+\item \textbf{G}lobally, e.g., $\text{\textbf{G}}(\varphi)$ means that
+  $\varphi$ has to hold for every states,
+\item \textbf{F}inally or Eventually, e.g.,
+  $\text{\textbf{F}}(\varphi)$ means that $\varphi$ has to eventually
+  hold,
+\item ne\textbf{X}t, e.g., $\text{\textbf{X}}(\varphi)$ means that
+  $\varphi$ has to hold at the next state,
+\item \textbf{U}ntil, e.g., $\gamma \text{\textbf{U}} \varphi$ means
+  that $\gamma$ has to hold until $\varphi$ becomes \emph{True},
+\item \textbf{R}elease, e.g., $\gamma \text{\textbf{R}} \varphi$ means
+  that $\varphi$ is \emph{True} until $\gamma$ becomes \emph{True}.
+\end{itemize}
+  
+\end{itemize}
+
+\begin{example}[Common LTL formalizations]
+Following we report some common formalization examples:
+\begin{itemize}  
+\item ``the output value is always equal to 3'':
+  
+  $\text{\textbf{G}}(\text{output} = 3)$,
+\item ``the output value will eventually reach 3'':
+
+  $\text{\textbf{F}}(\text{output} = 3)$,
+\item ``whenever there is a posedge reset, output should be equal to 0'':
+  
+  $\text{\textbf{G}}(((\text{rst} = 0) \wedge \text{\textbf{X}}(\text{rst} = 1)) \rightarrow \text{\textbf{X}}(\text{output} = 0))$,
+
+\item ``at the first posedge reset, output should be equal to 0'':
+  
+  $\text{\textbf{F}}(((\text{rst} = 0) \wedge \text{\textbf{X}}(\text{rst} = 1)) \rightarrow \text{\textbf{X}}(\text{output} = 0))$,
+
+\item ``the ready signal should always eventually be equal to 1'':
+  
+  $\text{\textbf{G}}(\text{\textbf{F}}(\text{ready} = 1))$,
+  
+\item ``every time that there is a send signal, eventually receive should hold'':
+  
+  $\text{\textbf{G}}(\text{send} \rightarrow \text{\textbf{F}}(\text{receive}))$.
+  
+\end{itemize}  
+  
+\end{example}
+
+
+%% \subsection{Safety verification}
+%% \label{sec:safety}
+
+%% \subsection{Equivalence checking}
+%% \label{sec:equivalence}
 
 
 \section{Input formats}
 \label{sec:input_formats}
-
-\subsection{System description}
 
 CoSA supports multiple input formats, and while being equivalent from
 an expressivity point of view, they are tailored and design to
@@ -211,9 +365,9 @@ Following, we cover all the formats supported by CoSA.
 This format is natively supported by relying on PyVerilog, and it
 requires a top-level model flag.
 
-\begin{example}
+\begin{example}[Verilog input]
   \texttt{CoSA -i examples/counters\_4/counters\_4.v[Counters\_4]}
-  provides \texttt{examples/counters\_4/} \texttt{counters\_4.v} as input model,
+  provides \texttt{examples/ counters\_4/} \texttt{counters\_4.v} as input model,
   with \texttt{Counters\_4} as a top module.
 \end{example}
 
@@ -224,7 +378,7 @@ file using Verific, CoSA relies on the internal Verilog encoder to
 process the model. The SystemVerilog encoder also requires to provide
 the top module as model flag.
 
-\begin{example}
+\begin{example}[SystemVerilog input]
   \texttt{CoSA -i examples/counters\_4/counters\_4.sv[Counters\_4]}
   provides \texttt{examples/counters\_4/} \texttt{counters\_4.sv} as input model,
   with \texttt{Counters\_4} as a top module.
@@ -242,10 +396,10 @@ Currently, CoSA supports the following CoreIR model flags:
   the fold constants CoreIR pass.
 \end{itemize}
 
-\begin{example}
+\begin{example}[CoreIR input with fold-constants lemmas]
   \texttt{CoSA -i examples/counters/counters.json} to load the
   \texttt{examples/counters/counters.json} design, or \texttt{CoSA -i
-    examples/fold-constants/mpe\_fc.json[FC-LEMMAS]} to load
+    examples/fold-constants/\\mpe\_fc.json[FC-LEMMAS]} to load
   \texttt{examples/fold-constants/} \texttt{mpe\_fc.json} with
   \texttt{FC-LEMMAS} as model flag.
 \end{example}
@@ -393,9 +547,9 @@ S1 -> SE
 SE -> SE
 \end{lstlisting}
 
-\begin{example}
+\begin{example}[ETS input and synchronous product]
   \texttt{CoSA -i
-    examples/counters\_4.v[Counters\_4],examples/counters\_4/rst\_beh.ets}
+    examples/counters\_4.v[Counters\_4],examples/\\counters\_4/rst\_beh.ets}
   to load the \texttt{examples/counters\_4.v} design and the ETS
   \texttt{examples/counters\_4/rst\_beh.ets} and perform a synchronous
   product between them.
@@ -414,7 +568,7 @@ syntax is going to related to this tool.
 An invariant property is a propositional formula over the system
 variables that has to hold at any time. 
 
-\begin{example}
+\begin{example}[Invariant property]
   Given the \texttt{examples/counters\_4.v} model, the invariant property
   \texttt{out < 10\_16} states that the value of \texttt{out} should
   be always less than the decimal encoding of \texttt{10} as a
@@ -424,7 +578,7 @@ variables that has to hold at any time.
 An invariant property can predicate also over the \texttt{next}
 variables, which are the primed version of each variable.
 
-\begin{example}
+\begin{example}[Invariant property with next]
   Given the \texttt{examples/counters\_4.v} model, the invariant property
   \texttt{(rst = 1\_1) -> (next(out) = 0\_16)} states that when the reset
   signal \texttt{rst} is equal to 1 (encoded as a bit-vector of size
@@ -436,33 +590,28 @@ variables, which are the primed version of each variable.
 The support for LTL extends propositional logic with additional
 temporal operators:
 \begin{itemize}
-\item \texttt{G}: globally, e.g., $G(\varphi)$ means that $\varphi$
-  has to hold for every states;
-\item \texttt{F}: finally or eventually, e.g., $F(\varphi)$ means that $\varphi$
-  has to eventually hold;
-\item \texttt{X}: next, e.g., $X(\varphi)$ means that $\varphi$
-  has to hold at the next state;
-\item \texttt{U}: until, e.g., $\gamma U \varphi$ means that $\gamma$
-  has to hold until $\varphi$ becomes \emph{True};
-\item \texttt{R}: release, e.g., $\gamma R \varphi$ means that $\varphi$
-  is \emph{True} until $\gamma$ becomes \emph{True}.
+\item \texttt{G}: for globally,
+\item \texttt{F}: for finally/eventually,
+\item \texttt{next}: for next,
+\item \texttt{U}: for until,
+\item \texttt{R}: for release.
 \end{itemize}
 
-\begin{example}
+\begin{example}[LTL property with Finally]
   Given the \texttt{examples/counters.json} model, the LTL property
   \texttt{F(self.out = 4\_16)} states that the signal
   \texttt{self.out} must reach the value \texttt{4} at some time in
   the future.
 \end{example}
 
-\begin{example}
+\begin{example}[LTL property with Finally Globally]
   Given the \texttt{examples/counters.json} model, the LTL property
   \texttt{F(G(self.out = 4\_16))} states that the signal
   \texttt{self.out} must reach the value \texttt{4} at some time in
   the future, and keep the value forever.
 \end{example}
 
-\begin{example}
+\begin{example}[LTL property with Globally Finally]
   Given the \texttt{examples/counters.json} model, the LTL property
   \texttt{G(F(self.out = 4\_16))} states that the signal
   \texttt{self.out} must reach the value \texttt{4} infinitely many
@@ -485,20 +634,20 @@ following syntactic sugar:
   parameter. \texttt{posedge(variable)} is equivalent to \texttt{(variable
     = 0\_1) \& next(variable = 1\_1)}, if \texttt{variable} is a
   bit-vector of size 1, while \texttt{(variable) \& next(! variable)} if
-  \texttt{variable} is of Boolean type;
+  \texttt{variable} is of Boolean type,
 \item \texttt{negedge}, which is implemented as \texttt{posedge} with
-  inverted polarity;
+  inverted polarity,
 \item \texttt{change}, with a single
   parameter. \texttt{change(variable)} is equivalent to
-  \texttt{(variable != next(variable)};
+  \texttt{(variable != next(variable)},
 \item \texttt{nochange}, with a single
   parameter. \texttt{nochange(variable)} is equivalent to
-  \texttt{(variable = next(variable)};
+  \texttt{(variable = next(variable)},
 \item \texttt{ones}, with a single parameter. \texttt{ones(variable)}
-  provides the highest possible value of \texttt{variable};
+  provides the highest possible value of \texttt{variable},
 \item \texttt{zero}, with a single parameter. \texttt{zero(variable)}
   provides the bit-vector encoding of all zeros, given the size of
-  \texttt{variable};
+  \texttt{variable},
 \item \texttt{dec2bv}, with a two parameters. \texttt{dec2bv(value,
   variable)} provides the bit-vector encoding of value, given the size
   of \texttt{variable}.
@@ -520,7 +669,7 @@ synchronous product with the original system would allow the user to
 specify the appropriate property. However, with the CoSA generators
 this verification is much simpler.
 
-\begin{example}
+\begin{example}[Generators usage]
   Given the FIFO implementation in \texttt{examples/fifo/fifo.sts},
   the property that verify its behavior is defined as \texttt{sb.end
     -> (sb.packet = output)} by instantiating the generator
@@ -541,10 +690,10 @@ currently provides this set of generators:
 \begin{itemize}
 \item \texttt{FixedScoreboard}: \emph{scoreboard} for a FIFO with no
   pop. The parameters are (input\_port, max\_value, push\_signal), and
-  its values are (end, tracking);
+  its values are (end, tracking),
 \item \texttt{Scoreboard}: \emph{scoreboard} for a FIFO with push and
   pop. The parameters are (input\_port, max\_value, push\_signal,
-  pop\_signal), and its values are (end, tracking);
+  pop\_signal), and its values are (end, tracking),
 \item \texttt{Random}: provides a non-deterministic value. The
   parameter is (size) and its value is (value), and it can be either a
   variable (it would consider its size), or a decimal value.
@@ -553,6 +702,9 @@ currently provides this set of generators:
 \section{Verification definition}
 \label{sec:problem_definition}
 
+This section covers the definition of a verification task, including
+the environmental behavior where the system design is supposed to
+operate.
 
 \subsection{Environmental assumptions}
 
@@ -583,11 +735,11 @@ following clock behaviors:
 \item \texttt{DetClock}: a deterministic behavior with fixed
   period. The parameters are (clock\_variable, period), and it will
   generate a behavior that oscillates from 0 to 1, keeping its value
-  constant for period steps;
+  constant for period steps,
 \item \texttt{ConstClock}: a constant behavior with fixed value. The
   parameters are (clock\_variable, value), and it will keep the value
   forever. This is usually used with clock abstraction (see
-  Section~\ref{sec:optimizations});
+  Section~\ref{sec:optimizations}),
 \item \texttt{NondetClock}: a non-deterministic behavior with maximum
   period. The parameters are (clock\_variable, period), and it will
   generate a behavior that oscillates from 0 to 1, keeping its value
@@ -637,7 +789,7 @@ results of the analysis, given \texttt{bmc\_length} parameter.
 \label{tab:simulation_results}
 \end{table}
 
-\begin{example}
+\begin{example}[Simulation]
   Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
   will generate a system execution of length equal to the default
   setting for the parameter \texttt{-k}, which is 10.
@@ -654,9 +806,12 @@ independently from the depth of the analysis (i.e.,
 analysis can be either \texttt{FALSE}, \texttt{TRUE}, or
 \texttt{UNKNOWN}. The latter is provided when only a bounded proof
 exists, and the probability to find an unbounded proof is dependent
-from the depth of the analysis. Table~\ref{tab:safety_results}
-summarizes the possible results according with the parameter
-\texttt{--prove}, and the existence of a proof.
+from the depth of the analysis. Some input files can contain also
+property definitions, and the usage of \texttt{--safety} or
+\texttt{--ltl} parameter includes also those properties in the
+verification task.  Table~\ref{tab:safety_results} summarizes the
+possible results according with the parameter \texttt{--prove}, and
+the existence of a proof.
 
 \begin{table}[h]
   \centering
@@ -672,7 +827,7 @@ summarizes the possible results according with the parameter
 \label{tab:safety_results}
 \end{table}
 
-\begin{example}
+\begin{example}[Prove property]
   Running \texttt{CoSA -i examples/counters/counters.json --add-clock
     --safety\\ -p "count1.r.reg0.out < 19\_16"} performs a safety
   analysis of the property \texttt{count1.r.reg0.out < 19\_16}, and
@@ -718,10 +873,10 @@ reported in Table~\ref{tab:equivalence_results}.
 \end{table}
 
 
-\begin{example}
-  Running \texttt{CoSA -i examples/mul\_2/mul\_2.json --equivalence
+\begin{example}[Equivalence checking]
+  Running \texttt{CoSA -i examples/mul\_2/mul\_2.json --equivalence \\
     examples/mul\_2/mul\_2\_pe.json --prove -k 15} performs an
-  equivalence checking between \texttt{examples/mul\_2/mul\_2.json}
+  equivalence checking between \texttt{examples/mul\_2/ mul\_2.json}
   and \texttt{examples/mul\_2/
     mul\_2\_pe.json}, and the result is
   shown in Figure~\ref{equivalence_unk}.
@@ -748,9 +903,9 @@ in \texttt{cosa/modifiers/factory.py}. At the current stage, CoSA
 supports the following variable modifiers:
 
 \begin{itemize}
-\item \texttt{NonDeterministic}: allows for any possible value;
-\item \texttt{Zero}: fixes the value to 0;
-\item \texttt{High}: fixes the value to the highest possible value;
+\item \texttt{NonDeterministic}: allows for any possible value,
+\item \texttt{Zero}: fixes the value to 0,
+\item \texttt{High}: fixes the value to the highest possible value,
 \item \texttt{Inverted}: inverts the correct value.
 \end{itemize}
 
@@ -766,16 +921,16 @@ negated in order to satisfy the property. The parametric analysis is
 also dependent to the parameter \texttt{--cardinality}, which provides
 the upper bound of the number of failure that can occur in the system.
 
-\begin{example}
+\begin{example}[Parametric verification (nominal analysis)]
   \label{ex:param_nominal}
   Running \texttt{CoSA -i
-    examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
-    rst\_beh.ets
-    --add-clock --safety -p "(reset\_performed \& ! posedge(rst) \&
-    posedge(clk)) -> \\((next(out) < (out + 2\_16)))" -a
-    "reset\_performed -> (rst = 0\_1);out < 240\_16" --prove --prefix trace}
-  performs a safety analysis over the given model, property, and
-  assumption, and the result is shown in Figure~\ref{parametric_safety_res}.
+    examples/counters\_4/\\counters\_4.v[Counters\_4],examples/counters\_4/
+    rst\_beh.ets --add-clock --safety -p "(reset\_performed \& !
+    posedge(rst) \& posedge(clk)) -> ((next(out) < (out + 2\_16)))" -a
+    "reset\_performed -> (rst = 0\_1);out < 240\_16" --prove --prefix
+    trace} performs a safety analysis over the given model, property,
+  and assumption, and the result is shown in
+  Figure~\ref{parametric_safety_res}.
 
 \begin{lstlisting}[frame=single,language=ets,caption=Safety analysis example,label=parametric_safety_res]
 ** Problem safety **
@@ -784,13 +939,13 @@ Result: True
 
 \end{example}
 
-\begin{example}
+\begin{example}[Parametric verification (faults analysis)]
 \label{ex:param_extended}
   Running \texttt{CoSA -i
-    examples/counters\_4/counters\_4.v[Counters\_4],examples/counters\_4/
+    examples/counters\_4/\\counters\_4.v[Counters\_4],examples/counters\_4/
     rst\_beh.ets --add-clock --model-extension High --parametric -p
     "(reset\_performed \& ! posedge(rst) \& posedge(clk))
-    ->\\ ((next(out) < (out + 2\_16)))" -a "reset\_performed -> (rst =
+    -> ((next(out) < (out + 2\_16)))" -a "reset\_performed -> (rst =
     0\_1);out < 240\_16" --prefix trace} performs a parametric model
   checking analysis extending the model with a \texttt{high} faulty
   behavior. The result is shown in Figure~\ref{parametric_res}, and
@@ -832,9 +987,9 @@ composed of the following sections:
   model under analysis. A problem file accepts only one model, thus
   all encoding options have to be defined in this section. The files
   paths are local to the problem file, unless they start with
-  \texttt{/} symbol;
+  \texttt{/} symbol,
 \item \texttt{[DEFAULT]}: this section is optional, and it defines the
-  default values of the verifications, in case they are not provided;
+  default values of the verifications, in case they are not provided,
 \item a list of verifications: each of them starts with a unique
   identifier in square brackets, and they set all the possible
   parameters that define the verification task.
@@ -910,7 +1065,7 @@ description: "Description of the LTL verification 1"
 
 \end{lstlisting}
 
-\begin{example}
+\begin{example}[Problem file definition]
 The Figure~\ref{counter_problem} shows the problem file in
 \texttt{examples/counter/problem.txt}, and it can be run with the
 command \texttt{CoSA --problems examples/counter/problem.txt --prefix
@@ -990,7 +1145,7 @@ WARNING: Verifications with unexpected result
 
 \end{example}
 
-\begin{example}
+\begin{example}[Problem file definition (equivalence)]
 The problem file reported in Figure~\ref{equivalence_problem} shows
 the definition of an equivalence checking. In this case, the model
 under analysis is the composition between \texttt{mul\_2.json}, and
@@ -1016,6 +1171,9 @@ expected: Unknown
 \section{Results analysis}
 \label{sec:results_analysis}
 
+This section describes the information that CoSA produces after a
+verification is performed.
+
 \subsection{Counterexample traces}
 
 The result of the verification can in some cases provide a
@@ -1024,8 +1182,6 @@ supports the result of the analysis. CoSA produces finite-state
 traces, but in case of LTL verification the trace can be infinite with
 a lasso-shaped loop. CoSA can generate traces either in a human
 readable textual format or in VCD format.
-
-
 
 \subsubsection{Finite traces}
 
@@ -1038,8 +1194,8 @@ parameter \texttt{--trace-all-vars}. Moreover, a trace shows only the
 variables that do not change their value, and this option can be
 disabled with the parameter \texttt{--trace-vars-change}.
 
-\begin{example}
-  Running \texttt{CoSA -i examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5}
+\begin{example}[Safety counterexample trace]
+  Running \texttt{CoSA -i examples/counters\_4/\\counters\_4.v[Counters\_4] --simulate -k5}
   will generate a system execution of length equal to 6 (5 steps + initial state), as
   shown in Figure~\ref{simulation_trace}.
 
@@ -1069,9 +1225,9 @@ Execution:
 
 \end{example}
 
-\begin{example}
+\begin{example}[Counterexample with all variables]
   Running \texttt{CoSA -i
-    examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5\\
+    examples/counters\_4/\\counters\_4.v[Counters\_4] --simulate -k5
     --trace-vars-change} will generate a system execution of length
   equal to 6 (5 steps + initial state), showing also the variables
   that change value, as shown in Figure~\ref{simulation_trace_change}.
@@ -1123,7 +1279,7 @@ space exploration that has been performed.
 The parameter \texttt{--prefix} allows the user to save the trace to
 file.
 
-\begin{example}
+\begin{example}[VCD trace generation]
   Running \texttt{CoSA -i
     examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5
     --vcd --prefix trace} will generate a system execution of length
@@ -1158,11 +1314,11 @@ example is shown in Figure~\ref{ltl_trace}, where the system can loop
 forever from \texttt{STATE 1} to \texttt{INIT} to \texttt{STATE 1},
 and so on.
 
-\begin{example}
+\begin{example}[Infinite trace (LTL)]
   Running \texttt{CoSA -i
-    examples/counter/counter.json,examples/counter/counter\_live.sts
+    examples/counter/counter.json,examples/counter/\\counter\_live.sts
     --ltl -a "en\_clr = 0\_1 -> self.clr = 0\_1" -p "F(self.out =
-    4\_16)" --trace-vars-change} will generate a counterexample trace
+    4\_16)" \\--trace-vars-change} will generate a counterexample trace
   for the property \texttt{F(self.out = 4\_16)}, as shown in
   Figure~\ref{ltl_trace}.
 
@@ -1263,15 +1419,15 @@ encoding flags:
 
 \begin{itemize}
 \item \texttt{boolean}: encodes single bits as Boolean instead of
-  bit-vectors of size 1;
+  bit-vectors of size 1,
 \item \texttt{clock-abstraction}: performs a clock abstraction
   encoding, imposing to perform the operations on every transition
   instead of on either of the clock edge. This encoding might be
   unsound when the system has both posedge and negedge behaviors,
   meaning that \emph{True} results might be spurious. This option has
-  an effect only on CoreIR, Verilog, and SystemVerilog models;
+  an effect only on CoreIR, Verilog, and SystemVerilog models,
 \item \texttt{symbolic-init}: it relaxes the constraints on the
-  initial states, while keeping the invariants;
+  initial states, while keeping the in variants,
 \item \texttt{zero-init}: it forces every unassigned variables to 0 on
   the initial states.
 \end{itemize}
@@ -1296,11 +1452,59 @@ algorithms are listed in the CoSA helper under the \texttt{strategy}
 section. For not experienced users, we suggest to select one of the
 following:
 \begin{itemize}
-\item \texttt{AUTO}: automatic selection, this is the default option;
-\item \texttt{ALL}: it tries all equivalent algorithms in series;
+\item \texttt{AUTO}: automatic selection, this is the default option,
+\item \texttt{ALL}: it tries all equivalent algorithms in series,
 \item \texttt{MULTI}: used in combination with the parameter
   \texttt{-j}, it runs multiple algorithms in parallel.
 \end{itemize}
+
+\
+
+Table~\ref{tab:auto_conf} shows the algorithm selection with
+\texttt{AUTO} strategy, and the different algorithms use the following
+naming convention:
+\begin{itemize}
+\item BMC-FWD: Bounded Model Checking (BMC) with forward unrolling,
+\item BMC-BWD: Bounded Model Checking (BMC) with backward unrolling,
+\item BMC: general LTL-based Bounded Model Checking,
+\item K-IND: K-Induction,
+\item INT: Interpolation,
+\item K-LIVE: K-Liveness.
+\end{itemize}
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c | l }
+  Prove & Core Verification & \multicolumn{1}{|c}{Technique} \\ \hline
+  Yes & Safety & BMC-FWD+K-IND  \\
+  Yes & LTL & BMC+K-LIVE  \\
+  No & Safety & BMC-FWD  \\
+  No & LTL & BMC  \\
+\end{tabular}
+\caption{\texttt{AUTO} configuration}
+\label{tab:auto_conf}
+\end{table}
+
+Table~\ref{tab:multi_conf} shows the CoSA behavior when using the
+\texttt{MULTI} strategy. In this case multiple engine instances are
+run according with the number of processes. This option can be set
+with the parameter \texttt{-j} (default configuration is the number of
+cores), and it requires to run the first \texttt{j} algorithms in the
+``techniques list'' column.
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{ c c | l }
+  Prove & Core verification & \multicolumn{1}{|c}{Techniques list} \\ \hline
+  Yes & Safety & [BMC-FWD+K-IND, INT, BMC-BWD, BMC-FWD]  \\
+  Yes & LTL & [BMC+K-LIVE]  \\
+  No & Safety & [BMC-FWD, BMC-BWD]  \\
+  No & LTL & [BMC]  \\
+\end{tabular}
+\caption{\texttt{MULTI} configuration}
+\label{tab:multi_conf}
+\end{table}
+
 
 \subsection{Assume if true}
 Each safety property (if the assumption is \emph{True}) that hold in
@@ -1332,6 +1536,13 @@ file) a cached file according with its md5 and its encoding options.
 
 \section{Debugging}
 \label{sec:debugging}
+
+The options shown by the CoSA helper do not expose the configurations
+that are usually used by a developer. For this reason, the parameter
+\texttt{--devel} enables a series of additional behaviors, including
+also a more detailed error printing with stack trace information. For
+instance, enabling the developer mode allows the user to produce smt2
+tracing files for each call to the solver.
 
 \newpage
 \bibliographystyle{abbrv}
