@@ -1280,6 +1280,11 @@ encoding flags:
 \section{Performance optimizations}
 \label{sec:optimizations}
 
+This section lists the parameters that enable performance
+optimizations in CoSA. All optimizations are disabled by default, in
+order to provide the simplest possible behavior when no explicit
+options are provided.
+
 \subsection{Lemmas}
 Each verification accepts a list of lemmas with the parameters that
 are added as invariant to the system before performing the analysis,
@@ -1306,11 +1311,24 @@ the induction performed for the lemmas, in fact this analysis is
 ``cheaper'' and it does not take into account reachable states.
 
 \subsection{Cone of Influence}
-
-
+The verification of a system usually covers different parts of the
+system description, and it might the case that a property does not
+require the entire model to be analyzed. The cone of influence (COI)
+is a technique that extracts only the part of the model that is
+relevant for a given property. This technique relies on the structure
+of system, to extract the relevant information regarding the variables
+dependencies. At the current stage, CoSA supports COI (with the
+parameter \texttt{--coi}) only for Verilog and SystemVerilog models.
 
 \subsection{Files Caching}
-
+CoSA translates each given model into an internal representation that
+is similar to the STS. When managing complex models, such as Verilog
+descriptions, this translation requires a not trivial computation. For
+this reason, CoSA implements a caching mechanism to avoid to
+re-compute the models that have been previously encoded. The parameter
+\texttt{-c} enables the files caching feature, which stores in the
+directory \texttt{.CoSA} (located in the same directory as the input
+file) a cached file according with its md5 and its encoding options.
 
 \section{Debugging}
 \label{sec:debugging}
