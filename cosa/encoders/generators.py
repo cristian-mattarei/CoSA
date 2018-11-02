@@ -24,7 +24,8 @@ from cosa.utils.formula_mngm import BV2B
 class FixedScoreBoardGenerator(STSGenerator):
     name = "FixedScoreboard"
     description = "Scoreboard for a fifo with no pop"
-    interface = "input_port, max_value, clock"
+    interface = "input_port, max_value, push_signal"
+    values = "end, tracking"
 
     def get_param_length(self):
         return 3
@@ -38,7 +39,8 @@ class FixedScoreBoardGenerator(STSGenerator):
 class ScoreBoardGenerator(STSGenerator):
     name = "Scoreboard"
     description = "Scoreboard for a fifo with push and pop"
-    interface = "input_port, max_value, signal_push, signal_pop"
+    interface = "input_port, max_value, push_signal, pop_signal"
+    values = "end, tracking"
 
     def get_param_length(self):
         return 4
@@ -160,6 +162,7 @@ class RandomGenerator(STSGenerator):
     name = "Random"
     description = "Random Generator"
     interface = "varsize"
+    values = "value"
 
     def get_param_length(self):
         return 1
