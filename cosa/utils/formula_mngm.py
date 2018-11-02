@@ -97,11 +97,12 @@ def quote_names(strformula, prefix=None, replace_ops=True):
     return strformula
 
 def mem_access(address, locations, width_idx, idx=0):
-    if (len(locations) == 1) or (idx == 2**width_idx):
-        return locations[0]
-    location = BV(idx, width_idx)
-    return Ite(EqualsOrIff(address, location), locations[0], mem_access(address, locations[1:], width_idx, idx+1))
-
+    first_loc = min(2**width_idx, len(locations))-1
+    ite_chain = locations[first_loc]
+    for i in reversed(range(0, first_loc)):
+        location = BV(i, width_idx)
+        ite_chain = Ite(EqualsOrIff(address, location), locations[i], ite_chain)
+    return ite_chain
 
 class SortingNetwork(object):
     simplify = False
