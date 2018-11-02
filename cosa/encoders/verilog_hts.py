@@ -354,6 +354,27 @@ class VerilogSTSWalker(VerilogWalker):
             return varname
         return "%s.%s"%(modulename, varname)
 
+    def _vlog_match_widths(self, left, right):
+        '''
+        Match the bit-widths for assignment using the Verilog standard semantics.
+
+        left_width == right_width: no change
+        left_width > right_width: right side is zero extended or sign extended depending on signedness
+        left_width < right_width: right side is truncated (MSBs removed)
+        '''
+        assert hasattr(left, "bv_width"), "Expect a bit-width"
+        assert hasattr(right, "bv_width"), "Expect a bit-width"
+
+        left_width, right_width = left.bv_width(), right.bv_width()
+
+        if left_width == right_width:
+            return left, right
+        elif left_width > right_width:
+            # TODO: Check signed-ness of right-side
+            return left, BVConcat(BV(0, left_width-right_width), right)
+        else:
+            return left, BVExtract(right, 0, left_width-1)
+
     def _add_clock_behavior(self, var, modulename):
         varname = var.symbol_name()
         if (CLOCK in varname):
@@ -596,6 +617,9 @@ class VerilogSTSWalker(VerilogWalker):
             primedic = dict([(v.symbol_name(), TS.get_prime(v).symbol_name()) for v in get_free_variables(left) \
                              if v not in self.ts.input_vars])
             left = substitute(left, primedic)
+
+        if get_type(left).is_bv_type() and get_type(right).is_bv_type():
+            left, right = self._vlog_match_widths(left, right)
 
         return Assign(left, right)
 
@@ -1251,6 +1275,7 @@ class VerilogSTSWalker(VerilogWalker):
         if type(right) == int:
             right = BV(right, get_type(left).width)
 
+        left, right = B2BV(left), B2BV(right)
         if get_type(left).is_bv_type() and get_type(right).is_bv_type():
 
             lft_width = get_type(left).width
@@ -1263,14 +1288,9 @@ class VerilogSTSWalker(VerilogWalker):
             lft_width = get_type(left).width
             rgt_width = get_type(right).width
 
-            if lft_width > rgt_width:
-                right = BVConcat(BV(0, lft_width-rgt_width), right)
+            left, right = self._vlog_match_widths(left, right)
 
-            elif lft_width < rgt_width:
-                # TODO: Check Verilog standard
-                right = BVExtract(right, 0, lft_width-1)
-
-        invar = EqualsOrIff(B2BV(left), B2BV(right))
+        invar = EqualsOrIff(left, right)
         self.add_invar(invar)
         return el
 
