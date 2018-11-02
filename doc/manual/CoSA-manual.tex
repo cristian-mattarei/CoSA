@@ -103,8 +103,9 @@ The main inputs to CoSA to define a model checking
   (\textsection~\ref{sec:input_formats}) describing the hardware;
 \item a verification problem
   (\textsection~\ref{sec:problem_definition}) e.g.; safety
-  (\textsection~\ref{sec:safety}), LTL (\textsection~\ref{sec:ltl}),
-  or equivalence checking (\textsection~\ref{sec:equivalence}); and
+  (\textsection~\ref{sec:safety_and_ltl}), LTL
+  (\textsection~\ref{sec:safety_and_ltl}), or equivalence checking
+  (\textsection~\ref{sec:equivalence_checking}); and
 \item a property (\textsection~\ref{sec:properties}).
 \end{itemize}
 
@@ -136,6 +137,9 @@ For more information on the actual parameters, run CoSA with
 
 
 \section{Background}
+This section provides an overview of the formal aspects at core of
+CoSA, and it is intended for the users that are not familiar with
+symbolic model checking and formal verification.
 
 \subsection{Model checking}
 \label{sec:model_checking}
@@ -796,6 +800,7 @@ results of the analysis, given \texttt{bmc\_length} parameter.
 \end{example}
 
 \subsection{Safety and LTL verification}
+\label{sec:safety_and_ltl}
 
 Safety (parameter \texttt{--safety}) and LTL (parameter
 \texttt{--ltl}) verifications require to provide a property using the
@@ -850,6 +855,7 @@ Result: TRUE
 
 
 \subsection{Equivalence checking}
+\label{sec:equivalence_checking}
 
 The equivalence checking takes two systems and it verifies if they
 start from the same initial state, and if they always receive the same
