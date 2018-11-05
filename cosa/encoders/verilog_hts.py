@@ -836,11 +836,9 @@ class VerilogSTSWalker(VerilogWalker):
         ftrans = {}
 
         for var in possible_ass_vars:
-            keep_value = EqualsOrIff(var, TS.get_prime(var))
-            if (var not in g_always):
-                if (var in state_vars):
-                    self.add_constraint(keep_value)
+            if var not in g_always:
                 continue
+            # TODO: Double check this: Removed line which if var not in g_always, fixes the value to a constant. Not needed/wrong right?
 
             for beh in g_always[var]:
                 effect, condition = self.assign_define_substitute(beh[0])[0], beh[1]
@@ -963,7 +961,6 @@ class VerilogSTSWalker(VerilogWalker):
             if (type(a) == list) and (len(a) > 0) and (type(a[0]) == ProcessedAlways):
                 always_list += [x.assign_conditions for x in a]
         self.process_always(modulename, always_list)
-
         self.hts.add_ts(self.ts)
 
         self.portslist.sort()
