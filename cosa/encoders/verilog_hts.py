@@ -30,7 +30,8 @@ except:
 
 from pysmt.shortcuts import Symbol, BV, simplify, TRUE, FALSE, get_type, get_model, is_sat, is_unsat
 from pysmt.shortcuts import And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVUGT, BVUGE, BVXor, BVOr, BVLShl, BVZero, BVMul, BVNot
+    BVExtract, BVAdd, BVSub, BVUDiv, BVConcat, BVULT, BVULE, BVSLT, BVSLE, BVUGT, BVUGE, BVSGT, BVSGE, \
+    BVXor, BVOr, BVLShl, BVZero, BVMul, BVNot
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL, BVType, ArrayType, INT
 from pysmt.rewritings import conjunctive_partition
@@ -371,6 +372,25 @@ class VerilogSTSWalker(VerilogWalker):
         mod_map.append(("buf", self.Buf))
 
         self.mod_map = dict(mod_map)
+
+    def _try_to_match_types(self, interface_list, arg_list):
+        '''
+        Tries to resolve type differences such as BV{1} vs Bool
+        '''
+
+        assert len(interface_list) == len(arg_list), "Expecting lists of the same size"
+
+        for idx, (f, a) in enumerate(zip(interface_list, arg_list)):
+            if f is None or a is None or get_type(f) == get_type(a):
+                continue
+            elif get_type(f) == BOOL and get_type(a) == BVType(1):
+                arg_list[idx] = EqualsOrIff(a, BV(1, 1))
+            elif get_type(f) == BVType(1) and get_type(a) == BOOL:
+                arg_list[idx] = Ite(a, BV(1, 1), BV(0, 1))
+            else:
+                return False
+
+        return True
 
     def Buf(self, o, i):
         assign = EqualsOrIff(o, i)
@@ -1139,14 +1159,23 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
+        # TODO: Fix this, need to be more principled about when things are integers
+        # infer signed comparison if there's an integer
+        signed = False
+
         if (type(left) == int) and (type(right) == int):
             return left < right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
+            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
+
+        if signed:
+            return BVSLT(left, right)
 
         return BVULT(left, right)
 
@@ -1156,14 +1185,23 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
+        # TODO: Fix this, need to be more principled about when things are integers
+        # infer signed comparison if there's an integer
+        signed = False
+
         if (type(left) == int) and (type(right) == int):
             return left <= right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
+            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
+
+        if signed:
+            return BVSLE(left, right)
 
         return BVULE(left, right)
 
@@ -1173,14 +1211,23 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
+        # TODO: Fix this, need to be more principled about when things are integers
+        # infer signed comparison if there's an integer
+        signed = False
+
         if (type(left) == int) and (type(right) == int):
             return left > right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
+            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
+
+        if signed:
+            return BVSGT(left, right)
 
         return BVUGT(left, right)
 
@@ -1190,14 +1237,23 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
+        # TODO: Fix this, need to be more principled about when things are integers
+        # infer signed comparison if there's an integer
+        signed = False
+
         if (type(left) == int) and (type(right) == int):
             return left >= right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
+            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
+
+        if signed:
+            return BVSGE(left, right)
 
         return BVUGE(left, right)
 
@@ -1472,13 +1528,14 @@ class VerilogSTSWalker(VerilogWalker):
             if hide_sub_vars:
                 subhts.apply_var_prefix(HIDDEN_VAR)
 
-            actual_ptype = [get_type(a[1]) for a in actualargs if a[1] is not None]
-            formal_ptype = [get_type(p) for p in subhts.params if actualargs[subhts.params.index(p)][1] is not None]
-            if formal_ptype != actual_ptype:
+            list_of_args = [a[1] for a in actualargs]
+            formal_args = [p for p in subhts.params]
+
+            if not self._try_to_match_types(formal_args, list_of_args):
                 formal = ["%s:%s"%(".".join(p.symbol_name().split(".")[1:]), get_type(p)) for p in subhts.params]
                 actual = ["%s:%s"%(a[0], get_type(a[1])) for a in actualargs]
                 Logger.error("Parameters type error, line %d\nformal=\"%s\" \nactual=\"%s\""%(el.lineno, formal, actual))
-            self.hts.add_sub(instance, subhts, tuple([a[1] for a in actualargs]))
+            self.hts.add_sub(instance, subhts, tuple(list_of_args))
         return args
 
     def InstanceList(self, modulename, el, args):
@@ -1603,7 +1660,11 @@ class VerilogSTSWalker(VerilogWalker):
         for stmt in statements:
             frame_conditions = []
             conditions = []
-            assert not stmt.is_and(), "Expecting a sequence of independent statements, no AND"
+
+            # TODO: Clean this up
+            if stmt.is_and():
+                statements += list(stmt.args())
+                continue
 
             if stmt.node_type() == DEFINE:
                 left, right = stmt.args()
