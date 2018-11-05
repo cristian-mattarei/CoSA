@@ -1129,6 +1129,8 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
 
+        left, right = vlog_match_widths(left, right, extend=True)
+
         return BVLShl(left, right)
 
     def LessThan(self, modulename, el, args):
@@ -1205,10 +1207,12 @@ class VerilogSTSWalker(VerilogWalker):
     def Unot(self, modulename, el, args):
         if type(args[0]) == int:
             return Not(self.to_bool(args[0]))
-        # zero = BV(0, get_type(args[0]).width)
-        # return EqualsOrIff(args[0], zero)
-        # TODO: Verify that this always works
-        return BVNot(args[0])
+        elif get_type(args[0]).is_bv_type():
+            return BVNot(args[0])
+        elif get_type(args[0]).is_bool_type():
+            return Not(args[0])
+        else:
+            Logger.error("Unhandled type in UNot: {}".format(get_type(args[0])))
 
     def Parameter(self, modulename, el, args):
         if el.name not in self.paramdic:
@@ -1256,12 +1260,14 @@ class VerilogSTSWalker(VerilogWalker):
             lft_width = get_type(left).width
             rgt_width = get_type(right).width
 
-            if lft_width == rgt_width + 1:
-                fv = get_free_variables(right)
-                right = right.substitute(dict([(v, BVConcat(BV(0, 1), v)) for v in fv]))
+            # TODO: Get rid of this when you're sure you don't need it
+            # if lft_width > rgt_width:
+            #     width_dif = lft_width - rgt_width
+            #     fv = get_free_variables(right)
+            #     right = right.substitute(dict([(v, BVConcat(BV(0, width_dif), v)) for v in fv]))
 
-            lft_width = get_type(left).width
-            rgt_width = get_type(right).width
+            # lft_width = get_type(left).width
+            # rgt_width = get_type(right).width
 
             left, right = vlog_match_widths(left, right)
 

@@ -8,13 +8,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import BV, BVExtract, BVConcat, get_type
+from pysmt.shortcuts import BV, get_type, get_free_variables
+from pysmt.shortcuts import  BVExtract, BVAdd, BVLShl, BVMul, BVZExt
 from pysmt.fnode import FNode
 
 from cosa.utils.logger import Logger
 
 # Verilog defaults to size 32 bit vectors
 DEFAULTINT = 32
+
+# TODO: Complete this, might need a walker? Because can't just tell from top op, could be a plus or multiply or something
+def signed(v):
+    '''
+    Checks if this is a signed bit-vector constant, symbol or op
+    '''
+    raise NotImplementedError
 
 def vlog_match_widths(left, right, extend=False):
     '''
@@ -36,10 +44,41 @@ def vlog_match_widths(left, right, extend=False):
         return left, right
     elif left_width > right_width:
         # TODO: Check signed-ness of right-side
-        return left, BVConcat(BV(0, left_width-right_width), right)
+
+        fun = None
+        padding = 0
+
+        # handle ops with overflow:
+        if right.is_bv_add():
+            fun = BVAdd
+            padding = 1
+        elif right.is_bv_mul():
+            fun = BVMul
+            padding = 1
+        elif right.is_bv_lshl():
+            fun = BVLShl
+            padding = left_width - right_width
+
+        assert padding >= 0, "Expecting a non-negative padding"
+
+        # TODO: Handle signed values here as well
+        # re-build the node
+        if padding > 0:
+            args = [BVZExt(a, padding) for a in right.args()]
+            right = fun(*args)
+
+        # re-evauluate left_width and right_width, in case they're updated
+        left_width, right_width = left.bv_width(), right.bv_width()
+
+        assert left_width >= right_width, "Unexpected bitwidth mismatch"
+
+        if left_width > right_width:
+            right = BVZExt(right, left_width-right_width)
+
+        return left, right
     else:
         if extend:
-            return BVConcat(BV(0, right_width-left_width), left), right
+            return BVZExt(left, right_width-left_width), right
         else:
             return left, BVExtract(right, 0, left_width-1)
 
