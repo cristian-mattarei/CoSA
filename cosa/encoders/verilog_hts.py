@@ -44,6 +44,7 @@ from cosa.encoders.modules import Modules
 from cosa.walkers.verilog_walker import VerilogWalker
 from cosa.representation import HTS, TS
 from cosa.utils.generic import bin_to_dec, dec_to_bin, suppress_output, restore_output
+from cosa.utils.verilog import vlog_match_widths, get_const, DEFAULTINT
 from cosa.utils.formula_mngm import B2BV, BV2B, get_free_variables, substitute, mem_access
 from cosa.environment import Assign, Define, ASSIGN, DEFINE, Finally
 from cosa.printers.template import HIDDEN_VAR
@@ -54,8 +55,6 @@ KEYWORDS += "for localparam begin input output parameter posedge negedge or and 
 KEYWORDS = KEYWORDS.split()
 
 IVERILOG = "iverilog"
-
-MAXINT = 64
 
 POSEDGE = "posedge"
 NEGEDGE = "negedge"
@@ -354,27 +353,6 @@ class VerilogSTSWalker(VerilogWalker):
             return varname
         return "%s.%s"%(modulename, varname)
 
-    def _vlog_match_widths(self, left, right):
-        '''
-        Match the bit-widths for assignment using the Verilog standard semantics.
-
-        left_width == right_width: no change
-        left_width > right_width: right side is zero extended or sign extended depending on signedness
-        left_width < right_width: right side is truncated (MSBs removed)
-        '''
-        assert hasattr(left, "bv_width"), "Expect a bit-width"
-        assert hasattr(right, "bv_width"), "Expect a bit-width"
-
-        left_width, right_width = left.bv_width(), right.bv_width()
-
-        if left_width == right_width:
-            return left, right
-        elif left_width > right_width:
-            # TODO: Check signed-ness of right-side
-            return left, BVConcat(BV(0, left_width-right_width), right)
-        else:
-            return left, BVExtract(right, 0, left_width-1)
-
     def _add_clock_behavior(self, var, modulename):
         varname = var.symbol_name()
         if (CLOCK in varname):
@@ -619,7 +597,7 @@ class VerilogSTSWalker(VerilogWalker):
             left = substitute(left, primedic)
 
         if get_type(left).is_bv_type() and get_type(right).is_bv_type():
-            left, right = self._vlog_match_widths(left, right)
+            left, right = vlog_match_widths(left, right)
 
         return Assign(left, right)
 
@@ -630,30 +608,24 @@ class VerilogSTSWalker(VerilogWalker):
         if len(args) > 2:
             delay = args[2]
 
-        if (type(left) == int) and (type(right) == FNode):
-            left = BV(left, get_type(right).width)
+        if (type(left) == int):
+            left = get_const(left)
 
-        if (type(right) == int) and (type(left) == FNode):
-            right = BV(right, get_type(left).width)
+        if (type(right) == int):
+            right = get_const(right)
 
-        if type(left) == int:
-            left = BV(left, MAXINT)
-        if type(right) == int:
-            right = BV(right, MAXINT)
-
-        fv_left = get_free_variables(left)
-        fv_right = get_free_variables(right)
+        left, right = vlog_match_widths(B2BV(left), B2BV(right))
 
         if delay == 1:
             left = TS.to_next(left)
 
-        return Define(left, B2BV(right))
+        return Define(left, right)
 
     def SensList(self, modulename, el, args):
         return Or(args)
 
     def Integer(self, modulename, el, args):
-        intvar = Symbol(self.varname(modulename, el.name), BVType(MAXINT))
+        intvar = Symbol(self.varname(modulename, el.name), BVType(DEFAULTINT))
         self.add_var(modulename, el.name, intvar)
         return None
 
@@ -733,7 +705,10 @@ class VerilogSTSWalker(VerilogWalker):
         return (args[0] - args[1])+1
 
     def Block(self, modulename, el, args):
-        return [a for a in args if a is not None]
+        if args is None:
+            return []
+        else:
+            return [a for a in args if a is not None]
 
     def Case(self, modulename, el, args):
         return args
@@ -745,6 +720,8 @@ class VerilogSTSWalker(VerilogWalker):
         for case in reversed(cases):
             if len(case) == 2:
                 val, actions = case[0], case[1:][0]
+                if type(val) == int:
+                    val = get_const(val, match=select)
                 ite_chain = Ite(EqualsOrIff(select, val), And(actions), ite_chain)
 
             elif len(case) == 1:
@@ -760,7 +737,16 @@ class VerilogSTSWalker(VerilogWalker):
             return args[2]
         if args[0] in [True, TRUE()]:
             return args[1]
-        return Ite(BV2B(args[0]), args[1], args[2])
+
+        arg1, arg2 = args[1], args[2]
+        if type(arg1) == int:
+            arg1 = get_const(arg1)
+        if type(arg2) == int:
+            arg2 = get_const(arg2)
+
+        arg1, arg2 = vlog_match_widths(arg1, arg2, extend=True)
+
+        return Ite(BV2B(args[0]), arg1, arg2)
 
     def IfStatement(self, modulename, el, args):
         statement, then_b, else_b = args[0], args[1], args[2] if len(args) > 2 else None
@@ -983,17 +969,11 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(left) == int) and (type(right) == int):
             return int(left/right)
 
-        if (type(right) == int) and (type(left) == FNode):
-            right = BV(right, get_type(left).width)
-
-        if (type(left) == int) and (type(right) == FNode):
-            left = BV(left, get_type(right).width)
-
         if (type(right) == int):
-            right = BV(right, MAXINT)
+            right = get_const(right)
 
         if (type(left) == int):
-            left = BV(left, MAXINT)
+            left = get_const(left)
 
         return BVUDiv(left, right)
 
@@ -1006,17 +986,13 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(left) == int) and (type(right) == int):
             return left-right
 
-        if (type(right) == int) and (type(left) == FNode):
-            right = BV(right, get_type(left).width)
-
-        if (type(left) == int) and (type(right) == FNode):
-            left = BV(left, get_type(right).width)
-
         if (type(right) == int):
-            right = BV(right, MAXINT)
+            right = get_const(right)
 
         if (type(left) == int):
-            left = BV(left, MAXINT)
+            left = get_const(left)
+
+        left, right = vlog_match_widths(left, right, extend=True)
 
         return BVSub(left, right)
 
@@ -1026,26 +1002,13 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(left) == int) and (type(right) == int):
             return left+right
 
-        if (type(right) == int) and (type(left) == FNode):
-            right = BV(right, get_type(left).width)
-
-        if (type(left) == int) and (type(right) == FNode):
-            left = BV(left, get_type(right).width)
-
         if (type(right) == int):
-            right = BV(right, MAXINT)
+            right = get_const(right)
 
         if (type(left) == int):
-            left = BV(left, MAXINT)
+            left = get_const(left)
 
-        lft_width = get_type(left).width
-        rgt_width = get_type(right).width
-
-        if lft_width != rgt_width:
-            if lft_width < rgt_width:
-                left = BVConcat(BV(0, rgt_width-lft_width), left)
-            if lft_width > rgt_width:
-                right = BVConcat(BV(0, lft_width-rgt_width), right)
+        left, right = vlog_match_widths(left, right, extend=True)
 
         return BVAdd(left, right)
 
@@ -1055,17 +1018,13 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(left) == int) and (type(right) == int):
             return left*right
 
-        if (type(right) == int) and (type(left) == FNode):
-            right = BV(right, get_type(left).width)
-
-        if (type(left) == int) and (type(right) == FNode):
-            left = BV(left, get_type(right).width)
-
         if (type(right) == int):
-            right = BV(right, MAXINT)
+            right = get_const(right)
 
         if (type(left) == int):
-            left = BV(left, MAXINT)
+            left = get_const(left)
+
+        left, right = vlog_match_widths(left, right, extend=True)
 
         return BVMul(left, right)
 
@@ -1081,6 +1040,17 @@ class VerilogSTSWalker(VerilogWalker):
             left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+
+        # Only comparable bits
+        lft_width = get_type(left).width
+        rgt_width = get_type(right).width
+
+        if lft_width != rgt_width:
+            width = min(lft_width, rgt_width)
+            if lft_width != width:
+                left = BVExtract(left, 0, width-1)
+            else:
+                right = BVExtract(right, 0, width-1)
 
         return EqualsOrIff(left, right)
 
@@ -1174,6 +1144,8 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
 
+        left, right = vlog_match_widths(left, right, extend=True)
+
         return BVULT(left, right)
 
     def LessEq(self, modulename, el, args):
@@ -1188,6 +1160,8 @@ class VerilogSTSWalker(VerilogWalker):
             left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+
+        left, right = vlog_match_widths(left, right, extend=True)
 
         return BVULE(left, right)
 
@@ -1204,6 +1178,8 @@ class VerilogSTSWalker(VerilogWalker):
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
 
+        left, right = vlog_match_widths(left, right, extend=True)
+
         return BVUGT(left, right)
 
     def GreaterEq(self, modulename, el, args):
@@ -1218,6 +1194,8 @@ class VerilogSTSWalker(VerilogWalker):
             left = BV(left, get_type(right).width)
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
+
+        left, right = vlog_match_widths(left, right, extend=True)
 
         return BVUGE(left, right)
 
@@ -1285,7 +1263,7 @@ class VerilogSTSWalker(VerilogWalker):
             lft_width = get_type(left).width
             rgt_width = get_type(right).width
 
-            left, right = self._vlog_match_widths(left, right)
+            left, right = vlog_match_widths(left, right)
 
         invar = EqualsOrIff(left, right)
         self.add_invar(invar)
@@ -1369,7 +1347,23 @@ class VerilogSTSWalker(VerilogWalker):
         if len([p[0] for p in portargs if p[0] is None]) == 0:
             portargs.sort()
         paramargs = [args[i] for i in paramargs_idx]
-        paramargs.sort()
+
+        # Handle positional arguments in parameter list
+        if None in [a[0] for a in paramargs]:
+            pnames, argvals = zip(*paramargs)
+            if not all(p is None for p in pnames):
+                Logger.error("Mix of named and positional parameters not supported.")
+            if el.module not in self.modulesdic:
+                Logger.error("Got positional arguments for a module with unknown interface: %s"%el.module)
+
+            # get actual parameter names from module interface
+            mod = self.modulesdic[el.module]
+            pnames = []
+            for param in mod.paramlist.params:
+                pnames.append(param.children()[0].name)
+
+            paramargs = list(zip(pnames, argvals))
+
         width = args[width_idx[0]] if len(width_idx) > 0 else None
 
         if el.module in SV_MODULES:
@@ -1614,17 +1608,19 @@ class VerilogSTSWalker(VerilogWalker):
                 collected[left] = [(stmt, TRUE())]
                 define_frame_conditions[left] = []
 
-            else_b = None
+            else_branches = []
             last_cond = []
 
             to_process = [stmt]
             while to_process:
                 term, to_process = to_process[0], to_process[1:]
 
-                if else_b is not None and term == else_b:
+                # TODO: Check that this is correct!
+                if else_branches and term == else_branches[-1]:
+                    else_branches.pop()
                     # in an else branch, convert condition to frame condition
                     frame_conditions.append(Not(last_cond[0]))
-                    last_cond = []
+                    last_cond = [conditions.pop()]
 
 #                last_cond = [conditions[-1]] if len(conditions) else []
 
@@ -1664,16 +1660,16 @@ class VerilogSTSWalker(VerilogWalker):
                         frame_conditions.append(Not(last_cond[0]))
                     to_process += term.args()[1:]
                     last_cond = [term.args()[0]]
-#                    conditions.append(term.args()[0])
-                    # keep track of else_b (need to move condition to frame conditions)
-                    else_b = term.args()[2]
+                    conditions.append(term.args()[0])
+                    # keep track of else_branches (need to move condition to frame conditions)
+                    else_branches.append(term.args()[2])
                 elif term.is_implies():
                     if last_cond:
                         frame_conditions.append(Not(last_cond[0]))
                     # prepend to list, need to process next
                     to_process = [term.args()[1]] + to_process
                     last_cond = [term.args()[0]]
-#                    conditions.append(term.args()[0])
+                    conditions.append(term.args()[0])
                 elif term.is_bool_constant():
                     continue
                 else:

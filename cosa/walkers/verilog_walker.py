@@ -25,17 +25,17 @@ class VerilogWalker(object):
     modulesdic = None
 
     preserve_main_name = False
-    
+
     def __init__(self):
         pass
 
     def reset_structures(self, modulename):
         Logger.error("Unimplemented")
-    
+
     def __init_methods(self):
         if self.methods is None:
-            self.methods = [x[0] for x in inspect.getmembers(self, predicate=inspect.ismethod)]    
-        
+            self.methods = [x[0] for x in inspect.getmembers(self, predicate=inspect.ismethod)]
+
     def analyze_element(self, modulename, el, args):
         if not VPARSER:
             Logger.error("Pyverilog is not available")
@@ -44,7 +44,7 @@ class VerilogWalker(object):
                                                        None if el.children() is None else [class_name(c) for c in el.children()]), 3)
         Logger.log("(%d) Args: %s"%(el.lineno, str(args)), 4)
         self.__init_methods()
-        
+
         classname = class_name(el)
         if classname in self.methods:
             local_handler = getattr(self, classname)
@@ -60,11 +60,12 @@ class VerilogWalker(object):
         for m in modules:
             if type(m) == ModuleDef:
                 self.modulesdic[m.name] = m
+
         if modulename not in self.modulesdic:
             Logger.error("Undefined module \"%s\""%(modulename))
         return self.walk_module(self.modulesdic[modulename], \
                                 modulename if self.preserve_main_name else "")
-    
+
     def walk_module(self, ast, modulename):
         Logger.log("(%d) Parsing module \"%s\""%(ast.lineno, ast.name), 2)
         to_visit = [ast]
@@ -106,9 +107,9 @@ class VerilogWalker(object):
             processed.append(nel)
 
         Logger.log("(%d) Done parsing module \"%s\""%(ast.lineno, ast.name), 2)
-            
+
         return processed[0]
-    
+
 class IdentityVerilogWalker(VerilogWalker):
 
     def Paramlist(self, modulename, el, args):
@@ -125,13 +126,13 @@ class IdentityVerilogWalker(VerilogWalker):
 
     def Reg(self, modulename, el, args):
         return el
-    
+
     def Decl(self, modulename, el, args):
         return el
 
     def Sens(self, modulename, el, args):
         return el
-        
+
     def Lvalue(self, modulename, el, args):
         return el
 
@@ -140,22 +141,22 @@ class IdentityVerilogWalker(VerilogWalker):
 
     def NonblockingSubstitution(self, modulename, el, args):
         return el
-    
+
     def SensList(self, modulename, el, args):
         return el
-    
+
     def IntConst(self, modulename, el, args):
         return el
 
     def Identifier(self, modulename, el, args):
         return el
-    
+
     def Width(self, modulename, el, args):
         return el
 
     def Input(self, modulename, el, args):
         return el
-    
+
     def Output(self, modulename, el, args):
         return el
 
