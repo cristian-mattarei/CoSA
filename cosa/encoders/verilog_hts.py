@@ -123,12 +123,22 @@ class VerilogHTSParser(ModelParser):
         if not Logger.level(print_level):
             restore_output(saved_stdout)
 
+        if Logger.level(2):
+            timer = Logger.start_timer("encoding")
+
         self.walker.config = config
         hts = self.walker.walk(ast, flags[0])
         self.abstract_clock_list = self.walker.abstract_clock_list
         self.clock_list = self.walker.clock_list
 
+        if Logger.level(2):
+            Logger.get_timer(timer)
+            timer = Logger.start_timer("flattening")
+
         hts.flatten()
+
+        if Logger.level(2):
+            Logger.get_timer(timer)
 
         if config.zero_init:
             ts = TS("zero-init")
@@ -648,6 +658,9 @@ class VerilogSTSWalker(VerilogWalker):
         intvar = Symbol(self.varname(modulename, el.name), BVType(DEFAULTINT))
         self.add_var(modulename, el.name, intvar)
         return None
+
+    def Genvar(self, modulename, el, args):
+        return self.Integer(modulename, el, args)
 
     def IntConst(self, modulename, el, args):
         if "'d" in el.value:
@@ -1327,8 +1340,7 @@ class VerilogSTSWalker(VerilogWalker):
 
             left, right = vlog_match_widths(left, right)
 
-        invar = EqualsOrIff(left, right)
-        self.add_invar(invar)
+        self.add_ftrans(B2BV(left), [(TRUE(), B2BV(right))])
         return el
 
     def Pointer(self, modulename, el, args):

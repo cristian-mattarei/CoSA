@@ -13,15 +13,19 @@ import os
 from cosa.shell import Config, run_verification, run_problems
 from cosa.environment import reset_env
 
+COSADIR = ".CoSA"
+
 abspath = os.path.abspath(__file__)
 path = ("/".join(abspath.split("/")[:-1]))
-testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0]]
+testdirs = [d[0] for d in os.walk(path) if d[0] != path and "__" not in d[0] and COSADIR not in d[0]]
 
 problem_files = []
 for testdir in testdirs:
     for problem in [p for p in list(os.walk(testdir))[0][2] if "problem" in p and ".txt" == p[-4:]]:
         problem_files.append("%s/%s"%(testdir, problem))
-    
+problem_files.sort()
+problem_files.reverse()
+
 def runtest(problem_file):
     reset_env()
 

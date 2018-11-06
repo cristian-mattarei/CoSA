@@ -26,6 +26,8 @@ class VerilogWalker(object):
 
     preserve_main_name = False
 
+    parsed = None
+
     def __init__(self):
         pass
 
@@ -67,25 +69,36 @@ class VerilogWalker(object):
                                 modulename if self.preserve_main_name else "")
 
     def walk_module(self, ast, modulename):
+        if VerilogWalker.parsed is None:
+            VerilogWalker.parsed = {}
+            
         Logger.log("(%d) Parsing module \"%s\""%(ast.lineno, ast.name), 2)
-        to_visit = [ast]
-        visited = []
-        args = None
 
-        i = 0
-        while i < len(to_visit):
-            el = to_visit[i]
-            if id(el) in visited:
-                i += 1
-                continue
-            visited.append(id(el))
-            if isinstance(el, Node) and len(list(el.children())) > 0:
-                Logger.log("(%d) Collecting Node: %s ---> %s"%(el.lineno, \
-                                                               class_name(el), \
-                                                               None if el.children() is None else [class_name(c) for c in el.children()]), 3)
-                child = list(el.children())
-                to_visit = to_visit[:i] + child + to_visit[i:]
+        key = (id(ast), modulename)
+        if key in VerilogWalker.parsed:
+            assert VerilogWalker.parsed[key] is not None
+            to_visit = [x for x in VerilogWalker.parsed[key]]
+        else:
+            to_visit = [ast]
+            visited = []
+            args = None
 
+            i = 0
+            while i < len(to_visit):
+                el = to_visit[i]
+                if id(el) in visited:
+                    i += 1
+                    continue
+                visited.append(id(el))
+                if isinstance(el, Node) and len(list(el.children())) > 0:
+                    Logger.log("(%d) Collecting Node: %s ---> %s"%(el.lineno, \
+                                                                   class_name(el), \
+                                                                   None if el.children() is None else [class_name(c) for c in el.children()]), 3)
+                    child = list(el.children())
+                    to_visit = to_visit[:i] + child + to_visit[i:]
+                    
+            VerilogWalker.parsed[key] = [x for x in to_visit]
+                    
         prevels = []
         processed = []
         memoization = {}

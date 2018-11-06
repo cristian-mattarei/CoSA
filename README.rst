@@ -75,6 +75,11 @@ To start playing with the tool, you can run:
 
 4) ``CoSA --problem examples/fold-constants/problem.txt`` performs equivalence checking using lemmas
 
+
+For more information, please refer to the `CoSA user manual`_.
+
+.. _CoSA user manual: https://github.com/cristian-mattarei/CoSA/blob/master/doc/manual/CoSA-manual.pdf
+
 ========================
 Docker
 ========================

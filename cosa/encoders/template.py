@@ -21,7 +21,7 @@ class EncoderConfig(object):
     deterministic = False
     run_passes = True
     boolean = False
-    debug = False
+    devel = False
 
     def __init__(self):
         pass
@@ -47,8 +47,8 @@ class ModelInformation(object):
                         self.clock_list.append(el)
 
     def __repr__(self):
-        return "CL(%s) ACL(%s)"%(", ".join([s.symbol_name() for s in self.clock_list]) if self.clock_list is not None else "", \
-                                 ", ".join([s.symbol_name() for s in self.abstract_clock_list]) if self.abstract_clock_list is not None else "")
+        return "CL(%s) ACL(%s)"%(", ".join([str(s) for s in self.clock_list]) if self.clock_list is not None else "", \
+                                 ", ".join([str(s) for s in self.abstract_clock_list]) if self.abstract_clock_list is not None else "")
                 
 class ModelParser(object):
     extensions = None
@@ -108,6 +108,7 @@ class STSGenerator(object):
     name = "GENERATOR"
     description = "MISSING DESCRIPTION!"
     interface = "MISSING INTERFACE!"
+    values = "MISSING VALUES!"
 
     def __init__(self):
         pass
@@ -132,6 +133,9 @@ class STSGenerator(object):
     def get_interface(self):
         return self.interface
 
+    def get_values(self):
+        return self.values
+    
 class ClockBehavior(object):
     name = "CLOCK BEHAVIOR"
     description = "MISSING DESCRIPTION!"

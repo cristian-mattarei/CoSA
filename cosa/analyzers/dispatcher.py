@@ -8,8 +8,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import copy
+import os
+import pickle
+
+from collections import Sequence
+
+from pysmt.shortcuts import Symbol
 
 from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
@@ -20,16 +25,19 @@ from cosa.problem import VerificationType, Problem, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS
-from cosa.encoders.explicit_transition_system import ExplicitTSParser
-from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
 from cosa.modifiers.factory import ModelModifiersFactory
+from cosa.modifiers.coi import ConeOfInfluence
 from cosa.encoders.template import EncoderConfig, ModelInformation
 from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 from cosa.modifiers.model_extension import ModelExtension
+from cosa.encoders.symbolic_transition_system import SymbolicSimpleTSParser
+from cosa.printers.factory import HTSPrintersFactory
+from cosa.printers.hts import STSHTSPrinter
+        
 
 FLAG_SR = "["
 FLAG_ST = "]"
@@ -38,19 +46,24 @@ FLAG_SP = "+"
 MODEL_SP = ";"
 FILE_SP  = ","
 
+COSACACHEDIR = ".CoSA/cache"
+
 class ProblemSolver(object):
     parser = None
     sparser = None
     lparser = None
     model_info = None
+    coi = None
 
     def __init__(self):
         self.sparser = None
         self.lparser = None
+        self.coi = None
         self.model_info = ModelInformation()
 
         GeneratorsFactory.init_generators()
         ClockBehaviorsFactory.init_clockbehaviors()
+
 
     def __process_trace(self, hts, trace, config, problem):
         prevass = []
@@ -58,6 +71,7 @@ class ProblemSolver(object):
         full_trace = problem.full_trace or config.full_trace
         trace_vars_change = problem.trace_vars_change or config.trace_vars_change
         trace_all_vars = problem.trace_all_vars or config.trace_all_vars
+        trace_values_base = problem.trace_values_base or config.trace_values_base
 
         diff_only = not trace_vars_change
         all_vars = trace_all_vars
@@ -79,6 +93,7 @@ class ProblemSolver(object):
         hr_printer.prop_vars = trace.prop_vars
         hr_printer.diff_only = diff_only
         hr_printer.all_vars = all_vars
+        hr_printer.values_base = trace_values_base
         hr_trace = hr_printer.print_trace(hts=hts, \
                                           model=trace.model, \
                                           length=trace.length, \
@@ -105,19 +120,12 @@ class ProblemSolver(object):
             traces.append(traceV)
 
         return traces
-        
+
     def __solve_problem(self, problem, config):
         if problem.name is not None:
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
-        
-        mc_config = self.problem2mc_config(problem, config)
-        bmc_safety = BMCSafety(problem.hts, mc_config)
-        bmc_parametric = BMCParametric(problem.hts, mc_config)
-        bmc_ltl = BMCLTL(problem.hts, mc_config)
-        res = VerificationStatus.UNC
-        bmc_length = max(problem.bmc_length, config.bmc_length)
-        bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
+
 
         parsing_defs = [problem.formula, problem.lemmas, problem.assumptions]
         for i in range(len(parsing_defs)):
@@ -153,7 +161,7 @@ class ProblemSolver(object):
             problem.formula = formulae[0]
         
         precondition = config.precondition if config.precondition is not None else problem.precondition
-        
+
         if precondition and problem.verification == VerificationType.SAFETY:
             problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
         
@@ -173,11 +181,27 @@ class ProblemSolver(object):
 
         if problem.verification is None:
             return problem
-            
+
+        if problem.coi:
+            if Logger.level(2):
+                timer = Logger.start_timer("COI")
+            problem.hts = self.coi.compute(problem.hts, problem.formula)
+            if Logger.level(2):
+                Logger.get_timer(timer)
+
+        mc_config = self.problem2mc_config(problem, config)
+        bmc_safety = BMCSafety(problem.hts, mc_config)
+        bmc_parametric = BMCParametric(problem.hts, mc_config)
+        bmc_ltl = BMCLTL(problem.hts, mc_config)
+        res = VerificationStatus.UNC
+        bmc_length = max(problem.bmc_length, config.bmc_length)
+        bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
+
+        
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min)
+            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min, config.processes)
 
         if problem.verification == VerificationType.LTL:
             accepted_ver = True
@@ -193,15 +217,9 @@ class ProblemSolver(object):
             res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts), at_most=problem.cardinality)
             
         hts = problem.hts
-            
+
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
-            if problem.equivalence:
-                (problem.hts2, _, _) = self.parse_model(problem.relative_path, \
-                                                        problem.equivalence, \
-                                                        encoder_config, \
-                                                        "System 2")
-
             htseq, miter_out = Miter.combine_systems(problem.hts, \
                                                      problem.hts2, \
                                                      bmc_length, \
@@ -250,15 +268,93 @@ class ProblemSolver(object):
         
         (strfile, flags) = (strfile[:strfile.index(FLAG_SR)], strfile[strfile.index(FLAG_SR)+1:strfile.index(FLAG_ST)].split(FLAG_SP))
         return (strfile, flags)
+
+    def md5(self, fname):
+        import hashlib
+        hash_md5 = hashlib.md5()
+        with open(fname, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+
+    def _is_cached(self, cachedir, filename, clean):
+        hts_file = "%s/%s.ssts"%(cachedir, filename)
+        mi_file = "%s/%s.mi"%(cachedir, filename)
+        inv_file = "%s/%s.inv"%(cachedir, filename)
+        ltl_file = "%s/%s.ltl"%(cachedir, filename)
+
+        if clean:
+            if os.path.isfile(hts_file):
+                os.remove(hts_file)
+            if os.path.isfile(mi_file):
+                os.remove(mi_file)
+            if os.path.isfile(inv_file):
+                os.remove(inv_file)
+            if os.path.isfile(ltl_file):
+                os.remove(ltl_file)
         
+        return os.path.isfile(hts_file) and \
+            os.path.isfile(mi_file) and \
+            os.path.isfile(inv_file) and \
+            os.path.isfile(ltl_file)
+    
+    def _to_cache(self, cachedir, filename, hts, inv, ltl, model_info):
+        if not os.path.isdir(cachedir):
+            os.makedirs(cachedir)
+
+        hts_file = "%s/%s.ssts"%(cachedir, filename)
+        mi_file = "%s/%s.mi"%(cachedir, filename)
+        inv_file = "%s/%s.inv"%(cachedir, filename)
+        ltl_file = "%s/%s.ltl"%(cachedir, filename)
+
+        printer = HTSPrintersFactory.printer_by_name(STSHTSPrinter().get_name())
+        with open(hts_file, "w") as f:
+            f.write(printer.print_hts(hts, properties=[], ftrans=True))
+
+        with open(mi_file, 'wb') as f:
+            pickle.dump(model_info, f)
+
+        with open(inv_file, 'wb') as f:
+            pickle.dump(inv, f)
+
+        with open(ltl_file, 'wb') as f:
+            pickle.dump(ltl, f)
+            
+    def _from_cache(self, cachedir, filename, config, flags):
+        hts_file = "%s/%s.ssts"%(cachedir, filename)
+        mi_file = "%s/%s.mi"%(cachedir, filename)
+        inv_file = "%s/%s.inv"%(cachedir, filename)
+        ltl_file = "%s/%s.ltl"%(cachedir, filename)
+        
+        parser = SymbolicSimpleTSParser()
+
+        hts = parser.parse_file(hts_file, config, flags)[0]
+        
+        with open(mi_file, 'rb') as f:
+            model_info = pickle.load(f)
+            if model_info is not None:
+                # Symbols have to be re-defined to match the current object addresses
+                model_info.abstract_clock_list = [(Symbol(x[0].symbol_name(), x[0].symbol_type()), x[1]) for x in model_info.abstract_clock_list]
+                model_info.clock_list = [Symbol(x.symbol_name(), x.symbol_type()) for x in model_info.clock_list]
+            
+        with open(inv_file, 'rb') as f:
+            inv = pickle.load(f)
+
+        with open(ltl_file, 'rb') as f:
+            ltl = pickle.load(f)
+        
+        return (hts, inv, ltl, model_info)
+    
     def parse_model(self, \
                     relative_path, \
                     model_files, \
                     encoder_config, \
                     name=None, \
-                    modifier=None):
+                    modifier=None, \
+                    cache_files=False, \
+                    clean_cache=False):
         
-        hts = HTS("System 1")
+        hts = HTS(name if name is not None else "System")
         invar_props = []
         ltl_props = []
 
@@ -283,13 +379,30 @@ class ProblemSolver(object):
                 if not os.path.isfile(strfile):
                     Logger.error("File \"%s\" does not exist"%strfile)
 
-                Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
+                if cache_files:
+                    md5 = self.md5(strfile)
+                    cf = "-".join(["1" if encoder_config.abstract_clock else "0", \
+                                   "1" if encoder_config.add_clock else "0", \
+                                   "1" if encoder_config.boolean else "0"])
+                    cachefile = "%s-%s"%(md5, cf)
+                    cachedir = "%s/%s"%("/".join(strfile.split("/")[:-1]), COSACACHEDIR)
+                
+                if cache_files and self._is_cached(cachedir, cachefile, clean_cache):
+                    Logger.msg("Loading from cache file \"%s\"... "%(strfile), 0)
+                    (hts_a, inv_a, ltl_a, model_info) = self._from_cache(cachedir, cachefile, encoder_config, flags)
+                else:
+                    Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
+                    (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
 
-                if modifier is not None:
-                    modifier(hts_a)
-                 
-                self.model_info.combine(parser.get_model_info())
+                    model_info = parser.get_model_info()
+
+                    if modifier is not None:
+                        modifier(hts_a)
+
+                    if cache_files and not clean_cache:
+                        self._to_cache(cachedir, cachefile, hts_a, inv_a, ltl_a, model_info)
+
+                self.model_info.combine(model_info)
                 hts.combine(hts_a)
 
                 invar_props += inv_a
@@ -311,6 +424,8 @@ class ProblemSolver(object):
         self.sparser = StringParser(encoder_config)
         self.lparser = LTLParser()
 
+        self.coi = ConeOfInfluence()
+        
         invar_props = []
         ltl_props = []
         si = False
@@ -324,7 +439,9 @@ class ProblemSolver(object):
 
         model_extension = config.model_extension if problems.model_extension is None else problems.model_extension
         assume_if_true = config.assume_if_true or problems.assume_if_true
-
+        cache_files = config.cache_files or problems.cache_files
+        clean_cache = config.clean_cache
+        
         modifier = None
         if model_extension is not None:
             modifier = lambda hts: ModelExtension.extend(hts, ModelModifiersFactory.modifier_by_name(model_extension))
@@ -337,13 +454,17 @@ class ProblemSolver(object):
                                                                              problems.model_file, \
                                                                              encoder_config, \
                                                                              "System 1", \
-                                                                             modifier)
+                                                                             modifier, \
+                                                                             cache_files=cache_files, \
+                                                                             clean_cache=clean_cache)
             
         if problems.equivalence is not None:
             (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
                                                            problems.equivalence, \
                                                            encoder_config, \
-                                                           "System 2")
+                                                           "System 2", \
+                                                           cache_files=cache_files, \
+                                                           clean_cache=clean_cache)
         else:
             systems[(HTS2, si)] = None
 
@@ -379,6 +500,7 @@ class ProblemSolver(object):
             problem.vcd = problems.vcd or config.vcd or problem.vcd
             problem.abstract_clock = problems.abstract_clock or config.abstract_clock
             problem.add_clock = problems.add_clock or config.add_clock
+            problem.coi = problems.coi or config.coi
             problem.run_coreir_passes = problems.run_coreir_passes
             problem.relative_path = problems.relative_path
             problem.cardinality = max(problems.cardinality, config.cardinality)
@@ -457,7 +579,8 @@ class ProblemSolver(object):
         encoder_config.deterministic = config.deterministic
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean or config.boolean
-        encoder_config.debug = config.debug
+        encoder_config.devel = config.devel
 
         return encoder_config
-        
+       
+ 

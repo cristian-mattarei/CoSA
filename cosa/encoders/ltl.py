@@ -10,7 +10,6 @@
 
 import re
 
-from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, get_env
 from pysmt.typing import BOOL, BVType
 from pysmt.parsing import parse, PrattParser

@@ -23,21 +23,29 @@ from cosa.utils.generic import suppress_output, restore_output
 PASSES = []
 PASSES.append("hierarchy -check")
 PASSES.append("proc")
-PASSES.append("flatten")
-PASSES.append("memory")
-PASSES.append("techmap -map +/adff2dff.v")
-PASSES.append("setundef -zero -undriven")
-PASSES.append("pmuxtree")
-PASSES.append("rename -hide")
-PASSES.append("proc")
-PASSES.append("clk2fflogic")
 PASSES.append("opt")
+PASSES.append("opt_expr -mux_undef")
+PASSES.append("opt")
+PASSES.append("opt")
+PASSES.append("memory_dff -wr_only")
+PASSES.append("memory_collect;")
+PASSES.append("flatten;")
+PASSES.append("memory_unpack")
+PASSES.append("splitnets -driver")
+PASSES.append("setundef -anyconst -undriven")
+PASSES.append("opt;;")
+PASSES.append("techmap -map +/adff2dff.v;")
+# PASSES.append("pmuxtree")
+# PASSES.append("rename -hide")
+# PASSES.append("proc")
+# PASSES.append("clk2fflogic")
+PASSES.append("opt;;")
 
 COMMANDS = []
 COMMANDS.append("read_verilog -sv {FILES}")
 COMMANDS.append("hierarchy -top {TARGET}")
 COMMANDS.append("{PASSES}")
-COMMANDS.append("write_btor -v {BTORFILE}")
+COMMANDS.append("write_btor {BTORFILE}")
 
 TMPFILE = "__yosys_verilog__.btor2"
 
@@ -52,27 +60,31 @@ KEYWORDS = KEYWORDS.split()
 
 class VerilogYosysBtorParser(ModelParser):
     parser = None
-    extensions = ["v"]
+    extensions = ["v", "sv"]
     name = "Verilog Yosys (via BTOR)"
 
     files_from_dir = False
     single_file = True
-    
-    def __init__(self):
-        pass
+
+    commands = []
+
+    def __init__(self, verific=False):
+        self.commands = COMMANDS
+        if verific:
+            self.commands[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
 
     def is_available(self):
         return shutil.which(CMD) is not None
 
     def get_model_info(self):
         return None
-     
+
     def _get_extension(self, strfile):
         return strfile.split(".")[-1]
 
     def _collect_dependencies(self, path, top, skip=[]):
         new_filenames = []
-        
+
         with open("%s/%s"%(path, top), "r") as f:
             filestr = f.read()
             filestr = re.sub('(//)(.*)',' ', filestr)
@@ -93,14 +105,14 @@ class VerilogYosysBtorParser(ModelParser):
                     if os.path.isfile("%s/%s"%(path, filename)):
                         new_filenames.append("%s.v"%instance)
                     skip.append(instance)
- 
+
         skip.append(top)
-                            
+
         for filename in new_filenames:
             new_filenames += self._collect_dependencies(path, filename, skip)
 
         return new_filenames
-    
+
     def parse_file(self, strfile, config, flags=None):
         if flags is None:
             Logger.error("Top module not provided")
@@ -130,7 +142,7 @@ class VerilogYosysBtorParser(ModelParser):
         print_level = 3
         if not Logger.level(print_level):
             saved_stdout = suppress_output()
-        
+
         retval = os.system(command)
 
         if not Logger.level(print_level):
@@ -138,19 +150,19 @@ class VerilogYosysBtorParser(ModelParser):
 
         if retval != 0:
             Logger.error("Error in Verilog conversion")
-            
+
         parser = BTOR2Parser()
         ret = parser.parse_file(TMPFILE, config)
 
         if not Logger.level(1):
             os.remove(TMPFILE)
-        
+
         return ret
 
     def get_extensions(self):
         return self.extensions
 
-    @staticmethod        
+    @staticmethod
     def get_extensions():
         return VerilogYosysBtorParser.extensions
 
@@ -159,7 +171,7 @@ class VerilogYosysBtorParser(ModelParser):
 
     def remap_or2an(self, name):
         return name
-    
+
     def parse_string(self, strinput):
         return
 

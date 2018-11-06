@@ -20,7 +20,7 @@ def B2BV(f):
     if get_type(f).is_bv_type():
         return f
     return Ite(f, BV(1,1), BV(0,1))
-    
+
 def BV2B(f):
     if get_type(f).is_bool_type():
         return f
@@ -41,29 +41,40 @@ class SubstituteWalker(IdentityDagWalker):
 
         return self.mgr.Symbol(formula.symbol_name(),
                                formula.symbol_type())
-        
+
 class SymbolsWalker(IdentityDagWalker):
     symbols = set([])
 
     def reset_symbols(self):
         self.symbols = set([])
-    
+
     def walk_symbol(self, formula, args, **kwargs):
         self.symbols.add(formula)
         return formula
-    
+
 def substitute(formula, mapsym, reset_walker=False):
     subwalker = SubstituteWalker()
     subwalker.set_substitute_map(mapsym)
     return subwalker.walk(formula)
 
+free_variables_dic = {}
+
 def get_free_variables(formula):
+    if formula in free_variables_dic:
+        return set([x for x in free_variables_dic[formula]])
     symwalker = SymbolsWalker()
     symwalker.reset_symbols()
     symwalker.walk(formula)
-    return symwalker.symbols
+    ret = symwalker.symbols
+    free_variables_dic[formula] = ret
+    return ret
 
-KEYWORDS = ["not","xor","False","True","next","prev","G","F","X","U","R","O","H","xor","ZEXT","bvcomp"]
+KEYWORDS = ["not","xor",\
+            "False","True",\
+            "next","prev",\
+            "G","F","X","U","R","O","H",\
+            "ZEXT","bvcomp",\
+            "a>>"]
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \
@@ -75,13 +86,16 @@ def quote_names(strformula, prefix=None, replace_ops=True):
         lst_names.append(prefix)
     strformula = strformula.replace("\\","")
 
-    lits = [(len(x), x) for x in list(re.findall("([a-zA-Z][a-zA-|Z_$\.0-9\[\]]*)+", strformula)) if x not in KEYWORDS]
+    for i in range(len(KEYWORDS)):
+        strformula = strformula.replace(" %s "%(KEYWORDS[i]), "@@%d@@"%i)
+
+    lits = [(len(x), x) for x in list(re.findall("([a-zA-Z][a-zA-|Z_$\.0-9\[\]:]*)+", strformula)) if x not in KEYWORDS]
     lits.sort()
     lits.reverse()
     lits = [x[1] for x in lits]
-    
+
     repl_lst = []
-    
+
     for lit in lits:
         newlit = new_string()
         strformula = strformula.replace("\'%s\'"%lit, lit)
@@ -90,6 +104,10 @@ def quote_names(strformula, prefix=None, replace_ops=True):
 
     for (newlit, lit) in repl_lst:
         strformula = strformula.replace(newlit, "\'%s\'"%(".".join(lst_names+[lit])))
+
+    for i in range(len(KEYWORDS)):
+        strformula = strformula.replace("@@%d@@"%i, " %s "%(KEYWORDS[i]))
+
     if replace_ops:
         for op in OPERATORS:
             strformula = strformula.replace(op[0], op[1])
@@ -106,13 +124,13 @@ def mem_access(address, locations, width_idx, idx=0):
 
 class SortingNetwork(object):
     simplify = False
-    
+
     @staticmethod
     def sorting_network(inputs):
         if len(inputs) == 0:
             return []
         return SortingNetwork.sorting_network_int(inputs)
-    
+
     @staticmethod
     def sorting_network_int(inputs):
         if len(inputs) == 1:
@@ -129,7 +147,7 @@ class SortingNetwork(object):
 
         left_outputs = SortingNetwork.sorting_network_int(left_inputs)
         right_outputs = SortingNetwork.sorting_network_int(right_inputs)
-        
+
         outputs = SortingNetwork.merge(left_outputs, right_outputs)
 
         return outputs
@@ -200,9 +218,9 @@ class SortingNetwork(object):
         if is_input1_even and is_input2_even:
             first_output_odd = output_odd[0]
             last_output_even = output_even[-1]
-            
+
             output.append(first_output_odd)
-            
+
             for i in range(len(output_odd) - 1):
                 el_odd = output_odd[i+1]
                 el_even = output_even[i]
@@ -215,7 +233,7 @@ class SortingNetwork(object):
 
         # end of is_input1_even && is_input2_even
 
-        
+
         if is_input1_even and is_input2_odd:
 
             first_output_odd = output_odd[0]
@@ -255,4 +273,3 @@ class SortingNetwork(object):
         assert((len(input1)+len(input2)) == len(output))
 
         return output
-

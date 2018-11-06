@@ -22,6 +22,7 @@ from cosa.utils.generic import suppress_output, restore_output
 
 COMMANDS = []
 COMMANDS.append("read -sysv {FILES} -top {TARGET}")
+COMMANDS.append("set_runtime_flag \"db_verilog_writer_full_simulation\" 1")
 COMMANDS.append("write -format verilog {FILE}")
 
 TMPFILE = "__verific_verilog__.v"
@@ -103,7 +104,7 @@ class SystemVerilogVerificParser(ModelParser):
         ret = parser.parse_file(TMPFILE, config, flags=flags)
         self.model_info = parser.get_model_info()
 
-        if (not Logger.level(1)) and (not config.debug):
+        if (not Logger.level(1)) and (not config.devel):
             os.remove(TMPFILE)
             os.remove(TMPCMDFILE)
         

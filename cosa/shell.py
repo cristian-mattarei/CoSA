@@ -13,6 +13,7 @@
 import sys
 import argparse
 import os
+import multiprocessing
 
 from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
@@ -23,7 +24,7 @@ from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
-from cosa.printers.template import HTSPrinterType
+from cosa.printers.template import HTSPrinterType, TraceValuesBase
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
@@ -32,13 +33,14 @@ from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
 
+DEVEL_OPT = "--devel"
 
 class Config(object):
     parser = None
     strfiles = None
     verbosity = 1
-    debug = False
-    bmc_length = 10
+    devel = False
+    bmc_length = 5
     bmc_length_min = 0
     
     simulate = False
@@ -58,6 +60,7 @@ class Config(object):
     full_trace = False
     trace_vars_change = False
     trace_all_vars = False
+    trace_values_base = TraceValuesBase.get_all()[0]
     prefix = None
     run_passes = True
     translate = None
@@ -78,9 +81,13 @@ class Config(object):
     assume_if_true = False
     model_extension = None
     cardinality = 5
+    coi = False
+    cache_files = False
+    clean_cache = False
 
     printer = None
     strategy = None
+    processes = int(multiprocessing.cpu_count()/2)
     
     def __init__(self):
         HTSPrintersFactory.init_printers()
@@ -195,10 +202,10 @@ def print_problem_result(pbm, config, count=-1):
 def run_problems(problems_file, config, problems=None):
     
     if sys.version_info[0] < 3:
-        if config.debug:
+        if config.devel:
             Logger.warning("This software is not tested for Python 2, we recommend to use Python 3 instead")
         else:
-            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in debug mode")
+            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in developer mode")
 
     reset_env()
     Logger.verbosity = config.verbosity
@@ -268,6 +275,7 @@ def run_verification(config):
     problems.zero_init = config.zero_init
     problems.time = config.time
     problems.trace_all_vars = config.trace_all_vars
+    problems.trace_values_base = config.trace_values_base
     problems.trace_vars_change = config.trace_vars_change
     problems.vcd = config.vcd
     problems.verbosity = config.verbosity
@@ -288,6 +296,7 @@ def run_verification(config):
     elif config.equivalence is not None:
         problem.verification = VerificationType.EQUIVALENCE
         problem.equivalence = config.equivalence
+        problems.equivalence = config.equivalence
     elif config.simulate:
         problem.verification = VerificationType.SIMULATION
     elif config.parametric:
@@ -310,6 +319,11 @@ def main():
     wrapper = TextWrapper(initial_indent=" - ")
     extra_info = []
 
+    devel = False
+    if DEVEL_OPT in sys.argv:
+        sys.argv = [a for a in sys.argv if a != DEVEL_OPT]
+        devel = True
+    
     extra_info.append(bold_text("\nADDITIONAL INFORMATION:"))
     
     clock_behaviors = []
@@ -331,7 +345,7 @@ def main():
     generators = []
     for x in GeneratorsFactory.get_generators():
         wrapper.subsequent_indent = " "*(len(" - \"\": "+x.get_name()))
-        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s)"%(x.get_name(), x.get_desc(), x.get_interface()))))
+        generators.append("\n".join(wrapper.wrap("\"%s\": %s, parameters (%s) values (%s)"%(x.get_name(), x.get_desc(), x.get_interface(), x.get_values()))))
     
     extra_info.append('\nModule generators:\n%s'%("\n".join(generators)))
 
@@ -415,7 +429,7 @@ def main():
                         help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
 
     ver_params.set_defaults(precondition=None)
-    ver_params.add_argument('-c', '--precondition', metavar='<invar>', type=str, required=False,
+    ver_params.add_argument('-r', '--precondition', metavar='<invar>', type=str, required=False,
                        help='invariant properties precondition.')
     
     ver_params.set_defaults(lemmas=None)
@@ -434,12 +448,16 @@ def main():
     
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
-                       help='use indution to prove the satisfiability of the property.')
+                            help="use indution to prove the satisfiability of the property. (Default is \"%s\")"%config.prove)
 
     ver_params.set_defaults(assume_if_true=False)
     ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
-                       help='add true properties as assumptions.')
+                            help="add true properties as assumptions. (Default is \"%s\")"%config.assume_if_true)
 
+    ver_params.set_defaults(coi=False)
+    ver_params.add_argument('--coi', dest='coi', action='store_true',
+                            help="enables Cone of Influence. (Default is \"%s\")"%config.coi)
+    
     ver_params.set_defaults(cardinality=config.cardinality)
     ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=False,
                        help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%config.cardinality)
@@ -450,25 +468,37 @@ def main():
     ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                         help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
 
+    ver_params.set_defaults(processes=config.processes)
+    ver_params.add_argument('-j', dest='processes', metavar="<integer level>", type=int,
+                        help="number of multi-processes for MULTI strategy. (Default is \"%s\")"%config.processes)
+
     ver_params.set_defaults(ninc=False)
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
-                       help='disables incrementality.')
+                            help="disables incrementality. (Default is \"%s\")"%(not config.incremental))
 
     ver_params.set_defaults(solver_name=config.solver_name)
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
-    
+     
     # Encoding parameters
 
     enc_params = parser.add_argument_group('encoding')
 
+    enc_params.set_defaults(cache_files=False)
+    enc_params.add_argument('-c', '--cache-files', dest='cache_files', action='store_true',
+                       help="caches encoded files to speed-up parsing. (Default is \"%s\")"%config.cache_files)
+
+    enc_params.set_defaults(clean_cache=False)
+    enc_params.add_argument('--clean-cache', dest='clean_cache', action='store_true',
+                       help="deletes the stored cache. (Default is \"%s\")"%config.clean_cache)
+    
     enc_params.set_defaults(add_clock=False)
     enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
-                       help='adds clock behavior.')
+                       help="adds clock behavior. (Default is \"%s\")"%config.add_clock)
     
     enc_params.set_defaults(abstract_clock=False)
     enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
-                       help='abstracts the clock behavior.')
+                       help="abstracts the clock behavior. (Default is \"%s\")"%config.abstract_clock)
 
     enc_params.set_defaults(symbolic_init=config.symbolic_init)
     enc_params.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
@@ -505,6 +535,10 @@ def main():
     print_params.set_defaults(full_trace=config.full_trace)
     print_params.add_argument('--full-trace', dest='full_trace', action='store_true',
                        help="sets trace-vars-unchanged and trace-all-vars to True. (Default is \"%s\")"%config.full_trace)
+
+    print_params.set_defaults(trace_values_base=config.trace_values_base)
+    print_params.add_argument('--trace-values-base', metavar='trace_values_base', type=str, nargs='?',
+                       help="sets the style of Bit-Vector values printing. (Default is \"%s\")"%config.trace_values_base)
     
     print_params.set_defaults(prefix=None)
     print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
@@ -512,16 +546,12 @@ def main():
     
     print_params.set_defaults(vcd=False)
     print_params.add_argument('--vcd', dest='vcd', action='store_true',
-                       help='generate traces also in vcd format.')
+                       help="generate traces also in vcd format. (Default is \"%s\")"%config.vcd)
 
     # Translation parameters
 
     trans_params = parser.add_argument_group('translation')
     
-    trans_params.set_defaults(smt2=None)
-    trans_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
-                       help='generates the smtlib2 encoding for a BMC call.')
-
     trans_params.set_defaults(translate=None)
     trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
@@ -534,7 +564,7 @@ def main():
 
     trans_params.set_defaults(skip_solving=False)
     trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',
-                        help='does not call the solver (used with --smt2 or --translate parameters).')
+                        help="does not call the solver. (Default is \"%s\")"%config.skip_solving)
 
     # Debugging
 
@@ -544,14 +574,24 @@ def main():
     deb_params.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
                         help="verbosity level. (Default is \"%s\")"%config.verbosity)
 
-    deb_params.set_defaults(debug=False)
-    deb_params.add_argument('--debug', dest='debug', action='store_true',
-                       help='enables debug mode.')
-
     deb_params.set_defaults(time=False)
     deb_params.add_argument('--time', dest='time', action='store_true',
-                       help='prints time for every verification.')
+                            help="prints time for every verification. (Default is \"%s\")"%config.time)
     
+    deb_params.set_defaults(devel=False)
+    deb_params.add_argument('--devel', dest='devel', action='store_true',
+                            help="enables developer mode. (Default is \"%s\")"%config.devel)
+
+    # Developers
+
+    if devel:
+        config.devel = True
+        devel_params = parser.add_argument_group('developer')
+
+        devel_params.set_defaults(smt2=None)
+        devel_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+                           help='generates the smtlib2 tracing file for each solver call.')
+
     args = parser.parse_args()
 
     config.strfiles = args.input_files
@@ -570,12 +610,13 @@ def main():
     config.bmc_length = args.bmc_length
     config.bmc_length_min = args.bmc_length_min
     config.full_trace = args.full_trace
+    config.trace_values_base = args.trace_values_base
     config.trace_vars_change = args.trace_vars_change
     config.trace_all_vars = args.trace_all_vars
     config.prefix = args.prefix
     config.translate = args.translate
-    config.smt2file = args.smt2
     config.strategy = args.strategy
+    config.processes = args.processes
     config.skip_solving = args.skip_solving
     config.abstract_clock = args.abstract_clock
     config.boolean = args.boolean
@@ -589,10 +630,15 @@ def main():
     config.generators = args.generators
     config.clock_behaviors = args.clock_behaviors
     config.assume_if_true = args.assume_if_true
+    config.coi = args.coi
     config.model_extension = args.model_extension
     config.cardinality = args.cardinality
-    config.debug = args.debug
+    config.cache_files = args.cache_files
+    config.clean_cache = args.clean_cache
 
+    if devel:
+        config.smt2file = args.smt2
+    
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -603,7 +649,7 @@ def main():
         Logger.error("Printer \"%s\" not found"%(args.printer))
         
     if args.problems:
-        if args.debug:
+        if config.devel:
             sys.exit(run_problems(args.problems, config))
         else:
             try:
@@ -631,7 +677,7 @@ def main():
 
     Logger.error_raise_exept = True
     
-    if args.debug:
+    if config.devel:
         sys.exit(run_verification(config))
     else:
         try:

@@ -49,10 +49,10 @@ strategy: MULTI
 prove: True
 expected: False
 
-[Counters-EQ-INT]
-description: "Two counters are always equal"
-formula: count0.r.reg0.out = count1.r.reg0.out
-verification: safety
-prove: True
-strategy: INT
-expected: False
+# [Counters-EQ-INT]
+# description: "Two counters are always equal"
+# formula: count0.r.reg0.out = count1.r.reg0.out
+# verification: safety
+# prove: True
+# strategy: INT
+# expected: False

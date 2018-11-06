@@ -8,6 +8,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+import pyparsing
+
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
 from pysmt.typing import BOOL, BVType
@@ -18,7 +21,8 @@ from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables
 from cosa.encoders.template import ModelParser
 
-import math
+PYPARSING_220 = "2.2.0"
+PYPARSING_230 = "2.3.0"
 
 T_NL = "\n"
 
@@ -64,8 +68,11 @@ class ExplicitTSParser(ModelParser):
     
     state_id = 0
 
+    pyparsing_version = PYPARSING_220
+
     def __init__(self):
         self.parser = self.__init_parser()
+        self.pyparsing_version = pyparsing.__version__
 
     def parse_file(self, strfile, config, flags=None):
         with open(strfile, "r") as f:
@@ -142,12 +149,20 @@ class ExplicitTSParser(ModelParser):
                 if T_I not in states:
                     states[T_I] = TRUE()
 
-                if line.init.varname != "":
-                    (value, typev) = self.__get_value(line.init.value)
-                    ivar = def_var(line.init.varname, typev)
+                if self.pyparsing_version == PYPARSING_220:
+                    init_varname = line.init.varname
+                    init_value = line.init.value
+                else:
+                    dline = dict(line)
+                    init_varname = dline[P_VARNAME] if P_VARNAME in dline else ""
+                    init_value = dline[P_VALUE]
+                    
+                if init_varname != "":
+                    (value, typev) = self.__get_value(init_value)
+                    ivar = def_var(init_varname, typev)
                     state = EqualsOrIff(ivar, value)
                 else:
-                    state = TRUE() if line.init.value == T_TRUE else FALSE()
+                    state = TRUE() if init_value == T_TRUE else FALSE()
                 
                 states[T_I] = And(states[T_I], state)
 
@@ -156,18 +171,27 @@ class ExplicitTSParser(ModelParser):
                 
             state = TRUE()
             if line.state:
-                sname = T_S + line.state.id
-                if (line.state.varname != ""):
-                    (value, typev) = self.__get_value(line.state.value)
-                    ivar = def_var(line.state.varname, typev)
+                if self.pyparsing_version == PYPARSING_220:
+                    sname = T_S + line.state.id
+                    state_varname = line.state.varname
+                    state_value = line.state.value
+                else:
+                    dline = dict(line)
+                    sname = T_S + dline[P_ID]
+                    state_varname = dline[P_VARNAME] if P_VARNAME in dline else ""
+                    state_value = dline[P_VALUE]
+
+                if (state_varname != ""):
+                    (value, typev) = self.__get_value(state_value)
+                    ivar = def_var(state_varname, typev)
                     state = EqualsOrIff(ivar, value)
-                    assval = (sname, line.state.varname)
+                    assval = (sname, state_varname)
                     if assval not in assigns:
                         assigns.add(assval)
                     else:
-                        Logger.error("Double assignment for variable \"%s\" at state \"%s\""%(line.state.varname, sname))
+                        Logger.error("Double assignment for variable \"%s\" at state \"%s\""%(state_varname, sname))
                 else:
-                    state = TRUE() if line.state.value == T_TRUE else FALSE()
+                    state = TRUE() if state_value == T_TRUE else FALSE()
                         
                 if sname not in states:
                     states[sname] = TRUE()
@@ -182,7 +206,9 @@ class ExplicitTSParser(ModelParser):
         states[T_I] = EqualsOrIff(stateid_var, BV(0, stateid_width))
         
         count = 1
-        for state in states:
+        state_items = list(states.keys())
+        state_items.sort()
+        for state in state_items:
             if state == T_I:
                 continue
             invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(count, stateid_width)), states[state]))
@@ -196,9 +222,16 @@ class ExplicitTSParser(ModelParser):
                 continue
                 
             if line.trans:
-                if states[line.trans.start] not in transdic:
-                    transdic[states[line.trans.start]] = []
-                transdic[states[line.trans.start]].append(states[line.trans.end])
+                if self.pyparsing_version == PYPARSING_220:
+                    line_start = line.trans.start
+                    line_end = line.trans.end
+                else:
+                    line_start = dict(line)[P_START]
+                    line_end = dict(line)[P_END]
+                    
+                if states[line_start] not in transdic:
+                    transdic[states[line_start]] = []
+                transdic[states[line_start]].append(states[line_end])
 
         for transition in transdic:
             (start, end) = (transition, transdic[transition])

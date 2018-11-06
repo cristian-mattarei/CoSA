@@ -9,8 +9,9 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
-    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, Ite, BVZExt, BVXor, BVConcat, get_type, BVSub, \
-    Xor, Select, Store, BVComp, simplify, BVLShl, BVAShr, BVLShr
+    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
+    Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
+    BVLShl, BVAShr, BVLShr
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import HTS, TS
@@ -47,6 +48,10 @@ UGT="ugt"
 UGTE="ugte"
 ULT="ult"
 ULTE="ulte"
+SGT="sgt"
+SGTE="sgte"
+SLT="slt"
+SLTE="slte"
 AND="and"
 XOR="xor"
 NAND="nand"
@@ -57,6 +62,7 @@ NOT="not"
 REDOR="redor"
 REDAND="redand"
 UEXT="uext"
+SEXT="sext"
 CONCAT="concat"
 SUB="sub"
 SLL="sll"
@@ -67,6 +73,9 @@ INIT="init"
 NEXT="next"
 CONSTRAINT="constraint"
 BAD="bad"
+ASSERTINFO="btor-assert"
+
+special_char_replacements = {"$": "", "\\": "."}
 
 class BTOR2Parser(ModelParser):
     parser = None
@@ -115,6 +124,12 @@ class BTOR2Parser(ModelParser):
 
         invar_props = []
         ltl_props = []
+
+        prop_count = 0
+
+        # clean string input, remove special characters from names
+        for sc, rep in special_char_replacements.items():
+            strinput = strinput.replace(sc, rep)
 
         def getnode(nid):
             node_covered.add(nid)
@@ -232,6 +247,9 @@ class BTOR2Parser(ModelParser):
             if ntype == UEXT:
                 nodemap[nid] = BVZExt(B2BV(getnode(nids[1])), int(nids[2]))
 
+            if ntype == SEXT:
+                nodemap[nid] = BVSExt(B2BV(getnode(nids[1])), int(nids[2]))
+
             if ntype == OR:
                 nodemap[nid] = binary_op(BVOr, Or, getnode(nids[1]), getnode(nids[2]))
 
@@ -252,6 +270,18 @@ class BTOR2Parser(ModelParser):
 
             if ntype == ULTE:
                 nodemap[nid] = BVULE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SGT:
+                nodemap[nid] = BVSGT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SGTE:
+                nodemap[nid] = BVSGE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SLT:
+                nodemap[nid] = BVSLT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SLTE:
+                nodemap[nid] = BVSLE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == EQ:
                 nodemap[nid] = BVComp(getnode(nids[1]), getnode(nids[2]))
@@ -300,7 +330,17 @@ class BTOR2Parser(ModelParser):
 
             if ntype == BAD:
                 nodemap[nid] = getnode(nids[0])
-                invar_props.append(Not(BV2B(getnode(nid))))
+
+                if ASSERTINFO in line:
+                    assert_name = 'embedded_assertion_%s'%nids[3]
+                    description = "Embedded assertion at line {1} in {0}".format(*nids[-1].split(":"))
+                else:
+                    assert_name = 'embedded_assertion_%i'%prop_count
+                    description = 'Embedded assertion number %i'%prop_count
+                    prop_count += 1
+
+                # Following problem format (name, description, strformula)
+                invar_props.append((assert_name, description, str(Not(BV2B(getnode(nid))))))
 
             if nid not in nodemap:
                 Logger.error("Unknown node type \"%s\""%ntype)
