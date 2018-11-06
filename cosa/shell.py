@@ -40,7 +40,7 @@ class Config(object):
     strfiles = None
     verbosity = 1
     devel = False
-    bmc_length = 10
+    bmc_length = 5
     bmc_length_min = 0
     
     simulate = False
