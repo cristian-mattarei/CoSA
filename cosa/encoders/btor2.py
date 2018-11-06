@@ -9,8 +9,9 @@
 # limitations under the License.
 
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
-    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, \
-    BVSub, Xor, Select, Store, BVComp, simplify, BVLShl, BVAShr, BVLShr
+    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
+    Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
+    BVLShl, BVAShr, BVLShr
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import HTS, TS
@@ -47,6 +48,10 @@ UGT="ugt"
 UGTE="ugte"
 ULT="ult"
 ULTE="ulte"
+SGT="sgt"
+SGTE="sgte"
+SLT="slt"
+SLTE="slte"
 AND="and"
 XOR="xor"
 NAND="nand"
@@ -265,6 +270,18 @@ class BTOR2Parser(ModelParser):
 
             if ntype == ULTE:
                 nodemap[nid] = BVULE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SGT:
+                nodemap[nid] = BVSGT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SGTE:
+                nodemap[nid] = BVSGE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SLT:
+                nodemap[nid] = BVSLT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SLTE:
+                nodemap[nid] = BVSLE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == EQ:
                 nodemap[nid] = BVComp(getnode(nids[1]), getnode(nids[2]))
