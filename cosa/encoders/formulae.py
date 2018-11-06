@@ -49,6 +49,7 @@ class StringParser(object):
         SyntacticSugarFactory.init_sugar(encoder_config)
     
     def parse_string(self, string):
+        print(string)
         return HRParser().parse(string)
 
     def remap_or2an(self, literal):
