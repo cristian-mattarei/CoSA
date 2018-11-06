@@ -1612,10 +1612,11 @@ class VerilogSTSWalker(VerilogWalker):
                 mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
                 idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
 
-                # FIXME: TODO: do the right thing for memories
-                # For now, can I just pick a representative?
                 if mem_vars:
+                    # FIXME: TODO: do the right thing for memories
+                    # For now, can I just pick a representative?
                     var = mem_vars[0]
+                    raise NotImplementedError("Not handling memories correctly yet")
                 elif fv:
                     var = fv.pop()
                 else:
@@ -1667,13 +1668,10 @@ class VerilogSTSWalker(VerilogWalker):
 
         # collected is { var : list[ (ASSIGN/DEFINE, conditions where it holds) ] }
         collected = defaultdict(list)
-        define_frame_conditions = defaultdict(list)
 
         for stmt in statements:
             frame_conditions = []
-            conditions = []
 
-            # TODO: Clean this up
             if stmt.is_and():
                 statements += list(stmt.args())
                 continue
@@ -1685,34 +1683,25 @@ class VerilogSTSWalker(VerilogWalker):
                 # unguarded DEFINE
                 # SSA semantics so overwrites previous defines
                 collected[left] = [(stmt, TRUE())]
-                define_frame_conditions[left] = []
 
             else_branches = []
             last_cond = []
 
-            to_process = [stmt]
+            # Format: (stmt:FNode, condition:FNode type BOOL)
+            to_process = [(stmt, TRUE())]
             while to_process:
-                term, to_process = to_process[0], to_process[1:]
-
-                # TODO: Check that this is correct!
-                if else_branches and term == else_branches[-1]:
-                    else_branches.pop()
-                    # in an else branch, convert condition to frame condition
-                    frame_conditions.append(Not(last_cond[0]))
-                    last_cond = [conditions.pop()]
-
-#                last_cond = [conditions[-1]] if len(conditions) else []
+                (term, condition), to_process = to_process[0], to_process[1:]
 
                 if term.node_type() == ASSIGN:
                     left, right = term.args()
                     var = get_var(left)
-                    cond = simplify_assign_list(And(frame_conditions + last_cond))
+                    cond = simplify_assign_list(And(frame_conditions + [condition]))
                     collected[left].append((term, cond))
 
                 elif term.node_type() == DEFINE:
                     left, right = term.args()
                     var = get_var(left)
-                    cond = simplify_assign_list(And(frame_conditions + last_cond))
+                    cond = simplify_assign_list(And(frame_conditions + [condition]))
                     # This might not be necessary
                     # Depends on types of statements passed up from blocks
                     if cond == TRUE():
@@ -1721,34 +1710,26 @@ class VerilogSTSWalker(VerilogWalker):
                     else:
                         collected[left].append((term, cond))
 
-                    # keep track of overall frame conditions per variable
-                    # for SSA of defines
-
-                    # TODO: Simplify this negated case
-                    # want to handle (s = 0 | s = 1 | s != 2) --> s = 2
-                    if last_cond:
-                        # TODO: Verify that it's last_cond and not all of cond
-                        define_frame_conditions[left].append(Not(last_cond[0]))
-
                 elif term.is_and():
                     # prepend to list (want to explore this first)
-                    to_process = list(term.args()) + to_process
+                    skip_queue_list = [(a, condition) for a in term.args()]
+                    to_process = skip_queue_list + to_process
                 elif term.is_ite():
-                    # TODO: Check if this can be removed and maybe don't use a list for last_cond
-                    if last_cond:
-                        frame_conditions.append(Not(last_cond[0]))
-                    to_process += term.args()[1:]
-                    last_cond = [term.args()[0]]
-                    conditions.append(term.args()[0])
-                    # keep track of else_branches (need to move condition to frame conditions)
-                    else_branches.append(term.args()[2])
+                    if condition != TRUE():
+                        frame_conditions.append(Not(condition))
+
+                    new_cond, ifb, elseb = term.args()
+                    to_process.append((ifb, new_cond))
+                    to_process.append((elseb, Not(new_cond)))
+
                 elif term.is_implies():
-                    if last_cond:
-                        frame_conditions.append(Not(last_cond[0]))
+                    if condition != TRUE():
+                        frame_conditions.append(Not(condition))
+
+                    new_cond = term.args()[0]
                     # prepend to list, need to process next
-                    to_process = [term.args()[1]] + to_process
-                    last_cond = [term.args()[0]]
-                    conditions.append(term.args()[0])
+                    to_process = [(term.args()[1], new_cond)] + to_process
+
                 elif term.is_bool_constant():
                     continue
                 else:
