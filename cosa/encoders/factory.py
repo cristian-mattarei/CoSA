@@ -8,8 +8,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import shutil
+
 from cosa.utils.formula_mngm import KEYWORDS
+from cosa.utils.generic import suppress_output, restore_output
 from cosa.utils.logger import Logger
+
+
+def verific_available():
+    if shutil.which("verific") is None:
+        return False
+
+    print_level = 3
+    if not Logger.level(print_level):
+        saved_stdout = suppress_output()
+
+    retval = os.system("verific -h")
+
+    if not Logger.level(print_level):
+        restore_output(saved_stdout)
+
+    return (retval == 0)
 
 class SyntacticSugarFactory(object):
     sugars = []
@@ -18,7 +38,7 @@ class SyntacticSugarFactory(object):
     @staticmethod
     def init_sugar(encoder_config):
         from cosa.encoders.sugar import Posedge, Negedge, Change, NoChange, MemAccess, Ones, Zero, Dec2BV
-    
+
         SyntacticSugarFactory.register_sugar(MemAccess(encoder_config))
         SyntacticSugarFactory.register_sugar(Posedge(encoder_config))
         SyntacticSugarFactory.register_sugar(Negedge(encoder_config))
@@ -27,11 +47,11 @@ class SyntacticSugarFactory(object):
         SyntacticSugarFactory.register_sugar(Ones(encoder_config))
         SyntacticSugarFactory.register_sugar(Zero(encoder_config))
         SyntacticSugarFactory.register_sugar(Dec2BV(encoder_config))
-        
+
         for name in SyntacticSugarFactory.sugar_names():
             if name not in KEYWORDS:
                 KEYWORDS.append(name)
-        
+
     @staticmethod
     def register_sugar(sugar):
         if sugar.get_name() not in dict(SyntacticSugarFactory.sugars):
@@ -40,7 +60,7 @@ class SyntacticSugarFactory(object):
     @staticmethod
     def sugar_names():
         return [x[0] for x in SyntacticSugarFactory.sugars]
-    
+
     @staticmethod
     def get_sugars():
         SyntacticSugarFactory.init_sugar(None)
@@ -49,15 +69,17 @@ class SyntacticSugarFactory(object):
 class VerilogEncoder(object):
     INTERNAL = 0
     YOSYS_BTOR = 1
-    YOSYS_COREIR = 2
+    YOSYS_BTOR_VERIFIC = 2
+    YOSYS_COREIR = 3
 
 VERILOG_INTERNAL = VerilogEncoder.INTERNAL
 VERILOG_YOSYS_BTOR = VerilogEncoder.YOSYS_BTOR
+VERILOG_YOSYS_BTOR_VERIFIC = VerilogEncoder.YOSYS_BTOR_VERIFIC
 VERILOG_YOSYS_COREIR = VerilogEncoder.YOSYS_COREIR
-        
+
 class ModelParsersFactory(object):
     parsers = []
-    verilog_encoder = VerilogEncoder.INTERNAL
+    verilog_encoder = VerilogEncoder.YOSYS_BTOR_VERIFIC if verific_available() else Verilog.Encoder.YOSYS_BTOR
 
     # Additional parsers should be registered here #
     @staticmethod
@@ -69,7 +91,7 @@ class ModelParsersFactory(object):
         from cosa.encoders.verilog_yosys import VerilogYosysBtorParser
         from cosa.encoders.verilog_hts import VerilogHTSParser
         from cosa.encoders.systemverilog_verific import SystemVerilogVerificParser
-        
+
         ModelParsersFactory.register_parser(CoreIRParser())
         ModelParsersFactory.register_parser(SymbolicTSParser())
         ModelParsersFactory.register_parser(SymbolicSimpleTSParser())
@@ -79,12 +101,16 @@ class ModelParsersFactory(object):
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
             ModelParsersFactory.register_parser(VerilogHTSParser())
-        
+
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_BTOR:
-            ModelParsersFactory.register_parser(VerilogYosysBtorParser())
+            ModelParsersFactory.register_parser(VerilogYosysBtorParser(verific=False))
+
+        if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_BTOR_VERIFIC:
+            ModelParsersFactory.register_parser(VerilogYosysBtorParser(verific=True))
+
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_COREIR:
-            Loggerl.error("Not supported")
-        
+            Logger.error("Not supported")
+
     @staticmethod
     def register_parser(parser):
         if parser.get_name() not in dict(ModelParsersFactory.parsers):
@@ -110,7 +136,7 @@ class GeneratorsFactory(object):
     @staticmethod
     def init_generators():
         from cosa.encoders.generators import ScoreBoardGenerator, FixedScoreBoardGenerator, RandomGenerator
-        
+
         GeneratorsFactory.register_generator(FixedScoreBoardGenerator())
         GeneratorsFactory.register_generator(ScoreBoardGenerator())
         GeneratorsFactory.register_generator(RandomGenerator())
@@ -143,11 +169,11 @@ class ClockBehaviorsFactory(object):
     @staticmethod
     def init_clockbehaviors():
         from cosa.encoders.clock import DeterministicClockBehavior, ConstantClockBehavior, NondeterministicClockBehavior
-        
+
         ClockBehaviorsFactory.register_clockbehavior(DeterministicClockBehavior(), default=True)
         ClockBehaviorsFactory.register_clockbehavior(ConstantClockBehavior(), default_abstract=True)
         ClockBehaviorsFactory.register_clockbehavior(NondeterministicClockBehavior(), default_multi=True)
-        
+
     @staticmethod
     def get_default():
         return ClockBehaviorsFactory.default_clockbehavior
@@ -155,11 +181,11 @@ class ClockBehaviorsFactory(object):
     @staticmethod
     def get_default_multi():
         return ClockBehaviorsFactory.default_multi_clockbehavior
-    
+
     @staticmethod
     def get_default_abstract():
         return ClockBehaviorsFactory.default_abstract_clockbehavior
-    
+
     @staticmethod
     def register_clockbehavior(clockbehavior, default=False, default_abstract=False, default_multi=False):
         if clockbehavior.get_name() not in dict(ClockBehaviorsFactory.clockbehaviors):
@@ -171,7 +197,7 @@ class ClockBehaviorsFactory(object):
             if default_multi:
                 ClockBehaviorsFactory.default_multi_clockbehavior = clockbehavior
 
-                
+
     @staticmethod
     def clockbehavior_by_name(name):
         ClockBehaviorsFactory.init_clockbehaviors()

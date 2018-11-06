@@ -70,6 +70,8 @@ CONSTRAINT="constraint"
 BAD="bad"
 ASSERTINFO="btor-assert"
 
+special_char_replacements = {"$": "", "\\": "."}
+
 class BTOR2Parser(ModelParser):
     parser = None
     extensions = ["btor2","btor"]
@@ -119,6 +121,10 @@ class BTOR2Parser(ModelParser):
         ltl_props = []
 
         prop_count = 0
+
+        # clean string input, remove special characters from names
+        for sc, rep in special_char_replacements.items():
+            strinput = strinput.replace(sc, rep)
 
         def getnode(nid):
             node_covered.add(nid)
