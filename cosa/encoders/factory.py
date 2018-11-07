@@ -16,18 +16,26 @@ from cosa.utils.generic import suppress_output, restore_output
 from cosa.utils.logger import Logger
 
 
-def verific_available():
-    if shutil.which("verific") is None:
+def available(toolname, optiongrep=None):
+    if shutil.which(toolname) is None:
         return False
 
     print_level = 3
     if not Logger.level(print_level):
-        saved_stdout = suppress_output()
+        saved_status = suppress_output()
 
-    retval = os.system("verific -h")
+    # assuming there's a -h for the program
+    # yosys and verific have it
+    retval = os.system("{} -h".format(toolname))
 
     if not Logger.level(print_level):
-        restore_output(saved_stdout)
+        restore_output(saved_status)
+
+    if optiongrep is not None:
+        with open(saved_status[0].name, 'r') as f:
+            output = f.read()
+            if optiongrep not in output:
+                return False
 
     return (retval == 0)
 
@@ -79,7 +87,14 @@ VERILOG_YOSYS_COREIR = VerilogEncoder.YOSYS_COREIR
 
 class ModelParsersFactory(object):
     parsers = []
-    verilog_encoder = VerilogEncoder.YOSYS_BTOR_VERIFIC if verific_available() else Verilog.Encoder.YOSYS_BTOR
+    yosys_available = available("yosys")
+    yosys_verific_available = available("yosys", optiongrep="Verific")
+    if yosys_verific_available:
+        verilog_encoder = VerilogEncoder.YOSYS_BTOR_VERIFIC
+    elif yosys_available:
+        verilog_encoder = VerilogEncoder.YOSYS_BTOR
+    else:
+        verilog_encoder = VerilogEncoder.INTERNAL
 
     # Additional parsers should be registered here #
     @staticmethod

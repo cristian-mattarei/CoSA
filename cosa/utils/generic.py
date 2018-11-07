@@ -60,7 +60,7 @@ def new_string():
     return STRING_PATTERN%string_id
 
 def suppress_output():
-    devnull = open('/dev/null', 'w')
+    devnull = open('/tmp/tmp.out', 'w')
     oldstdout = os.dup(1)
     os.dup2(devnull.fileno(), 1)
     return (devnull, oldstdout)
