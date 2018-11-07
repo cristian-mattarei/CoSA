@@ -857,7 +857,6 @@ class VerilogSTSWalker(VerilogWalker):
         for var in possible_ass_vars:
             if var not in g_always:
                 continue
-            # TODO: Double check this: Removed line which if var not in g_always, fixes the value to a constant. Not needed/wrong right?
 
             for beh in g_always[var]:
                 effect, condition = self.assign_define_substitute(beh[0])[0], beh[1]
@@ -1295,15 +1294,6 @@ class VerilogSTSWalker(VerilogWalker):
             lft_width = get_type(left).width
             rgt_width = get_type(right).width
 
-            # TODO: Get rid of this when you're sure you don't need it
-            # if lft_width > rgt_width:
-            #     width_dif = lft_width - rgt_width
-            #     fv = get_free_variables(right)
-            #     right = right.substitute(dict([(v, BVConcat(BV(0, width_dif), v)) for v in fv]))
-
-            # lft_width = get_type(left).width
-            # rgt_width = get_type(right).width
-
             left, right = vlog_match_widths(left, right)
 
         self.add_ftrans(B2BV(left), [(TRUE(), B2BV(right))])
@@ -1725,115 +1715,6 @@ class VerilogSTSWalker(VerilogWalker):
 
         return assign_define_conditions
 
-    def collect_conditions_rec(self, formula, ext_function, assign_list=[], collected={}):
-
-        if formula.is_ite():
-            listlen = len(assign_list)
-            condition, then_b, else_b = formula.args()[0], formula.args()[1], formula.args()[2]
-            (assign_list, collected) = self.collect_conditions_rec(then_b, ext_function, \
-                                                                   assign_list[:listlen]+[condition], collected)
-            (assign_list, collected) = self.collect_conditions_rec(else_b, ext_function, \
-                                                                   assign_list[:listlen]+[Not(condition)], collected)
-
-        if formula.is_implies():
-            condition, then_b = formula.args()[0], formula.args()[1]
-            (assign_list, collected) = self.collect_conditions_rec(then_b, ext_function, \
-                                                                   assign_list+[condition], collected)
-
-        if formula.is_and():
-            lstlen = len(assign_list)
-
-            for arg in formula.args():
-                (assign_list, collected) = self.collect_conditions_rec(arg, ext_function, assign_list[:lstlen], collected)
-
-        (assign_list, collected) = ext_function(formula, assign_list, collected)
-
-        return (assign_list, collected)
-
-    def collect_assign_conditions(self, formula):
-
-        # Reduces an assignment (var = 0) & (var != 1) & (var != 2) .. into (var = 0)
-        def simplify_assign_list(assign_list):
-            cp = list(conjunctive_partition(assign_list))
-            equals = [f for f in cp if f.is_equals()]
-            if len(equals) != 1:
-                if cp[0].args():
-                    # Managing condition where all assignments are negated
-                    get_eq_val = lambda f: f.args()[0] if f.args()[0].is_bv_constant() else f.args()[1]
-                    get_eq_var = lambda f: f.args()[0] if not f.args()[0].is_bv_constant() else f.args()[1]
-                    values = [get_eq_val(f.args()[0]).constant_value() for f in cp]
-                    if len(values) == len(range(max(values)+1)):
-                        refvar = get_eq_var(cp[0].args()[0])
-                        return BVUGT(refvar, BV(max(values), refvar.symbol_type().width))
-
-                return assign_list
-
-            refel = equals[0]
-            left, right = refel.args()[0], refel.args()[1]
-            pos_var = left if left.is_symbol() else right
-            pos_val = right if left.is_symbol() else left
-
-            ret = [refel]
-            for neq in [f.args()[0] for f in cp if f.is_not()]:
-                if not neq.is_equals():
-                    return assign_list
-
-                left, right = neq.args()[0], neq.args()[1]
-                neg_var = left if left.is_symbol() else right
-                neg_val = right if left.is_symbol() else left
-
-                if not((pos_var == neg_var) & (pos_val != neg_val)):
-                    ret.append(neq)
-
-            return And(ret)
-
-        # External function for collect_conditions_rec. Symbols collection
-        def var_fun(formula, assign_list, collected):
-            if formula.is_symbol():
-                ref_var = TS.get_ref_var(formula)
-                if ref_var not in collected:
-                    collected[ref_var] = []
-                collected[ref_var].append((formula, And(assign_list)))
-            return (assign_list, collected)
-
-        # External function for collect_conditions_rec. Assigns and Defines collection
-        def assign_define_fun(formula, assign_list, collected):
-            if len(formula.args()) == 0:
-                return (assign_list, collected)
-
-            left = formula.args()[0]
-            if formula.node_type() in [ASSIGN, DEFINE]:
-                if not left.is_symbol():
-                    fv = get_free_variables(left)
-                    mem_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) in self.memlist]
-                    idx_vars = [TS.get_ref_var(v) for v in fv if TS.get_ref_var(v) not in self.memlist]
-
-                    if left.is_bv_extract():
-                        left = left.args()[0]
-
-                    var_conditions = self.collect_conditions_rec(left, var_fun, assign_list=[], collected={})[1]
-
-                    lstlen = len(assign_list)
-                    for var, conditions in var_conditions.items():
-                        for cond in conditions:
-                            assign_list = assign_list[:lstlen]
-                            newcond = And(cond[1])
-                            newcond = simplify_assign_list(newcond)
-                            assign_list.append(newcond)
-                            if var not in collected:
-                                collected[var] = []
-                            collected[var].append((formula, And(assign_list)))
-                else:
-                    ref_var = TS.get_ref_var(left)
-                    if ref_var not in collected:
-                        collected[ref_var] = []
-                    collected[ref_var].append((formula, And(assign_list)))
-
-            return (assign_list, collected)
-
-        (assign_list, collected) = self.collect_conditions_rec(formula, assign_define_fun, assign_list=[], collected={})
-
-        return collected
 
 class IteSubstituteWalker(IdentityDagWalker):
 
