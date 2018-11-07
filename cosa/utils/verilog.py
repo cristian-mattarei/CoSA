@@ -8,7 +8,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import BV, get_type, get_free_variables
+from typing import Tuple
+
+from pysmt.shortcuts import BV, get_type, get_free_variables, simplify
 from pysmt.shortcuts import  BVExtract, BVAdd, BVLShl, BVMul, BVZExt
 from pysmt.fnode import FNode
 
@@ -17,14 +19,7 @@ from cosa.utils.logger import Logger
 # Verilog defaults to size 32 bit vectors
 DEFAULTINT = 32
 
-# TODO: Complete this, might need a walker? Because can't just tell from top op, could be a plus or multiply or something
-def signed(v):
-    '''
-    Checks if this is a signed bit-vector constant, symbol or op
-    '''
-    raise NotImplementedError
-
-def vlog_match_widths(left, right, extend=False):
+def vlog_match_widths(left:FNode, right:FNode, extend=False) -> Tuple[FNode, FNode]:
     '''
     Match the bit-widths for assignment using the Verilog standard semantics.
 
@@ -41,7 +36,7 @@ def vlog_match_widths(left, right, extend=False):
     left_width, right_width = left.bv_width(), right.bv_width()
 
     if left_width == right_width:
-        return left, right
+        pass
     elif left_width > right_width:
         # TODO: Check signed-ness of right-side
 
@@ -75,14 +70,15 @@ def vlog_match_widths(left, right, extend=False):
         if left_width > right_width:
             right = BVZExt(right, left_width-right_width)
 
-        return left, right
     else:
         if extend:
-            return BVZExt(left, right_width-left_width), right
+            left = BVZExt(left, right_width-left_width)
         else:
-            return left, BVExtract(right, 0, left_width-1)
+            right = BVExtract(right, 0, left_width-1)
 
-def get_const(val, match=None):
+    return simplify(left), simplify(right)
+
+def get_const(val:FNode, match:FNode =None) -> FNode:
     '''
     Returns a bit-vector constant based on the input value.
 
