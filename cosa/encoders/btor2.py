@@ -8,6 +8,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
     Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
     Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
@@ -22,6 +24,7 @@ from cosa.utils.generic import bin_to_dec
 from cosa.encoders.template import ModelParser
 
 NL = "\n"
+COLON_REP = "_c_"
 
 SN="N%s"
 
@@ -75,7 +78,7 @@ CONSTRAINT="constraint"
 BAD="bad"
 ASSERTINFO="btor-assert"
 
-special_char_replacements = {"$": "", "\\": "."}
+special_char_replacements = {"$": "", "\\": ".", ":": COLON_REP}
 
 class BTOR2Parser(ModelParser):
     parser = None
@@ -332,8 +335,9 @@ class BTOR2Parser(ModelParser):
                 nodemap[nid] = getnode(nids[0])
 
                 if ASSERTINFO in line:
-                    assert_name = 'embedded_assertion_%s'%nids[3]
-                    description = "Embedded assertion at line {1} in {0}".format(*nids[-1].split(":"))
+                    filename_lineno = os.path.basename(nids[3])
+                    assert_name = 'embedded_assertion_%s'%filename_lineno
+                    description = "Embedded assertion at line {1} in {0}".format(*filename_lineno.split(COLON_REP))
                 else:
                     assert_name = 'embedded_assertion_%i'%prop_count
                     description = 'Embedded assertion number %i'%prop_count
