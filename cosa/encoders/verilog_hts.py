@@ -1166,29 +1166,22 @@ class VerilogSTSWalker(VerilogWalker):
 
         return BVLShl(left, right)
 
+    # TODO: Handle signed comparisons
+
     def LessThan(self, modulename, el, args):
         left, right = args[0], args[1]
 
         if (left == None) or (right == None):
             return False
 
-        # TODO: Fix this, need to be more principled about when things are integers
-        # infer signed comparison if there's an integer
-        signed = False
-
         if (type(left) == int) and (type(right) == int):
             return left < right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
-            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
-            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
-
-        if signed:
-            return BVSLT(left, right)
 
         return BVULT(left, right)
 
@@ -1198,23 +1191,14 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
-        # TODO: Fix this, need to be more principled about when things are integers
-        # infer signed comparison if there's an integer
-        signed = False
-
         if (type(left) == int) and (type(right) == int):
             return left <= right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
-            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
-            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
-
-        if signed:
-            return BVSLE(left, right)
 
         return BVULE(left, right)
 
@@ -1224,23 +1208,14 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
-        # TODO: Fix this, need to be more principled about when things are integers
-        # infer signed comparison if there's an integer
-        signed = False
-
         if (type(left) == int) and (type(right) == int):
             return left > right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
-            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
-            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
-
-        if signed:
-            return BVSGT(left, right)
 
         return BVUGT(left, right)
 
@@ -1250,23 +1225,14 @@ class VerilogSTSWalker(VerilogWalker):
         if (left == None) or (right == None):
             return False
 
-        # TODO: Fix this, need to be more principled about when things are integers
-        # infer signed comparison if there's an integer
-        signed = False
-
         if (type(left) == int) and (type(right) == int):
             return left >= right
         if (type(left) == int) and (type(right) == FNode):
             left = BV(left, get_type(right).width)
-            signed = True
         if (type(right) == int) and (type(left) == FNode):
             right = BV(right, get_type(left).width)
-            signed = True
 
         left, right = vlog_match_widths(left, right, extend=True)
-
-        if signed:
-            return BVSGE(left, right)
 
         return BVUGE(left, right)
 
