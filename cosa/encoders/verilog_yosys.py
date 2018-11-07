@@ -53,6 +53,8 @@ CMD = "yosys"
 
 INCLUDE = "`include"
 
+YOSYSERRLOG = "yosys-err.log"
+
 KEYWORDS = ""
 KEYWORDS += "module wire assign else reg always endmodule end define integer generate "
 KEYWORDS += "for localparam begin input output parameter posedge negedge or and if"
@@ -131,7 +133,7 @@ class VerilogYosysBtorParser(ModelParser):
                 files = ["%s/%s"%(directory, f) for f in list(set(self._collect_dependencies(directory, filename)))]
                 files.append(absstrfile)
 
-        command = "%s -p \"%s\""%(CMD, "; ".join(COMMANDS))
+        command = "%s -p \"%s\""%(CMD, "; ".join(self.commands))
         command = command.format(FILES=" ".join(files), \
                                  TARGET=topmodule, \
                                  PASSES="; ".join(PASSES), \
@@ -141,15 +143,16 @@ class VerilogYosysBtorParser(ModelParser):
 
         print_level = 3
         if not Logger.level(print_level):
-            saved_stdout = suppress_output()
+            saved_status = suppress_output()
 
         retval = os.system(command)
 
         if not Logger.level(print_level):
-            restore_output(saved_stdout)
+            restore_output(saved_status)
 
         if retval != 0:
-            Logger.error("Error in Verilog conversion")
+            os.system("mv %s %s"%(saved_status[0].name, YOSYSERRLOG))
+            Logger.error("Error in Verilog conversion.\nSee %s for more info."%YOSYSERRLOG)
 
         parser = BTOR2Parser()
         ret = parser.parse_file(TMPFILE, config)

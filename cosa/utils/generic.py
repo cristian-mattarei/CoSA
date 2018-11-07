@@ -14,6 +14,7 @@ import sys
 
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
+COSATMPFILE="/tmp/CoSA-working-tmp.out"
 
 def is_number(strnum):
     try:
@@ -60,7 +61,7 @@ def new_string():
     return STRING_PATTERN%string_id
 
 def suppress_output():
-    devnull = open('/tmp/tmp.out', 'w')
+    devnull = open(COSATMPFILE, 'w')
     oldstdout = os.dup(1)
     os.dup2(devnull.fileno(), 1)
     return (devnull, oldstdout)
