@@ -75,20 +75,6 @@ class VerilogYosysBtorParser(ModelParser):
         if verific:
             COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
 
-        # TODO: Get this merged into yosys so we don't have to check
-        # Or at least only have to check to give an error message
-        Logger.log("Checking if techmap file dffsr2dff.v is available", 2)
-        print_level = 3
-        if not Logger.level(print_level):
-            saved_status = suppress_output(redirect_error=True)
-
-        if check_command(DFFSR2DFF_CMD):
-            PASSES.append("techmap -map +/dffsr2dff.v;")
-            PASSES.append("opt;;")
-
-        if not Logger.level(print_level):
-            restore_output(saved_status)
-
     def is_available(self):
         return shutil.which(CMD) is not None
 
@@ -137,6 +123,24 @@ class VerilogYosysBtorParser(ModelParser):
         absstrfile = os.path.abspath(strfile)
         directory = "/".join(absstrfile.split("/")[:-1])
         filename = absstrfile.split("/")[-1]
+
+        # TODO: Get this merged into yosys so we don't have to check
+        # Or at least only have to check to give an error message
+        if config.abstract_clock:
+            Logger.log("Checking if techmap file dffsr2dff.v is available", 2)
+            print_level = 3
+            if not Logger.level(print_level):
+                saved_status = suppress_output(redirect_error=True)
+
+            if check_command(DFFSR2DFF_CMD):
+                PASSES.append("techmap -map +/dffsr2dff.v;")
+                PASSES.append("opt;;")
+
+            if not Logger.level(print_level):
+                restore_output(saved_status)
+        else:
+            PASSES.append("clk2fflogic;")
+            PASSES.append("opt;;")
 
         if self.single_file:
             files = [absstrfile]
