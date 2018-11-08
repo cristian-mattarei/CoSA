@@ -10,6 +10,7 @@
 
 import re
 
+from pysmt.fnode import FNode
 from pysmt.parsing import parse, HRParser, HRLexer, PrattParser, Rule, UnaryOpAdapter, InfixOpAdapter
 from cosa.representation import TS
 from cosa.utils.formula_mngm import get_free_variables
@@ -49,7 +50,6 @@ class StringParser(object):
         SyntacticSugarFactory.init_sugar(encoder_config)
     
     def parse_string(self, string):
-        print(string)
         return HRParser().parse(string)
 
     def remap_or2an(self, literal):
@@ -64,19 +64,21 @@ class StringParser(object):
 
         return self.parse_string(strformula)
 
-    def parse_formulae(self, strforms):
+    def parse_formulae(self, str_or_fnodes):
         formulae = []
 
-        if strforms is None:
+        if str_or_fnodes is None:
             return formulae
 
-        for strform in strforms:
-            if ("#" not in strform) and (strform != ""):
-                formula = self.parse_formula(strform)
-                formula_fv = get_free_variables(formula)
-                nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
-                prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
-                formulae.append((strform, formula, (nextvars, prevvars)))
+        for s in str_or_fnodes:
+            if isinstance(s, FNode):
+                formula = s
+            elif ("#" not in s) and (s != ""):
+                formula = self.parse_formula(s)
+            formula_fv = get_free_variables(formula)
+            nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
+            prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
+            formulae.append((str(s), formula, (nextvars, prevvars)))
 
         return formulae
 

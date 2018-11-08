@@ -344,7 +344,7 @@ class BTOR2Parser(ModelParser):
                     prop_count += 1
 
                 # Following problem format (name, description, strformula)
-                invar_props.append((assert_name, description, str(Not(BV2B(getnode(nid))))))
+                invar_props.append((assert_name, description, Not(BV2B(getnode(nid)))))
 
             if nid not in nodemap:
                 Logger.error("Unknown node type \"%s\""%ntype)

@@ -14,7 +14,8 @@ import pickle
 
 from collections import Sequence
 
-from pysmt.shortcuts import Symbol
+from pysmt.fnode import FNode
+from pysmt.shortcuts import Symbol, Implies
 
 from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
@@ -126,10 +127,15 @@ class ProblemSolver(object):
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
 
-
         parsing_defs = [problem.formula, problem.lemmas, problem.assumptions]
         for i in range(len(parsing_defs)):
             if parsing_defs[i] is not None:
+                if isinstance(parsing_defs[i], FNode):
+                    # TODO: There should be a better way to handle this nicely
+                    # Embedded assertions will likely be FNodes, but otherwise
+                    # they will be a property file or string
+                    parsing_defs[i] = [parsing_defs[i]]
+                    continue
                 pdef_file = problem.relative_path+parsing_defs[i]
                 if os.path.isfile(pdef_file):
                     with open(pdef_file) as f:
@@ -159,11 +165,15 @@ class ProblemSolver(object):
 
         if formulae is not None:
             problem.formula = formulae[0]
-        
+
         precondition = config.precondition if config.precondition is not None else problem.precondition
 
         if precondition and problem.verification == VerificationType.SAFETY:
-            problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
+            # TODO: There should be a better way to handle this
+            if isinstance(problem.formula, str):
+                problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
+            else:
+                problem.formula = Implies(self.sparser.parse_formula(precondition), problem.formula)
         
         if (problem.verification != VerificationType.EQUIVALENCE) and (problem.formula is not None):
             assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
