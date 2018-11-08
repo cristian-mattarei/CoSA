@@ -86,7 +86,7 @@ class BMCSafety(BMCSolver):
             trace = self.generate_trace(model, t, get_free_variables(prop))
             return (VerificationStatus.TRUE, trace)
         else:
-            Logger.log("Deadlock wit k=%s"%k, 1)
+            Logger.log("Deadlock with k=%s"%k, 1)
             return (VerificationStatus.FALSE, None)
 
     def solve_safety(self, hts, prop, k, k_min=0, lemmas=None, processes=1):

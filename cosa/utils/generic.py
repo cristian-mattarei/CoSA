@@ -60,16 +60,26 @@ def new_string():
     string_id += 1
     return STRING_PATTERN%string_id
 
-def suppress_output():
-    devnull = open(COSATMPFILE, 'w')
+def suppress_output(redirect_error=False):
+    tmpfile = open(COSATMPFILE, 'w')
     oldstdout = os.dup(1)
-    os.dup2(devnull.fileno(), 1)
-    return (devnull, oldstdout)
+    os.dup2(tmpfile.fileno(), 1)
+    oldstderr = None
+    if redirect_error:
+        oldstderr = os.dup(2)
+        os.dup2(tmpfile.fileno(), 2)
+    return (tmpfile, oldstdout, oldstderr)
 
 def restore_output(saved_status):
-    (devnull, old_stdout) = saved_status
+    (tmpfile, old_stdout, old_stderr) = saved_status
     os.dup2(old_stdout, 1)
-    devnull.close()
+    if old_stderr is not None:
+        os.dup2(old_stderr, 2)
+    tmpfile.close()
+
+def check_command(cmd):
+    retval = os.system(cmd)
+    return (retval == 0)
 
 def sort_system_variables(variables, with_names=False):
     depthdic = {}

@@ -18,7 +18,9 @@ from cosa.utils.logger import Logger
 from cosa.encoders.template import ModelParser
 from cosa.encoders.btor2 import BTOR2Parser
 
-from cosa.utils.generic import suppress_output, restore_output
+from cosa.utils.generic import suppress_output, restore_output, check_command
+
+DFFSR2DFF_CMD = "yosys -p 'techmap -map +/dffsr2dff.v'"
 
 PASSES = []
 PASSES.append("hierarchy -check")
@@ -40,7 +42,6 @@ PASSES.append("techmap -map +/adff2dff.v;")
 # PASSES.append("proc")
 # PASSES.append("clk2fflogic")
 PASSES.append("opt;;")
-
 COMMANDS = []
 COMMANDS.append("read_verilog -sv {FILES}")
 COMMANDS.append("hierarchy -top {TARGET}")
@@ -71,9 +72,22 @@ class VerilogYosysBtorParser(ModelParser):
     commands = []
 
     def __init__(self, verific=False):
-        self.commands = COMMANDS
         if verific:
-            self.commands[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
+            COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
+
+        # TODO: Get this merged into yosys so we don't have to check
+        # Or at least only have to check to give an error message
+        Logger.log("Checking if techmap file dffsr2dff.v is available", 2)
+        print_level = 3
+        if not Logger.level(print_level):
+            saved_status = suppress_output(redirect_error=True)
+
+        if check_command(DFFSR2DFF_CMD):
+            PASSES.append("techmap -map +/dffsr2dff.v;")
+            PASSES.append("opt;;")
+
+        if not Logger.level(print_level):
+            restore_output(saved_status)
 
     def is_available(self):
         return shutil.which(CMD) is not None
@@ -133,7 +147,7 @@ class VerilogYosysBtorParser(ModelParser):
                 files = ["%s/%s"%(directory, f) for f in list(set(self._collect_dependencies(directory, filename)))]
                 files.append(absstrfile)
 
-        command = "%s -p \"%s\""%(CMD, "; ".join(self.commands))
+        command = "%s -p \"%s\""%(CMD, "; ".join(COMMANDS))
         command = command.format(FILES=" ".join(files), \
                                  TARGET=topmodule, \
                                  PASSES="; ".join(PASSES), \
