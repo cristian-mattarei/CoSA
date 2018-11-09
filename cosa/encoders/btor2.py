@@ -57,6 +57,7 @@ SLT="slt"
 SLTE="slte"
 AND="and"
 XOR="xor"
+XNOR = "xnor"
 NAND="nand"
 IMPLIES="implies"
 OR="or"
@@ -235,6 +236,9 @@ class BTOR2Parser(ModelParser):
 
             if ntype == XOR:
                 nodemap[nid] = binary_op(BVXor, Xor, getnode(nids[1]), getnode(nids[2]))
+
+            if ntype == XNOR:
+                nodemap[nid] = BVNot(binary_op(BVXor, Xor, getnode(nids[1]), getnode(nids[2])))
 
             if ntype == NAND:
                 bvop = lambda x,y: BVNot(BVAnd(x, y))
