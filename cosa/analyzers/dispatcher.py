@@ -438,7 +438,7 @@ class ProblemSolver(object):
         
         invar_props = []
         ltl_props = []
-        si = False
+        si = (config.symbolic_init | problems.symbolic_init)
 
         if len(problems.symbolic_inits) == 0:
             problems.symbolic_inits.add(si)
