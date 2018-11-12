@@ -85,13 +85,13 @@ module robot(clk, rst, direction, x, y, next_x, next_y);
    // assert property (@(posedge clk) (!$stable(x) | !$stable(y)));
 
    // Fixed assertion
-   // assert property (@(posedge clk) (((x > 0) &&
-   //                                   (x < `BOUND_X - 1) &&
-   //                                   (y > 0) &&
-   //                                   (y < `BOUND_Y - 1)) |->
-   //                                  (!$stable(x) | !$stable(y))));
+   assert property (@(posedge clk) (((x > 0) &&
+                                     (x < `BOUND_X - 1) &&
+                                     (y > 0) &&
+                                     (y < `BOUND_Y - 1)) |->
+                                    (!$stable(x) | !$stable(y))));
 
-   
+
 `endif
 
 endmodule // robot
