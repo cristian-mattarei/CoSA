@@ -353,6 +353,19 @@ class BTOR2Parser(ModelParser):
             if nid not in nodemap:
                 Logger.error("Unknown node type \"%s\""%ntype)
 
+            # get wirename if it exists
+            if ntype not in {STATE, INPUT, OUTPUT, BAD}:
+                # check for wirename, if it's an integer, then it's a node ref
+                try:
+                    a = int(nids[-1])
+                except:
+                    try:
+                        wire = Symbol(str(nids[-1]), getnode(nids[0]))
+                        invarlist.append(EqualsOrIff(wire, B2BV(nodemap[nid])))
+                        ts.add_var(wire)
+                    except:
+                        pass
+
         if Logger.level(1):
             name = lambda x: str(nodemap[x]) if nodemap[x].is_symbol() else x
             uncovered = [name(x) for x in nodemap if x not in node_covered]
