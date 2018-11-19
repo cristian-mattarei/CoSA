@@ -821,6 +821,8 @@ class VerilogSTSWalker(VerilogWalker):
                 return None
             return Implies(condition, then_b)
         else:
+            if then_b is None:
+                return else_b
             if condition in [True, TRUE()]:
                 assert (then_b is not None)
                 return then_b
