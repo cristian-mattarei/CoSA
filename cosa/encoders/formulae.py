@@ -71,10 +71,12 @@ class StringParser(object):
             return formulae
 
         for s in str_or_fnodes:
-            if isinstance(s, FNode):
-                formula = s
-            elif ("#" not in s) and (s != ""):
+            if isinstance(s, str):
+                if ('#' in s) or len(s) == 0:
+                    continue
                 formula = self.parse_formula(s)
+            else:
+                formula = s
             formula_fv = get_free_variables(formula)
             nextvars = [v for v in formula_fv if TS.is_prime(v)] != []
             prevvars = [v for v in formula_fv if TS.is_prev(v)] != []
