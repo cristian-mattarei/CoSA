@@ -51,7 +51,7 @@ class HTS(object):
     logic = None
     en_simplify = False
     is_flatten = False
-    
+
     def __init__(self, name=""):
         self.tss = set([])
         self.subs = set([])
@@ -61,7 +61,7 @@ class HTS(object):
         self.state_vars = set([])
         self.input_vars = set([])
         self.output_vars = set([])
-        
+
         self.assumptions = None
         self.lemmas = None
 
@@ -74,7 +74,7 @@ class HTS(object):
 
         self.logic = L_BV
         self.en_simplify = False
-        
+
     def apply_var_prefix(self, prefix):
         remapdic = dict([(v.symbol_name(), apply_prefix(v.symbol_name(), prefix)) for v in self.vars]+\
                         [(TS.get_prime(v).symbol_name(), apply_prefix(TS.get_prime(v).symbol_name(), prefix)) for v in self.vars])
@@ -84,19 +84,19 @@ class HTS(object):
         p_invar = None
         p_assumptions = None
         p_lemmas = None
-        
+
         if self.assumptions is not None:
             p_assumptions = [substitute(a, remapdic) for a in self.assumptions]
         if self.lemmas is not None:
             p_lemmas = [substitute(l, remapdic) for l in self.lemmas]
         p_params = [Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.params]
-        
+
         self.vars = set([])
         self.state_vars = set([])
         self.input_vars = set([])
         self.output_vars = set([])
         self.hidden_vars = set([])
-        
+
         self._s_init = None
         self._s_trans = None
         self._s_ftrans_t = None
@@ -114,7 +114,7 @@ class HTS(object):
             self.add_ts(ts.apply_var_prefix(prefix), reset=False)
 
         self.reset_formulae()
-        
+
     def add_sub(self, name, sub, parameters):
         self.subs.add((name, parameters, sub))
 
@@ -135,20 +135,20 @@ class HTS(object):
     def add_state_var(self, var):
         self.state_vars.add(var)
         self.vars.add(var)
-        
+
     def add_var(self, var):
         self.vars.add(var)
-        
+
     def update_logic(self, logic):
         if (self.logic == L_BV) and (logic == L_ABV):
             self.logic = L_ABV
-        
+
     def add_ts(self, ts, add_vars=True, reset=True):
         if self.en_simplify:
             ts.init = simplify(ts.init)
             ts.invar = simplify(ts.invar)
             ts.trans = simplify(ts.trans)
-        
+
         self.tss.add(ts)
 
         if add_vars:
@@ -163,7 +163,7 @@ class HTS(object):
 
                 if (v in ts.output_vars) and (v not in self.input_vars):
                     self.output_vars.add(v)
-            
+
         self.update_logic(ts.logic)
 
         if reset:
@@ -190,7 +190,7 @@ class HTS(object):
         self.tss = set([ts for ts in self.tss if name not in ts.comment])
 
         self.reset_formulae()
-        
+
     def add_assumption(self, assumption):
         if self.assumptions is None:
             self.assumptions = set([])
@@ -202,10 +202,10 @@ class HTS(object):
             self.lemmas = set([])
 
         self.lemmas.add(lemma)
-        
+
     def is_input(self, var):
         return var in self.input_vars
-        
+
     def remove_invars(self):
         for ts in self.tss:
             ts.remove_invar()
@@ -234,13 +234,13 @@ class HTS(object):
 
         atrans = TRUE()
         ftrans = TRUE()
-        
+
         if self.assumptions is not None:
             atrans = And([a for a in self.assumptions if TS.has_next(a)])
 
         if include_ftrans and (self._s_ftrans_t is not None):
             ftrans = self._s_ftrans_t
-        
+
         return And(self._s_trans, ftrans, atrans)
 
     def single_ftrans(self, rebuild=False):
@@ -252,7 +252,7 @@ class HTS(object):
                         self._s_ftrans[var] = cond_assign_list
 
         return self._s_ftrans
-    
+
     def single_invar(self, rebuild=False, include_ftrans=True):
         if (self._s_invar is None) or (rebuild):
             self._s_invar = TRUE()
@@ -267,13 +267,13 @@ class HTS(object):
 
         ainvar = TRUE()
         ftrans = TRUE()
-        
+
         if self.assumptions is not None:
             ainvar = And([a for a in self.assumptions if not TS.has_next(a)])
 
         if include_ftrans and (self._s_ftrans_i is not None):
             ftrans = self._s_ftrans_i
-        
+
         return And(self._s_invar, ftrans, ainvar)
 
     def reset_formulae(self, init=True, invar=True, trans=True, ftrans=True):
@@ -290,7 +290,7 @@ class HTS(object):
 
         for sub in self.subs:
             sub[2].reset_formulae(init, invar, trans, ftrans)
-            
+
     def reset_flatten(self):
         self.is_flatten = False
         self._s_init = None
@@ -304,7 +304,7 @@ class HTS(object):
 
         for sub in self.subs:
             sub[2].reset_flatten()
-            
+
     def combine(self, other_hts):
         for ts in other_hts.tss:
             self.add_ts(ts, add_vars=False, reset=False)
@@ -312,7 +312,7 @@ class HTS(object):
         for v in other_hts.state_vars:
             if v not in self.input_vars:
                 self.state_vars.add(v)
-            
+
         for v in other_hts.input_vars:
             self.input_vars.add(v)
 
@@ -322,7 +322,7 @@ class HTS(object):
 
         for v in other_hts.vars:
             self.add_var(v)
-                
+
         if other_hts.assumptions is not None:
             for assumption in other_hts.assumptions:
                 self.add_assumption(assumption)
@@ -332,7 +332,7 @@ class HTS(object):
                 self.add_lemma(lemma)
 
         self.reset_formulae()
-                
+
     def newname(self, varname, path=[]):
         ret = varname.replace(self.name, ".".join(path)).strip()
         if ret[0] == ".":
@@ -357,7 +357,7 @@ class HTS(object):
             tmp_input_vars = set([v for v in self.input_vars])
             tmp_output_vars = set([v for v in self.output_vars])
         output_vars = self._flatten_rec()[3]
-        if cleanup: 
+        if cleanup:
             self.input_vars = tmp_input_vars
             self.output_vars = tmp_output_vars
             for var in output_vars:
@@ -365,7 +365,7 @@ class HTS(object):
                     self.add_state_var(var)
 
         self.reset_formulae()
-        
+
     def _flatten_rec(self, path=[]):
         self.is_flatten = True
         vardic = dict([(v.symbol_name(), v) for v in self.vars])
@@ -375,14 +375,14 @@ class HTS(object):
             if ret[0] == ".":
                 return ret[1:]
             return ret
-        
+
         for sub in self.subs:
             instance, actual, module = sub
             module.is_flatten = True
             formal = module.params
 
             ts = TS(FLATTEN)
-            
+
             (ts.vars, \
              ts.state_vars, \
              ts.input_vars, \
@@ -391,9 +391,9 @@ class HTS(object):
              ts.trans, \
              ts.ftrans, \
              ts.invar) = module._flatten_rec(path+[instance])
-            
+
             self.add_ts(ts, reset=False)
-            
+
             links = {}
             for i in range(len(actual)):
                 # Unset parameter
@@ -415,7 +415,7 @@ class HTS(object):
                     links[local_expr] = [(TRUE(), vardic[module_var])]
                 else:
                     links[vardic[module_var]] = [(TRUE(), local_expr)]
-                    
+
             ts = TS(LINKS)
             ts.ftrans = links
             self.add_ts(ts, reset=False)
@@ -423,7 +423,7 @@ class HTS(object):
         s_init = self.single_init()
         s_invar = self.single_invar(include_ftrans=False)
         s_trans = self.single_trans(include_ftrans=False)
-        
+
         replace_dic = dict([(v.symbol_name(), self.newname(v.symbol_name(), path)) for v in self.vars] + \
                            [(TS.get_prime_name(v.symbol_name()), self.newname(TS.get_prime_name(v.symbol_name()), path)) \
                             for v in self.vars])
@@ -435,20 +435,20 @@ class HTS(object):
             ret = substitute(f, dic)
             substitute_dic[f] = ret
             return ret
-        
+
         s_init = substitute_mem(s_init, replace_dic)
         s_invar = substitute_mem(s_invar, replace_dic)
         s_trans = substitute_mem(s_trans, replace_dic)
-        
+
         s_ftrans = {}
-        
+
         local_vars = []
         local_state_vars = []
         local_input_vars = []
         local_output_vars = []
 
         single_ftrans = self.single_ftrans()
-        
+
         for var in list(self.vars):
             newsym = Symbol(replace_dic[var.symbol_name()], var.symbol_type())
 
@@ -466,14 +466,14 @@ class HTS(object):
                                      substitute_mem(value, replace_dic)) \
                                     for (condition, value) in cond_assign_list]
                 del(single_ftrans[var])
-            
+
         for var, cond_assign_list in single_ftrans.items():
             s_ftrans[substitute_mem(var, replace_dic)] = [(substitute_mem(condition, replace_dic), \
                                                            substitute_mem(value, replace_dic)) \
                                                           for (condition, value) in cond_assign_list]
-                
+
         return (local_vars, local_state_vars, local_input_vars, local_output_vars, s_init, s_trans, s_ftrans, s_invar)
-                
+
     def __copy__(self):
         cls = self.__class__
         new_hts = cls.__new__(cls)
@@ -490,7 +490,7 @@ class HTS(object):
         ret.append("Subs: %s"%str(self.subs))
 
         return "; ".join(ret)
-    
+
     def print_statistics(self, name=None, detailed=False):
 
         def type_vars(varset, prefix=""):
@@ -504,7 +504,7 @@ class HTS(object):
 
                 if stype.is_bv_type():
                     totbits += stype.width
-                
+
             rlist = [(ret[t], str(t)) for t in ret]
             rlist.sort()
             rlist.reverse()
@@ -514,7 +514,7 @@ class HTS(object):
 
             rstr.append("%sTotal Bits: %d"%(prefix, totbits))
             return "\n".join(rstr)
-        
+
         stat = []
         stat.append("Statistics (%s):"%(self.name if name is None else name))
         stat.append("  Variables:\t%s"%(len(self.vars)))
@@ -530,7 +530,7 @@ class HTS(object):
         if detailed:
             stat.append(type_vars(self.output_vars, "   - "))
         return "\n".join(stat)
-    
+
 class TS(object):
 
     vars = None
@@ -538,12 +538,12 @@ class TS(object):
     input_vars = None
     output_vars = None
     hidden_vars = None
-    
+
     init = None
     trans = None
     invar = None
     ftrans = None
-    
+
     comment = None
     logic = None
 
@@ -563,7 +563,7 @@ class TS(object):
 
     def __repr__(self):
         return "V: %s\nSV: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.state_vars), str(self.init), str(self.trans), str(self.invar))
-        
+
     def remove_invar(self):
         if self.invar is not None:
             self.trans = And([self.trans, self.invar, TS.to_next(self.invar)])
@@ -579,7 +579,7 @@ class TS(object):
         p_hidden_vars = set([Symbol(apply_prefix(v.symbol_name(), prefix), v.symbol_type()) for v in self.hidden_vars])
         remapdic = dict([(v.symbol_name(), apply_prefix(v.symbol_name(), prefix)) for v in self.vars]+\
                         [(TS.get_prime(v).symbol_name(), apply_prefix(TS.get_prime(v).symbol_name(), prefix)) for v in self.vars])
-        
+
         p_init = substitute(self.init, remapdic)
         p_trans = substitute(self.trans, remapdic)
         p_invar = substitute(self.invar, remapdic)
@@ -602,7 +602,7 @@ class TS(object):
         self.invar = p_invar
 
         return self
-        
+
     def set_behavior(self, init, trans, invar):
         self.init = init
         self.trans = trans
@@ -613,9 +613,11 @@ class TS(object):
 
     def add_hidden_var(self, var):
         self.hidden_vars.add(var)
-        
+
     def add_state_var(self, var):
         self.state_vars.add(var)
+        if var.symbol_type().is_array_type():
+            self.logic = L_ABV
         self.vars.add(var)
 
     def add_input_var(self, var):
@@ -629,7 +631,7 @@ class TS(object):
     def add_func_trans(self, var, cond_assign_list):
         if self.ftrans is None:
             self.ftrans = {}
-        
+
         assert var not in self.ftrans
 
         self.ftrans[var] = cond_assign_list
@@ -642,7 +644,7 @@ class TS(object):
 
         ret_trans = TRUE()
         ret_invar = TRUE()
-        
+
         use_ites = False
 
         if use_ites:
@@ -661,7 +663,7 @@ class TS(object):
                     ret_trans = And(ret_trans, EqualsOrIff(var, ite_list))
                 else:
                     ret_invar = And(ret_invar, EqualsOrIff(var, ite_list))
-        else:            
+        else:
             for var, cond_assign_list in self.ftrans.items():
                 effects = []
                 all_neg_cond = []
@@ -677,9 +679,9 @@ class TS(object):
                 if TS.has_next(var):
                     no_change = EqualsOrIff(var, TS.to_prev(var))
                     ret_trans = And(ret_trans, simplify(Implies(And(all_neg_cond), no_change)))
-            
+
         return (ret_invar, ret_trans)
-        
+
     @staticmethod
     def is_prime(v):
         return v.symbol_name()[-len(NEXT):] == NEXT
@@ -692,7 +694,7 @@ class TS(object):
     @staticmethod
     def is_ptimed(v):
         return ATP in v.symbol_name()
-    
+
     @staticmethod
     def is_prev(v):
         return v.symbol_name()[-len(PREV):] == PREV
@@ -702,7 +704,7 @@ class TS(object):
         # Optimization
         if CPREF not in v.symbol_name():
             return v
-        
+
         if TS.is_prime(v):
             return Symbol(v.symbol_name()[:-len(NEXT)], v.symbol_type())
         if TS.is_prev(v):
@@ -726,11 +728,11 @@ class TS(object):
     @staticmethod
     def is_ptimed_name(varname):
         return ATP in varname
-    
+
     @staticmethod
     def is_prev_name(varname):
         return varname[-len(PREV):] == PREV
-    
+
     @staticmethod
     def get_ref_name(name):
         if TS.is_prime_name(name):
@@ -742,7 +744,7 @@ class TS(object):
         if TS.is_timed_name(name):
             return name[:name.find(AT)]
         return name
-    
+
     @staticmethod
     def get_prime(v):
         return Symbol(TS.get_prime_name(v.symbol_name()), v.symbol_type())
@@ -750,7 +752,7 @@ class TS(object):
     @staticmethod
     def get_prev(v):
         return Symbol(TS.get_prev_name(v.symbol_name()), v.symbol_type())
-    
+
     @staticmethod
     def get_timed(v, t):
         return Symbol(TS.get_timed_name(v.symbol_name(), t), v.symbol_type())
@@ -770,9 +772,9 @@ class TS(object):
         varname = v.symbol_name()
         if TS.is_ptimed(v):
             return -int(varname[varname.find(ATP)+len(ATP):])
-        
+
         return int(varname[varname.find(AT)+len(AT):])
-    
+
     @staticmethod
     def get_prime_name(name):
         return ("%s"+NEXT) % name
@@ -780,7 +782,7 @@ class TS(object):
     @staticmethod
     def get_prev_name(name):
         return ("%s"+PREV) % name
-    
+
     @staticmethod
     def get_timed_name(name, t):
         return "%s%s%s" % (name, AT, str(t if t > 0 else 0))
@@ -792,7 +794,7 @@ class TS(object):
     @staticmethod
     def get_prefix_name(name, pref):
         return "%s%s" % (pref, name)
-    
+
     @staticmethod
     def to_next(formula):
         varmap = []
@@ -810,7 +812,7 @@ class TS(object):
             varmap.append((vname,TS.get_prev_name(vname)))
             varmap.append((TS.get_prime_name(vname),vname))
         return substitute(formula, dict(varmap))
-    
+
     @staticmethod
     def has_next(formula):
         varlist = get_free_variables(formula)
@@ -818,4 +820,3 @@ class TS(object):
             if TS.is_prime(v):
                 return True
         return False
-    
