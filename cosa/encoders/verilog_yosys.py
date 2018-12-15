@@ -34,7 +34,7 @@ PASSES.append("memory_collect;")
 PASSES.append("flatten;")
 PASSES.append("memory_unpack")
 PASSES.append("splitnets -driver")
-PASSES.append("setundef -anyconst -undriven")
+PASSES.append("setundef -anyseq -undriven")
 PASSES.append("opt;;")
 PASSES.append("memory_collect;")
 # PASSES.append("pmuxtree")
@@ -133,7 +133,7 @@ class VerilogYosysBtorParser(ModelParser):
                 saved_status = suppress_output(redirect_error=True)
 
             # these techmapping passes are only safe when abstracting the clock
-            # be careful when abstracting the clock, it remove valid states
+            # be careful when abstracting the clock, it can remove valid states
             PASSES.append("techmap -map +/adff2dff.v;")
             if check_command(DFFSR2DFF_CMD):
                 PASSES.append("techmap -map +/dffsr2dff.v;")
