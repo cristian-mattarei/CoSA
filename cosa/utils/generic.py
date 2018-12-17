@@ -35,7 +35,7 @@ def auto_convert(strval):
             return float(strval)
         except Exception:
             return strval
-    
+
 def status_bar(status, percent=True, length=40):
     curr = math.ceil(length*status)
     percent = (" %.2f%%"%(status*100)) if percent else ""
@@ -56,12 +56,13 @@ def bin_to_dec(val):
 
 def new_string():
     global string_id
-    
+
     string_id += 1
     return STRING_PATTERN%string_id
 
 def suppress_output(redirect_error=False):
     tmpfile = open(COSATMPFILE, 'w')
+
     oldstdout = os.dup(1)
     os.dup2(tmpfile.fileno(), 1)
     oldstderr = None
@@ -96,7 +97,7 @@ def sort_system_variables(variables, with_names=False):
     ret = []
     depths = list(depthdic.keys())
     depths.sort()
-    
+
     for i in depths:
         vars = depthdic[i]
         vars.sort()
@@ -106,10 +107,10 @@ def sort_system_variables(variables, with_names=False):
             ret += [v[1] for v in depthdic[i]]
     assert len(ret) == len(variables)
     return ret
-        
+
 def class_name(obj):
     return obj.__class__.__name__
-    
+
 class color:
    PURPLE = '\033[95m'
    CYAN = '\033[96m'

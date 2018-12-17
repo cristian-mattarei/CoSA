@@ -164,7 +164,7 @@ class VerilogYosysBtorParser(ModelParser):
 
         print_level = 3
         if not Logger.level(print_level):
-            saved_status = suppress_output()
+            saved_status = suppress_output(redirect_error=True)
 
         retval = os.system(command)
 
