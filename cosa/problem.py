@@ -127,6 +127,7 @@ class Problems(object):
     verification = None
     zero_init = None
     model_extension = None
+    opt_circuit = False
     cardinality = -1
     region = None
     coi = False
@@ -184,6 +185,7 @@ class Problems(object):
         problem.lemmas = self.lemmas
         problem.model_file = self.model_file
         problem.name = self.name
+        problem.opt_circuit = self.opt_circuit
         problem.precondition = self.precondition
         problem.problems = self.problems
         problem.prove = self.prove
@@ -259,6 +261,7 @@ class Problem(object):
     symbolic_init = False
     smt2_tracing = None
     model_extension = None
+    opt_circuit = False
     cardinality = -1
     region = None
     coi = False

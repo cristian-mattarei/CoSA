@@ -1524,6 +1524,19 @@ of system, to extract the relevant information regarding the variables
 dependencies. At the current stage, CoSA supports COI (with the
 parameter \texttt{--coi}) only for Verilog and SystemVerilog models.
 
+\subsection{Circuit Optimizing}
+A very similar option to Cone of Influence reduction is to use Yosys
+to optimize the circuit. This calls a sequence of carefully selected
+passes which can propagate constants, remove redundant or unnecessary
+signals, and overall shrink the model. Although this can drastically
+speed up verification, it can be confusing as parts of the circuit
+might disappear. In particular, any part of the circuit that is not
+within the fan-in of a primary output, or a marked signal, will be
+removed. Signals and modules can be marked with a Verilog attribute,
+\texttt{(* keep *)} to prevent removal. This optimization can be invoked
+with the \texttt{--opt-circuit} option at the command line, or
+\texttt{opt\_circuit:} \texttt{True} in a problem file.
+
 \subsection{Files Caching}
 CoSA translates each given model into an internal representation that
 is similar to the STS. When managing complex models, such as Verilog

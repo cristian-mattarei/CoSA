@@ -24,28 +24,13 @@ DFFSR2DFF_CMD = "yosys -p 'techmap -map +/dffsr2dff.v'"
 
 PASSES = []
 PASSES.append("hierarchy -check")
-PASSES.append("proc")
-PASSES.append("opt")
-PASSES.append("opt_expr -mux_undef")
-PASSES.append("opt")
-PASSES.append("opt")
-PASSES.append("memory_dff -wr_only")
-PASSES.append("memory_collect;")
-PASSES.append("flatten;")
-PASSES.append("memory_unpack")
-PASSES.append("splitnets -driver")
-PASSES.append("setundef -anyseq -undriven")
-PASSES.append("opt;;")
-PASSES.append("memory_collect;")
-# PASSES.append("pmuxtree")
-# PASSES.append("rename -hide")
-# PASSES.append("proc")
-# PASSES.append("clk2fflogic")
-PASSES.append("opt;;")
+PASSES.append("flatten")
 COMMANDS = []
 COMMANDS.append("read_verilog -sv {FILES}")
 COMMANDS.append("hierarchy -top {TARGET}")
+COMMANDS.append("prep -top {TARGET}")
 COMMANDS.append("{PASSES}")
+COMMANDS.append("setundef -anyseq -undriven -undef")
 COMMANDS.append("write_btor {BTORFILE}")
 
 TMPFILE = "__yosys_verilog__.btor2"
@@ -124,26 +109,28 @@ class VerilogYosysBtorParser(ModelParser):
         directory = "/".join(absstrfile.split("/")[:-1])
         filename = absstrfile.split("/")[-1]
 
-        # TODO: Get this merged into yosys so we don't have to check
-        # Or at least only have to check to give an error message
-        if config.abstract_clock:
-            Logger.log("Checking if techmap file dffsr2dff.v is available", 2)
-            print_level = 3
-            if not Logger.level(print_level):
-                saved_status = suppress_output(redirect_error=True)
-
-            # these techmapping passes are only safe when abstracting the clock
-            # be careful when abstracting the clock, it can remove valid states
-            PASSES.append("techmap -map +/adff2dff.v;")
-            if check_command(DFFSR2DFF_CMD):
-                PASSES.append("techmap -map +/dffsr2dff.v;")
-                PASSES.append("opt;;")
-
-            if not Logger.level(print_level):
-                restore_output(saved_status)
-        else:
-            PASSES.append("clk2fflogic;")
+        if config.opt_circuit:
+            PASSES.append("proc")
+            PASSES.append("opt")
+            PASSES.append("opt_expr -mux_undef")
+            PASSES.append("opt")
+            PASSES.append("opt")
+            PASSES.append("memory_dff -wr_only")
+            PASSES.append("memory_collect;")
+            PASSES.append("flatten;")
+            PASSES.append("memory_unpack")
+            PASSES.append("splitnets -driver")
             PASSES.append("opt;;")
+            PASSES.append("memory_collect;")
+            PASSES.append("pmuxtree")
+            PASSES.append("rename -hide")
+            PASSES.append("proc")
+            PASSES.append("opt;;")
+
+        if not config.abstract_clock:
+            PASSES.append("clk2fflogic;")
+            if config.opt_circuit:
+                PASSES.append("opt;;")
 
         if self.single_file:
             files = [absstrfile]

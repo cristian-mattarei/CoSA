@@ -22,6 +22,7 @@ class EncoderConfig(object):
     run_passes = True
     boolean = False
     devel = False
+    opt_circuit = False
 
     def __init__(self):
         pass

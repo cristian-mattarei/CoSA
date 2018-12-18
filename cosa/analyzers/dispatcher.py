@@ -619,5 +619,6 @@ class ProblemSolver(object):
         encoder_config.run_passes = config.run_passes
         encoder_config.boolean = problems.boolean or config.boolean
         encoder_config.devel = config.devel
+        encoder_config.opt_circuit = problems.opt_circuit or config.opt_circuit
 
         return encoder_config

@@ -35,7 +35,7 @@ def run_translation(path):
 
     config = Config()
     status = True
-    
+
     config.verbosity = 3
     config.solver_name = "msat"
     config.prove = True
@@ -45,7 +45,7 @@ def run_translation(path):
 
     if "-boolean" in path:
         config.boolean = True
-    
+
     if os.path.isfile("%s/assumptions.txt"%path):
         config.assumptions = "%s/assumptions.txt"%path
 
@@ -56,13 +56,13 @@ def run_translation(path):
         config.lemmas = "%s/lemmas.txt"%path
 
     models = list([x for x in list(os.walk(path)) if COSADIR not in x[0]])[-1][-1]
-        
+
     j_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] == "json"]
     s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["sts","ets"]]
     v_files = ["%s/%s[%s]"%(path,f, f.split(".")[0]) for f in models if f.split(".")[1] in ["v"]]
-    
+
     config.strfiles = ",".join(j_files+s_files+v_files)
-        
+
     parsing_defs = [config.properties, config.lemmas, config.assumptions]
     for i in range(len(parsing_defs)):
         if parsing_defs[i] is not None:
@@ -79,7 +79,7 @@ def run_translation(path):
     # status = files_eq(path+EXPECTED, path+GENERATED)
     # assert status
     return status
-    
+
 def test_translation():
     for test in testdirs:
         yield run_translation, test
