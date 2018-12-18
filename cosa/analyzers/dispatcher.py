@@ -15,7 +15,7 @@ import pickle
 from collections import Sequence
 
 from pysmt.fnode import FNode
-from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff
+from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff, Array
 
 from cosa.utils.logger import Logger
 from cosa.analyzers.mcsolver import MCConfig
@@ -188,6 +188,7 @@ class ProblemSolver(object):
             new_init = []
             initialized_vars = get_free_variables(problem.hts.single_init())
             state_vars = problem.hts.state_vars
+            # TODO: Report the number of set registers/memories
             num_def_init_vars = 0
             num_initialized_vars = len(initialized_vars)
             for sv in state_vars - initialized_vars:
@@ -199,8 +200,20 @@ class ProblemSolver(object):
                         val = BV(0, width)
 
                     num_def_init_vars += 1
-                    def_init_ts.add_state_var(sv)
-                    new_init.append(EqualsOrIff(sv, val))
+                elif sv.get_type().is_array_type() and sv.get_type().elem_type.is_bv_type():
+                    svtype = sv.get_type()
+                    width = svtype.elem_type.width
+                    if int(def_init_val) == 1:
+                        val = BV((2**width)-1, width)
+                    else:
+                        val = BV(0, width)
+                    # create a constant array with a default value
+                    val = Array(svtype.index_type, val)
+                else:
+                    continue
+
+                def_init_ts.add_state_var(sv)
+                new_init.append(EqualsOrIff(sv, val))
             def_init_ts.set_behavior(simplify(And(new_init)), TRUE(), TRUE())
             problem.hts.add_ts(def_init_ts)
 
