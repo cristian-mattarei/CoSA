@@ -8,6 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import re
 
 from pysmt.walkers.identitydag import IdentityDagWalker
@@ -69,6 +70,7 @@ def get_free_variables(formula):
     free_variables_dic[formula] = ret
     return ret
 
+############### Values and Helper Functions for quote_names #################
 KEYWORDS = ["not","xor",\
             "False","True",\
             "next","prev",\
@@ -80,33 +82,84 @@ OPERATORS = [(" < "," u< "), \
              (" >= "," u>= "), \
              (" <= "," u<= ")]
 
+VAR_PATTERN = re.compile(r"(?<![\w\.])([a-zA-Z_][\w_.]*)")
+
+def __replace_keywords(strformula, offset=0):
+    '''
+    INTERNAL USE ONLY
+    Removes keywords without removing them from other words
+    '''
+    # need to use pattern replacement for keywords,
+    # so that common ones (e.g. "G") are not removed from words
+    patterns = [re.compile(r"(?<![\w.]){}(?![\w.])".format(k)) for k in KEYWORDS]
+    removed = []
+    idx = offset
+    for mp in patterns:
+        m = re.search(mp, strformula)
+        if m:
+            strformula, num_reps = re.subn(mp, "{%i}"%idx, strformula)
+            idx += 1
+            removed.append(m.group())
+    return strformula, removed, idx
+
+def __replace_matching_strings(strformula, pattern, offset=0):
+    '''
+    INTERNAL USE ONLY
+    Removes all strings matching any of the patterns
+    '''
+    to_replace = sorted(set(re.findall(pattern, strformula)), key=len, reverse=True)
+    idx = offset
+    removed = []
+    for r in to_replace:
+        strformula = strformula.replace(r, "{%i}"%idx)
+        removed.append(r)
+        idx += 1
+    return strformula, removed, idx
+
+def __replace_quoted(strformula, offset=0):
+    return __replace_matching_strings(strformula, r"'.*?'", offset)
+
+def  __replace_escaped(strformula, offset=0):
+    return __replace_matching_strings(strformula, r"\\\S*", offset)
+
+def  __replace_vars(strformula, offset=0):
+    return __replace_matching_strings(strformula, VAR_PATTERN, offset)
+
 def quote_names(strformula, prefix=None, replace_ops=True):
-    lst_names = []
-    if (prefix is not None) and (prefix != ""):
-        lst_names.append(prefix)
-    strformula = strformula.replace("\\","")
+    '''
+    Quotes variable names with single quotes so the user doesn't need to quote
+    them in properties, assumptions, etc...
+    Valid variable names are those from Verilog (including escaped names),
+    except without '$' as a valid (unescaped) symbol
 
-    for i in range(len(KEYWORDS)):
-        strformula = strformula.replace(" %s "%(KEYWORDS[i]), "@@%d@@"%i)
+    The user can always supply single quotes themselves to treat the string as
+    a variable.
 
-    lits = [(len(x), x) for x in list(re.findall("([a-zA-Z][a-zA-|Z_$\.0-9\[\]:]*)+", strformula)) if x not in KEYWORDS]
-    lits.sort()
-    lits.reverse()
-    lits = [x[1] for x in lits]
+    For example,
+        varname[0] will be treated as a bit-extract on the variable 'varname'
+        by default
+    but,
+        'varname[0]' is a variable named 'varname[0]'
+    '''
+    strformula, replaced_keywords, last_idx = __replace_keywords(strformula)
+    strformula, replaced_quoted, last_idx = __replace_quoted(strformula, last_idx)
+    # remove quotes for now, might need to add a prefix
+    replaced_quoted = [r.replace("'", "") for r in replaced_quoted]
 
-    repl_lst = []
+    strformula, replaced_escaped, last_idx = __replace_escaped(strformula, last_idx)
+    strformula, replaced_vars, _ = __replace_vars(strformula, last_idx)
 
-    for lit in lits:
-        newlit = new_string()
-        strformula = strformula.replace("\'%s\'"%lit, lit)
-        strformula = strformula.replace(lit, newlit)
-        repl_lst.append((newlit, lit))
+    replaced = itertools.chain(replaced_quoted, replaced_escaped, replaced_vars)
+    if prefix is not None and prefix != '':
+        replaced = ["'{}.{}'".format(prefix, r) for r in replaced]
+    else:
+        replaced = ["'{}'".format(r) for r in replaced]
 
-    for (newlit, lit) in repl_lst:
-        strformula = strformula.replace(newlit, "\'%s\'"%(".".join(lst_names+[lit])))
+    # add keywords back in -- don't want to add prefix to keywords
+    replaced = itertools.chain(replaced_keywords, replaced)
 
-    for i in range(len(KEYWORDS)):
-        strformula = strformula.replace("@@%d@@"%i, " %s "%(KEYWORDS[i]))
+    # replace all the removed symbols
+    strformula = strformula.format(*replaced)
 
     if replace_ops:
         for op in OPERATORS:
@@ -114,12 +167,12 @@ def quote_names(strformula, prefix=None, replace_ops=True):
 
     return strformula
 
-def mem_access(address, locations, width_idx, idx=0):
+def mem_access(addr, locations, width_idx, idx=0):
     first_loc = min(2**width_idx, len(locations))-1
     ite_chain = locations[first_loc]
     for i in reversed(range(0, first_loc)):
         location = BV(i, width_idx)
-        ite_chain = Ite(EqualsOrIff(address, location), locations[i], ite_chain)
+        ite_chain = Ite(EqualsOrIff(addr, location), locations[i], ite_chain)
     return ite_chain
 
 class SortingNetwork(object):
