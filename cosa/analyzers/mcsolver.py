@@ -444,3 +444,13 @@ class BMCSolver(object):
         trace.prop_vars = xvars
 
         return trace
+
+# used elsewhere to enable/disable features
+# there's not a great way to query pysmt for this except
+# from pysmt.solvers import cvc4
+# cvc4.CVC4Solver.LOGICS
+# which requires that cvc4 is installed, and since this won't change
+# often it's more efficent to hardcode it, instead of repeating for each
+# solver and catching exceptions
+CONST_ARRAYS_SUPPORT = {"cvc4", "msat", "z3"}
+

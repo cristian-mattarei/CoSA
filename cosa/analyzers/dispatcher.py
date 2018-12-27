@@ -18,14 +18,14 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff, Array
 
 from cosa.utils.logger import Logger
-from cosa.analyzers.mcsolver import MCConfig
+from cosa.analyzers.mcsolver import MCConfig, CONST_ARRAYS_SUPPORT
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_parametric import BMCParametric
 from cosa.analyzers.bmc_ltl import BMCLTL
 from cosa.problem import VerificationType, Problem, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
-from cosa.representation import HTS, TS
+from cosa.representation import HTS, TS, L_ABV
 from cosa.encoders.btor2 import BTOR2Parser
 from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
@@ -127,6 +127,8 @@ class ProblemSolver(object):
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
 
+        mc_config = self.problem2mc_config(problem, config)
+
         parsing_defs = [problem.formula, problem.lemmas, problem.assumptions]
         for i in range(len(parsing_defs)):
             if parsing_defs[i] is not None:
@@ -188,9 +190,18 @@ class ProblemSolver(object):
             new_init = []
             initialized_vars = get_free_variables(problem.hts.single_init())
             state_vars = problem.hts.state_vars
-            # TODO: Report the number of set registers/memories
             num_def_init_vars = 0
-            num_initialized_vars = len(initialized_vars)
+            num_state_vars = len(state_vars)
+
+            const_arr_supported = False
+            if mc_config.solver_name in CONST_ARRAYS_SUPPORT:
+                const_arr_supported = True
+            elif problem.hts.logic == L_ABV:
+                Logger.warning("Using default_initial_value with arrays, but "
+                               "{} does not support constant arrays. "
+                               "Any assumptions on initial array values will "
+                               "have to be done manually".format(mc_config.solver_name))
+
             for sv in state_vars - initialized_vars:
                 if sv.get_type().is_bv_type():
                     width = sv.get_type().width
@@ -200,7 +211,9 @@ class ProblemSolver(object):
                         val = BV(0, width)
 
                     num_def_init_vars += 1
-                elif sv.get_type().is_array_type() and sv.get_type().elem_type.is_bv_type():
+                elif sv.get_type().is_array_type() and \
+                     sv.get_type().elem_type.is_bv_type() and \
+                     const_arr_supported:
                     svtype = sv.get_type()
                     width = svtype.elem_type.width
                     if int(def_init_val) == 1:
@@ -216,6 +229,8 @@ class ProblemSolver(object):
                 new_init.append(EqualsOrIff(sv, val))
             def_init_ts.set_behavior(simplify(And(new_init)), TRUE(), TRUE())
             problem.hts.add_ts(def_init_ts)
+            Logger.msg("Set {}/{} state elements to zero "
+                       "in initial state\n".format(num_def_init_vars, num_state_vars), 1)
 
         if (problem.verification != VerificationType.EQUIVALENCE) and (problem.formula is not None):
             assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
@@ -241,7 +256,6 @@ class ProblemSolver(object):
             if Logger.level(2):
                 Logger.get_timer(timer)
 
-        mc_config = self.problem2mc_config(problem, config)
         bmc_safety = BMCSafety(problem.hts, mc_config)
         bmc_parametric = BMCParametric(problem.hts, mc_config)
         bmc_ltl = BMCLTL(problem.hts, mc_config)
