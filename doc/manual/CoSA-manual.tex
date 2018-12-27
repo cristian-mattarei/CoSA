@@ -384,6 +384,14 @@ the top module as model flag.
   with \texttt{Counters\_4} as a top module.
 \end{example}
 
+\subsection{Verilog/SystemVerilog with Yosys}
+CoSA can also use the open-source synthesis tool, Yosys, to read Verilog and
+(some) SystemVerilog. This approach can use Yosys to simplify the circuit and
+can result in faster verification. If yosys is installed and available at the
+command line, then this is the default Verilog/SystemVerilog parser. To read in
+multiple files, use the \texttt{*.vlist} extension with the top module as a
+model flag.
+
 \subsection{CoreIR}
 CoreIR~\cite{CoreIR} is supported by relying on PyCoreIR. Its file
 extension is \texttt{.json}. The format accepts model flags to

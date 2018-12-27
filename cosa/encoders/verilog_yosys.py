@@ -20,8 +20,6 @@ from cosa.encoders.btor2 import BTOR2Parser
 
 from cosa.utils.generic import suppress_output, restore_output, check_command
 
-DFFSR2DFF_CMD = "yosys -p 'techmap -map +/dffsr2dff.v'"
-
 PASSES = []
 PASSES.append("hierarchy -check")
 PASSES.append("flatten")
@@ -33,13 +31,12 @@ COMMANDS.append("{PASSES}")
 COMMANDS.append("setundef -anyseq -undriven -undef")
 COMMANDS.append("write_btor {BTORFILE}")
 
+DFFSR2DFF_CMD = "yosys -p 'techmap -map +/dffsr2dff.v'"
 TMPFILE = "__yosys_verilog__.btor2"
-
 CMD = "yosys"
-
 INCLUDE = "`include"
-
 YOSYSERRLOG = "yosys-err.log"
+MULTI_FILE_EXT="vlist"
 
 KEYWORDS = ""
 KEYWORDS += "module wire assign else reg always endmodule end define integer generate "
@@ -48,7 +45,7 @@ KEYWORDS = KEYWORDS.split()
 
 class VerilogYosysBtorParser(ModelParser):
     parser = None
-    extensions = ["v", "sv"]
+    extensions = ["v", "sv", MULTI_FILE_EXT]
     name = "Verilog Yosys (via BTOR)"
 
     files_from_dir = False
@@ -69,37 +66,6 @@ class VerilogYosysBtorParser(ModelParser):
     def _get_extension(self, strfile):
         return strfile.split(".")[-1]
 
-    def _collect_dependencies(self, path, top, skip=[]):
-        new_filenames = []
-
-        with open("%s/%s"%(path, top), "r") as f:
-            filestr = f.read()
-            filestr = re.sub('(//)(.*)',' ', filestr)
-            for line in filestr.split("\n"):
-                line = re.sub('\t+',' ', re.sub(' +',' ', line))
-                if line.strip() == "":
-                    continue
-                if INCLUDE in line:
-                    new_filenames.append(re.search("\".+\"", line).group(0)[1:-1])
-                    continue
-                instantiations = re.search("([a-zA-Z][a-zA-Z_0-9]*)+( )", line)
-
-                if instantiations is not None:
-                    instance = instantiations.group(0)[:-1]
-                    if (instance in skip) or (instance in KEYWORDS):
-                        continue
-                    filename = "%s.v"%instance
-                    if os.path.isfile("%s/%s"%(path, filename)):
-                        new_filenames.append("%s.v"%instance)
-                    skip.append(instance)
-
-        skip.append(top)
-
-        for filename in new_filenames:
-            new_filenames += self._collect_dependencies(path, filename, skip)
-
-        return new_filenames
-
     def parse_file(self, strfile, config, flags=None):
         if flags is None:
             Logger.error("Top module not provided")
@@ -108,6 +74,11 @@ class VerilogYosysBtorParser(ModelParser):
         absstrfile = os.path.abspath(strfile)
         directory = "/".join(absstrfile.split("/")[:-1])
         filename = absstrfile.split("/")[-1]
+        if os.path.isdir(absstrfile):
+            # TODO: Test this feature
+            self.files_from_dir = True
+        else:
+            self.single_file = filename.split(".")[-1] != MULTI_FILE_EXT
 
         if config.opt_circuit:
             PASSES.append("proc")
@@ -138,8 +109,13 @@ class VerilogYosysBtorParser(ModelParser):
             if self.files_from_dir:
                 files = ["%s/%s"%(directory, f) for f in os.listdir(directory) if self._get_extension(f) in self.extensions]
             else:
-                files = ["%s/%s"%(directory, f) for f in list(set(self._collect_dependencies(directory, filename)))]
-                files.append(absstrfile)
+                files = []
+                with open(absstrfile, "r") as source_list:
+                    Logger.msg("Reading source files from \"%s\"... "%(filename), 0)
+                    for source in source_list.read().split("\n"):
+                        source = source.strip()
+                        if source:
+                            files.append(source)
 
         command = "%s -p \"%s\""%(CMD, "; ".join(COMMANDS))
         command = command.format(FILES=" ".join(files), \
