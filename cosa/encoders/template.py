@@ -23,6 +23,7 @@ class EncoderConfig(object):
     boolean = False
     devel = False
     opt_circuit = False
+    no_arrays = False
 
     def __init__(self):
         pass

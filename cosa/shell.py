@@ -83,6 +83,7 @@ class Config(object):
     assume_if_true = False
     model_extension = None
     opt_circuit = False
+    no_arrays = False
     cardinality = 5
     coi = False
     cache_files = False
@@ -289,6 +290,7 @@ def run_verification(config):
     problems.abstract_clock = config.abstract_clock
     problems.run_coreir_passes = config.run_passes
     problems.opt_circuit = config.opt_circuit
+    problems.no_arrays = config.no_arrays
     problems.relative_path = "./"
 
     problem = problems.new_problem()
@@ -528,6 +530,11 @@ def main():
     enc_params.add_argument('--opt-circuit', action='store_true',
                             help='Use Yosys to optimize the circuit -- can remove signals.')
 
+    enc_params.set_defaults(no_arrays=False)
+    enc_params.add_argument('--no-arrays', action='store_true',
+                            help='For Yosys frontend, blast memories to registers instead of using arrays.\n'
+                            'Note: This can fail -- particularly for dualport memories.')
+
     # Printing parameters
 
     print_params = parser.add_argument_group('trace printing')
@@ -649,6 +656,7 @@ def main():
     config.coi = args.coi
     config.model_extension = args.model_extension
     config.opt_circuit = args.opt_circuit
+    config.no_arrays = args.no_arrays
     config.cardinality = args.cardinality
     config.cache_files = args.cache_files
     config.clean_cache = args.clean_cache

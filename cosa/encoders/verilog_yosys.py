@@ -22,10 +22,25 @@ from cosa.utils.generic import suppress_output, restore_output, check_command
 
 PASSES = []
 PASSES.append("hierarchy -check")
-PASSES.append("flatten")
+OPT_PASSES = []
+OPT_PASSES.append("proc")
+OPT_PASSES.append("opt")
+OPT_PASSES.append("opt_expr -mux_undef")
+OPT_PASSES.append("opt")
+OPT_PASSES.append("opt")
+OPT_PASSES.append("memory_dff -wr_only")
+OPT_PASSES.append("memory_collect;")
+OPT_PASSES.append("flatten;")
+OPT_PASSES.append("memory_unpack")
+OPT_PASSES.append("splitnets -driver")
+OPT_PASSES.append("opt;;")
+OPT_PASSES.append("memory_collect;")
+OPT_PASSES.append("pmuxtree")
+OPT_PASSES.append("rename -hide")
+OPT_PASSES.append("proc")
+OPT_PASSES.append("opt;;")
 COMMANDS = []
 COMMANDS.append("read_verilog -sv {FILES}")
-COMMANDS.append("hierarchy -top {TARGET}")
 COMMANDS.append("prep -top {TARGET}")
 COMMANDS.append("{PASSES}")
 COMMANDS.append("setundef -anyseq -undriven -undef")
@@ -80,23 +95,16 @@ class VerilogYosysBtorParser(ModelParser):
         else:
             self.single_file = filename.split(".")[-1] != MULTI_FILE_EXT
 
+        if config.no_arrays:
+            PASSES.append("memory")
+        else:
+            PASSES.append("memory -nomap")
+
         if config.opt_circuit:
-            PASSES.append("proc")
-            PASSES.append("opt")
-            PASSES.append("opt_expr -mux_undef")
-            PASSES.append("opt")
-            PASSES.append("opt")
-            PASSES.append("memory_dff -wr_only")
-            PASSES.append("memory_collect;")
+            for op in OPT_PASSES:
+                PASSES.append(op)
+        else:
             PASSES.append("flatten;")
-            PASSES.append("memory_unpack")
-            PASSES.append("splitnets -driver")
-            PASSES.append("opt;;")
-            PASSES.append("memory_collect;")
-            PASSES.append("pmuxtree")
-            PASSES.append("rename -hide")
-            PASSES.append("proc")
-            PASSES.append("opt;;")
 
         if not config.abstract_clock:
             PASSES.append("clk2fflogic;")

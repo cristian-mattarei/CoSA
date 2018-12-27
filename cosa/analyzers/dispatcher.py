@@ -648,5 +648,6 @@ class ProblemSolver(object):
         encoder_config.boolean = problems.boolean or config.boolean
         encoder_config.devel = config.devel
         encoder_config.opt_circuit = problems.opt_circuit or config.opt_circuit
+        encoder_config.no_arrays = problems.no_arrays or config.no_arrays
 
         return encoder_config
