@@ -36,7 +36,6 @@ OPT_PASSES.append("splitnets -driver")
 OPT_PASSES.append("opt;;")
 OPT_PASSES.append("memory_collect;")
 OPT_PASSES.append("pmuxtree")
-OPT_PASSES.append("rename -hide")
 OPT_PASSES.append("proc")
 OPT_PASSES.append("opt;;")
 COMMANDS = []
