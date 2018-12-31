@@ -687,6 +687,10 @@ class BMCSafety(BMCSolver):
                 else:
                     if not next_prop:
                         self._add_assertion(solver_ind, self.at_time(prop, t_prop), "prop")
+                    else:
+                        # add skipped transition
+                        self._add_assertion(solver_ind, trans_t, comment="trans")
+
 
             trans_t = self.unroll(trans, invar, t+1, t)
             self._add_assertion(solver, trans_t)
