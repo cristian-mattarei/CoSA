@@ -34,5 +34,3 @@ RUN unzip master.zip
 RUN rm master.zip
 RUN mv CoSA-master CoSA
 RUN cd CoSA && pip3 install -e .
-
-RUN ln -s /usr/bin/python3 /usr/bin/python
