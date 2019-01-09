@@ -1,6 +1,6 @@
 [GENERAL]
 model_file: Counters_4.v[Counters_4],rst_beh.ets
-add_clock: True
+clock_behaviors: DetClock(clk, 1)
 assume_if_true: True
 coi: True
 
