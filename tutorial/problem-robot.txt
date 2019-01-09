@@ -1,0 +1,9 @@
+[GENERAL]
+model_file: robot.sv[robot],robot-reset.ets
+assume_if_true: True
+abstract_clock: True
+
+[DEFAULT]
+bmc_length: 40
+precondition: reset_done
+prove: True

@@ -14,7 +14,7 @@ This format allows for the definition of a component-based Symbolic Transition S
 The language supports also a typed modules definition and instantiation. A module can be defined using the keyword ``DEF``, followed by a list of parameters, while its instantiation should be defined in the ``VAR`` section.
 
 ========================
-Counter Example
+Example
 ========================
 
 Simple definition of an 8-bit counter with clock and reset. The lines that starts with ``#`` are comments. 

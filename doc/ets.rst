@@ -10,7 +10,7 @@ This format allows for the definition of an Explicit States Transition System, w
 The language does not require types definition, because it is inferred by the values assignment.
 
 ========================
-Counter Example
+Example
 ========================
 
 Simple definition of a 2-bit counter. The lines that starts with ``#`` are comments. 

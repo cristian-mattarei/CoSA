@@ -35,3 +35,5 @@ else
     cd coreir && sudo make install && cd ..
 fi
 
+wget http://web.stanford.edu/~makaim/files/yosys
+export PATH=`pwd`

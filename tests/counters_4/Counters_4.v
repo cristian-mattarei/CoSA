@@ -37,7 +37,7 @@ module Counter #(parameter SIZE = 16)
    (
     input             clk,
     input             rst,
-    output [SIZE-1:0] out
+    output reg [SIZE-1:0] out
     );
 
    always @(posedge clk or posedge rst)

@@ -13,7 +13,7 @@ from six.moves import cStringIO
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.rewritings import conjunctive_partition
 from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
-from pysmt.logics import QF_ABV
+from pysmt.logics import convert_logic_from_string, QF_BV, QF_ABV
 
 from cosa.utils.logger import Logger
 from cosa.representation import TS, HTS
@@ -42,12 +42,14 @@ class MCConfig(object):
     smt2file = None
     simplify = False
     solver_name = None
+    solver_options = None
     prove = None
 
     def __init__(self):
         self.incremental = True
         self.strategy = VerificationStrategy.AUTO
         self.solver_name = "msat"
+        self.solver_options = dict()
         self.prefix = None
         self.smt2file = None
         self.simplify = False
@@ -74,28 +76,34 @@ class TraceSolver(object):
 
     solver_name = None
     name = None
+    logic = None
+    incremental = None
+    solver_options = None
     basename = None
     trace_file = None
     solver = None
     smt2vars = None
     smt2vars_inc = None
 
-    def __init__(self, solver_name, name, basename=None):
+    def __init__(self, solver_name, name, logic, incremental, solver_options, basename=None):
         self.solver_name = solver_name
         self.name = name
+        self.logic = logic
+        self.incremental = incremental
+        self.solver_options = solver_options
         self.basename = basename
         self.smt2vars = set([])
-        self.solver = Solver(name=solver_name, logic=QF_ABV)
+        self.solver = Solver(name=solver_name, logic=logic, incremental=incremental, solver_options=solver_options)
         self.smt2vars_inc = []
         if basename is not None:
             self.trace_file = "%s-%s.smt2"%(basename, name)
 
     def clear(self):
         self.solver.exit()
-        self.solver = Solver(name=self.solver_name, logic=QF_ABV)
+        self.solver = Solver(name=self.solver_name, logic=self.logic, incremental=self.incremental, solver_options=self.solver_options)
 
     def copy(self, name=None):
-        return TraceSolver(self.solver_name, self.name if name is None else name, self.basename)
+        return TraceSolver(self.solver_name, self.name if name is None else name, self.logic, self.incremental, self.solver_options, self.basename)
 
 class BMCSolver(object):
 
@@ -111,7 +119,9 @@ class BMCSolver(object):
         basename = None
         if self.config.smt2file is not None:
             basename = ".".join(self.config.smt2file.split(".")[:-1])
-        self.solver = TraceSolver(config.solver_name, "main", basename)
+        logic = convert_logic_from_string(self.hts.logic)
+        self.solver = TraceSolver(config.solver_name, "main", logic=logic, incremental=config.incremental,
+                                  solver_options=config.solver_options, basename=basename)
 
         self.varmapf_t = None
         self.varmapb_t = None
@@ -246,7 +256,6 @@ class BMCSolver(object):
                     continue
 
                 symbol_name = self._formula_to_smt2(v)
-
                 if v.symbol_type() == BOOL:
                     self._write_smt2_log(solver, "(declare-fun %s () Bool)" % (symbol_name))
                 elif v.symbol_type().is_array_type():
@@ -309,7 +318,7 @@ class BMCSolver(object):
 
     def _solve(self, solver):
         Logger.log("Solve solver \"%s\""%solver.name, 2)
-        
+
         self._write_smt2_log(solver, "(check-sat)")
         self._write_smt2_log(solver, "")
 
@@ -366,7 +375,7 @@ class BMCSolver(object):
 
         h_init = hts.single_init()
         h_trans = hts.single_trans()
-        
+
         holding_lemmas = []
         lindex = 1
         nlemmas = len(lemmas)
@@ -381,7 +390,7 @@ class BMCSolver(object):
                 holding_lemmas.append(lemma)
                 hts.add_assumption(lemma)
                 hts.reset_formulae()
-                
+
                 Logger.log("Lemma %s holds"%(lindex), 1)
                 tlemmas += 1
                 if self._suff_lemmas(prop, holding_lemmas):
@@ -389,11 +398,11 @@ class BMCSolver(object):
             else:
                 Logger.log("Lemma %s does not hold"%(lindex), 1)
                 flemmas += 1
-                
+
             msg = "%s T:%s F:%s U:%s"%(status_bar((float(lindex)/float(nlemmas)), False), tlemmas, flemmas, (nlemmas-lindex))
-            Logger.inline(msg, 0, not(Logger.level(1))) 
+            Logger.inline(msg, 0, not(Logger.level(1)))
             lindex += 1
-            
+
         Logger.clear_inline(0, not(Logger.level(1)))
 
         for lemma in holding_lemmas:
@@ -435,3 +444,13 @@ class BMCSolver(object):
         trace.prop_vars = xvars
 
         return trace
+
+# used elsewhere to enable/disable features
+# there's not a great way to query pysmt for this except
+# from pysmt.solvers import cvc4
+# cvc4.CVC4Solver.LOGICS
+# which requires that cvc4 is installed, and since this won't change
+# often it's more efficent to hardcode it, instead of repeating for each
+# solver and catching exceptions
+CONST_ARRAYS_SUPPORT = {"cvc4", "msat", "z3"}
+

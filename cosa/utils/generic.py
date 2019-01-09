@@ -14,6 +14,7 @@ import sys
 
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
+COSATMPFILE="/tmp/CoSA-working-tmp.out"
 
 def is_number(strnum):
     try:
@@ -34,7 +35,7 @@ def auto_convert(strval):
             return float(strval)
         except Exception:
             return strval
-    
+
 def status_bar(status, percent=True, length=40):
     curr = math.ceil(length*status)
     percent = (" %.2f%%"%(status*100)) if percent else ""
@@ -55,20 +56,31 @@ def bin_to_dec(val):
 
 def new_string():
     global string_id
-    
+
     string_id += 1
     return STRING_PATTERN%string_id
 
-def suppress_output():
-    devnull = open('/dev/null', 'w')
+def suppress_output(redirect_error=False):
+    tmpfile = open(COSATMPFILE, 'w')
+
     oldstdout = os.dup(1)
-    os.dup2(devnull.fileno(), 1)
-    return (devnull, oldstdout)
+    os.dup2(tmpfile.fileno(), 1)
+    oldstderr = None
+    if redirect_error:
+        oldstderr = os.dup(2)
+        os.dup2(tmpfile.fileno(), 2)
+    return (tmpfile, oldstdout, oldstderr)
 
 def restore_output(saved_status):
-    (devnull, old_stdout) = saved_status
+    (tmpfile, old_stdout, old_stderr) = saved_status
     os.dup2(old_stdout, 1)
-    devnull.close()
+    if old_stderr is not None:
+        os.dup2(old_stderr, 2)
+    tmpfile.close()
+
+def check_command(cmd):
+    retval = os.system(cmd)
+    return (retval == 0)
 
 def sort_system_variables(variables, with_names=False):
     depthdic = {}
@@ -85,7 +97,7 @@ def sort_system_variables(variables, with_names=False):
     ret = []
     depths = list(depthdic.keys())
     depths.sort()
-    
+
     for i in depths:
         vars = depthdic[i]
         vars.sort()
@@ -95,10 +107,10 @@ def sort_system_variables(variables, with_names=False):
             ret += [v[1] for v in depthdic[i]]
     assert len(ret) == len(variables)
     return ret
-        
+
 def class_name(obj):
     return obj.__class__.__name__
-    
+
 class color:
    PURPLE = '\033[95m'
    CYAN = '\033[96m'

@@ -22,6 +22,7 @@ from cosa.utils.generic import suppress_output, restore_output
 
 COMMANDS = []
 COMMANDS.append("read -sysv {FILES} -top {TARGET}")
+COMMANDS.append("set_runtime_flag \"db_verilog_writer_full_simulation\" 1")
 COMMANDS.append("write -format verilog {FILE}")
 
 TMPFILE = "__verific_verilog__.v"

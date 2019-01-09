@@ -35,25 +35,25 @@ class VerificationStatus(object):
     TRUE = "TRUE"
     FALSE = "FALSE"
 
-    @staticmethod        
+    @staticmethod
     def convert(status):
         if type(status) == bool:
             return VerificationStatus.TRUE if status else VerificationStatus.FALSE
-        
+
         if status.upper() in [VerificationStatus.TRUE,\
                               VerificationStatus.FALSE,\
                               VerificationStatus.UNK,\
                               VerificationStatus.UNC]:
             return status.upper()
-        
+
         Logger.error("Invalid Verification Status \"%s\""%status)
 
-    @staticmethod        
+    @staticmethod
     def compare(expected, status):
         if (expected == VerificationStatus.UNK) and (status == VerificationStatus.TRUE):
             return True
         return expected == status
-        
+
 class VerificationType(object):
     SAFETY = 0
     LIVENESS = 1
@@ -64,7 +64,7 @@ class VerificationType(object):
     LTL = 6
     PARAMETRIC = 7
 
-    @staticmethod        
+    @staticmethod
     def to_string(verification_type):
         if verification_type == VerificationType.SAFETY:
             return SAFETY
@@ -84,7 +84,7 @@ class VerificationType(object):
             return PARAMETRIC
 
         return None
-        
+
 
 class Problems(object):
     abstract_clock = False
@@ -96,6 +96,7 @@ class Problems(object):
     boolean = None
     clock_behaviors = None
     description = None
+    default_initial_value = None
     equivalence = None
     expected = None
     formula = None
@@ -113,6 +114,7 @@ class Problems(object):
     skip_solving = False
     smt2_tracing = None
     solver_name = None
+    solver_options = None
     strategy = None
     symbolic_init = False
     time = False
@@ -126,14 +128,16 @@ class Problems(object):
     verification = None
     zero_init = None
     model_extension = None
+    opt_circuit = False
+    no_arrays = False
     cardinality = -1
     region = None
     coi = False
     cache_files = False
-    
+
     _hts = None
     _hts2 = None
-    
+
     def __init__(self):
         self.problems = []
         # need to create TS for each symbolic init value
@@ -149,64 +153,68 @@ class Problems(object):
         for problem in self.problems:
             if problem.attributes() not in problems_dic:
                 problems_dic[problem.attributes()] = []
-                
+
             problems_dic[problem.attributes()].append(problem)
 
         ret = []
         for key,el in problems_dic.items():
             ret.append(el)
-            
+
         return ret
-        
+
     def get_hts(self):
         return self._hts
-        
+
     def new_problem(self):
         problem = Problem()
-        
-        problem.abstract_clock = self.abstract_clock 
-        problem.add_clock = self.add_clock 
-        problem.assume_if_true = self.assume_if_true 
-        problem.assumptions = self.assumptions 
-        problem.bmc_length = self.bmc_length 
-        problem.bmc_length_min = self.bmc_length_min 
-        problem.boolean = self.boolean 
-        problem.clock_behaviors = self.clock_behaviors 
-        problem.description = self.description 
-        problem.equivalence = self.equivalence 
-        problem.expected = self.expected 
-        problem.formula = self.formula 
-        problem.full_trace = self.full_trace 
-        problem.generators = self.generators 
-        problem.incremental = self.incremental 
-        problem.lemmas = self.lemmas 
-        problem.model_file = self.model_file 
-        problem.name = self.name 
+
+        problem.abstract_clock = self.abstract_clock
+        problem.add_clock = self.add_clock
+        problem.assume_if_true = self.assume_if_true
+        problem.assumptions = self.assumptions
+        problem.bmc_length = self.bmc_length
+        problem.bmc_length_min = self.bmc_length_min
+        problem.boolean = self.boolean
+        problem.clock_behaviors = self.clock_behaviors
+        problem.description = self.description
+        problem.default_initial_value = self.default_initial_value
+        problem.equivalence = self.equivalence
+        problem.expected = self.expected
+        problem.formula = self.formula
+        problem.full_trace = self.full_trace
+        problem.generators = self.generators
+        problem.incremental = self.incremental
+        problem.lemmas = self.lemmas
+        problem.model_file = self.model_file
+        problem.name = self.name
+        problem.opt_circuit = self.opt_circuit
+        problem.no_arrays = self.no_arrays
         problem.precondition = self.precondition
-        problem.problems = self.problems 
-        problem.prove = self.prove 
-        problem.relative_path = self.relative_path 
-        problem.run_coreir_passes = self.run_coreir_passes 
-        problem.skip_solving = self.skip_solving 
-        problem.smt2_tracing = self.smt2_tracing 
-        problem.solver_name = self.solver_name 
-        problem.strategy = self.strategy 
-        problem.symbolic_init = self.symbolic_init 
-        problem.time = self.time 
-        problem.trace_all_vars = self.trace_all_vars 
-        problem.trace_prefix = self.trace_prefix 
-        problem.trace_vars_change = self.trace_vars_change 
+        problem.problems = self.problems
+        problem.prove = self.prove
+        problem.relative_path = self.relative_path
+        problem.run_coreir_passes = self.run_coreir_passes
+        problem.skip_solving = self.skip_solving
+        problem.smt2_tracing = self.smt2_tracing
+        problem.solver_name = self.solver_name
+        problem.solver_options = self.solver_options
+        problem.strategy = self.strategy
+        problem.symbolic_init = self.symbolic_init
+        problem.time = self.time
+        problem.trace_all_vars = self.trace_all_vars
+        problem.trace_prefix = self.trace_prefix
+        problem.trace_vars_change = self.trace_vars_change
         problem.trace_values_base = self.trace_values_base
-        problem.traces = self.traces 
-        problem.vcd = self.vcd 
-        problem.verbosity = self.verbosity 
-        problem.verification = self.verification 
-        problem.zero_init = self.zero_init 
+        problem.traces = self.traces
+        problem.vcd = self.vcd
+        problem.verbosity = self.verbosity
+        problem.verification = self.verification
+        problem.zero_init = self.zero_init
         return problem
-        
+
     def generate_problem(self, name, pbm_values):
         pbm = Problem()
-        
+
         if VERIFICATION not in pbm_values:
             Logger.error("Verification type missing in problem \"%s\""%(name))
         else:
@@ -220,7 +228,7 @@ class Problems(object):
                 Logger.error("Attribute \"%s\" not found"%attr)
 
         return pbm
-        
+
     def load_problems(self, problems_file):
         config = configparser.ConfigParser()
         config.optionxform=str
@@ -231,7 +239,7 @@ class Problems(object):
 
         if self.relative_path !="":
             self.relative_path += "/"
-            
+
         for value in config:
             problem = dict(config[value])
             if DEFAULT == value:
@@ -257,16 +265,19 @@ class Problem(object):
     symbolic_init = False
     smt2_tracing = None
     model_extension = None
+    opt_circuit = False
+    no_arrays = False
     cardinality = -1
     region = None
     coi = False
+    default_initial_value = None
 
     full_trace = False
     trace_vars_change = False
     trace_values_base = None
     trace_all_vars = False
     trace_prefix = None
-    
+
     verbosity = None
     description = None
 
@@ -278,7 +289,7 @@ class Problem(object):
     bmc_length = 10
     bmc_length_min = 0
     equivalence = None
-    
+
     model_file = None
     generators = None
     clock_behaviors = None
@@ -291,6 +302,7 @@ class Problem(object):
     skip_solving = False
 
     solver_name = None
+    solver_options = None
 
     def __init__(self):
         self.status = VerificationStatus.UNC
@@ -310,15 +322,17 @@ class Problem(object):
         imp.append(self.symbolic_init)
         imp.append(self.verification)
         imp.append(self.equivalence)
-    
+        imp.append(self.default_initial_value)
+
         imp.append(self.model_file)
         imp.append(self.generators)
         imp.append(self.clock_behaviors)
         imp.append(self.skip_solving)
         imp.append(self.solver_name)
-        
+        imp.append(solver_options)
+
         return tuple(imp)
-    
+
     def set_verification(self, value):
         if value == LIVENESS:
             self.verification = VerificationType.LIVENESS
@@ -327,7 +341,7 @@ class Problem(object):
         if value == EVENTUALLY:
             self.verification = VerificationType.EVENTUALLY
             return
-        
+
         if value == SAFETY:
             self.verification = VerificationType.SAFETY
             return
@@ -339,7 +353,7 @@ class Problem(object):
         if value == DETERMINISTIC:
             self.verification = VerificationType.DETERMINISTIC
             return
-        
+
         if value == SIMULATION:
             self.verification = VerificationType.SIMULATION
             return
@@ -351,7 +365,7 @@ class Problem(object):
         if value == PARAMETRIC:
             self.verification = VerificationType.PARAMETRIC
             return
-        
+
         Logger.error("Unknown verification type \"%s\""%value)
 
 
@@ -375,5 +389,3 @@ class Trace(object):
 
     def __str__(self):
         return str(self.strtrace)
-
-    

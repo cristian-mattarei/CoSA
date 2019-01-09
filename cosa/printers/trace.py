@@ -166,18 +166,12 @@ class VCDTracePrinter(TracePrinter):
         ret.append("1 ns")
         ret.append("$end")
 
-        def _recover_array(store_ops):
+        def _recover_array(array_model):
             d = {}
-            x = store_ops
-            while len(x.args()) == 3:
-                next_x, k, v = x.args()
-                x = next_x
-                if k.constant_value() not in d:
-                    d[k.constant_value()] = v.constant_value()
+            for k, v in array_model.array_value_assigned_values_map().items():
+                d[k.constant_value()] = v.constant_value()
             return d
 
-        # TODO, use model[v].array_value_assigned_values_map()
-        # to get all the array values for a counterexample trace
         model = dict([(v.symbol_name(), model[v].constant_value()
                           if not v.symbol_type().is_array_type()
                           else _recover_array(model[v])) for v in model])

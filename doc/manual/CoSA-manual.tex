@@ -388,6 +388,14 @@ the top module as model flag.
   with \texttt{Counters\_4} as a top module.
 \end{example}
 
+\subsection{Verilog/SystemVerilog with Yosys}
+CoSA can also use the open-source synthesis tool, Yosys, to read Verilog and
+(some) SystemVerilog. This approach can use Yosys to simplify the circuit and
+can result in faster verification. If yosys is installed and available at the
+command line, then this is the default Verilog/SystemVerilog parser. To read in
+multiple files, use the \texttt{*.vlist} extension with the top module as a
+model flag.
+
 \subsection{CoreIR}
 CoreIR~\cite{CoreIR} is supported by relying on PyCoreIR. Its file
 extension is \texttt{.json}. The format accepts model flags to
@@ -1529,6 +1537,19 @@ relevant for a given property. This technique relies on the structure
 of system, to extract the relevant information regarding the variables
 dependencies. At the current stage, CoSA supports COI (with the
 parameter \texttt{--coi}) only for Verilog and SystemVerilog models.
+
+\subsection{Circuit Optimizing}
+A very similar option to Cone of Influence reduction is to use Yosys
+to optimize the circuit. This calls a sequence of carefully selected
+passes which can propagate constants, remove redundant or unnecessary
+signals, and overall shrink the model. Although this can drastically
+speed up verification, it can be confusing as parts of the circuit
+might disappear. In particular, any part of the circuit that is not
+within the fan-in of a primary output, or a marked signal, will be
+removed. Signals and modules can be marked with a Verilog attribute,
+\texttt{(* keep *)} to prevent removal. This optimization can be invoked
+with the \texttt{--opt-circuit} option at the command line, or
+\texttt{opt\_circuit:} \texttt{True} in a problem file.
 
 \subsection{Files Caching}
 CoSA translates each given model into an internal representation that

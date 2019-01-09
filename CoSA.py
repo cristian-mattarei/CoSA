@@ -14,5 +14,5 @@ from cosa.shell import main
 import warnings
            
 if __name__ == "__main__":
-    warnings.simplefilter("ignore", category=PendingDeprecationWarning)    
+    warnings.simplefilter("ignore", category=PendingDeprecationWarning)
     main()

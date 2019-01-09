@@ -1,0 +1,21 @@
+[GENERAL]
+model_file: counter.v[counter],init.ets
+assume_if_true: True
+abstract_clock: True
+
+[DEFAULT]
+bmc_length: 40
+
+[counter_reaches_1]
+description: "Check that counter eventually reaches 1"
+formula: F(out = 1_4)
+prove: True
+verification: ltl
+expected: True
+
+[counter_io_reaches_1]
+description: "Check that counter reaches 1 infinitely often"
+formula: G(F(out = 1_4))
+prove: True
+verification: ltl
+expected: True

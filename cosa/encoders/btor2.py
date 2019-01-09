@@ -8,9 +8,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
-    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, Ite, BVZExt, BVXor, BVConcat, get_type, BVSub, \
-    Xor, Select, Store, BVComp, simplify, BVLShl, BVAShr, BVLShr
+    Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
+    Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
+    BVLShl, BVAShr, BVLShr
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import HTS, TS
@@ -21,6 +24,7 @@ from cosa.utils.generic import bin_to_dec
 from cosa.encoders.template import ModelParser
 
 NL = "\n"
+COLON_REP = "_c_"
 
 SN="N%s"
 
@@ -47,8 +51,13 @@ UGT="ugt"
 UGTE="ugte"
 ULT="ult"
 ULTE="ulte"
+SGT="sgt"
+SGTE="sgte"
+SLT="slt"
+SLTE="slte"
 AND="and"
 XOR="xor"
+XNOR = "xnor"
 NAND="nand"
 IMPLIES="implies"
 OR="or"
@@ -57,6 +66,7 @@ NOT="not"
 REDOR="redor"
 REDAND="redand"
 UEXT="uext"
+SEXT="sext"
 CONCAT="concat"
 SUB="sub"
 SLL="sll"
@@ -67,6 +77,9 @@ INIT="init"
 NEXT="next"
 CONSTRAINT="constraint"
 BAD="bad"
+ASSERTINFO="btor-assert"
+
+special_char_replacements = {"$": "", "\\": ".", ":": COLON_REP}
 
 class BTOR2Parser(ModelParser):
     parser = None
@@ -115,6 +128,12 @@ class BTOR2Parser(ModelParser):
 
         invar_props = []
         ltl_props = []
+
+        prop_count = 0
+
+        # clean string input, remove special characters from names
+        for sc, rep in special_char_replacements.items():
+            strinput = strinput.replace(sc, rep)
 
         def getnode(nid):
             node_covered.add(nid)
@@ -218,6 +237,9 @@ class BTOR2Parser(ModelParser):
             if ntype == XOR:
                 nodemap[nid] = binary_op(BVXor, Xor, getnode(nids[1]), getnode(nids[2]))
 
+            if ntype == XNOR:
+                nodemap[nid] = BVNot(binary_op(BVXor, Xor, getnode(nids[1]), getnode(nids[2])))
+
             if ntype == NAND:
                 bvop = lambda x,y: BVNot(BVAnd(x, y))
                 bop = lambda x,y: Not(And(x, y))
@@ -231,6 +253,9 @@ class BTOR2Parser(ModelParser):
 
             if ntype == UEXT:
                 nodemap[nid] = BVZExt(B2BV(getnode(nids[1])), int(nids[2]))
+
+            if ntype == SEXT:
+                nodemap[nid] = BVSExt(B2BV(getnode(nids[1])), int(nids[2]))
 
             if ntype == OR:
                 nodemap[nid] = binary_op(BVOr, Or, getnode(nids[1]), getnode(nids[2]))
@@ -252,6 +277,18 @@ class BTOR2Parser(ModelParser):
 
             if ntype == ULTE:
                 nodemap[nid] = BVULE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SGT:
+                nodemap[nid] = BVSGT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SGTE:
+                nodemap[nid] = BVSGE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SLT:
+                nodemap[nid] = BVSLT(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
+
+            if ntype == SLTE:
+                nodemap[nid] = BVSLE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == EQ:
                 nodemap[nid] = BVComp(getnode(nids[1]), getnode(nids[2]))
@@ -300,10 +337,34 @@ class BTOR2Parser(ModelParser):
 
             if ntype == BAD:
                 nodemap[nid] = getnode(nids[0])
-                invar_props.append(Not(BV2B(getnode(nid))))
+
+                if ASSERTINFO in line:
+                    filename_lineno = os.path.basename(nids[3])
+                    assert_name = 'embedded_assertion_%s'%filename_lineno
+                    description = "Embedded assertion at line {1} in {0}".format(*filename_lineno.split(COLON_REP))
+                else:
+                    assert_name = 'embedded_assertion_%i'%prop_count
+                    description = 'Embedded assertion number %i'%prop_count
+                    prop_count += 1
+
+                # Following problem format (name, description, strformula)
+                invar_props.append((assert_name, description, Not(BV2B(getnode(nid)))))
 
             if nid not in nodemap:
                 Logger.error("Unknown node type \"%s\""%ntype)
+
+            # get wirename if it exists
+            if ntype not in {STATE, INPUT, OUTPUT, BAD}:
+                # check for wirename, if it's an integer, then it's a node ref
+                try:
+                    a = int(nids[-1])
+                except:
+                    try:
+                        wire = Symbol(str(nids[-1]), getnode(nids[0]))
+                        invarlist.append(EqualsOrIff(wire, B2BV(nodemap[nid])))
+                        ts.add_var(wire)
+                    except:
+                        pass
 
         if Logger.level(1):
             name = lambda x: str(nodemap[x]) if nodemap[x].is_symbol() else x
