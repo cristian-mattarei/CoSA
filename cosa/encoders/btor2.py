@@ -86,6 +86,7 @@ class BTOR2Parser(ModelParser):
     extensions = ["btor2","btor"]
     name = "BTOR2"
     symbolic_init = False
+    blackbox_arrays = False
 
     def __init__(self):
         pass
@@ -95,6 +96,7 @@ class BTOR2Parser(ModelParser):
 
     def parse_file(self, strfile, config, flags=None):
         self.symbolic_init = config.symbolic_init
+        self.blackbox_arrays = config.blackbox_arrays
         with open(strfile, "r") as f:
             return self.parse_string(f.read())
 
@@ -125,6 +127,8 @@ class BTOR2Parser(ModelParser):
         translist = []
         initlist = []
         invarlist = []
+
+        blackboxed_arrays = set()
 
         invar_props = []
         ltl_props = []
@@ -166,14 +170,26 @@ class BTOR2Parser(ModelParser):
                     nodemap[nid] = BVType(int(attr[0]))
                     node_covered.add(nid)
                 if stype == ARRAY:
-                    nodemap[nid] = ArrayType(getnode(attr[0]), getnode(attr[1]))
-                    node_covered.add(nid)
+                    if self.blackbox_arrays:
+                        nodemap[nid] = BVType(getnode(attr[1]).width)
+                        node_covered.add(nid)
+                        blackboxed_arrays.add(nid)
+                    else:
+                        nodemap[nid] = ArrayType(getnode(attr[0]), getnode(attr[1]))
+                        node_covered.add(nid)
 
             if ntype == WRITE:
-                nodemap[nid] = Store(*[getnode(n) for n in nids[1:4]])
+                if not self.blackbox_arrays:
+                    nodemap[nid] = Store(*[getnode(n) for n in nids[1:4]])
+                else:
+                    nodemap[nid] = getnode(nids[1])
 
             if ntype == READ:
-                nodemap[nid] = Select(getnode(nids[1]), getnode(nids[2]))
+                if self.blackbox_arrays:
+                    nodemap[nid] = getnode(nids[1])
+                    blackboxed_arrays.add(nid)
+                else:
+                    nodemap[nid] = Select(getnode(nids[1]), getnode(nids[2]))
 
             if ntype == ZERO:
                 nodemap[nid] = BV(0, getnode(nids[0]).width)
@@ -206,6 +222,8 @@ class BTOR2Parser(ModelParser):
             if ntype == STATE:
                 if len(nids) > 1:
                     nodemap[nid] = Symbol(nids[1], getnode(nids[0]))
+                    if nids[0] in blackboxed_arrays:
+                        blackboxed_arrays.add(nid)
                 else:
                     nodemap[nid] = Symbol((SN%nid), getnode(nids[0]))
                 ts.add_state_var(nodemap[nid])
@@ -320,6 +338,8 @@ class BTOR2Parser(ModelParser):
             if ntype == NEXT:
                 if (get_type(getnode(nids[1])) == BOOL) or (get_type(getnode(nids[2])) == BOOL):
                     nodemap[nid] = EqualsOrIff(BV2B(TS.get_prime(getnode(nids[1]))), BV2B(getnode(nids[2])))
+                elif (nids[1] in blackboxed_arrays or nids[2] in blackboxed_arrays):
+                    nodemap[nid] = TRUE()
                 else:
                     nodemap[nid] = EqualsOrIff(TS.get_prime(getnode(nids[1])), getnode(nids[2]))
                 translist.append(getnode(nid))

@@ -24,6 +24,7 @@ class EncoderConfig(object):
     devel = False
     opt_circuit = False
     no_arrays = False
+    blackbox_arrays = False
 
     def __init__(self):
         pass

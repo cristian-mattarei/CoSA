@@ -130,6 +130,7 @@ class Problems(object):
     model_extension = None
     opt_circuit = False
     no_arrays = False
+    blackbox_arrays = False
     cardinality = -1
     region = None
     coi = False
@@ -189,6 +190,7 @@ class Problems(object):
         problem.name = self.name
         problem.opt_circuit = self.opt_circuit
         problem.no_arrays = self.no_arrays
+        problem.blackbox_arrays = self.blackbox_arrays
         problem.precondition = self.precondition
         problem.problems = self.problems
         problem.prove = self.prove
@@ -267,6 +269,7 @@ class Problem(object):
     model_extension = None
     opt_circuit = False
     no_arrays = False
+    blackbox_arrays = False
     cardinality = -1
     region = None
     coi = False
