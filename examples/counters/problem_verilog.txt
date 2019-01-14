@@ -1,10 +1,12 @@
 [GENERAL]
-model_file: counters.v[Counters]
+model_file: counters.v[Counters],toggle-clk1.ssts
 assume_if_true: True
+# note: This implicitly starts clk2 at zero
+#       which is why we need to use toggle-clk1.ssts to start it at 1
+clock_behaviors: DetClock(clk2, 1)
 
 [DEFAULT]
 bmc_length: 40
-assumptions: posedge(rst) -> ((counter_1.out > 1_8) & (counter_2.out > 1_8))
 
 [counter_out]
 description: "Check that the out is always < 12"
