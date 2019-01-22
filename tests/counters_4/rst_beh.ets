@@ -6,6 +6,7 @@ S1: rst = 1_1
 S1: reset_done = True
 S1: reset_performed = False
 
+SE: rst = 0_1
 SE: reset_performed = True
 
 I -> S1

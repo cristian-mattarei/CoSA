@@ -14,7 +14,7 @@ import sys
 
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
-COSATMPFILE="/tmp/CoSA-working-tmp.out"
+COSATMPFILE="./CoSA-working-tmp.out"
 
 def is_number(strnum):
     try:
