@@ -12,7 +12,7 @@ from six.moves import cStringIO
 
 from pysmt.shortcuts import BV, And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify, BVAdd, BVUGE
 from pysmt.rewritings import conjunctive_partition
-from pysmt.smtlib.printers import SmtPrinter, SmtDagPrinter
+from pysmt.smtlib.printers import SmtDagPrinter
 from pysmt.logics import convert_logic_from_string, QF_BV, QF_ABV
 
 from cosa.utils.logger import Logger
@@ -234,7 +234,7 @@ class BMCSolver(object):
 
     def _formula_to_smt2(self, formula):
         buf = cStringIO()
-        printer = SmtPrinter(buf)
+        printer = SmtDagPrinter(buf)
         printer.printer(formula)
         return buf.getvalue()
     
