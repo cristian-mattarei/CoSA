@@ -13,7 +13,7 @@ from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
     BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
-    BVComp, Array, Select, Store, get_type
+    BVUDiv, BVSDiv, BVComp, Array, Select, Store, get_type
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import TS, HTS, L_BV, L_ABV
@@ -34,7 +34,7 @@ class Modules(object):
     functional = True
     # control whether encoding pushes ITE in array or bv theory
     array_ite = False
-    
+
     @staticmethod
     def Uop(bvop, bop, in_, out):
         # INVAR: (<op> in) = out)
@@ -63,8 +63,8 @@ class Modules(object):
                     invar = EqualsOrIff(bop(BV2B(in_)), out)
                 if not outB:
                     invar = EqualsOrIff(bop(in_), BV2B(out))
-                
-                
+
+
         ts = TS(comment)
         ts.vars, ts.invar = get_free_variables(invar), invar
         return ts
@@ -83,7 +83,7 @@ class Modules(object):
         ts = TS(comment)
         ts.vars, ts.invar = set(vars_), invar
         return ts
-    
+
     @staticmethod
     def Bop(bvop, bop, in0, in1, out):
         # INVAR: (in0 <op> in1) = out
@@ -106,7 +106,7 @@ class Modules(object):
                 out = Ite(out, BV(1,1), BV(0,1))
 
             invar = EqualsOrIff(bvop(in0,in1), out)
-            
+
         else:
             if bools == 3:
                 invar = EqualsOrIff(bop(in0, in1), out)
@@ -126,7 +126,7 @@ class Modules(object):
                     invar = EqualsOrIff(bop(in0,BV2B(in1)), out)
                 if not outB:
                     invar = EqualsOrIff(B2BV(bop(in0, in1)), out)
-                
+
         ts = TS(comment)
         ts.vars, ts.invar = get_free_variables(invar), invar
         return ts
@@ -142,7 +142,7 @@ class Modules(object):
             bout = out
         else:
             bout = EqualsOrIff(out, BV(1, 1))
-    
+
         invar = Iff(op(in0,in1), bout)
         ts = TS(comment)
         ts.vars, ts.invar = get_free_variables(invar), invar
@@ -158,15 +158,15 @@ class Modules(object):
             cum = end_op(cum)
 
         formula = EqualsOrIff(cum, out)
-            
+
         ts = TS()
         ts.vars, ts.invar = get_free_variables(formula), formula
         return ts
-    
+
     @staticmethod
     def LShl(in0,in1,out):
         return Modules.Bop(BVLShl,None,in0,in1,out)
-    
+
     @staticmethod
     def LShr(in0,in1,out):
         return Modules.Bop(BVLShr,None,in0,in1,out)
@@ -186,7 +186,7 @@ class Modules(object):
     @staticmethod
     def Xor(in0,in1,out):
         return Modules.Bop(BVXor,Xor,in0,in1,out)
-    
+
     @staticmethod
     def Or(in0,in1,out):
         return Modules.Bop(BVOr,Or,in0,in1,out)
@@ -200,33 +200,41 @@ class Modules(object):
         return Modules.Bop(BVMul,None,in0,in1,out)
 
     @staticmethod
+    def Udiv(in0,in1,out):
+        return Modules.Bop(BVUDiv,None,in0,in1,out)
+
+    @staticmethod
+    def Sdiv(in0,in1,out):
+        return Modules.Bop(BVSDiv,None,in0,in1,out)
+
+    @staticmethod
     def Ult(in0,in1,out):
         return Modules.BopBool(BVULT,in0,in1,out)
-    
+
     @staticmethod
     def Ule(in0,in1,out):
         return Modules.BopBool(BVULE,in0,in1,out)
-    
+
     @staticmethod
     def Ugt(in0,in1,out):
         return Modules.BopBool(BVUGT,in0,in1,out)
-    
+
     @staticmethod
     def Uge(in0,in1,out):
         return Modules.BopBool(BVUGE,in0,in1,out)
-    
+
     @staticmethod
     def Slt(in0,in1,out):
         return Modules.Bop(BVSlt,None,in0,in1,out)
-    
+
     @staticmethod
     def Sle(in0,in1,out):
         return Modules.Bop(BVSle,None,in0,in1,out)
-    
+
     @staticmethod
     def Sgt(in0,in1,out):
         return Modules.Bop(BVSgt,None,in0,in1,out)
-    
+
     @staticmethod
     def Sge(in0,in1,out):
         return Modules.Bop(BVSge,None,in0,in1,out)
@@ -260,7 +268,7 @@ class Modules(object):
     def Not_M(out, *inparams):
         assert len(inparams) == 1
         return Modules.Uop(BVNot,Not,inparams[0],out)
-    
+
     @staticmethod
     def Zext(in_,out):
         # INVAR: (<op> in) = out)
@@ -287,11 +295,11 @@ class Modules(object):
                 invar = EqualsOrIff(in_, out)
             else:
                 invar = EqualsOrIff(BVZExt(in_, length), out)
-                
+
         ts = TS(comment)
         ts.vars, ts.invar = set(vars_), invar
         return ts
-    
+
     @staticmethod
     def Const(out, value):
         invar = TRUE()
@@ -301,7 +309,7 @@ class Modules(object):
             else:
                 const = BV(value, out.symbol_type().width)
             invar = EqualsOrIff(out, const)
-            
+
         comment = "Const (out, val) = (" + out.symbol_name() + ", " + str(value) + ")"
         Logger.log(comment, 3)
         ts = TS(comment)
@@ -325,9 +333,9 @@ class Modules(object):
             init = clk0
         else:
             init = TRUE()
-            
+
         invar = TRUE()
-        
+
         if False:
             trans = EqualsOrIff(clk0, TS.to_next(clk1))
         else:
@@ -340,7 +348,7 @@ class Modules(object):
             invar = clk0
             init = TRUE()
             trans = TRUE()
-            
+
         ts = TS(comment)
         ts.vars, ts.state_vars = set([clk]), set([clk])
         ts.set_behavior(init, trans, invar)
@@ -409,7 +417,7 @@ class Modules(object):
         else:
             clk_posedge0 = False
             clk_posedge1 = True
-            
+
         if clr is not None:
             if clr.symbol_type() == BOOL:
                 clr0 = Not(clr)
@@ -475,7 +483,7 @@ class Modules(object):
         else:
             trans = And(trans, And(Implies(ndo_arst, And(Implies(do_clk, act_trans), Implies(ndo_clk, pas_trans))), \
                                    Implies(do_arst, EqualsOrIff(TS.get_prime(out), initvar))))
-        
+
         trans = simplify(trans)
         ts = TS(comment)
         ts.vars, ts.state_vars = set([v for v in vars_ if v is not None]), set([out])
@@ -491,11 +499,11 @@ class Modules(object):
         vars_ = [in0,in1,sel,out]
         comment = "Mux (in0, in1, sel, out) = (%s, %s, %s, %s)"%(tuple([x.symbol_name() for x in vars_]))
         Logger.log(comment, 3)
-        
+
         if sel.symbol_type() == BOOL:
             sel0 = Not(sel)
             sel1 = sel
-        else:            
+        else:
             sel0 = EqualsOrIff(sel, BV(0, 1))
             sel1 = EqualsOrIff(sel, BV(1, 1))
 
@@ -572,19 +580,19 @@ class Modules(object):
         if (in_.symbol_type() == BOOL) and (out.symbol_type() == BOOL):
             invar = EqualsOrIff(in_, out)
         else:
-            
+
             if out.symbol_type() == BOOL:
                 out0 = Not(out)
                 out1 = out
             else:
                 out0 = EqualsOrIff(out, BV(0,1))
                 out1 = EqualsOrIff(out, BV(1,1))
-            
+
             true_res = Implies(EqualsOrIff(in_, BV(0,in_.symbol_type().width)), out0)
             false_res = Implies(Not(EqualsOrIff(in_, BV(0,in_.symbol_type().width))), out1)
-            
+
             invar = And(true_res, false_res)
-            
+
         ts = TS(comment)
         ts.vars, ts.invar = set(vars_), invar
         return ts

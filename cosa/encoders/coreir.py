@@ -59,7 +59,7 @@ class CoreIRModelFlags(ModelFlags):
 class CoreIRParser(ModelParser):
     extensions = ["json"]
     name = "CoreIR"
-    
+
     context = None
 
     attrnames = None
@@ -77,7 +77,7 @@ class CoreIRParser(ModelParser):
 
     def is_available(self):
         return COREIR
-            
+
     def __init__(self):
         if COREIR:
             self.context = coreir.Context()
@@ -103,8 +103,8 @@ class CoreIRParser(ModelParser):
         self.enc_map = {}
         self.map_an2or = {}
         self.map_or2an = {}
-        
-    @staticmethod        
+
+    @staticmethod
     def get_extensions():
         return CoreIRParser.extensions
 
@@ -113,7 +113,7 @@ class CoreIRParser(ModelParser):
         model_info.abstract_clock_list = list(self.abstract_clock_list)
         model_info.clock_list = list(self.clock_list)
         return model_info
-     
+
     def run_passes(self):
         Logger.log("Running CoreIR passes...", 1)
         print_level = 3
@@ -142,7 +142,7 @@ class CoreIRParser(ModelParser):
         if name in self.map_or2an:
             return self.map_or2an[name]
         return name
-    
+
     def BVVar(self, name, width):
         if width <= 0 or not isinstance(width, int):
             Logger.error("Bit Vector undefined for width = {}".format(width))
@@ -161,15 +161,15 @@ class CoreIRParser(ModelParser):
 
         return Symbol(name, BVType(width))
 
-        
+
     def __init_attrnames(self):
         def add_name(name, varname=None):
             if varname is None:
                 varname = name
-            
+
             setattr(self, name.upper(), varname)
             return varname
-        
+
         self.attrnames = []
         self.attrnames.append(add_name("in0"))
         self.attrnames.append(add_name("in1"))
@@ -203,7 +203,7 @@ class CoreIRParser(ModelParser):
         mod_map.append(("orr",  (Modules.Orr,  [self.IN, self.OUT])))
         mod_map.append(("andr", (Modules.Andr, [self.IN, self.OUT])))
         mod_map.append(("wrap", (Modules.Wrap, [self.IN, self.OUT])))
-        
+
         mod_map.append(("shl",  (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("lshl", (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("lshr", (Modules.LShr, [self.IN0, self.IN1, self.OUT])))
@@ -214,6 +214,8 @@ class CoreIRParser(ModelParser):
         mod_map.append(("or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("udiv",  (Modules.Udiv,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("sdiv",  (Modules.Sdiv,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("neq",  (Modules.Neq,  [self.IN0, self.IN1, self.OUT])))
 
@@ -245,7 +247,7 @@ class CoreIRParser(ModelParser):
         sym_map.append(("const",  (ModuleSymbols.Const, [self.OUT, self.VALUE])))
 
         self.sym_map = dict(sym_map)
-        
+
     def __encoding_memoization(self, inst_type, args):
         value = 0
         vec_par = []
@@ -271,7 +273,7 @@ class CoreIRParser(ModelParser):
             ret = set([])
 
             source = False
-            
+
             for v in in_set:
                 if v in remap:
                     ret.add(remap[v])
@@ -282,7 +284,7 @@ class CoreIRParser(ModelParser):
                         source = True
 
                     ret.add(Symbol(v.symbol_name().replace(base_source, base_dest), v.symbol_type()))
-                    
+
             return ret
 
         enc_val = (inst_type, str(vec_par))
@@ -299,7 +301,7 @@ class CoreIRParser(ModelParser):
         self.enc_map[enc_val] = (ret, actual)
 
         return ret
-        
+
     def __mod_to_impl(self, inst_type, args):
         ts = None
 
@@ -311,7 +313,7 @@ class CoreIRParser(ModelParser):
 
         if ((args([self.CLK_POSEDGE])[0] == 0) or (args([self.ARST_POSEDGE])[0] == 0)) and Modules.abstract_clock:
             Logger.warning("Unsound clock abstraction: registers with negedge behavior")
-            
+
         return ts
 
     def __mod_to_sym(self, inst_type, args):
@@ -322,27 +324,27 @@ class CoreIRParser(ModelParser):
                 sym = self.__encoding_memoization(inst_type, args(self.sym_map[inst_type][1]))
             else:
                 sym = self.sym_map[inst_type][0](*args(self.sym_map[inst_type][1]))
-            
+
         return sym
-        
+
     def parse_file(self, strfile, config, flags=None):
         self.config = config
         self.__reset_structures()
-        
+
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
 
         if config.run_passes:
             self.run_passes()
-       
+
         Modules.abstract_clock = self.config.abstract_clock
         Modules.symbolic_init = self.config.symbolic_init
-        
+
         top_def = top_module.definition
         interface = list(top_module.type.items())
         modules = {}
         sym_map = {}
-        
+
         not_defined_mods = []
 
         hts = HTS(top_module.name)
@@ -352,7 +354,7 @@ class CoreIRParser(ModelParser):
         Logger.msg("Starting encoding... ", 1)
 
         count = 0
-        
+
         def extract_value(x, modname, inst_intr, inst_conf, inst_mod):
             if x in inst_intr:
                 return self.BVVar(modname+x, inst_intr[x].size)
@@ -395,7 +397,7 @@ class CoreIRParser(ModelParser):
             top_def_instances.sort()
         else:
             top_def_instances = list(top_def.instances)
-            
+
         totalinst = len(top_def_instances)
 
         for inst in top_def_instances:
@@ -411,7 +413,7 @@ class CoreIRParser(ModelParser):
 
                     if Logger.level(2):
                         Logger.get_timer(timer, False)
-            
+
             ts = None
 
             if self.config.deterministic:
@@ -420,7 +422,7 @@ class CoreIRParser(ModelParser):
                 inst_name = inst.selectpath
                 inst_conf = inst.config
                 inst_mod  = inst.module
-            
+
             inst_type = inst_mod.name
             inst_intr = dict(inst_mod.type.items())
             modname = (SEP.join(inst_name))+SEP
@@ -437,7 +439,7 @@ class CoreIRParser(ModelParser):
             if sym is not None:
                 sym_map[sym[0].symbol_name()] = (sym[0], sym[1])
                 continue
-            
+
             ts = self.__mod_to_impl(inst_type, args)
 
             if ts is not None:
@@ -458,7 +460,7 @@ class CoreIRParser(ModelParser):
                         for v in ts.state_vars:
                             lemma = EqualsOrIff(v, BV(values_dic[self.INIT], v.symbol_type().width))
                             hts.add_lemma(lemma)
-                                
+
                 hts.add_ts(ts)
             else:
                 if inst_type not in not_defined_mods:
@@ -506,7 +508,7 @@ class CoreIRParser(ModelParser):
             top_def_connections.sort()
         else:
             top_def_connections = list(top_def.connections)
-            
+
         for conn in top_def_connections:
 
             if self.config.deterministic:
@@ -515,18 +517,18 @@ class CoreIRParser(ModelParser):
             else:
                 first_selectpath = split_paths(conn.first.selectpath)
                 second_selectpath = split_paths(conn.second.selectpath)
-            
+
             first = SEP.join(first_selectpath)
             second = SEP.join(second_selectpath)
 
             firstvar = None
             secondvar = None
-            
+
             if is_number(first_selectpath[-1]):
                 firstname = SEP.join(first_selectpath[:-1])
             else:
                 firstname = SEP.join(first_selectpath)
-                
+
             if is_number(second_selectpath[-1]):
                 secondname = SEP.join(second_selectpath[:-1])
             else:
@@ -540,10 +542,10 @@ class CoreIRParser(ModelParser):
 
             if (firstvar is None) and (self.remap_or2an(firstname) in sym_map):
                 firstvar = sym_map[self.remap_or2an(firstname)][1]
-                
+
             if (secondvar is None) and (self.remap_or2an(secondname) in sym_map):
                 secondvar = sym_map[self.remap_or2an(secondname)][1]
-            
+
             if (firstvar is None) and (secondvar is not None):
                 Logger.error("Symbol \"%s\" is not defined"%firstname)
                 first = (Symbol(self.remap_or2an(firstname), secondvar.symbol_type()), None)
@@ -554,7 +556,7 @@ class CoreIRParser(ModelParser):
                 else:
                     if (is_number(first_selectpath[-1])) and (firstvar.symbol_type() != BOOL) and (firstvar.symbol_type().width > 1):
                         sel = int(first_selectpath[-1])
-                        first = (firstvar, sel) 
+                        first = (firstvar, sel)
 
             if (firstvar is not None) and (secondvar is None):
                 Logger.error("Symbol \"%s\" is not defined"%secondname)
@@ -566,8 +568,8 @@ class CoreIRParser(ModelParser):
                 else:
                     if (is_number(second_selectpath[-1])) and (secondvar.symbol_type() != BOOL) and (secondvar.symbol_type().width > 1):
                         sel = int(second_selectpath[-1])
-                        second = (secondvar, sel) 
-                    
+                        second = (secondvar, sel)
+
             assert((firstvar is not None) and (secondvar is not None))
 
             eq_conns.append((first, second))
@@ -584,14 +586,14 @@ class CoreIRParser(ModelParser):
 
         if len(eq_conns) < conns_len:
             Logger.log("Packed %d connections"%(conns_len - len(eq_conns)), 1)
-            
-        
+
+
         eq_formula = TRUE()
-        
+
         for eq_conn in eq_conns:
 
             (fst, snd) = eq_conn
-            
+
             if fst[1] is None:
                 first = fst[0]
             else:
@@ -640,7 +642,7 @@ class CoreIRParser(ModelParser):
 
         bv0 = BV(0, 1)
         bv1 = BV(1, 1)
-        
+
         for conn in connections:
             (first, second) = (conn[0][0], conn[1][0])
             (sel1, sel2) = (conn[0][1], conn[1][1])
@@ -654,26 +656,26 @@ class CoreIRParser(ModelParser):
 
             if (first, second) not in dict_conns:
                 dict_conns[(first, second)] = []
-            
+
             dict_conns[(first, second)].append((sel1, sel2))
 
         for conn in dict_conns:
             (first,second) = conn
-            
+
             (first, second, new_conn) = self.__analyze_connections(first, second, dict_conns[conn])
 
             if (new_conn is None) and (second.is_constant()):
                 zeros_conn = (first, bv0)
                 ones_conn = (first, bv1)
-                
+
                 zeros = dict_conns[zeros_conn] if zeros_conn in dict_conns else None
                 ones = dict_conns[ones_conn] if ones_conn in dict_conns else None
 
                 if (second == bv1) and (zeros is not None):
                     continue
-                
+
                 (first, second, new_conn) = self.__recombine_constants(first, second, zeros, ones)
-            
+
             if new_conn is None:
                 for single_conn in dict_conns[conn]:
                     new_conns.append(((first, single_conn[0]),(second, single_conn[1])))
@@ -690,9 +692,9 @@ class CoreIRParser(ModelParser):
                 if (max_2-min_2)+1 == symlen_2:
                     min_2 = None
                     max_2 = None
-                
+
                 new_conns.append(((first, min_1, max_1),(second, min_2, max_2)))
-                
+
         return new_conns
 
 
@@ -725,22 +727,22 @@ class CoreIRParser(ModelParser):
                and (d_min == d_max) and (len(inds_1) == len(inds_2)):
                 second = self.__get_reverse_encoding(second)
                 return (first, second, ((min_1, max_1), (min_1, max_1)))
-            
+
         return (first, second, None)
-    
+
     def __get_reverse_encoding(self, bvin):
         ret = BVExtract(bvin, 0, 0)
         for i in range(bvin.symbol_type().width-1):
             ret = BVConcat(ret, BVExtract(bvin, i+1, i+1))
         return ret
-    
+
     def __recombine_constants(self, first, second, zeros, ones):
 
         inds_z0 = []
         inds_o0 = []
         inds_z1 = []
         inds_o1 = []
-        
+
         if zeros is not None:
             zeros.sort()
             inds_z0 = [i[0] for i in zeros if i[0] is not None]
@@ -772,9 +774,9 @@ class CoreIRParser(ModelParser):
                 new_second = BV(bvval, bvlen)
                 return (first, new_second, ((min_1, max_1),(0, bvlen-1)))
 
-                
+
         return (first, second, None)
-    
+
         # Bit Constant e.g. var[0] = 0, var[1] = 0, ...
         if (second.is_symbol()):
             return (first, second, None)
@@ -790,8 +792,5 @@ class CoreIRParser(ModelParser):
                 bvval = val if val == 0 else (2**bvlen)-1
                 new_second = BV(bvval, bvlen)
                 return (first, new_second, ((min_1, max_1),(0, bvlen-1)))
-            
-        return (first, second, None)
-    
 
-    
+        return (first, second, None)
