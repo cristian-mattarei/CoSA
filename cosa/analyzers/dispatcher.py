@@ -110,6 +110,7 @@ class ProblemSolver(object):
         vcd_trace = None
         if problem.vcd:
             vcd_printer = VCDTracePrinter()
+            vcd_printer.all_vars = all_vars
             vcd_trace = vcd_printer.print_trace(hts=hts, \
                                                 model=trace.model, \
                                                 length=trace.length, \
