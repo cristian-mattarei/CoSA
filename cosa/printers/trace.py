@@ -27,6 +27,8 @@ PRE_TRACE = "---> "
 POS_TRACE = " <---"
 STATE = "STATE"
 
+ALLIDX = "all"
+
 def revise_abstract_clock(model, abstract_clock_list):
     newmodel = {}
     abs_clock = dict(abstract_clock_list)
@@ -52,7 +54,7 @@ def revise_abstract_clock(model, abstract_clock_list):
                 newmodel[TS.get_timed(refvar, 0)] = value
             else:
                 newmodel[TS.get_timed(refvar, 0)] = abs_clock[refvar][0]
-                
+
     return (newmodel, length)
 
 class TextTracePrinter(TracePrinter):
@@ -70,7 +72,7 @@ class TextTracePrinter(TracePrinter):
         abstract_clock = (abstract_clock_list is not None) and (len(abstract_clock_list) > 0)
         if abstract_clock:
             (model, length) = revise_abstract_clock(model, abstract_clock_list)
-        
+
         trace = []
         prevass = []
 
@@ -141,9 +143,9 @@ class TextTracePrinter(TracePrinter):
 class VCDTracePrinter(TracePrinter):
 
     hierarchical = True
-    
+
     def __init__(self):
-        pass
+        self.all_vars = False
 
     def get_file_ext(self):
         return "vcd"
@@ -153,7 +155,7 @@ class VCDTracePrinter(TracePrinter):
 
         if abstract_clock:
             (model, length) = revise_abstract_clock(model, abstract_clock_list)
-        
+
         ret = []
 
         ret.append("$date")
@@ -168,8 +170,13 @@ class VCDTracePrinter(TracePrinter):
 
         def _recover_array(array_model):
             d = {}
-            for k, v in array_model.array_value_assigned_values_map().items():
+            args = array_model.args()
+            while len(args) == 3:
+                a, k, v = args
+                args = a.args()
                 d[k.constant_value()] = v.constant_value()
+            if self.all_vars and len(args) == 1:
+                d[ALLIDX] = args[0].constant_value()
             return d
 
         model = dict([(v.symbol_name(), model[v].constant_value()
@@ -186,7 +193,7 @@ class VCDTracePrinter(TracePrinter):
             indices = set()
             for t in range(length+1):
                 tname = TS.get_timed_name(map_function(name), t)
-                indices |= set((k for k in model[tname]))
+                indices |= set((k for k in model[tname] if k != ALLIDX))
             arr_used_indices[name] = indices
 
         # These are the vcd vars (Arrays get blown out)
@@ -209,7 +216,11 @@ class VCDTracePrinter(TracePrinter):
             elif v.symbol_type().is_array_type():
                 idxtype = v.symbol_type().index_type
                 elemtype = v.symbol_type().elem_type
-                for idx in arr_used_indices[n]:
+                if self.all_vars and idxtype.is_bv_type():
+                    idxrange = range(2**idxtype.width)
+                else:
+                    idxrange = arr_used_indices[n]
+                for idx in idxrange:
                     indexed_name = n + "[%i]"%idx
                     arr_varlist.append((indexed_name, elemtype.width))
                     var2id[indexed_name] = idvar
@@ -252,6 +263,12 @@ class VCDTracePrinter(TracePrinter):
                 width = a.symbol_type().elem_type.width
                 tname = TS.get_timed_name(name, t)
                 m = model[tname]
+                if self.all_vars:
+                    for i in set(range(2**a.symbol_type().index_type.width)) - m.keys():
+                        vcdname = name + "[%i]"%i
+                        ret.append("b%s v%s"%(dec_to_bin(m[ALLIDX],width),var2id[vcdname]))
+                    del m[ALLIDX]
+
                 for i, v in m.items():
                     vcdname = name + "[%i]"%i
                     ret.append("b%s v%s"%(dec_to_bin(v,width),var2id[vcdname]))
