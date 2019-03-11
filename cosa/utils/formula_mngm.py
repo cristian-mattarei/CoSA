@@ -71,12 +71,15 @@ def get_free_variables(formula):
     return ret
 
 ############### Values and Helper Functions for quote_names #################
+# don't treat these as variables in quote_names
 KEYWORDS = ["not","xor",\
             "False","True",\
             "next","prev",\
             "G","F","X","U","R","O","H",\
             "ZEXT","bvcomp",\
-            "a>>"]
+            "a>>", "s<", "s>",
+            "u<", "u<=", "u>", "u>="]
+# rewrite the first entry in the tuple to the second
 OPERATORS = [(" < "," u< "), \
              (" > "," u> "), \
              (" >= "," u>= "), \
