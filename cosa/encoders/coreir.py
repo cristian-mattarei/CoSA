@@ -366,15 +366,9 @@ class CoreIRParser(ModelParser):
                 else:
                     if type(xval) != int:
                         try:
-                            if xval.is_x():
-                                xval = None
-                            else:
-                                xval = xval.as_uint()
+                            xval = xval.as_uint()
                         except:
-                            try:
-                                xval = xval.val
-                            except:
-                                xval = xval.unsigned_value
+                            xval = None
                 return xval
 
             if inst_mod.generated:
