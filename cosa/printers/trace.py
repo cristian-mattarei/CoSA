@@ -171,12 +171,13 @@ class VCDTracePrinter(TracePrinter):
         def _recover_array(array_model):
             d = {}
             args = array_model.args()
-            while len(args) == 3:
-                a, k, v = args
-                args = a.args()
-                d[k.constant_value()] = v.constant_value()
-            if self.all_vars and len(args) == 1:
-                d[ALLIDX] = args[0].constant_value()
+            assert len(args)%2 == 1
+            default_val = args[0].constant_value()
+            d = dict(
+                zip([a.constant_value() for a in args[1::2]],
+                    [v.constant_value() for v in args[2::2]])
+                )
+            d[ALLIDX] = default_val
             return d
 
         model = dict([(v.symbol_name(), model[v].constant_value()
