@@ -1,0 +1,83 @@
+[GENERAL]
+model_file: oh_fifo_generic-single.v[oh_fifo_generic],reset_beh.ets,rd_clk.ssts
+assume_if_true: True
+clock_behaviors: DetClock(wr_clk, 1)
+
+[DEFAULT]
+bmc_length: 80
+trace_prefix: trace
+trace_vars_change: True
+trace_all_vars: True
+vcd: True
+no_arrays: True
+strategy: MULTI
+
+[deadlocks]
+description: "No deadlocks"
+verification: simulation
+expected: True
+bmc_length: 30
+
+[reset_done]
+description: "Never reset done"
+formula: !reset_done
+verification: safety
+expected: False
+
+[filling_2_element]
+description: "The write address is always below 2"
+formula: reset_done -> (wr_addr < dec2bv(2,wr_addr))
+verification: safety
+expected: False
+
+[never_half_full]
+description: "The signal half full is always false"
+formula: reset_done -> (prog_full = 0_1)
+verification: safety
+expected: False
+
+[never_write_enable]
+description: "The signal write enable is always false"
+formula: reset_done -> (wr_en = 0_1)
+verification: safety
+expected: False
+
+[never_read_enable]
+description: "The signal read enable is always false"
+formula: reset_done -> (rd_en = 0_1)
+verification: safety
+expected: False
+
+[reset_initializes_values]
+description: "After reset, memory should be empty"
+formula: (nreset = 0_1) -> (next(empty) = 1_1)
+verification: safety
+prove: True
+expected: True
+
+[never_read_value]
+description: "After reset, memory will never read a value"
+formula: (posedge(reset_done) & (rnd_package.value != zero(dout))) -> !(posedge(rd_clk) & (rd_en = 1_1) & (dout = rnd_package.value))
+generators: rnd_package=Random(dout)
+verification: safety
+expected: False
+prove: True
+
+[never_full_and_empty]
+description: "After reset, full and empty should never be high at the same time"
+formula: reset_done -> (!((full = 1_1) & (empty = 1_1)))
+verification: safety
+prove: True
+expected: True
+
+[never_full_and_progfull]
+description: "After reset, full and prog_full should never be high at the same time"
+formula: reset_done -> (!((full = 1_1) & (prog_full = 1_1)))
+verification: safety
+expected: False
+
+[full_implies_progfull]
+description: "After reset, full implies prog_full"
+formula: reset_done -> ((full = 1_1) -> (prog_full = 1_1))
+verification: safety
+expected: False
