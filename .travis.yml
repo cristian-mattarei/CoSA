@@ -39,7 +39,8 @@ addons:
      - iverilog
 
 install:
-  - pip install six pyparsing coreir pyverilog
+  - pip install -r requirements.txt
+  - pip install -e .
   - bash scripts/travis_install.sh
 
 env:
