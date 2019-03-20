@@ -42,7 +42,7 @@ setup(name='CoSA',
       license='BSD',
       packages = find_packages(),
       include_package_data = True,
-      install_requires=["six","pyparsing","pysmt","coreir","pyverilog","hwtypes"],
+      install_requires=["six","pyparsing","pysmt","coreir","hwtypes"],
       entry_points={
           'console_scripts': [
               'CoSA = cosa.shell:main'
