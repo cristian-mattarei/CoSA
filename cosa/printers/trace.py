@@ -177,7 +177,8 @@ class VCDTracePrinter(TracePrinter):
                 zip([a.constant_value() for a in args[1::2]],
                     [v.constant_value() for v in args[2::2]])
                 )
-            d[ALLIDX] = default_val
+            if self.all_vars:
+                d[ALLIDX] = default_val
             return d
 
         model = dict([(v.symbol_name(), model[v].constant_value()
