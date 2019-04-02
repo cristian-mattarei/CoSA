@@ -195,7 +195,8 @@ class VCDTracePrinter(TracePrinter):
             indices = set()
             for t in range(length+1):
                 tname = TS.get_timed_name(map_function(name), t)
-                indices |= set((k for k in model[tname] if k != ALLIDX))
+                if tname in model:
+                    indices |= set((k for k in model[tname] if k != ALLIDX))
             arr_used_indices[name] = indices
 
         # These are the vcd vars (Arrays get blown out)
@@ -264,16 +265,16 @@ class VCDTracePrinter(TracePrinter):
                 name = a.symbol_name()
                 width = a.symbol_type().elem_type.width
                 tname = TS.get_timed_name(name, t)
-                m = model[tname]
                 if self.all_vars:
+                    m = model[tname]
                     for i in set(range(2**a.symbol_type().index_type.width)) - m.keys():
                         vcdname = name + "[%i]"%i
                         ret.append("b%s v%s"%(dec_to_bin(m[ALLIDX],width),var2id[vcdname]))
                     del m[ALLIDX]
-
-                for i, v in m.items():
-                    vcdname = name + "[%i]"%i
-                    ret.append("b%s v%s"%(dec_to_bin(v,width),var2id[vcdname]))
+                elif tname in model:
+                    for i, v in model[tname].items():
+                        vcdname = name + "[%i]"%i
+                        ret.append("b%s v%s"%(dec_to_bin(v,width),var2id[vcdname]))
 
         # make the last time step visible
         # also important for correctness, gtkwave sometimes doesn't read the
