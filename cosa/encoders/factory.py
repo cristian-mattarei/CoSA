@@ -28,14 +28,14 @@ def available(toolname, optiongrep=None):
     # yosys and verific have it
     retval = os.system("{} -h".format(toolname))
 
+    if optiongrep is not None:
+        tmpfile = saved_status[0]
+        tmpfile.seek(0)
+        if optiongrep not in tmpfile.read():
+            return False
+
     if not Logger.level(print_level):
         restore_output(saved_status)
-
-    if optiongrep is not None:
-        with open(saved_status[0].name, 'r') as f:
-            output = f.read()
-            if optiongrep not in output:
-                return False
 
     return (retval == 0)
 

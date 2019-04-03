@@ -138,12 +138,15 @@ class VerilogYosysBtorParser(ModelParser):
 
         retval = os.system(command)
 
+        if retval != 0:
+            tmpfile = saved_status[0]
+            tmpfile.seek(0)
+            with open(YOSYSERRLOG, 'w') as f:
+                f.write(tmpfile.read())
+            Logger.error("Error in Verilog conversion.\nSee %s for more info."%YOSYSERRLOG)
+
         if not Logger.level(print_level):
             restore_output(saved_status)
-
-        if retval != 0:
-            os.system("mv %s %s"%(saved_status[0].name, YOSYSERRLOG))
-            Logger.error("Error in Verilog conversion.\nSee %s for more info."%YOSYSERRLOG)
 
         parser = BTOR2Parser()
         ret = parser.parse_file(TMPFILE, config)
