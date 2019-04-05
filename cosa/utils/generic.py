@@ -11,10 +11,10 @@
 import math
 import os
 import sys
+import tempfile
 
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
-COSATMPFILE="./CoSA-working-tmp.out"
 
 def is_number(strnum):
     try:
@@ -61,7 +61,7 @@ def new_string():
     return STRING_PATTERN%string_id
 
 def suppress_output(redirect_error=False):
-    tmpfile = open(COSATMPFILE, 'w')
+    tmpfile = open(tempfile.mktemp(), "w")
 
     oldstdout = os.dup(1)
     os.dup2(tmpfile.fileno(), 1)
