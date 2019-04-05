@@ -11,10 +11,10 @@
 import math
 import os
 import sys
-import tempfile
 
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
+COSATMPFILE="./CoSA-working-tmp.out"
 
 def is_number(strnum):
     try:
@@ -61,8 +61,7 @@ def new_string():
     return STRING_PATTERN%string_id
 
 def suppress_output(redirect_error=False):
-    '''Redirects output to a temporary file'''
-    tmpfile = tempfile.TemporaryFile('w+t')
+    tmpfile = open(COSATMPFILE, 'w')
 
     oldstdout = os.dup(1)
     os.dup2(tmpfile.fileno(), 1)
@@ -73,7 +72,6 @@ def suppress_output(redirect_error=False):
     return (tmpfile, oldstdout, oldstderr)
 
 def restore_output(saved_status):
-    '''Restores output to stdout/stderr. Temporary file is *deleted*'''
     (tmpfile, old_stdout, old_stderr) = saved_status
     os.dup2(old_stdout, 1)
     if old_stderr is not None:
