@@ -100,7 +100,7 @@ class BTOR2Parser(ModelParser):
 
     def is_available(self):
         return True
-        
+
     def get_extensions(self):
         return self.extensions
 
@@ -122,7 +122,12 @@ class BTOR2Parser(ModelParser):
         nodemap = {}
         node_covered = set([])
 
-        translist = []
+        # list of tuples of var and cond_assign_list
+        # cond_assign_list is tuples of (condition, value)
+        # where everything is a pysmt FNode
+        # for btor, the condition is always True
+        ftrans = []
+
         initlist = []
         invarlist = []
 
@@ -319,10 +324,18 @@ class BTOR2Parser(ModelParser):
 
             if ntype == NEXT:
                 if (get_type(getnode(nids[1])) == BOOL) or (get_type(getnode(nids[2])) == BOOL):
-                    nodemap[nid] = EqualsOrIff(BV2B(TS.get_prime(getnode(nids[1]))), BV2B(getnode(nids[2])))
+                    lval = TS.get_prime(getnode(nids[1]))
+                    rval = BV2B(getnode(nids[2]))
                 else:
-                    nodemap[nid] = EqualsOrIff(TS.get_prime(getnode(nids[1])), getnode(nids[2]))
-                translist.append(getnode(nid))
+                    lval = TS.get_prime(getnode(nids[1]))
+                    rval = getnode(nids[2])
+
+                nodemap[nid] = EqualsOrIff(lval, rval)
+
+                ftrans.append(
+                     (lval,
+                     [(TRUE(), rval)])
+                )
 
             if ntype == INIT:
                 if (get_type(getnode(nids[1])) == BOOL) or (get_type(getnode(nids[2])) == BOOL):
@@ -377,10 +390,16 @@ class BTOR2Parser(ModelParser):
             init = simplify(And(initlist))
         else:
             init = TRUE()
-        trans = simplify(And(translist))
+
         invar = simplify(And(invarlist))
 
-        ts.set_behavior(init, trans, invar)
+        # instead of trans, we're using the ftrans format -- see below
+        ts.set_behavior(init, TRUE(), invar)
+
+        # add ftrans
+        for var, cond_assign_list in ftrans:
+            ts.add_func_trans(var, cond_assign_list)
+
         hts.add_ts(ts)
 
         return (hts, invar_props, ltl_props)
