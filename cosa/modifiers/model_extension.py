@@ -22,12 +22,12 @@ FAIL = "$FAILURE$"
 FAULT = "%s"+FAIL
 
 class ModelExtension(object):
-    
+
     @staticmethod
     def extend(hts, modifier):
         if modifier == None:
             return hts
-        
+
         is_flatten = hts.is_flatten
         if is_flatten:
             hts.reset_flatten()
@@ -36,9 +36,9 @@ class ModelExtension(object):
 
         if is_flatten:
             hts.flatten()
-            
+
         return hts
-    
+
     @staticmethod
     def extend_all(hts, modifier):
         tss = []
@@ -57,17 +57,19 @@ class ModelExtension(object):
     @staticmethod
     def get_parameters(hts):
         return [v for v in hts.vars if FAIL in v.symbol_name()]
-            
+
     @staticmethod
     def extend_ts(ts, modifier):
 
         affect_init = False
-        
+
         if ts.ftrans is None:
             return (ts, [])
-        
+
         new_ftrans = {}
-        
+
+        vars = []
+
         for (assign, cond_assign_list) in ts.ftrans.items():
             fv = get_free_variables(assign)
             assert len(fv) == 1
@@ -78,9 +80,9 @@ class ModelExtension(object):
             nomvar = Symbol(NOMIN%refvar.symbol_name(), var.symbol_type())
             fvar = Symbol(FAULT%refvar.symbol_name(), BOOL)
 
-            ts.add_var(nomvar)
-            ts.add_var(fvar)
-            
+            vars.append(nomvar)
+            vars.append(fvar)
+
             repldic = dict([(refvar.symbol_name(), nomvar.symbol_name()), \
                             (TS.get_prime(refvar).symbol_name(), TS.get_prime(nomvar).symbol_name())])
 
@@ -92,7 +94,7 @@ class ModelExtension(object):
 
             # Application of the faulty behavior
             new_ftrans[refvar].append((fvar, modifier.get_behavior(nomvar, refvar)))
-            
+
             ts.trans = And(ts.trans, Implies(fvar, TS.get_prime(fvar)))
 
             if affect_init:
@@ -100,9 +102,10 @@ class ModelExtension(object):
             else:
                 ts.init = And(ts.init, Not(fvar))
 
+        # add the vars to the transition system
+        for var in vars:
+            ts.add_var(var)
+
         ts.ftrans = new_ftrans
 
-        return (ts, [fvar, nomvar])
-                
-
-
+        return (ts, vars)
