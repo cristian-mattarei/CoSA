@@ -95,7 +95,7 @@ class ModelExtension(object):
             # Application of the faulty behavior
             new_ftrans[refvar].append((fvar, modifier.get_behavior(nomvar, refvar)))
 
-            ts.trans = And(ts.trans, Implies(fvar, TS.get_prime(fvar)))
+            # ts.trans = And(ts.trans, Implies(fvar, TS.get_prime(fvar)))
 
             if affect_init:
                 ts.init = substitute(ts.init, repldic)
