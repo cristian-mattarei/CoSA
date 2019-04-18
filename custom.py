@@ -198,9 +198,9 @@ class CosaArgParser(argparse.ArgumentParser):
 
     def get_problem_type(self)->NamedTuple:
         if self._problem_type is None:
-            return namedtuple('Problem', ' '.join(itertools.chain(*self._problem_options.values())))
+            return namedtuple('Problem', ' '.join(self._problem_options[PROBLEM]))
         else:
-            assert set(self._problem_type._fields) == set(self._problem_options.values()), "Problem Type is stale"
+            assert set(self._problem_type._fields) == set(self._problem_options[PROBLEM].values()), "Problem Type is stale"
             return self._problem_type
 
     def parse_args(self)->Problems:
@@ -223,7 +223,7 @@ class CosaArgParser(argparse.ArgumentParser):
             # generate a single problem
             problem_type = self.get_problem_type()
             single_problem_options = dict()
-            for option in itertools.chain(self._problem_options[GENERAL], self._problem_options[PROBLEM]):
+            for option in self._problem_options[PROBLEM]:
                 if command_line_args[option] is not None:
                     single_problem_options[option] = command_line_args[option]
                 else:
@@ -273,7 +273,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 continue
             problem_file_options = dict(config_args[section])
             problem_file_options['name'] = section
-            for arg in itertools.chain(self._problem_options[GENERAL], self._problem_options[PROBLEM]):
+            for arg in self._problem_options[PROBLEM]:
                 if command_line_args[arg] is not None:
                     # overwrite config file with command line arguments
                     problem_file_options[arg] = command_line_args[arg]
