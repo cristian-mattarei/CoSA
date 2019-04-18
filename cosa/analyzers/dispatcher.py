@@ -128,7 +128,7 @@ class ProblemSolver(object):
 
     def __solve_problem(self,
                         hts:HTS,
-                        formula:Optional[FNode],
+                        prop:Optional[FNode],
                         lemmas:Optional[List[FNode]],
                         assumptions:Optional[List[FNode]],
                         problem:NamedTuple)->str:
@@ -141,41 +141,27 @@ class ProblemSolver(object):
         traces = None
 
         # TODO Move this somewhere earlier
-        if formula is None:
+        if prop is None:
             if problem.verification == VerificationType.SIMULATION:
-                formula = TRUE()
+                prop = TRUE()
             elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
                 Logger.error("Property not provided")
 
         accepted_ver = False
 
-        if (problem.verification != VerificationType.EQUIVALENCE) and (problem.formula is not None):
-            lemmas = [t[1] for t in self.sparser.parse_formulae(problem.lemmas)]
+        if (problem.verification != VerificationType.EQUIVALENCE) and (prop is not None):
             for assump in assumptions:
                 problem.hts.add_assumption(assump)
             for lemma in lemmas:
                 problem.hts.add_lemma(lemma)
-            if problem.verification != VerificationType.LTL:
-                (strprop, prop, types) = self.sparser.parse_formulae([problem.formula])[0]
-            else:
-                (strprop, prop, types) = self.lparser.parse_formulae([problem.formula])[0]
-
-            problem.formula = prop
 
         # TODO: make sure this case can be removed
         # if problem.verification is None:
         #     return problem
 
-        if problem.coi:
-            if Logger.level(2):
-                timer = Logger.start_timer("COI")
-            problem.hts = self.coi.compute(problem.hts, problem.formula)
-            if Logger.level(2):
-                Logger.get_timer(timer)
-
-        bmc_safety = BMCSafety(problem.hts, problem)
-        bmc_parametric = BMCParametric(problem.hts, problem)
-        bmc_ltl = BMCLTL(problem.hts, problem)
+        bmc_safety = BMCSafety(hts, problem)
+        bmc_parametric = BMCParametric(hts, problem)
+        bmc_ltl = BMCLTL(hts, problem)
         res = VerificationStatus.UNC
 
         bmc_length = problem.bmc_length
@@ -521,6 +507,8 @@ class ProblemSolver(object):
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
         for problem in problems_config.problems:
+            problem_hts = problems_config.hts
+
             # TODO fix this -- see comment about equivalence above
             if problem.verification == VerificationType.EQUIVALENCE:
                 raise RuntimeError("Equivalence currently unsupported")
@@ -532,7 +520,7 @@ class ProblemSolver(object):
                 timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             try:
                 # convert the formulas to PySMT FNodes
-                formula, lemmas, assumptions, precondition = self.convert_formulae([problem.properties,
+                prop, lemmas, assumptions, precondition = self.convert_formulae([problem.properties,
                                                                                     problem.lemmas,
                                                                                     problem.assumptions,
                                                                                     problem.precondition],
@@ -540,18 +528,37 @@ class ProblemSolver(object):
                                                                                    relative_path=problems_config.relative_path)
 
                 # # TODO: Update this to allow splitting problems
-                if len(formula) > 1:
+                if len(prop) > 1:
                     raise RuntimeError("Expecting a single formula "
-                                       "per problem but got {}".format(formula))
-                formula = formula[0]
+                                       "per problem but got {}".format(prop))
+                prop = prop[0]
 
                 if precondition and problem.verification == VerificationType.SAFETY:
-                    formula = Implies(precondition, formula)
+                    prop = Implies(precondition, prop)
+
+                # TODO: keep assumptions separate from the hts
+                # IMPORTANT: CLEAR ANY PREVIOUS ASSUMPTIONS AND LEMMAS
+                #   This was previously done in __solve_problems and has been moved here
+                #   during the frontend refactor in April 2019
+                # this is necessary because the problem hts is just a reference to the
+                #   overall (shared) HTS
+                problem_hts.assumptions = None
+                problem_hts.lemmas = None
+
+                # Compute the Cone Of Influence
+                # Returns a *new* hts (not pointing to the original one anymore)
+                if problem.coi:
+                    if Logger.level(2):
+                        timer = Logger.start_timer("COI")
+                    hts = self.coi.compute(hts, prop)
+                    if Logger.level(2):
+                        Logger.get_timer(timer)
+
 
                 # TODO: make sure we don't need general_config
                 # as a design rule, we shouldn't -- this is just about the problem now
-                status =  self.__solve_problem(problems_config.hts,
-                                               formula,
+                status =  self.__solve_problem(problem_hts,
+                                               prop,
                                                lemmas,
                                                assumptions,
                                                precondition,
@@ -566,10 +573,10 @@ class ProblemSolver(object):
                 #     #       can still add it, just need to make it an implication
 
                 #     ass_ts = TS("Previous assumption from property")
-                #     if TS.has_next(formula):
-                #         ass_ts.trans = formula
+                #     if TS.has_next(prop):
+                #         ass_ts.trans = prop
                 #     else:
-                #         ass_ts.invar = formula
+                #         ass_ts.invar = prop
                 #     # add assumptions to main system
                 #     problems_config.hts.reset_formulae()
                 #     problems_config.hts.add_ts(ass_ts)
