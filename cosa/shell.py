@@ -22,6 +22,7 @@ from pysmt.shortcuts import TRUE, FALSE
 
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.analyzers.mcsolver import MCConfig
+from cosa.config import CosaArgParser
 from cosa.utils.logger import Logger
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.template import HTSPrinterType, TraceValuesBase
@@ -361,16 +362,22 @@ def main():
 
     extra_info.append('\nModel modifiers:\n%s'%("\n".join(modifiers)))
 
-    parser = argparse.ArgumentParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'), \
-                                     #usage='%(prog)s [options]', \
-                                     formatter_class=RawTextHelpFormatter, \
-                                     epilog="\n".join(extra_info))
 
-    config = Config()
+    parser = CosaArgParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'),
+                           formatter_class=RawTextHelpFormatter,
+                           epilog="\n".join(extra_info))
+
 
     # Main inputs
 
-    in_options = parser.add_argument_group('input options')
+    # Options in the general group are options that must stay constant for all problems
+    # in a problem file
+
+    # in our architecture, the input files are compiled into a single transition system which
+    # is then used to verify mutliple properties (problems)
+    # thus any option regarding the encoding of said transition system must be a general option
+
+    in_options = parser.add_general_group('input options')
 
     av_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
                       for x in ModelParsersFactory.get_parsers() if x.is_available()]
@@ -386,11 +393,66 @@ def main():
 
     in_options.set_defaults(problems=None)
     in_options.add_argument('--problems', metavar='<problems file>', type=str, required=False,
-                       help='problems file describing the verifications to be performed.')
+                            help='problems file describing the verifications to be performed.',
+                            is_config_file=True)
+
+    general_encoding_options = parser.add_general_group('encoding')
+
+    general_encoding_options.set_defaults(abstract_clock=False)
+    general_encoding_options.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
+                                          help="abstracts the clock behavior. (Default is \"%s\")"%False)
+
+    general_encoding_options.set_defaults(add_clock=False)
+    general_encoding_options.add_argument('--add-clock', dest='add_clock', action='store_true',
+                                          help="adds clock behavior. (Default is \"%s\")"%False)
+
+    general_encoding_options.set_defaults(cache_files=False)
+    general_encoding_options.add_argument('-c', '--cache-files', dest='cache_files', action='store_true',
+                                          help="caches encoded files to speed-up parsing. (Default is \"%s\")"%False)
+
+    general_encoding_options.set_defaults(clean_cache=False)
+    general_encoding_options.add_argument('--clean-cache', dest='clean_cache', action='store_true',
+                                          help="deletes the stored cache. (Default is \"%s\")"%False)
+
+    general_encoding_options.set_defaults(boolean=False)
+    general_encoding_options.add_argument('--boolean', dest='boolean', action='store_true',
+                                          help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%False)
+
+    general_encoding_options.set_defaults(run_coreir_passes=True)
+    general_encoding_options.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
+                                          help='does not run CoreIR passes. (Default is \"%s\")'%True)
+
+    general_encoding_options.set_defaults(model_extension=False)
+    general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
+                            help='select the model modifier. (Default is \"%s\")'%(False))
+
+    general_encoding_options.set_defaults(opt_circuit=False)
+    general_encoding_options.add_argument('--opt-circuit', action='store_true',
+                            help='Use Yosys to optimize the circuit -- can remove signals.')
+
+    general_encoding_options.set_defaults(no_arrays=False)
+    general_encoding_options.add_argument('--no-arrays', action='store_true',
+                            help='For Yosys frontend, blast memories to registers instead of using arrays.\n'
+                            'Note: This can fail -- particularly for dualport memories.')
+
+    general_encoding_options.set_defaults(symbolic_init=False)
+    general_encoding_options.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
+                                          help='removes constraints on the initial state. (Default is \"%s\")'%False)
+
+    general_encoding_options.set_defaults(zero_init=False)
+    general_encoding_options.add_argument('--zero-init', dest='zero_init', action='store_true',
+                                          help='sets initial state to zero. (Default is \"%s\")'%False)
+
+    general_encoding_options.set_defaults(vcd=False)
+    general_encoding_options.add_argument('--vcd', dest='vcd', action='store_true',
+                                          help="generate traces also in vcd format. (Default is \"%s\")"%False)
+
+    general_encoding_options.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
+                            help='semi column separated list of clock behaviors instantiation.')
 
     # Verification Options
 
-    ver_options = parser.add_argument_group('analysis')
+    ver_options = parser.add_problem_group('analysis')
 
     ver_options.set_defaults(safety=False)
     ver_options.add_argument('--safety', dest='safety', action='store_true',
@@ -418,19 +480,19 @@ def main():
 
     # Verification parameters
 
-    ver_params = parser.add_argument_group('verification parameters')
+    ver_params = parser.add_problem_group('verification parameters')
 
     ver_params.set_defaults(properties=None)
     ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
                        help='comma separated list of properties.')
 
-    ver_params.set_defaults(bmc_length=config.bmc_length)
+    ver_params.set_defaults(bmc_length=5)
     ver_params.add_argument('-k', '--bmc-length', metavar='<BMC length>', type=int, required=False,
-                        help="depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length)
+                            help="depth of BMC unrolling. (Default is \"%s\")"%5)
 
-    ver_params.set_defaults(bmc_length_min=config.bmc_length_min)
+    ver_params.set_defaults(bmc_length_min=0)
     ver_params.add_argument('-km', '--bmc-length-min', metavar='<BMC length>', type=int, required=False,
-                        help="minimum depth of BMC unrolling. (Default is \"%s\")"%config.bmc_length_min)
+                        help="minimum depth of BMC unrolling. (Default is \"%s\")"%0)
 
     ver_params.set_defaults(precondition=None)
     ver_params.add_argument('-r', '--precondition', metavar='<invar>', type=str, required=False,
@@ -447,24 +509,21 @@ def main():
     ver_params.add_argument('--generators', metavar='generators', type=str, nargs='?',
                         help='semi column separated list of generators instantiation.')
 
-    ver_params.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
-                        help='semi column separated list of clock behaviors instantiation.')
-
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
-                            help="use indution to prove the satisfiability of the property. (Default is \"%s\")"%config.prove)
+                            help="use indution to prove the satisfiability of the property. (Default is \"%s\")"%False)
 
     ver_params.set_defaults(assume_if_true=False)
     ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
-                            help="add true properties as assumptions. (Default is \"%s\")"%config.assume_if_true)
+                            help="add true properties as assumptions. (Default is \"%s\")"%False)
 
     ver_params.set_defaults(coi=False)
     ver_params.add_argument('--coi', dest='coi', action='store_true',
-                            help="enables Cone of Influence. (Default is \"%s\")"%config.coi)
+                            help="enables Cone of Influence. (Default is \"%s\")"%False)
 
-    ver_params.set_defaults(cardinality=config.cardinality)
+    ver_params.set_defaults(cardinality=5)
     ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=False,
-                       help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%config.cardinality)
+                            help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%5)
 
     strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in MCConfig.get_strategies()]
     defstrategy = MCConfig.get_strategies()[0][0]
@@ -472,98 +531,46 @@ def main():
     ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                         help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
 
-    ver_params.set_defaults(processes=config.processes)
+    ver_params.set_defaults(processes=int(multiprocessing.cpu_count()/2))
     ver_params.add_argument('-j', dest='processes', metavar="<integer level>", type=int,
-                        help="number of multi-processes for MULTI strategy. (Default is \"%s\")"%config.processes)
+                            help="number of multi-processes for MULTI strategy. (Default is \"%s\")"%int(multiprocessing.cpu_count()/2))
 
     ver_params.set_defaults(ninc=False)
     ver_params.add_argument('--ninc', dest='ninc', action='store_true',
-                            help="disables incrementality. (Default is \"%s\")"%(not config.incremental))
+                            help="disables incrementality. (Default is \"%s\")"%True)
 
-    ver_params.set_defaults(solver_name=config.solver_name)
+    ver_params.set_defaults(solver_name='msat')
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
-                        help="name of SMT solver to be use. (Default is \"%s\")"%config.solver_name)
-
-    # Encoding parameters
-
-    enc_params = parser.add_argument_group('encoding')
-
-    enc_params.set_defaults(cache_files=False)
-    enc_params.add_argument('-c', '--cache-files', dest='cache_files', action='store_true',
-                       help="caches encoded files to speed-up parsing. (Default is \"%s\")"%config.cache_files)
-
-    enc_params.set_defaults(clean_cache=False)
-    enc_params.add_argument('--clean-cache', dest='clean_cache', action='store_true',
-                       help="deletes the stored cache. (Default is \"%s\")"%config.clean_cache)
-
-    enc_params.set_defaults(add_clock=False)
-    enc_params.add_argument('--add-clock', dest='add_clock', action='store_true',
-                       help="adds clock behavior. (Default is \"%s\")"%config.add_clock)
-
-    enc_params.set_defaults(abstract_clock=False)
-    enc_params.add_argument('--abstract-clock', dest='abstract_clock', action='store_true',
-                       help="abstracts the clock behavior. (Default is \"%s\")"%config.abstract_clock)
-
-    enc_params.set_defaults(symbolic_init=config.symbolic_init)
-    enc_params.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
-                       help='removes constraints on the initial state. (Default is \"%s\")'%config.symbolic_init)
-
-    enc_params.set_defaults(zero_init=config.zero_init)
-    enc_params.add_argument('--zero-init', dest='zero_init', action='store_true',
-                       help='sets initial state to zero. (Default is \"%s\")'%config.zero_init)
-
-    enc_params.set_defaults(boolean=config.boolean)
-    enc_params.add_argument('--boolean', dest='boolean', action='store_true',
-                        help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
-
-    enc_params.set_defaults(run_coreir_passes=config.run_coreir_passes)
-    enc_params.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
-                        help='does not run CoreIR passes. (Default is \"%s\")'%config.run_coreir_passes)
-
-    enc_params.set_defaults(model_extension=config.model_extension)
-    enc_params.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
-                            help='select the model modifier. (Default is \"%s\")'%(config.model_extension))
-
-    enc_params.set_defaults(opt_circuit=False)
-    enc_params.add_argument('--opt-circuit', action='store_true',
-                            help='Use Yosys to optimize the circuit -- can remove signals.')
-
-    enc_params.set_defaults(no_arrays=False)
-    enc_params.add_argument('--no-arrays', action='store_true',
-                            help='For Yosys frontend, blast memories to registers instead of using arrays.\n'
-                            'Note: This can fail -- particularly for dualport memories.')
+                        help="name of SMT solver to be use. (Default is \"%s\")"%'msat')
 
     # Printing parameters
 
-    print_params = parser.add_argument_group('trace printing')
+    print_params = parser.add_problem_group('trace printing')
 
-    print_params.set_defaults(trace_vars_change=config.trace_vars_change)
+    print_params.set_defaults(trace_vars_change=False)
     print_params.add_argument('--trace-vars-change', dest='trace_vars_change', action='store_true',
-                       help="show variable assignments in the counterexamples even when unchanged. (Default is \"%s\")"%config.trace_vars_change)
+                              help="show variable assignments in the counterexamples even when unchanged. (Default is \"%s\")"%False)
 
-    print_params.set_defaults(trace_all_vars=config.trace_all_vars)
+    print_params.set_defaults(trace_all_vars=False)
     print_params.add_argument('--trace-all-vars', dest='trace_all_vars', action='store_true',
-                       help="show all variables in the counterexamples. (Default is \"%s\")"%config.trace_all_vars)
+                              help="show all variables in the counterexamples. (Default is \"%s\")"%False)
 
-    print_params.set_defaults(full_trace=config.full_trace)
+    print_params.set_defaults(full_trace=False)
     print_params.add_argument('--full-trace', dest='full_trace', action='store_true',
-                       help="sets trace-vars-unchanged and trace-all-vars to True. (Default is \"%s\")"%config.full_trace)
+                              help="sets trace-vars-unchanged and trace-all-vars to True. (Default is \"%s\")"%False)
 
-    print_params.set_defaults(trace_values_base=config.trace_values_base)
+    trace_values_base_default = TraceValuesBase.get_all()[0]
+    print_params.set_defaults(trace_values_base=trace_values_base_default)
     print_params.add_argument('--trace-values-base', metavar='trace_values_base', type=str, nargs='?',
-                       help="sets the style of Bit-Vector values printing. (Default is \"%s\")"%config.trace_values_base)
+                              help="sets the style of Bit-Vector values printing. (Default is \"%s\")"%trace_values_base_default)
 
     print_params.set_defaults(prefix=None)
     print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
                        help='write the counterexamples with a specified location prefix.')
 
-    print_params.set_defaults(vcd=False)
-    print_params.add_argument('--vcd', dest='vcd', action='store_true',
-                       help="generate traces also in vcd format. (Default is \"%s\")"%config.vcd)
-
     # Translation parameters
 
-    trans_params = parser.add_argument_group('translation')
+    trans_params = parser.add_problem_group('translation')
 
     trans_params.set_defaults(translate=None)
     trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
@@ -571,35 +578,36 @@ def main():
 
     printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]
 
-    trans_params.set_defaults(printer=config.printer)
+    printer_default = HTSPrintersFactory.get_default().get_name()
+    trans_params.set_defaults(printer=printer_default)
     trans_params.add_argument('--printer', metavar='printer', type=str, nargs='?',
-                        help='select the printer between (Default is \"%s\"):\n%s'%(config.printer, "\n".join(printers)))
+                        help='select the printer between (Default is \"%s\"):\n%s'%(printer_default, "\n".join(printers)))
 
     trans_params.set_defaults(skip_solving=False)
     trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',
-                        help="does not call the solver. (Default is \"%s\")"%config.skip_solving)
+                              help="does not call the solver. (Default is \"%s\")"%False)
 
     # Debugging
 
-    deb_params = parser.add_argument_group('verbosity')
+    deb_params = parser.add_general_group('verbosity')
 
-    deb_params.set_defaults(verbosity=config.verbosity)
+    deb_params.set_defaults(verbosity=1)
     deb_params.add_argument('-v', dest='verbosity', metavar="<integer level>", type=int,
-                        help="verbosity level. (Default is \"%s\")"%config.verbosity)
+                            help="verbosity level. (Default is \"%s\")"%1)
 
     deb_params.set_defaults(time=False)
     deb_params.add_argument('--time', dest='time', action='store_true',
-                            help="prints time for every verification. (Default is \"%s\")"%config.time)
+                            help="prints time for every verification. (Default is \"%s\")"%False)
 
     deb_params.set_defaults(devel=False)
     deb_params.add_argument('--devel', dest='devel', action='store_true',
-                            help="enables developer mode. (Default is \"%s\")"%config.devel)
+                            help="enables developer mode. (Default is \"%s\")"%False)
+
 
     # Developers
 
     if devel:
-        config.devel = True
-        devel_params = parser.add_argument_group('developer')
+        devel_params = parser.add_problem_group('developer')
 
         devel_params.set_defaults(smt2_tracing=None)
         devel_params.add_argument('--smt2-tracing', metavar='<smt-lib2 file>', type=str, required=False,
@@ -610,104 +618,64 @@ def main():
                             help='space delimited key:value pairs to set specific SMT solver options (EXPERTS ONLY)')
 
 
-    args = parser.parse_args()
+    problems_config = parser.parse_args()
 
-    config.model_file = args.model_file
-    config.simulate = args.simulate
-    config.safety = args.safety
-    config.parametric = args.parametric
-    config.ltl = args.ltl
-    config.properties = args.properties
-    config.lemmas = args.lemmas
-    config.precondition = args.precondition
-    config.assumptions = args.assumptions
-    config.equivalence = args.equivalence
-    config.symbolic_init = args.symbolic_init
-    config.zero_init = args.zero_init
-    config.fsm_check = args.fsm_check
-    config.bmc_length = args.bmc_length
-    config.bmc_length_min = args.bmc_length_min
-    config.full_trace = args.full_trace
-    config.trace_values_base = args.trace_values_base
-    config.trace_vars_change = args.trace_vars_change
-    config.trace_all_vars = args.trace_all_vars
-    config.prefix = args.prefix
-    config.translate = args.translate
-    config.strategy = args.strategy
-    config.processes = args.processes
-    config.skip_solving = args.skip_solving
-    config.abstract_clock = args.abstract_clock
-    config.boolean = args.boolean
-    config.verbosity = args.verbosity
-    config.vcd = args.vcd
-    config.prove = args.prove
-    config.solver_name = args.solver_name
-    if args.devel and args.solver_options:
-        # interpret string as a dictionary
-        config.solver_options = dict([tuple([item.strip() for item in kvpair.split(":")]) for kvpair in args.solver_options.split()])
-    config.incremental = not args.ninc
-    config.time = args.time
-    config.add_clock = args.add_clock
-    config.generators = args.generators
-    config.clock_behaviors = args.clock_behaviors
-    config.assume_if_true = args.assume_if_true
-    config.coi = args.coi
-    config.model_extension = args.model_extension
-    config.opt_circuit = args.opt_circuit
-    config.no_arrays = args.no_arrays
-    config.cardinality = args.cardinality
-    config.cache_files = args.cache_files
-    config.clean_cache = args.clean_cache
+    # debugging
+    print(problems_config.general_config)
+    # for problem in problems_config.problems:
+    #     print(problem)
 
-    if devel:
-        config.smt2_tracing = args.smt2_tracing
+    sys.exit(0)
+    # end debugging
 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
-    if args.printer in [str(x.get_name()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]:
-        config.printer = args.printer
-    else:
-        Logger.error("Printer \"%s\" not found"%(args.printer))
+    sys.exit(run_problems(problems_config))
 
-    if args.problems:
-        if config.devel:
-            sys.exit(run_problems(args.problems, config))
-        else:
-            try:
-                sys.exit(run_problems(args.problems, config))
-            except Exception as e:
-                Logger.error(str(e), False)
-                sys.exit(1)
+    # if args.printer in [str(x.get_name()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]:
+    #     config.printer = args.printer
+    # else:
+    #     Logger.error("Printer \"%s\" not found"%(args.printer))
 
-    Logger.error_raise_exept = False
+    # if args.problems:
+    #     if config.devel:
+    #         sys.exit(run_problems(args.problems, config))
+    #     else:
+    #         try:
+    #             sys.exit(run_problems(args.problems, config))
+    #         except Exception as e:
+    #             Logger.error(str(e), False)
+    #             sys.exit(1)
 
-    if (args.problems is None) and (args.model_file is None):
-        Logger.error("No input files provided")
+    # Logger.error_raise_exept = False
 
-    if args.strategy not in [s[0] for s in MCConfig.get_strategies()]:
-        Logger.error("Strategy \"%s\" not found"%(args.strategy))
+    # if (args.problems is None) and (args.model_file is None):
+    #     Logger.error("No input files provided")
 
-    if not(config.simulate or \
-           (config.safety) or \
-           (config.parametric) or \
-           (config.ltl) or \
-           (config.equivalence is not None) or\
-           (config.translate is not None) or\
-           (config.fsm_check)):
-        Logger.error("Analysis selection is necessary")
+    # if args.strategy not in [s[0] for s in MCConfig.get_strategies()]:
+    #     Logger.error("Strategy \"%s\" not found"%(args.strategy))
 
-    Logger.error_raise_exept = True
+    # if not(config.simulate or \
+    #        (config.safety) or \
+    #        (config.parametric) or \
+    #        (config.ltl) or \
+    #        (config.equivalence is not None) or\
+    #        (config.translate is not None) or\
+    #        (config.fsm_check)):
+    #     Logger.error("Analysis selection is necessary")
 
-    if config.devel:
-        sys.exit(run_verification(config))
-    else:
-        try:
-            sys.exit(run_verification(config))
-        except Exception as e:
-            Logger.error(str(e), False)
-            sys.exit(1)
+    # Logger.error_raise_exept = True
+
+    # if config.devel:
+    #     sys.exit(run_verification(config))
+    # else:
+    #     try:
+    #         sys.exit(run_verification(config))
+    #     except Exception as e:
+    #         Logger.error(str(e), False)
+    #         sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -333,9 +333,8 @@ def test():
 
     extra_info.append('\nModel modifiers:\n%s'%("\n".join(modifiers)))
 
-    parser = CosaArgParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'), \
-                           #usage='%(prog)s [options]', \
-                           formatter_class=RawTextHelpFormatter, \
+    parser = CosaArgParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'),
+                           formatter_class=RawTextHelpFormatter,
                            epilog="\n".join(extra_info))
 
 
