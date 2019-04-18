@@ -660,6 +660,15 @@ def main():
                             help="enables developer mode. (Default is \"%s\")"%False)
 
 
+    # Meta Options
+    # these cannot be set by the command line, and are instead just set internally
+    meta_options = parser.add_problem_group('meta')
+    meta_options.set_defaults(name='EMBEDDED')
+    meta_options.add_argument('--name', type=str, help=argparse.SUPPRESS)
+
+    meta_options.set_defaults(description='EMBEDDED')
+    meta_options.add_argument('--description', type=str, help=argparse.SUPPRESS)
+
     # Developers
 
     if devel:

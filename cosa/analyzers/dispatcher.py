@@ -510,9 +510,16 @@ class ProblemSolver(object):
                                                        general_config,
                                                        "System 1",
                                                        modifier)
+        problems_config.hts = hts
 
-        print(hts)
-        # TODO: FINISH THIS
+        if problems.equivalence is not None:
+            hts2, _, _ = self.parse_model(problems_config.relative_path,
+                                          general_config,
+                                          "System 2",
+                                          modifier)
+            problems_config.hts2 = hts2
+
+        # TODO: Finish this
 
     def solve_problems(self, problems, config):
         encoder_config = self.problems2encoder_config(config, problems)

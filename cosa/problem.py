@@ -12,7 +12,7 @@ from collections import namedtuple
 import configparser
 import copy
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Set
 
 
 from cosa.encoders.formulae import StringParser
@@ -78,12 +78,17 @@ class ProblemsConfig:
         self._defaults = defaults
         self._problems = []
         self._problems_status = dict()
+        self._problem_type = None
         self._hts = None
         self._hts2 = None
 
     def add_problem(self, problem:NamedTuple):
         self._problems.append(problem)
         self._problems_status[problem] = VerificationStatus.UNC
+
+    def new_problem(self, **kwargs):
+        # TODO: complete this
+        pass
 
     def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
         assert self._problems_status[problem] == VerificationStatus.UNC, \
@@ -121,6 +126,14 @@ class ProblemsConfig:
     def relative_path(self):
         return self._relative_path
 
+    def gen_problem_type(self, problem_options:Set[str]):
+        if self._problem_type is None:
+            self._problem_type = namedtuple('Problem', problem_options)
+            return self._problem_type
+        else:
+            assert self(self._problem_type._fields) == problem_options, \
+                "Expecting problem type to be static"
+            return self._problem_type
 
 class Problems(object):
     abstract_clock = False
