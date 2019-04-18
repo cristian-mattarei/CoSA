@@ -14,7 +14,7 @@ import pickle
 
 from collections import Sequence
 from pathlib import Path
-from typing import List, Union
+from typing import List, NamedTuple, Optional, Union
 
 from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff, Array
@@ -126,12 +126,16 @@ class ProblemSolver(object):
 
         return traces
 
-    def __solve_problem(self, formula, lemmas, assumptions, precondition, problem):
+    def __solve_problem(self,
+                        hts:HTS,
+                        formula:Optional[FNode],
+                        lemmas:Optional[List[FNode]],
+                        assumptions:Optional[List[FNode]],
+                        problem:NamedTuple)->str:
+
         if problem.name is not None:
             Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem.name), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
-
-        ParametricBehavior.apply_to_problem(problem, self.model_info)
 
         trace = None
         traces = None
@@ -139,80 +143,16 @@ class ProblemSolver(object):
         # TODO Move this somewhere earlier
         if formula is None:
             if problem.verification == VerificationType.SIMULATION:
-                formula = [TRUE()]
+                formula = TRUE()
             elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
                 Logger.error("Property not provided")
 
         accepted_ver = False
 
-        if formula is not None:
-            problem.formula = formula[0]
-
-        if precondition and problem.verification == VerificationType.SAFETY:
-            formula = Implies(precondition, formula)
-
-        # TODO : contain these types of passes in functions
-        #        they should be registered as passes
-        # set default bit-wise initial values (0 or 1)
-        if problem.default_initial_value is not None:
-            def_init_val = int(problem.default_initial_value)
-            try:
-                if int(def_init_val) not in {0, 1}:
-                    raise RuntimeError
-            except:
-                raise RuntimeError("Expecting 0 or 1 for default_initial_value,"
-                                   "but received {}".format(def_init_val))
-            def_init_ts = TS("Default initial values")
-            new_init = []
-            initialized_vars = get_free_variables(problem.hts.single_init())
-            state_vars = problem.hts.state_vars
-            num_def_init_vars = 0
-            num_state_vars = len(state_vars)
-
-            const_arr_supported = False
-            if problem.solver_name in CONST_ARRAYS_SUPPORT:
-                const_arr_supported = True
-            elif problem.hts.logic == L_ABV:
-                Logger.warning("Using default_initial_value with arrays, but "
-                               "{} does not support constant arrays. "
-                               "Any assumptions on initial array values will "
-                               "have to be done manually".format(problem.solver_name))
-
-            for sv in state_vars - initialized_vars:
-                if sv.get_type().is_bv_type():
-                    width = sv.get_type().width
-                    if int(def_init_val) == 1:
-                        val = BV((2**width)-1, width)
-                    else:
-                        val = BV(0, width)
-
-                    num_def_init_vars += 1
-                elif sv.get_type().is_array_type() and \
-                     sv.get_type().elem_type.is_bv_type() and \
-                     const_arr_supported:
-                    svtype = sv.get_type()
-                    width = svtype.elem_type.width
-                    if int(def_init_val) == 1:
-                        val = BV((2**width)-1, width)
-                    else:
-                        val = BV(0, width)
-                    # create a constant array with a default value
-                    val = Array(svtype.index_type, val)
-                else:
-                    continue
-
-                def_init_ts.add_state_var(sv)
-                new_init.append(EqualsOrIff(sv, val))
-            def_init_ts.set_behavior(simplify(And(new_init)), TRUE(), TRUE())
-            problem.hts.add_ts(def_init_ts)
-            Logger.msg("Set {}/{} state elements to zero "
-                       "in initial state\n".format(num_def_init_vars, num_state_vars), 1)
-
         if (problem.verification != VerificationType.EQUIVALENCE) and (problem.formula is not None):
-            assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
             lemmas = [t[1] for t in self.sparser.parse_formulae(problem.lemmas)]
-            for ass in assumps:
-                problem.hts.add_assumption(ass)
+            for assump in assumptions:
+                problem.hts.add_assumption(assump)
             for lemma in lemmas:
                 problem.hts.add_lemma(lemma)
             if problem.verification != VerificationType.LTL:
@@ -222,8 +162,9 @@ class ProblemSolver(object):
 
             problem.formula = prop
 
-        if problem.verification is None:
-            return problem
+        # TODO: make sure this case can be removed
+        # if problem.verification is None:
+        #     return problem
 
         if problem.coi:
             if Logger.level(2):
@@ -485,11 +426,78 @@ class ProblemSolver(object):
                                                        general_config,
                                                        "System 1",
                                                        modifier)
+
+        # TODO: test this
+        if model_extension:
+            hts = ParametricBehavior.apply_to_problem(hts, problem, self.model_info)
+
+        # TODO : contain these types of passes in functions
+        #        they should be registered as passes
+        # set default bit-wise initial values (0 or 1)
+        if problems_config.default_initial_value is not None:
+            def_init_val = int(problems_config.default_initial_value)
+            try:
+                if int(def_init_val) not in {0, 1}:
+                    raise RuntimeError
+            except:
+                raise RuntimeError("Expecting 0 or 1 for default_initial_value,"
+                                   "but received {}".format(def_init_val))
+            def_init_ts = TS("Default initial values")
+            new_init = []
+            initialized_vars = get_free_variables(hts.single_init())
+            state_vars = hts.state_vars
+            num_def_init_vars = 0
+            num_state_vars = len(state_vars)
+
+            const_arr_supported = True
+
+            if hts.logic == L_ABV:
+                for p in problems_config.problems:
+                    if p.solver_name not in CONST_ARRAYS_SUPPORT:
+                        const_arr_supported = False
+                        Logger.warning("Using default_initial_value with arrays, "
+                                       "but one of the selected solvers, "
+                                       "{} does not support constant arrays. "
+                                       "Any assumptions on initial array values will "
+                                       "have to be done manually".format(problem.solver_name))
+                        break
+
+            for sv in state_vars - initialized_vars:
+                if sv.get_type().is_bv_type():
+                    width = sv.get_type().width
+                    if int(def_init_val) == 1:
+                        val = BV((2**width)-1, width)
+                    else:
+                        val = BV(0, width)
+
+                    num_def_init_vars += 1
+                elif sv.get_type().is_array_type() and \
+                     sv.get_type().elem_type.is_bv_type() and \
+                     const_arr_supported:
+                    svtype = sv.get_type()
+                    width = svtype.elem_type.width
+                    if int(def_init_val) == 1:
+                        val = BV((2**width)-1, width)
+                    else:
+                        val = BV(0, width)
+                    # create a constant array with a default value
+                    val = Array(svtype.index_type, val)
+                else:
+                    continue
+
+                def_init_ts.add_state_var(sv)
+                new_init.append(EqualsOrIff(sv, val))
+            def_init_ts.set_behavior(simplify(And(new_init)), TRUE(), TRUE())
+            hts.add_ts(def_init_ts)
+            Logger.msg("Set {}/{} state elements to zero "
+                       "in initial state\n".format(num_def_init_vars, num_state_vars), 1)
+
         problems_config.hts = hts
 
         # TODO: Handle equivalence gracefully
         #       should be able to specify this per-problem
         #       requires generating systems for each one
+
         # if general_config.equivalence is not None:
         #     hts2, _, _ = self.parse_model(problems_config.relative_path,
         #                                   general_config,
@@ -531,19 +539,23 @@ class ProblemSolver(object):
                                                                                    verification_type=problem.verification,
                                                                                    relative_path=problems_config.relative_path)
 
-                # TODO FINISH THIS
-                print(formula, lemmas, assumptions, precondition)
-                raise RuntimeError()
-
                 # # TODO: Update this to allow splitting problems
-                # if len(formula) > 1:
-                #     raise RuntimeError("Expecting a single formula "
-                #                        "per problem but got {}".format(formula))
-                # formula = formula[0]
+                if len(formula) > 1:
+                    raise RuntimeError("Expecting a single formula "
+                                       "per problem but got {}".format(formula))
+                formula = formula[0]
 
-                # # TODO: make sure we don't need general_config
-                # # as a design rule, we shouldn't -- this is just about the problem now
-                # status =  self.__solve_problem(formula, lemmas, assumptions, precondition, problem)
+                if precondition and problem.verification == VerificationType.SAFETY:
+                    formula = Implies(precondition, formula)
+
+                # TODO: make sure we don't need general_config
+                # as a design rule, we shouldn't -- this is just about the problem now
+                status =  self.__solve_problem(problems_config.hts,
+                                               formula,
+                                               lemmas,
+                                               assumptions,
+                                               precondition,
+                                               problem)
 
                 # if (assume_if_true) and \
                 #    (status == VerificationStatus.TRUE) and \
