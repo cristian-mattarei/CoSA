@@ -55,35 +55,14 @@ class VerificationStatus(object):
         return expected == status
 
 class VerificationType(object):
-    SAFETY = 0
-    LIVENESS = 1
-    EVENTUALLY = 2
-    EQUIVALENCE = 3
-    DETERMINISTIC = 4
-    SIMULATION = 5
-    LTL = 6
-    PARAMETRIC = 7
-
-    @staticmethod
-    def to_string(verification_type):
-        if verification_type == VerificationType.SAFETY:
-            return SAFETY
-        if verification_type == VerificationType.LIVENESS:
-            return LIVENESS
-        if verification_type == VerificationType.EVENTUALLY:
-            return EVENTUALLY
-        if verification_type == VerificationType.EQUIVALENCE:
-            return EQUIVALENCE
-        if verification_type == VerificationType.SIMULATION:
-            return SIMULATION
-        if verification_type == VerificationType.LTL:
-            return LTL
-        if verification_type == VerificationType.DETERMINISTIC:
-            return DETERMINISTIC
-        if verification_type == VerificationType.PARAMETRIC:
-            return PARAMETRIC
-
-        return None
+    SAFETY = SAFETY
+    LIVENESS = LIVENESS
+    EVENTUALLY = EVENTUALLY
+    EQUIVALENCE = EQUIVALENCE
+    DETERMINISTIC = DETERMINISTIC
+    SIMULATION = SIMULATION
+    LTL = LTL
+    PARAMETRIC = PARAMETRIC
 
 
 class Problems(object):
@@ -217,9 +196,6 @@ class Problems(object):
 
         if VERIFICATION not in pbm_values:
             Logger.error("Verification type missing in problem \"%s\""%(name))
-        else:
-            pbm.set_verification(pbm_values[VERIFICATION].lower())
-            del(pbm_values[VERIFICATION])
 
         for attr,value in pbm_values.items():
             if hasattr(pbm, attr):
@@ -332,42 +308,6 @@ class Problem(object):
         imp.append(solver_options)
 
         return tuple(imp)
-
-    def set_verification(self, value):
-        if value == LIVENESS:
-            self.verification = VerificationType.LIVENESS
-            return
-
-        if value == EVENTUALLY:
-            self.verification = VerificationType.EVENTUALLY
-            return
-
-        if value == SAFETY:
-            self.verification = VerificationType.SAFETY
-            return
-
-        if value == EQUIVALENCE:
-            self.verification = VerificationType.EQUIVALENCE
-            return
-
-        if value == DETERMINISTIC:
-            self.verification = VerificationType.DETERMINISTIC
-            return
-
-        if value == SIMULATION:
-            self.verification = VerificationType.SIMULATION
-            return
-
-        if value == LTL:
-            self.verification = VerificationType.LTL
-            return
-
-        if value == PARAMETRIC:
-            self.verification = VerificationType.PARAMETRIC
-            return
-
-        Logger.error("Unknown verification type \"%s\""%value)
-
 
 class Trace(object):
     name = ""

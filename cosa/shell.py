@@ -314,7 +314,7 @@ def run_verification(config):
     if not problem.verification == VerificationType.EQUIVALENCE:
         problem.formula = config.properties
 
-    problem.name = VerificationType.to_string(problem.verification)
+    problem.name = problem.verification
 
     if problem.formula or problem.verification:
         problems.add_problem(problem)
