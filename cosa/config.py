@@ -185,9 +185,6 @@ class CosaArgParser(argparse.ArgumentParser):
             return self._problem_type
 
     def parse_args(self)->ProblemsConfig:
-        # debugging
-        print(self._defaults)
-        # end debugging
         command_line_args = vars(super().parse_args())
         config_files = []
         for config_file in self._config_files:
