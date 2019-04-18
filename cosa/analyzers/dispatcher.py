@@ -188,7 +188,9 @@ class ProblemSolver(object):
 
         hts = problem.hts
 
+        # TODO: Enable this again
         if problem.verification == VerificationType.EQUIVALENCE:
+            raise RuntimeError("Equivalence not currently supported -- needs to be re-enabled")
             accepted_ver = True
             htseq, miter_out = Miter.combine_systems(problem.hts, \
                                                      problem.hts2, \
@@ -226,10 +228,6 @@ class ProblemSolver(object):
             problem.traces = []
             for trace in traces:
                 problem.traces += self.__process_trace(hts, trace, config, problem)
-
-        # TODO figure out wht this is about?
-        if problem.assumptions is not None:
-            problem.hts.assumptions = None
 
         Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, res), 1)
 
@@ -420,8 +418,8 @@ class ProblemSolver(object):
         # TODO : contain these types of passes in functions
         #        they should be registered as passes
         # set default bit-wise initial values (0 or 1)
-        if problems_config.default_initial_value is not None:
-            def_init_val = int(problems_config.default_initial_value)
+        if general_config.default_initial_value is not None:
+            def_init_val = int(general_config.default_initial_value)
             try:
                 if int(def_init_val) not in {0, 1}:
                     raise RuntimeError
@@ -542,8 +540,8 @@ class ProblemSolver(object):
                 #   during the frontend refactor in April 2019
                 # this is necessary because the problem hts is just a reference to the
                 #   overall (shared) HTS
-                problem_hts.assumptions = None
-                problem_hts.lemmas = None
+                problems_config.hts.assumptions = None
+                problems_config.hts.lemmas = None
 
                 # Compute the Cone Of Influence
                 # Returns a *new* hts (not pointing to the original one anymore)
@@ -561,7 +559,6 @@ class ProblemSolver(object):
                                                prop,
                                                lemmas,
                                                assumptions,
-                                               precondition,
                                                problem)
 
                 # if (assume_if_true) and \
@@ -595,6 +592,8 @@ class ProblemSolver(object):
 
         The string can also point to a file which contains string formulae, this
         method looks in the provided relative path for the formula file
+
+        If passed None, it replace it with an empty list
         '''
 
         if verification_type != VerificationType.LTL:
@@ -625,6 +624,8 @@ class ProblemSolver(object):
 
                 # extract the second tuple argument (the actual property)
                 converted_formulae[i] = [c[1] for c in converted_tuples]
+            else:
+                converted_formulae[i] = []
 
         return converted_formulae
 

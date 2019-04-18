@@ -466,6 +466,11 @@ def main():
     general_encoding_options.add_argument('--add-clock', dest='add_clock', action='store_true',
                                           help="adds clock behavior. (Default is \"%s\")"%False)
 
+    # TODO: Deprecate this
+    general_encoding_options.set_defaults(boolean=False)
+    general_encoding_options.add_argument('--boolean', dest='boolean', action='store_true',
+                                          help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%False)
+
     general_encoding_options.set_defaults(cache_files=False)
     general_encoding_options.add_argument('-c', '--cache-files', dest='cache_files', action='store_true',
                                           help="caches encoded files to speed-up parsing. (Default is \"%s\")"%False)
@@ -474,38 +479,38 @@ def main():
     general_encoding_options.add_argument('--clean-cache', dest='clean_cache', action='store_true',
                                           help="deletes the stored cache. (Default is \"%s\")"%False)
 
-    general_encoding_options.set_defaults(boolean=False)
-    general_encoding_options.add_argument('--boolean', dest='boolean', action='store_true',
-                                          help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%False)
-
-    general_encoding_options.set_defaults(run_coreir_passes=True)
-    general_encoding_options.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
-                                          help='does not run CoreIR passes. (Default is \"%s\")'%True)
+    general_encoding_options.set_defaults(default_initial_value=None)
+    general_encoding_options.add_argument('--default-initial-value',
+                                          help='Set uninitialized bits to 0 or 1.')
 
     general_encoding_options.set_defaults(model_extension=None)
     general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
                             help='select the model modifier. (Default is \"%s\")'%(None))
-
-    general_encoding_options.set_defaults(opt_circuit=False)
-    general_encoding_options.add_argument('--opt-circuit', action='store_true',
-                            help='Use Yosys to optimize the circuit -- can remove signals.')
 
     general_encoding_options.set_defaults(no_arrays=False)
     general_encoding_options.add_argument('--no-arrays', action='store_true',
                             help='For Yosys frontend, blast memories to registers instead of using arrays.\n'
                             'Note: This can fail -- particularly for dualport memories.')
 
+    general_encoding_options.set_defaults(opt_circuit=False)
+    general_encoding_options.add_argument('--opt-circuit', action='store_true',
+                            help='Use Yosys to optimize the circuit -- can remove signals.')
+
+    general_encoding_options.set_defaults(run_coreir_passes=True)
+    general_encoding_options.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
+                                          help='does not run CoreIR passes. (Default is \"%s\")'%True)
+
     general_encoding_options.set_defaults(symbolic_init=False)
     general_encoding_options.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
                                           help='removes constraints on the initial state. (Default is \"%s\")'%False)
 
-    general_encoding_options.set_defaults(zero_init=False)
-    general_encoding_options.add_argument('--zero-init', dest='zero_init', action='store_true',
-                                          help='sets initial state to zero. (Default is \"%s\")'%False)
-
     general_encoding_options.set_defaults(vcd=False)
     general_encoding_options.add_argument('--vcd', dest='vcd', action='store_true',
                                           help="generate traces also in vcd format. (Default is \"%s\")"%False)
+
+    general_encoding_options.set_defaults(zero_init=False)
+    general_encoding_options.add_argument('--zero-init', dest='zero_init', action='store_true',
+                                          help='sets initial state to zero. (Default is \"%s\")'%False)
 
     general_encoding_options.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
                             help='semi column separated list of clock behaviors instantiation.')
