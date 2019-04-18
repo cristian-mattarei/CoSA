@@ -44,7 +44,7 @@ install:
   - bash scripts/travis_install.sh
 
 env:
- - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings":${LD_LIBRARY_PATH}"
+ - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${LD_LIBRARY_PATH}" COREIRCONFIG=g++-4.9 CXX=g++-4.9 CC=gcc-4.9
 
 
 script: nosetests tests -v
