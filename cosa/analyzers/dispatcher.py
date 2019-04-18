@@ -14,6 +14,7 @@ import pickle
 
 from collections import Sequence
 from pathlib import Path
+from typing import List, Union
 
 from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff, Array
@@ -125,64 +126,36 @@ class ProblemSolver(object):
 
         return traces
 
-    def __solve_problem(self, problem, config):
+    def __solve_problem(self, formula, lemmas, assumptions, precondition, problem):
         if problem.name is not None:
-            Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem), 1)
+            Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem.name), 1)
             Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
 
-        mc_config = self.problem2mc_config(problem, config)
-
-        parsing_defs = [problem.formula, problem.lemmas, problem.assumptions]
-        for i in range(len(parsing_defs)):
-            if parsing_defs[i] is not None:
-                if isinstance(parsing_defs[i], FNode):
-                    # TODO: There should be a better way to handle this nicely
-                    # Embedded assertions will likely be FNodes, but otherwise
-                    # they will be a property file or string
-                    parsing_defs[i] = [parsing_defs[i]]
-                    continue
-                pdef_file = problem.relative_path+parsing_defs[i]
-                if os.path.isfile(pdef_file):
-                    with open(pdef_file) as f:
-                        parsing_defs[i] = [p.strip() for p in f.read().strip().split("\n")]
-                else:
-                    parsing_defs[i] = [p.strip() for p in parsing_defs[i].split(MODEL_SP)]
-            else:
-                parsing_defs[i] = None
-
-        [formulae, problem.lemmas, problem.assumptions] = parsing_defs
-
         ParametricBehavior.apply_to_problem(problem, self.model_info)
-
-        assumps = None
-        lemmas = None
 
         trace = None
         traces = None
 
-        if formulae is None:
+        # TODO Move this somewhere earlier
+        if formula is None:
             if problem.verification == VerificationType.SIMULATION:
-                formulae = ["True"]
+                formula = [TRUE()]
             elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
                 Logger.error("Property not provided")
 
         accepted_ver = False
 
-        if formulae is not None:
-            problem.formula = formulae[0]
-
-        precondition = config.precondition if config.precondition is not None else problem.precondition
+        if formula is not None:
+            problem.formula = formula[0]
 
         if precondition and problem.verification == VerificationType.SAFETY:
-            # TODO: There should be a better way to handle this
-            if isinstance(problem.formula, str):
-                problem.formula = "(%s) -> (%s)"%(precondition, problem.formula)
-            else:
-                problem.formula = Implies(self.sparser.parse_formula(precondition), problem.formula)
+            formula = Implies(precondition, formula)
 
+        # TODO : contain these types of passes in functions
+        #        they should be registered as passes
         # set default bit-wise initial values (0 or 1)
         if problem.default_initial_value is not None:
-            def_init_val = problem.default_initial_value
+            def_init_val = int(problem.default_initial_value)
             try:
                 if int(def_init_val) not in {0, 1}:
                     raise RuntimeError
@@ -197,13 +170,13 @@ class ProblemSolver(object):
             num_state_vars = len(state_vars)
 
             const_arr_supported = False
-            if mc_config.solver_name in CONST_ARRAYS_SUPPORT:
+            if problem.solver_name in CONST_ARRAYS_SUPPORT:
                 const_arr_supported = True
             elif problem.hts.logic == L_ABV:
                 Logger.warning("Using default_initial_value with arrays, but "
                                "{} does not support constant arrays. "
                                "Any assumptions on initial array values will "
-                               "have to be done manually".format(mc_config.solver_name))
+                               "have to be done manually".format(problem.solver_name))
 
             for sv in state_vars - initialized_vars:
                 if sv.get_type().is_bv_type():
@@ -259,18 +232,19 @@ class ProblemSolver(object):
             if Logger.level(2):
                 Logger.get_timer(timer)
 
-        bmc_safety = BMCSafety(problem.hts, mc_config)
-        bmc_parametric = BMCParametric(problem.hts, mc_config)
-        bmc_ltl = BMCLTL(problem.hts, mc_config)
+        bmc_safety = BMCSafety(problem.hts, problem)
+        bmc_parametric = BMCParametric(problem.hts, problem)
+        bmc_ltl = BMCLTL(problem.hts, problem)
         res = VerificationStatus.UNC
-        bmc_length = max(problem.bmc_length, config.bmc_length)
-        bmc_length_min = max(problem.bmc_length_min, config.bmc_length_min)
+
+        bmc_length = problem.bmc_length
+        bmc_length_min = problem.bmc_length_min
 
 
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min, config.processes)
+            res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min, problem.processes)
 
         if problem.verification == VerificationType.LTL:
             accepted_ver = True
@@ -310,7 +284,7 @@ class ProblemSolver(object):
                 for lemma in lemmas:
                     htseq.add_lemma(lemma)
 
-            bmcseq = BMCSafety(htseq, mc_config)
+            bmcseq = BMCSafety(htseq, problem)
             hts = htseq
             res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
 
@@ -326,6 +300,7 @@ class ProblemSolver(object):
             for trace in traces:
                 problem.traces += self.__process_trace(hts, trace, config, problem)
 
+        # TODO figure out wht this is about?
         if problem.assumptions is not None:
             problem.hts.assumptions = None
 
@@ -522,7 +497,118 @@ class ProblemSolver(object):
         #                                   modifier)
         #     problems_config.hts2 = hts2
 
-        # TODO: Finish this
+        # TODO: Update this so that we can control whether embedded assertions are solved automatically
+        for invar_prop in invar_props:
+            inv_prob = problems.new_problem(verification=VerificationType.SAFETY,
+                                            name=invar_prop[0],
+                                            description=invar_prop[1],
+                                            formula=invar_prop[2])
+
+        for ltl_prop in ltl_props:
+            inv_prob = problems.new_problem(verification=VerificationType.LTL,
+                                            name=invar_prop[0],
+                                            description=invar_prop[1],
+                                            formula=invar_prop[2])
+
+        Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
+                                                                   general_config.add_clock), 2)
+        for problem in problems_config.problems:
+            # TODO fix this -- see comment about equivalence above
+            if problem.verification == VerificationType.EQUIVALENCE:
+                raise RuntimeError("Equivalence currently unsupported")
+
+            # TODO: Do this somewhere else, these problems aren't modifiable anymore
+            # if problem.trace_prefix is not None:
+            #     problem.trace_prefix = "".join([problem.relative_path,problem.trace_prefix])
+            if general_config.time:
+                timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
+            try:
+                # convert the formulas to PySMT FNodes
+                formula, lemmas, assumptions, precondition = self.convert_formulae([problem.properties,
+                                                                                    problem.lemmas,
+                                                                                    problem.assumptions,
+                                                                                    problem.precondition],
+                                                                                   verification_type=problem.verification,
+                                                                                   relative_path=problems_config.relative_path)
+
+                # TODO FINISH THIS
+                print(formula, lemmas, assumptions, precondition)
+                raise RuntimeError()
+
+                # # TODO: Update this to allow splitting problems
+                # if len(formula) > 1:
+                #     raise RuntimeError("Expecting a single formula "
+                #                        "per problem but got {}".format(formula))
+                # formula = formula[0]
+
+                # # TODO: make sure we don't need general_config
+                # # as a design rule, we shouldn't -- this is just about the problem now
+                # status =  self.__solve_problem(formula, lemmas, assumptions, precondition, problem)
+
+                # if (assume_if_true) and \
+                #    (status == VerificationStatus.TRUE) and \
+                #    (problem.assumptions == None) and \
+                #    (problem.verification == VerificationType.SAFETY):
+
+                #     # TODO: relax the assumption on problem.assumptions
+                #     #       can still add it, just need to make it an implication
+
+                #     ass_ts = TS("Previous assumption from property")
+                #     if TS.has_next(formula):
+                #         ass_ts.trans = formula
+                #     else:
+                #         ass_ts.invar = formula
+                #     # add assumptions to main system
+                #     problems_config.hts.reset_formulae()
+                #     problems_config.hts.add_ts(ass_ts)
+            except KeyboardInterrupt as e:
+                Logger.msg("\b\b Skipped!\n", 0)
+
+        print("done")
+        # TODO : FINISH THIS
+
+    def convert_formulae(self, formulae:List[Union[str, FNode]],
+                         verification_type:str,
+                         relative_path:Path=Path(".")):
+        '''
+        Converts string representation of formulae to the internal representation
+        of PySMT FNodes
+
+        The string can also point to a file which contains string formulae, this
+        method looks in the provided relative path for the formula file
+        '''
+
+        if verification_type != VerificationType.LTL:
+            parser = self.sparser
+        else:
+            parser = self.lparser
+
+        converted_formulae = [None]*len(formulae)
+        for i in range(len(formulae)):
+            if formulae[i] is not None:
+                if isinstance(formulae[i], FNode):
+                    # TODO: There should be a better way to handle this nicely
+                    # Embedded assertions will likely be FNodes, but otherwise
+                    # they will be a property file or string
+                    converted_formulae[i] = [formulae[i]]
+                    continue
+
+                pdef_file = relative_path / formulae[i]
+                if pdef_file.is_file():
+                    with pdef_file.open() as f:
+                        # TODO: Update this to use a grammar or semi-colons
+                        # It would be nice to allow multi-line formulas
+
+                        # TODO: Find out if we even need all the tuple elements (only use the prop now)
+                        converted_tuples = parser.parse_formulae([p.strip() for p in f.read().strip().split("\n")])
+                else:
+                    converted_tuples = parser.parse_formulae([p.strip() for p in formulae[i].split(MODEL_SP)])
+
+                # extract the second tuple argument (the actual property)
+                converted_formulae[i] = [c[1] for c in converted_tuples]
+
+        return converted_formulae
+
 
     def solve_problems(self, problems, config):
         encoder_config = self.problems2encoder_config(config, problems)

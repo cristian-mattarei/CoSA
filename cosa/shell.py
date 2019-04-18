@@ -513,30 +513,45 @@ def main():
     # Verification Options
 
     ver_options = parser.add_problem_group('analysis')
+    verification_choices = [
+        VerificationType.SAFETY,
+        VerificationType.LIVENESS,
+        VerificationType.EVENTUALLY,
+        VerificationType.DETERMINISTIC,
+        VerificationType.SIMULATION,
+        VerificationType.LTL,
+        VerificationType.PARAMETRIC
+                             ]
+    ver_options.set_defaults(verification=None)
+    ver_options.add_argument('--verification', type=str,
+                             choices=verification_choices,
+                             required=True,
+                             help="Choose the verification type from: {}"
+                             "".format("\n".join("\t%s"%v for v in verification_choices)))
+    # TODO clean this up
+    # ver_options.set_defaults(safety=False)
+    # ver_options.add_argument('--safety', dest='safety', action='store_true',
+    #                    help='safety verification using BMC.')
 
-    ver_options.set_defaults(safety=False)
-    ver_options.add_argument('--safety', dest='safety', action='store_true',
-                       help='safety verification using BMC.')
+    # ver_options.set_defaults(ltl=False)
+    # ver_options.add_argument('--ltl', dest='ltl', action='store_true',
+    #                    help='ltl verification using BMC.')
 
-    ver_options.set_defaults(ltl=False)
-    ver_options.add_argument('--ltl', dest='ltl', action='store_true',
-                       help='ltl verification using BMC.')
+    # ver_options.set_defaults(simulate=False)
+    # ver_options.add_argument('--simulate', dest='simulate', action='store_true',
+    #                    help='simulate system using BMC.')
 
-    ver_options.set_defaults(simulate=False)
-    ver_options.add_argument('--simulate', dest='simulate', action='store_true',
-                       help='simulate system using BMC.')
+    # ver_options.set_defaults(equivalence=None)
+    # ver_options.add_argument('--equivalence', metavar='<input files>', type=str, required=False,
+    #                    help='equivalence checking using BMC.')
 
-    ver_options.set_defaults(equivalence=None)
-    ver_options.add_argument('--equivalence', metavar='<input files>', type=str, required=False,
-                       help='equivalence checking using BMC.')
+    # ver_options.set_defaults(fsm_check=False)
+    # ver_options.add_argument('--fsm-check', dest='fsm_check', action='store_true',
+    #                    help='check if the state machine is deterministic.')
 
-    ver_options.set_defaults(fsm_check=False)
-    ver_options.add_argument('--fsm-check', dest='fsm_check', action='store_true',
-                       help='check if the state machine is deterministic.')
-
-    ver_options.set_defaults(parametric=False)
-    ver_options.add_argument('--parametric', dest='parametric', action='store_true',
-                       help='parametric analysis using BMC.')
+    # ver_options.set_defaults(parametric=False)
+    # ver_options.add_argument('--parametric', dest='parametric', action='store_true',
+    #                    help='parametric analysis using BMC.')
 
     # Verification parameters
 

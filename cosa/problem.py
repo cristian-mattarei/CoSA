@@ -86,7 +86,7 @@ class ProblemsConfig:
         self._problems.append(problem)
         self._problems_status[problem] = VerificationStatus.UNC
 
-    def new_problem(self, **kwargs):
+    def new_problem(self, **kwargs)->None:
         problem_type = self.get_problem_type()
         unknown_kwargs = kwargs.keys() - problem_type._fields
         if unknown_kwargs:
@@ -97,7 +97,7 @@ class ProblemsConfig:
         for option, value in kwargs.items():
             problem_options[option] = value
 
-        return problem_type(**problem_options)
+        self._problems.append(problem_type(**problem_options))
 
     def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
         assert self._problems_status[problem] == VerificationStatus.UNC, \
