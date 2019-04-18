@@ -126,7 +126,7 @@ class ProblemsConfig:
     def relative_path(self):
         return self._relative_path
 
-    def gen_problem_type(self, problem_options:Set[str]):
+    def get_problem_type(self, problem_options:Set[str]):
         if self._problem_type is None:
             self._problem_type = namedtuple('Problem', problem_options)
             return self._problem_type

@@ -177,13 +177,6 @@ class CosaArgParser(argparse.ArgumentParser):
         self._mutually_exclusive_groups.append(group)
         return group
 
-    def get_problem_type(self)->NamedTuple:
-        if self._problem_type is None:
-            return namedtuple('Problem', ' '.join(self._problem_options[PROBLEM]))
-        else:
-            assert set(self._problem_type._fields) == set(self._problem_options[PROBLEM].values()), "Problem Type is stale"
-            return self._problem_type
-
     def parse_args(self)->ProblemsConfig:
         command_line_args = vars(super().parse_args())
         config_files = []
@@ -205,7 +198,7 @@ class CosaArgParser(argparse.ArgumentParser):
             problems = ProblemsConfig(Path("./"), general_options, self._defaults)
 
             # generate a single problem
-            problem_type = self.get_problem_type()
+            problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
             single_problem_options = dict()
             for option in self._problem_options[PROBLEM]:
                 if command_line_args[option] is not None:
@@ -252,7 +245,7 @@ class CosaArgParser(argparse.ArgumentParser):
         # Generate the problems wrapper and populate it
         problems = ProblemsConfig(config_filepath.parent, general_options, problem_defaults)
 
-        problem_type = self.get_problem_type()
+        problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
 
         # Recall priority order
         # command line > problem option > problem defaults > defaults

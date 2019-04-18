@@ -512,12 +512,15 @@ class ProblemSolver(object):
                                                        modifier)
         problems_config.hts = hts
 
-        if problems.equivalence is not None:
-            hts2, _, _ = self.parse_model(problems_config.relative_path,
-                                          general_config,
-                                          "System 2",
-                                          modifier)
-            problems_config.hts2 = hts2
+        # TODO: Handle equivalence gracefully
+        #       should be able to specify this per-problem
+        #       requires generating systems for each one
+        # if general_config.equivalence is not None:
+        #     hts2, _, _ = self.parse_model(problems_config.relative_path,
+        #                                   general_config,
+        #                                   "System 2",
+        #                                   modifier)
+        #     problems_config.hts2 = hts2
 
         # TODO: Finish this
 
