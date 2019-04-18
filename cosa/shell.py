@@ -29,7 +29,7 @@ from cosa.printers.template import HTSPrinterType, TraceValuesBase
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
-from cosa.problem import Problem, Problems, VerificationStatus, VerificationType
+from cosa.problem import Problem, Problems, ProblemsConfig, VerificationStatus, VerificationType
 from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
@@ -203,6 +203,60 @@ def print_problem_result(pbm, config, count=-1):
         Logger.log("Time: %.2f sec"%(pbm.time), 0)
 
     return (ret_status, traces)
+# FIXME: replace old version with this
+def run_problems_new(problems_config:ProblemsConfig):
+
+    if sys.version_info[0] < 3:
+        if config.devel:
+            Logger.warning("This software is not tested for Python 2, we recommend to use Python 3 instead")
+        else:
+            Logger.error("This software is not tested for Python 2, please use Python 3 instead. To avoid this error run in developer mode")
+
+    reset_env()
+
+    # Named tuple representing all the general configuration options
+    # (things that don't change between problems)
+    general_config = problems_config.general_config
+    Logger.verbosity = general_config.verbosity
+    Logger.time = general_config.time
+
+    psol = ProblemSolver()
+    psol.solve_problems_new(problems_config)
+
+    global_status = 0
+    traces = []
+
+    if len(problems_config.problems) > 0:
+        Logger.log("\n*** SUMMARY ***", 0)
+    else:
+        if not general_config.translate:
+            Logger.log("No problems to solve", 0)
+            return 0
+
+    # TODO: Enable all this
+
+    # formulae = []
+    # for pbm in problems.problems:
+    #     (status, trace) = print_problem_result(pbm, general_config, len(traces)+1)
+    #     if status != 0:
+    #         global_status = status
+    #     traces += trace
+    #     formulae.append(pbm.formula)
+
+    # if len(traces) > 0:
+    #     Logger.log("\n*** TRACES ***\n", 0)
+    #     for trace in traces:
+    #         Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
+
+    # if config.translate:
+    #     translate(problems.get_hts(), general_config, formulae)
+
+    # if global_status != 0:
+    #     Logger.log("", 0)
+    #     Logger.warning("Verifications with unexpected result")
+
+    return global_status
+
 
 def run_problems(problems_file, config, problems=None):
 
@@ -396,6 +450,12 @@ def main():
                             help='problems file describing the verifications to be performed.',
                             is_config_file=True)
 
+    general_solving_options = parser.add_general_group('solving')
+
+    general_solving_options.set_defaults(assume_if_true=False)
+    general_solving_options.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
+                            help="add true properties as assumptions. (Default is \"%s\")"%False)
+
     general_encoding_options = parser.add_general_group('encoding')
 
     general_encoding_options.set_defaults(abstract_clock=False)
@@ -422,9 +482,9 @@ def main():
     general_encoding_options.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
                                           help='does not run CoreIR passes. (Default is \"%s\")'%True)
 
-    general_encoding_options.set_defaults(model_extension=False)
+    general_encoding_options.set_defaults(model_extension=None)
     general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
-                            help='select the model modifier. (Default is \"%s\")'%(False))
+                            help='select the model modifier. (Default is \"%s\")'%(None))
 
     general_encoding_options.set_defaults(opt_circuit=False)
     general_encoding_options.add_argument('--opt-circuit', action='store_true',
@@ -512,10 +572,6 @@ def main():
     ver_params.set_defaults(prove=False)
     ver_params.add_argument('--prove', dest='prove', action='store_true',
                             help="use indution to prove the satisfiability of the property. (Default is \"%s\")"%False)
-
-    ver_params.set_defaults(assume_if_true=False)
-    ver_params.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
-                            help="add true properties as assumptions. (Default is \"%s\")"%False)
 
     ver_params.set_defaults(coi=False)
     ver_params.add_argument('--coi', dest='coi', action='store_true',
@@ -620,19 +676,11 @@ def main():
 
     problems_config = parser.parse_args()
 
-    # debugging
-    print(problems_config.general_config)
-    # for problem in problems_config.problems:
-    #     print(problem)
-
-    sys.exit(0)
-    # end debugging
-
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
-    sys.exit(run_problems(problems_config))
+    sys.exit(run_problems_new(problems_config))
 
     # if args.printer in [str(x.get_name()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]:
     #     config.printer = args.printer

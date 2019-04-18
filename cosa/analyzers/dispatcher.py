@@ -13,6 +13,7 @@ import os
 import pickle
 
 from collections import Sequence
+from pathlib import Path
 
 from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff, Array
@@ -38,6 +39,7 @@ from cosa.modifiers.model_extension import ModelExtension
 from cosa.encoders.symbolic_transition_system import SymbolicSimpleTSParser
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.hts import STSHTSPrinter
+from cosa.problem import ProblemsConfig
 
 
 FLAG_SR = "["
@@ -336,10 +338,10 @@ class ProblemSolver(object):
         (strfile, flags) = (strfile[:strfile.index(FLAG_SR)], strfile[strfile.index(FLAG_SR)+1:strfile.index(FLAG_ST)].split(FLAG_SP))
         return (strfile, flags)
 
-    def md5(self, fname):
+    def md5(self, fname:Path):
         import hashlib
         hash_md5 = hashlib.md5()
-        with open(fname, "rb") as f:
+        with fname.open() as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
@@ -414,25 +416,27 @@ class ProblemSolver(object):
 
     def parse_model(self, \
                     relative_path, \
-                    model_files, \
-                    encoder_config, \
+                    general_config, \
                     name=None, \
-                    modifier=None, \
-                    cache_files=False, \
-                    clean_cache=False):
+                    modifier=None):
 
         hts = HTS(name if name is not None else "System")
         invar_props = []
         ltl_props = []
 
-        models = model_files.split(FILE_SP)
+        models = general_config.model_file.split(FILE_SP)
+        cache_files = general_config.cache_files
+        clean_cache = general_config.clean_cache
 
         for strfile in models:
             (strfile, flags) = self.get_file_flags(strfile)
-            filetype = strfile.split(".")[-1]
-            strfile = strfile.replace("~", os.path.expanduser("~"))
-            if strfile[0] != "/":
-                strfile = relative_path+strfile
+            if len(strfile) > 1 and strfile[:2] == '~/':
+                filepath = Path.home() / Path(strfile[2:])
+            else:
+                filepath = Path(strfile)
+            if filepath.parts[0] != "/":
+                strfile = relative_path / filepath
+            filetype = filepath.suffix[1:]
             parser = None
 
             for av_parser in ModelParsersFactory.get_parsers():
@@ -443,23 +447,23 @@ class ProblemSolver(object):
                         self.parser = av_parser
 
             if parser is not None:
-                if not os.path.isfile(strfile):
-                    Logger.error("File \"%s\" does not exist"%strfile)
+                if not filepath.is_file():
+                    Logger.error("File \"%s\" does not exist"%filepath)
 
                 if cache_files:
-                    md5 = self.md5(strfile)
-                    cf = "-".join(["1" if encoder_config.abstract_clock else "0", \
-                                   "1" if encoder_config.add_clock else "0", \
-                                   "1" if encoder_config.boolean else "0"])
+                    md5 = self.md5(filepath)
+                    cf = "-".join(["1" if general_config.abstract_clock else "0", \
+                                   "1" if general_config.add_clock else "0", \
+                                   "1" if general_config.boolean else "0"])
                     cachefile = "%s-%s"%(md5, cf)
-                    cachedir = "%s/%s"%("/".join(strfile.split("/")[:-1]), COSACACHEDIR)
+                    cachedir = filepath.parent / COSACACHEDIR
 
                 if cache_files and self._is_cached(cachedir, cachefile, clean_cache):
-                    Logger.msg("Loading from cache file \"%s\"... "%(strfile), 0)
-                    (hts_a, inv_a, ltl_a, model_info) = self._from_cache(cachedir, cachefile, encoder_config, flags)
+                    Logger.msg("Loading from cache file \"%s\"... "%(filepath), 0)
+                    (hts_a, inv_a, ltl_a, model_info) = self._from_cache(cachedir, cachefile, general_config, flags)
                 else:
-                    Logger.msg("Parsing file \"%s\"... "%(strfile), 0)
-                    (hts_a, inv_a, ltl_a) = parser.parse_file(strfile, encoder_config, flags)
+                    Logger.msg("Parsing file \"%s\"... "%(filepath), 0)
+                    (hts_a, inv_a, ltl_a) = parser.parse_file(filepath, general_config, flags)
 
                     model_info = parser.get_model_info()
 
@@ -484,6 +488,31 @@ class ProblemSolver(object):
             print(hts.print_statistics(name, Logger.level(2)))
 
         return (hts, invar_props, ltl_props)
+
+    def solve_problems_new(self, problems_config:ProblemsConfig)->None:
+
+        general_config  = problems_config.general_config
+        model_extension = general_config.model_extension
+        assume_if_true  = general_config.assume_if_true
+
+        self.sparser = StringParser(general_config)
+        self.lparser = LTLParser()
+
+        self.coi = ConeOfInfluence()
+
+        modifier = None
+        if general_config.model_extension is not None:
+            modifier = lambda hts: ModelExtension.extend(hts,
+                        ModelModifiersFactory.modifier_by_name(general_config.model_extension))
+
+        # generate system
+        hts, invar_props, ltl_props = self.parse_model(problems_config.relative_path,
+                                                       general_config,
+                                                       "System 1",
+                                                       modifier)
+
+        print(hts)
+        # TODO: FINISH THIS
 
     def solve_problems(self, problems, config):
         encoder_config = self.problems2encoder_config(config, problems)

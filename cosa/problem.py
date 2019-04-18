@@ -15,9 +15,11 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple
 
 
-from cosa.utils.logger import Logger
-from cosa.utils.generic import auto_convert
 from cosa.encoders.formulae import StringParser
+from cosa.representation import HTS
+from cosa.utils.generic import auto_convert
+from cosa.utils.logger import Logger
+
 
 DEFAULT = "DEFAULT"
 GENERAL = "GENERAL"
@@ -75,17 +77,49 @@ class ProblemsConfig:
         self._general_config = namedtuple('general_config', general_config.keys())(**general_config)
         self._defaults = defaults
         self._problems = []
+        self._problems_status = dict()
+        self._hts = None
+        self._hts2 = None
 
     def add_problem(self, problem:NamedTuple):
         self._problems.append(problem)
+        self._problems_status[problem] = VerificationStatus.UNC
+
+    def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
+        assert self._problems_status[problem] == VerificationStatus.UNC, \
+            "Not expecting to reset problem status"
+        self._problems_status[problem] = status
 
     @property
     def problems(self)->List[NamedTuple]:
         return self._problems
 
+    def get_problem_status(self, problem:NamedTuple)->VerificationStatus:
+        return self._problems_status[problem]
+
     @property
     def general_config(self)->NamedTuple:
         return self._general_config
+
+    @property
+    def hts(self):
+        return self._hts
+
+    @hts.setter
+    def hts(self, hts:HTS):
+        self._hts = hts
+
+    @property
+    def hts2(self):
+        return self.hts2
+
+    @hts2.setter
+    def hts2(self, hts:HTS):
+        self._hts2 = hts
+
+    @property
+    def relative_path(self):
+        return self._relative_path
 
 
 class Problems(object):

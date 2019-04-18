@@ -202,7 +202,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 else:
                     general_options[option] = self._defaults[option]
 
-            problems = ProblemsConfig(None, general_options, self._defaults)
+            problems = ProblemsConfig(Path("./"), general_options, self._defaults)
 
             # generate a single problem
             problem_type = self.get_problem_type()
@@ -250,7 +250,7 @@ class CosaArgParser(argparse.ArgumentParser):
             problem_defaults[option] = value
 
         # Generate the problems wrapper and populate it
-        problems = ProblemsConfig(config_filepath, general_options, problem_defaults)
+        problems = ProblemsConfig(config_filepath.parent, general_options, problem_defaults)
 
         problem_type = self.get_problem_type()
 
