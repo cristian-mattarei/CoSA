@@ -283,8 +283,6 @@ def run_verification(config):
     problems.trace_vars_change = config.trace_vars_change
     problems.vcd = config.vcd
     problems.verbosity = config.verbosity
-
-    problems.model_file = config.strfiles
     problems.boolean = config.boolean
     problems.add_clock = config.add_clock
     problems.abstract_clock = config.abstract_clock
