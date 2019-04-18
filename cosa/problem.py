@@ -87,8 +87,17 @@ class ProblemsConfig:
         self._problems_status[problem] = VerificationStatus.UNC
 
     def new_problem(self, **kwargs):
-        # TODO: complete this
-        pass
+        problem_type = self.get_problem_type()
+        unknown_kwargs = kwargs.keys() - problem_type._fields
+        if unknown_kwargs:
+            raise RuntimeError("Expecting only known problem "
+                               "options but got {}".format(unknown_kwargs))
+
+        problem_options = self._defaults
+        for option, value in kwargs.items():
+            problem_options[option] = value
+
+        return problem_type(**problem_options)
 
     def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
         assert self._problems_status[problem] == VerificationStatus.UNC, \
