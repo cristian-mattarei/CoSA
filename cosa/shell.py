@@ -37,7 +37,7 @@ DEVEL_OPT = "--devel"
 
 class Config(object):
     parser = None
-    strfiles = None
+    model_file = None
     verbosity = 1
     devel = False
     bmc_length = 5
@@ -62,9 +62,9 @@ class Config(object):
     trace_all_vars = False
     trace_values_base = TraceValuesBase.get_all()[0]
     prefix = None
-    run_passes = True
+    run_coreir_passes = True
     translate = None
-    smt2file = None
+    smt2_tracing = None
     boolean = False
     abstract_clock = False
     add_clock = False
@@ -268,11 +268,11 @@ def run_verification(config):
     problems.clock_behaviors = config.clock_behaviors
     problems.incremental = config.incremental
     problems.lemmas = config.lemmas
-    problems.model_file = config.strfiles
+    problems.model_file = config.model_file
     problems.prefix = config.prefix
     problems.prove = config.prove
     problems.skip_solving = config.skip_solving
-    problems.smt2_tracing = config.smt2file
+    problems.smt2_tracing = config.smt2_tracing
     problems.solver_name = config.solver_name
     problems.strategy = config.strategy
     problems.symbolic_init = config.symbolic_init
@@ -286,7 +286,7 @@ def run_verification(config):
     problems.boolean = config.boolean
     problems.add_clock = config.add_clock
     problems.abstract_clock = config.abstract_clock
-    problems.run_coreir_passes = config.run_passes
+    problems.run_coreir_passes = config.run_coreir_passes
     problems.opt_circuit = config.opt_circuit
     problems.no_arrays = config.no_arrays
     problems.relative_path = "./"
@@ -307,7 +307,7 @@ def run_verification(config):
         problem.verification = VerificationType.PARAMETRIC
     elif config.fsm_check:
         problem.verification = VerificationType.EQUIVALENCE
-        problem.equivalence = config.strfiles
+        problem.equivalence = config.model_file
 
     if not problem.verification == VerificationType.EQUIVALENCE:
         problem.formula = config.properties
@@ -378,8 +378,8 @@ def main():
     ua_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
                       for x in ModelParsersFactory.get_parsers() if not x.is_available()]
 
-    in_options.set_defaults(input_files=None)
-    in_options.add_argument('-i', '--input_files', metavar='<input files>', type=str, required=False,
+    in_options.set_defaults(model_file=None)
+    in_options.add_argument('-i', '--model_file', metavar='<model files>', type=str, required=False,
                             help='comma separated list of input files.\nSupported types:\n%s%s'%\
                             ("\n".join(av_input_types), "\nNot enabled:\n%s"%("\n".join(ua_input_types)) \
                              if len(ua_input_types) > 0 else ""))
@@ -516,9 +516,9 @@ def main():
     enc_params.add_argument('--boolean', dest='boolean', action='store_true',
                         help='interprets single bits as Booleans instead of 1-bit Bitvector. (Default is \"%s\")'%config.boolean)
 
-    enc_params.set_defaults(run_passes=config.run_passes)
-    enc_params.add_argument('--no-run-passes', dest='run_passes', action='store_false',
-                        help='does not run CoreIR passes. (Default is \"%s\")'%config.run_passes)
+    enc_params.set_defaults(run_coreir_passes=config.run_coreir_passes)
+    enc_params.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
+                        help='does not run CoreIR passes. (Default is \"%s\")'%config.run_coreir_passes)
 
     enc_params.set_defaults(model_extension=config.model_extension)
     enc_params.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
@@ -601,8 +601,8 @@ def main():
         config.devel = True
         devel_params = parser.add_argument_group('developer')
 
-        devel_params.set_defaults(smt2=None)
-        devel_params.add_argument('--smt2', metavar='<smt-lib2 file>', type=str, required=False,
+        devel_params.set_defaults(smt2_tracing=None)
+        devel_params.add_argument('--smt2-tracing', metavar='<smt-lib2 file>', type=str, required=False,
                            help='generates the smtlib2 tracing file for each solver call.')
 
         devel_params.set_defaults(solver_options=config.solver_options)
@@ -612,7 +612,7 @@ def main():
 
     args = parser.parse_args()
 
-    config.strfiles = args.input_files
+    config.model_file = args.model_file
     config.simulate = args.simulate
     config.safety = args.safety
     config.parametric = args.parametric
@@ -660,7 +660,7 @@ def main():
     config.clean_cache = args.clean_cache
 
     if devel:
-        config.smt2file = args.smt2
+        config.smt2_tracing = args.smt2_tracing
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -683,7 +683,7 @@ def main():
 
     Logger.error_raise_exept = False
 
-    if (args.problems is None) and (args.input_files is None):
+    if (args.problems is None) and (args.model_file is None):
         Logger.error("No input files provided")
 
     if args.strategy not in [s[0] for s in MCConfig.get_strategies()]:

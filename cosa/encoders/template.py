@@ -19,7 +19,7 @@ class EncoderConfig(object):
     zero_init = False
     add_clock = False
     deterministic = False
-    run_passes = True
+    run_coreir_passes = True
     boolean = False
     devel = False
     opt_circuit = False

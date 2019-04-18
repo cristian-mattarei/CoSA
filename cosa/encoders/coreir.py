@@ -334,7 +334,7 @@ class CoreIRParser(ModelParser):
         Logger.msg("Reading CoreIR system... ", 1)
         top_module = self.context.load_from_file(strfile)
 
-        if config.run_passes:
+        if config.run_coreir_passes:
             self.run_passes()
 
         Modules.abstract_clock = self.config.abstract_clock

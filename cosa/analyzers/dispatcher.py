@@ -621,12 +621,13 @@ class ProblemSolver(object):
             except KeyboardInterrupt as e:
                 Logger.msg("\b\b Skipped!\n", 0)
 
+    # FIXME: remove this with new frontend -- just use problem object directly
     def problem2mc_config(self, problem, config):
         mc_config = MCConfig()
 
         config_selection = lambda problem, config: config if problem is None else problem
 
-        mc_config.smt2file = config_selection(problem.smt2_tracing, config.smt2file)
+        mc_config.smt2_tracing = config_selection(problem.smt2_tracing, config.smt2_tracing)
         mc_config.prefix = problem.name
         mc_config.strategy = config_selection(problem.strategy, config.strategy)
         mc_config.incremental = config_selection(problem.incremental, config.incremental)
@@ -637,7 +638,7 @@ class ProblemSolver(object):
 
         return mc_config
 
-
+    # FIXME: remove this with new frontend
     def problems2encoder_config(self, config, problems):
         encoder_config = EncoderConfig()
         encoder_config.abstract_clock = problems.abstract_clock or config.abstract_clock
@@ -645,7 +646,7 @@ class ProblemSolver(object):
         encoder_config.zero_init = problems.zero_init or config.zero_init
         encoder_config.add_clock = problems.add_clock or config.add_clock
         encoder_config.deterministic = config.deterministic
-        encoder_config.run_passes = config.run_passes
+        encoder_config.run_coreir_passes = config.run_coreir_passes
         encoder_config.boolean = problems.boolean or config.boolean
         encoder_config.devel = config.devel
         encoder_config.opt_circuit = problems.opt_circuit or config.opt_circuit

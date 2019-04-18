@@ -39,7 +39,7 @@ class MCConfig(object):
     strategy = None
     solver = None
     prefix = None
-    smt2file = None
+    smt2tracing = None
     simplify = False
     solver_name = None
     solver_options = None
@@ -51,7 +51,7 @@ class MCConfig(object):
         self.solver_name = "msat"
         self.solver_options = dict()
         self.prefix = None
-        self.smt2file = None
+        self.smt2tracing = None
         self.simplify = False
         self.prove = False
 
@@ -117,8 +117,8 @@ class BMCSolver(object):
         self.total_time = 0.0
 
         basename = None
-        if self.config.smt2file is not None:
-            basename = ".".join(self.config.smt2file.split(".")[:-1])
+        if self.config.smt2tracing is not None:
+            basename = ".".join(self.config.smt2tracing.split(".")[:-1])
         logic = convert_logic_from_string(self.hts.logic)
         self.solver = TraceSolver(config.solver_name, "main", logic=logic, incremental=config.incremental,
                                   solver_options=config.solver_options, basename=basename)
