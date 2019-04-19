@@ -631,6 +631,10 @@ def main():
     ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=False,
                             help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%5)
 
+    ver_params.set_defaults(equal_to=None)
+    ver_params.add_argument('--equal-to', required=False, type=str,
+                            help='Model to check equivalence with (assumes common interface)')
+
     strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in MCConfig.get_strategies()]
     defstrategy = MCConfig.get_strategies()[0][0]
     ver_params.set_defaults(strategy=defstrategy)

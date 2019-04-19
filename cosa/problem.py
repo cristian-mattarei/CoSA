@@ -81,20 +81,22 @@ class VerificationType(object):
 
 class ProblemsManager:
     def __init__(self, relative_path:Path, general_config:Dict[str, Any], defaults:Dict[str, Any]):
-        self._relative_path = relative_path
-        self._general_config = namedtuple('general_config', general_config.keys())(**general_config)
-        self._defaults = defaults
-        self._problems = []
-        self._problems_status = dict()
-        self._problems_traces  = dict()
-        self._problems_time  = dict()
+        self._relative_path         = relative_path
+        self._general_config        = namedtuple('general_config', general_config.keys())(**general_config)
+        self._defaults              = defaults
+        self._problems              = []
+        self._problems_status       = dict()
+        self._problems_traces       = dict()
+        self._problems_time         = dict()
+
+        # The main Hierarchical Transition System that all problems are run on
+        self._hts                   = None
+        # Per-problem second systems for equivalence checking (of verification=equivalence)
+        self._problems_second_model = dict()
+
         options = set(defaults.keys())
         options.add('idx') # unique id for internal use
-        self.__problem_type = namedtuple('Problem', options)
-        # The main Hierarchical Transition System that all problems are run on
-        self._hts = None
-        # An optional second system for equivalence checking and similar analyses
-        self._hts2 = None
+        self.__problem_type         = namedtuple('Problem', options)
 
     def add_problem(self, **kwargs):
         '''
@@ -169,6 +171,12 @@ class ProblemsManager:
 
     def get_problem_time(self, problem:NamedTuple)->float:
         return self._problems_time[problem.idx]
+
+    def add_second_model(self, problem:NamedTuple, hts:HTS):
+        self._problems_second_model[problem.idx] = hts
+
+    def get_second_model(self, problem:NamedTuple):
+        return self._problems_second_model[problem.idx]
 
     @property
     def problems(self)->List[NamedTuple]:

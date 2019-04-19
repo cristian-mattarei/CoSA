@@ -137,12 +137,11 @@ class ProblemSolver(object):
         trace = None
         traces = None
 
-        # TODO Move this somewhere earlier
         if prop is None:
             if problem.verification == VerificationType.SIMULATION:
                 prop = TRUE()
             elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
-                Logger.error("Property not provided")
+                Logger.error("Property not provided for problem {}".format(problem.name))
 
         accepted_ver = False
 
@@ -152,10 +151,6 @@ class ProblemSolver(object):
                 hts.add_assumption(assump)
             for lemma in lemmas:
                 hts.add_lemma(lemma)
-
-        # TODO: make sure this case can be removed
-        # if problem.verification is None:
-        #     return problem
 
         bmc_safety = BMCSafety(hts, problem)
         bmc_parametric = BMCParametric(hts, problem)
@@ -303,6 +298,7 @@ class ProblemSolver(object):
         return (hts, inv, ltl, model_info)
 
     def parse_model(self, \
+                    model_files,
                     relative_path, \
                     general_config, \
                     name=None, \
@@ -312,7 +308,7 @@ class ProblemSolver(object):
         invar_props = []
         ltl_props = []
 
-        models = general_config.model_file.split(FILE_SP)
+        models = model_files.split(FILE_SP)
         cache_files = general_config.cache_files
         clean_cache = general_config.clean_cache
 
@@ -393,11 +389,34 @@ class ProblemSolver(object):
             modifier = lambda hts: ModelExtension.extend(hts,
                         ModelModifiersFactory.modifier_by_name(general_config.model_extension))
 
-        # generate system
-        hts, invar_props, ltl_props = self.parse_model(problems_config.relative_path,
+        hierarchical_transition_systems = []
+
+        # generate main system system
+        hts, invar_props, ltl_props = self.parse_model(general_config.model_file,
+                                                       problems_config.relative_path,
                                                        general_config,
                                                        "System 1",
                                                        modifier)
+
+        hierarchical_transition_systems.append(hts)
+
+        # Generate second models if any are necessary
+        for problem in problems_config.problems:
+            if problem.verification == VerificationType.EQUIVALENCE:
+                if problem.equal_to is None:
+                    raise RuntimeError("No second model for equivalence "
+                                       "checking provided for problem {}".format(problem.name))
+
+                hts2, _, _ = self.parse_model(problem.equal_to,
+                                              problems_config.relative_path,
+                                              general_config,
+                                              "System 2",
+                                              modifier)
+                hierarchical_transition_systems.append(hts2)
+                problems_config.add_second_model(problem, hts2)
+
+        # TODO Use the hierarchical_transition_systems to apply these transformations on ALL systems
+        #      Not just the main one
 
         # TODO: test this
         if model_extension:
@@ -469,7 +488,7 @@ class ProblemSolver(object):
         # TODO: Handle equivalence gracefully
         #       should be able to specify this per-problem
         #       requires generating systems for each one
-
+        #   --> means we need to parse the model file later
         # if general_config.equivalence is not None:
         #     hts2, _, _ = self.parse_model(problems_config.relative_path,
         #                                   general_config,
@@ -495,9 +514,8 @@ class ProblemSolver(object):
         for problem in problems_config.problems:
             problem_hts = problems_config.hts
 
-            # TODO fix this -- see comment about equivalence above
             if problem.verification == VerificationType.EQUIVALENCE:
-                raise RuntimeError("Equivalence currently unsupported")
+                problem_hts2 = problems_config.get_second_model(problem)
 
             # TODO: Do this somewhere else, these problems aren't modifiable anymore
             # if problem.trace_prefix is not None:
