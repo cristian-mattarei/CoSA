@@ -21,22 +21,15 @@ else
     echo "Skipping PYSMT installation"
     cd pysmt && pip3 install -e . && cd ..
 fi
-    
-export COREIRCONFIG="g++-4.9"
 
-# Get pycoreir and let it build coreir
 if [ ! -f "$COREIR" ]; then
-    rm -fr coreir* pycoreir*
-    git clone https://github.com/leonardt/pycoreir.git
-    cd pycoreir
-    pip install -e .
+    rm -fr coreir*
+    wget https://github.com/rdaly525/coreir/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    mv coreir-master coreir
+    cd coreir && make -j4 && sudo make install
     cd ..
-    # wget https://github.com/rdaly525/coreir/archive/master.zip
-    # unzip master.zip
-    # rm master.zip
-    # mv coreir-master coreir
-    # cd coreir && make -j4 && sudo make install
-    # cd ..
 else
     echo "Skipping COREIR installation"
     cd pycoreir && pip install -e . && cd ..
