@@ -3,7 +3,7 @@ from collections import defaultdict, namedtuple
 import configparser
 import itertools
 from pathlib import Path
-from typing import Dict, Sequence, NamedTuple
+from typing import Callable, Dict, Sequence, NamedTuple
 
 from cosa.problem import ProblemsManager
 
@@ -18,10 +18,13 @@ class CosaArgGroup(argparse._ArgumentGroup):
         self._category = category
         self._config_files = container._config_files
         self._defaults = container._defaults
+        self._types = container._types
         self._add_long_option = container._add_long_option
         argparse._ArgumentGroup.__init__(self, container, '%s.%s'%(category, group), *args, **kwargs)
 
-    def add_argument(self, *args, default=None, dest:str=None, is_config_file:bool=False, **kwargs):
+    def add_argument(self, *args, default=None, action=None,
+                     dest:str=None, is_config_file:bool=False,
+                     type:Callable=str, **kwargs):
         option_name = self._add_long_option(self._category, args, dest)
         if is_config_file:
             self._config_files.add(option_name)
@@ -30,9 +33,14 @@ class CosaArgGroup(argparse._ArgumentGroup):
         # save the default (if not already set)
         if option_name not in self._defaults:
             self._defaults[option_name] = default
+        if option_name not in self._types:
+            if action == 'store_true':
+                self._types[option_name] = bool
+            else:
+                self._types[option_name] = type
         # always set argparse's default to None so that we can identify
         #  unset arguments
-        super().add_argument(*args, default=None, dest=dest, **kwargs)
+        super().add_argument(*args, default=None, dest=dest, action=action, **kwargs)
 
     def add_mutually_exclusive_group(self, **kwargs):
         group = CosaMutuallyExclusiveGroup(self, self._category, **kwargs)
@@ -46,13 +54,16 @@ class CosaMutuallyExclusiveGroup(argparse._MutuallyExclusiveGroup):
         self._category = category
         self._config_files = container._config_files
         self._defaults = container._config_files
+        self._types = container._types
         self._add_long_option = container._add_long_option
         argparse._MutuallyExclusiveGroup.__init__(self, container, **kwargs)
         # placement of this line important -- need to override the None title
         if hasattr(container, 'title'):
             self.title = container.title
 
-    def add_argument(self, *args, default=None, dest:str=None, is_config_file:bool=False, **kwargs):
+    def add_argument(self, *args, default=None, action=None,
+                     dest:str=None, is_config_file:bool=False,
+                     type:Callable=str, **kwargs):
         option_name = self._add_long_option(self._category, args, dest)
         if is_config_file:
             self._config_files.add(option_name)
@@ -61,7 +72,12 @@ class CosaMutuallyExclusiveGroup(argparse._MutuallyExclusiveGroup):
         # save the default (if not already set)
         if option_name not in self._defaults:
             self._defaults[option_name] = default
-        super().add_argument(*args, default=None, dest=dest, **kwargs)
+        if option_name not in self._types:
+            if action == 'store_true':
+                self._types[option_name] = bool
+            else:
+                self._types[option_name] = type
+        super().add_argument(*args, default=None, dest=dest, action=action, **kwargs)
 
 
 class CosaArgParser(argparse.ArgumentParser):
@@ -77,11 +93,14 @@ class CosaArgParser(argparse.ArgumentParser):
         #   represented in this structure
         self._config_files = set()
         self._defaults = dict()
+        self._types = dict()
         self._problem_options = defaultdict(set)
         self._problem_type = None
         argparse.ArgumentParser.__init__(self, *args, **kwargs)
 
-    def add_argument(self, *args, default=None, dest:str=None, is_config_file:bool=False, **kwargs):
+    def add_argument(self, *args, default=None, action=None,
+                     dest:str=None, is_config_file:bool=False,
+                     type:Callable=str, **kwargs):
         # adding option with no category group, results in the DEFAULT group
         option_name = self._add_long_option(BUILTIN, args, dest)
         if dest is None:
@@ -91,9 +110,14 @@ class CosaArgParser(argparse.ArgumentParser):
         # save the default (if not already set)
         if option_name not in self._defaults:
             self._defaults[option_name] = default
+        if option_name not in self._types:
+            if action == 'store_true':
+                self._types[option_name] = bool
+            else:
+                self._types[option_name] = type
         # always set argparse's default to None so that we can identify
         #   unset arguments
-        super().add_argument(*args, default=None, dest=dest, **kwargs)
+        super().add_argument(*args, default=None, dest=dest, action=action, **kwargs)
 
     def add_argument_group(self, group_str:str, *args, **kwargs)->CosaArgGroup:
         # no specific category results in BUILTIN
@@ -205,6 +229,12 @@ class CosaArgParser(argparse.ArgumentParser):
                     single_problem_options[option] = command_line_args[option]
                 else:
                     single_problem_options[option] = self._defaults[option]
+
+            # convert options to expected type
+            try:
+                single_problem_options = {k:self._types[k](v) if v is not None else v for k, v in single_problem_options.items()}
+            except KeyError as e:
+                raise Warning("Missing type information for an option")
             problems.add_problem(problem_type(**single_problem_options))
         return problems
 
@@ -221,14 +251,30 @@ class CosaArgParser(argparse.ArgumentParser):
         config_filepath = Path(config_file)
         config_args = self.parse_config(config_filepath)
         general_options = dict(config_args[GENERAL])
+
+        # remove default options
+        # -- configparser automatically populates defaults
+        #    in every section, which we don't want
+        for option in config_args[DEFAULT]:
+            general_options.pop(option, None)
+
         for option, value in general_options.items():
             # replace empty arguments with default value
             if value is None:
                 general_options[option] = self._defaults[option]
+
         unknown_gen_options = general_options.keys() - self._problem_options[GENERAL]
         if unknown_gen_options:
             raise RuntimeError("Expecting only general options in section"
                                " [GENERAL] but got {}".format(unknown_gen_options))
+
+        # populate with general defaults
+        for option in self._problem_options[GENERAL]:
+            if option not in general_options or general_options[option] is None:
+                if command_line_args[option] is not None:
+                    general_options[option] = command_line_args[option]
+                else:
+                    general_options[option] = self._defaults[option]
 
         problem_defaults = self._defaults.copy()
         default_options = dict(config_args[DEFAULT])
@@ -244,7 +290,6 @@ class CosaArgParser(argparse.ArgumentParser):
 
         # Generate the problems wrapper and populate it
         problems = ProblemsManager(config_filepath.parent, general_options, problem_defaults)
-
         problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
 
         # Recall priority order
@@ -262,6 +307,21 @@ class CosaArgParser(argparse.ArgumentParser):
                 # problem defaults were already given priority
                 if arg not in problem_file_options:
                     problem_file_options[arg] = problem_defaults[arg]
-            problems.add_problem(problem_type(**problem_file_options))
 
+            # convert options to expected type
+            try:
+                problem_file_options = {k:self._types[k](v) if v is not None else v for k, v in problem_file_options.items()}
+            except KeyError as e:
+                raise Warning("Missing type information for an option")
+
+            try:
+                problems.add_problem(problem_type(**problem_file_options))
+            except TypeError as e:
+                if len(e.args) > 0:
+                    message = e.args[0]
+                if "unexpected keyword argument" in message:
+                    unknown_option = message[message.find("argument ")+9:]
+                    raise RuntimeError("Unknown option in problem file: {}".format(unknown_option))
+                else:
+                    raise e
         return problems

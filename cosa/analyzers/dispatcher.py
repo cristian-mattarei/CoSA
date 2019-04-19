@@ -167,7 +167,6 @@ class ProblemSolver(object):
         bmc_length = problem.bmc_length
         bmc_length_min = problem.bmc_length_min
 
-
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
