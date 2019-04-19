@@ -11,6 +11,7 @@
 from collections import namedtuple
 import configparser
 import copy
+from itertools import count
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Set, Union
 
@@ -20,6 +21,10 @@ from cosa.representation import HTS
 from cosa.utils.generic import auto_convert
 from cosa.utils.logger import Logger
 
+
+## For unique problem ids
+counter = count()
+get_id = lambda : next(counter)
 
 DEFAULT = "DEFAULT"
 GENERAL = "GENERAL"
@@ -34,6 +39,7 @@ SIMULATION = "simulation"
 DETERMINISTIC = "deterministic"
 FORMULA = "formula"
 MODEL_FILE = "model_file"
+MODEL_SP = ";"
 
 class VerificationStatus(object):
     UNC = "UNCHECKED"
@@ -80,49 +86,85 @@ class ProblemsManager:
         self._problems_status = dict()
         self._problems_traces  = dict()
         self._problems_time  = dict()
-        self._problem_type = None
+        options = set(defaults.keys())
+        options.add('idx') # unique id for internal use
+        self.__problem_type = namedtuple('Problem', options)
+        # The main Hierarchical Transition System that all problems are run on
         self._hts = None
+        # An optional second system for equivalence checking and similar analyses
         self._hts2 = None
 
-    def add_problem(self, problem:NamedTuple):
-        self._problems.append(problem)
-        self._problems_status[problem] = VerificationStatus.UNC
-
-    def new_problem(self, **kwargs)->None:
-        problem_type = self.get_problem_type()
-        unknown_kwargs = kwargs.keys() - problem_type._fields
+    def add_problem(self, **kwargs):
+        '''
+        Creates a problem with the given kwargs as fields,
+        anything not supplied is given the default value
+        as determined by the defaults given to CosaArgParser in shell.py
+        '''
+        unknown_kwargs = kwargs.keys() - self.__problem_type._fields
         if unknown_kwargs:
             raise RuntimeError("Expecting only known problem "
                                "options but got {}".format(unknown_kwargs))
 
-        problem_options = self._defaults
+        # start with the defaults, but don't overwrite the defaults
+        problem_options = self._defaults.copy()
         for option, value in kwargs.items():
             problem_options[option] = value
 
-        self._problems.append(problem_type(**problem_options))
+        # if there were multiple properties, split them into separate problems
+        if MODEL_SP in problem_options['properties']:
+            problems = self._split_problem(problem_options)
+            for pbm in problems:
+                self._problems.append(pbm)
+                self._problems_status[pbm.idx] = VerificationStatus.UNC
+        else:
+            problem = self.__problem_type(idx=get_id(), **problem_options)
+            self._problems.append(problem)
+            self._problems_status[problem.idx] = VerificationStatus.UNC
+
+    def _split_problem(self, problem_options:Dict[str, Any]):
+        '''
+        Split a problem with multiple properties into multiple problems
+        Generate a new name for each
+        '''
+        problems = []
+        properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
+        name = problem_options['properties']
+        names = [name + str(i) for i in range(len(properties))]
+
+        # Remove old properties and name
+        del problem_options['properties']
+        del problem_options['name']
+
+        for n, prop in zip(names, properties):
+            # create new problems with new name and properties field
+            # and the rest of the fields identical
+            problems.append(self.__problem_type(name=n, properties=prop,
+                                                _id=get_id(), **problem_options))
+
+        return problems
 
     def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
-        assert self._problems_status[problem] == VerificationStatus.UNC, \
+        assert self._problems_status[problem.idx] == VerificationStatus.UNC, \
             "Not expecting to reset problem status"
-        self._problems_status[problem] = status
+        self._problems_status[problem.idx] = status
 
     def get_problem_status(self, problem:NamedTuple)->VerificationStatus:
-        return self._problems_status[problem]
+        return self._problems_status[problem.idx]
 
     def set_problem_traces(self, problem:NamedTuple, traces:Union[List, object]):
-        self._problems_traces[problem] = traces
+        self._problems_traces[problem.idx] = traces
 
     def get_problem_traces(self, problem:NamedTuple):
-        return self._problems_traces[problem]
+        return self._problems_traces[problem.idx]
 
     def has_problem_trace(self, problem:NamedTuple):
         return problem in self._problems_traces
 
     def set_problem_time(self, problem:NamedTuple, time:float):
-        self._problems_time[problem] = time
+        self._problems_time[problem.idx] = time
 
     def get_problem_time(self, problem:NamedTuple)->float:
-        return self._problems_time[problem]
+        return self._problems_time[problem.idx]
 
     @property
     def problems(self)->List[NamedTuple]:
@@ -151,15 +193,6 @@ class ProblemsManager:
     @property
     def relative_path(self):
         return self._relative_path
-
-    def get_problem_type(self, problem_options:Set[str]):
-        if self._problem_type is None:
-            self._problem_type = namedtuple('Problem', problem_options)
-            return self._problem_type
-        else:
-            assert self(self._problem_type._fields) == problem_options, \
-                "Expecting problem type to be static"
-            return self._problem_type
 
 class Problems(object):
     abstract_clock = False

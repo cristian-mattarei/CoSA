@@ -209,7 +209,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 config_files.append(command_line_args[config_file])
         if config_files:
             assert len(config_files) == 1, "Expecting only a single configuration file"
-            problems = self.gen_problems(command_line_args[config_file], command_line_args)
+            problems_manager = self.gen_problems(command_line_args[config_file], command_line_args)
         else:
             # get general options
             general_options = dict()
@@ -219,10 +219,11 @@ class CosaArgParser(argparse.ArgumentParser):
                 else:
                     general_options[option] = self._defaults[option]
 
-            problems = ProblemsManager(Path("./"), general_options, self._defaults)
+            # create default options for only problem fields
+            problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
+            problems_manager = ProblemsManager(Path("./"), general_options, problem_defaults)
 
             # generate a single problem
-            problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
             single_problem_options = dict()
             for option in self._problem_options[PROBLEM]:
                 if command_line_args[option] is not None:
@@ -235,8 +236,10 @@ class CosaArgParser(argparse.ArgumentParser):
                 single_problem_options = {k:self._types[k](v) if v is not None else v for k, v in single_problem_options.items()}
             except KeyError as e:
                 raise Warning("Missing type information for an option")
-            problems.add_problem(problem_type(**single_problem_options))
-        return problems
+
+            problems_manager.add_problem(**single_problem_options)
+
+        return problems_manager
 
     def parse_config(self, config_file:Path)->configparser.ConfigParser:
         parser = configparser.ConfigParser()
@@ -276,7 +279,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 else:
                     general_options[option] = self._defaults[option]
 
-        problem_defaults = self._defaults.copy()
+        problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
         default_options = dict(config_args[DEFAULT])
         unknown_default_options = default_options.keys() - self._problem_options[PROBLEM]
         if unknown_default_options:
@@ -284,13 +287,10 @@ class CosaArgParser(argparse.ArgumentParser):
                                " [DEFAULT] but got {}".format(unknown_default_options))
         for option, value in default_options.items():
             # override the defaults with problem defaults
-            # TODO: use auto_convert here
-            # problem_defaults[option] = auto_convert(value)
             problem_defaults[option] = value
 
-        # Generate the problems wrapper and populate it
-        problems = ProblemsManager(config_filepath.parent, general_options, problem_defaults)
-        problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
+        # Generate the problems_manager and populate it
+        problems_manager = ProblemsManager(config_filepath.parent, general_options, problem_defaults)
 
         # Recall priority order
         # command line > problem option > problem defaults > defaults
@@ -315,7 +315,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 raise Warning("Missing type information for an option")
 
             try:
-                problems.add_problem(problem_type(**problem_file_options))
+                problems_manager.add_problem(**problem_file_options)
             except TypeError as e:
                 if len(e.args) > 0:
                     message = e.args[0]
@@ -324,4 +324,4 @@ class CosaArgParser(argparse.ArgumentParser):
                     raise RuntimeError("Unknown option in problem file: {}".format(unknown_option))
                 else:
                     raise e
-        return problems
+        return problems_manager
