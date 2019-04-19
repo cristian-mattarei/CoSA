@@ -6,9 +6,9 @@ PYSMT="`pwd`/pysmt/setup.py"
 BITVECTOR="`pwd`/bit_vector/setup.py"
 
 if [ ! -f "$PYSMT" ]; then
+    rm -fr pysmt*
     # TEMP PySMT currently errors out upstream
     git clone -b cosa https://github.com/makaimann/pysmt.git
-    # rm -fr pysmt*
     # wget https://github.com/pysmt/pysmt/archive/master.zip
     # unzip master.zip
     # rm master.zip
@@ -24,18 +24,24 @@ fi
     
 export COREIRCONFIG="g++-4.9"
 
+# Get pycoreir and let it build coreir
 if [ ! -f "$COREIR" ]; then
-    rm -fr coreir*
-    wget https://github.com/rdaly525/coreir/archive/master.zip
-    unzip master.zip
-    rm master.zip
-    mv coreir-master coreir
-    cd coreir && make -j4 && sudo make install
+    rm -fr coreir* pycoreir*
+    git clone https://github.com/leonardt/pycoreir.git
+    cd pycoreir
+    pip install -e .
     cd ..
+    # wget https://github.com/rdaly525/coreir/archive/master.zip
+    # unzip master.zip
+    # rm master.zip
+    # mv coreir-master coreir
+    # cd coreir && make -j4 && sudo make install
+    # cd ..
 else
     echo "Skipping COREIR installation"
-    cd coreir && sudo make install && cd ..
+    cd pycoreir && pip install -e . && cd ..
 fi
 
-wget http://web.stanford.edu/~makaim/files/yosys
-export PATH=`pwd`
+# don't need yosys for now
+# wget http://web.stanford.edu/~makaim/files/yosys
+# export PATH=`pwd`
