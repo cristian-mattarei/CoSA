@@ -565,6 +565,7 @@ class ProblemSolver(object):
                         problem_traces.append(self.__process_trace(hts, trace, general_config, problem))
                     problems_config.set_problem_traces(problem, problem_traces)
 
+                Logger.msg(" %s\n"%status, 0, not(Logger.level(1)))
 
                 if (assume_if_true) and \
                    (status == VerificationStatus.TRUE) and \
