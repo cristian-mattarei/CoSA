@@ -2,4 +2,4 @@ pyparsing
 pysmt
 coreir
 six
-git+git://github.com/leonardt/Pyverilog.git#egg=pyverilog
+pyverilog
