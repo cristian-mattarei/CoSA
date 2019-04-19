@@ -6,11 +6,13 @@ PYSMT="`pwd`/pysmt/setup.py"
 BITVECTOR="`pwd`/bit_vector/setup.py"
 
 if [ ! -f "$PYSMT" ]; then
-    rm -fr pysmt*
-    wget https://github.com/pysmt/pysmt/archive/master.zip
-    unzip master.zip
-    rm master.zip
-    mv pysmt-master pysmt
+    # TEMP PySMT currently errors out upstream
+    git clone -b cosa https://github.com/makaimann/pysmt.git
+    # rm -fr pysmt*
+    # wget https://github.com/pysmt/pysmt/archive/master.zip
+    # unzip master.zip
+    # rm master.zip
+    # mv pysmt-master pysmt
     cd pysmt
     pip3 install -e .
     pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
