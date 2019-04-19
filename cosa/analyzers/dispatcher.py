@@ -564,22 +564,27 @@ class ProblemSolver(object):
                     problems_config.set_problem_traces(problem, problem_traces)
 
 
-                # if (assume_if_true) and \
-                #    (status == VerificationStatus.TRUE) and \
-                #    (problem.assumptions == None) and \
-                #    (problem.verification == VerificationType.SAFETY):
+                if (assume_if_true) and \
+                   (status == VerificationStatus.TRUE) and \
+                   (problem.assumptions == None) and \
+                   (problem.verification == VerificationType.SAFETY):
 
-                #     # TODO: relax the assumption on problem.assumptions
-                #     #       can still add it, just need to make it an implication
+                    # TODO: relax the assumption on problem.assumptions
+                    #       can still add it, just need to make it an implication
 
-                #     ass_ts = TS("Previous assumption from property")
-                #     if TS.has_next(prop):
-                #         ass_ts.trans = prop
-                #     else:
-                #         ass_ts.invar = prop
-                #     # add assumptions to main system
-                #     problems_config.hts.reset_formulae()
-                #     problems_config.hts.add_ts(ass_ts)
+                    ass_ts = TS("Previous assumption from property")
+                    if TS.has_next(prop):
+                        ass_ts.trans = prop
+                    else:
+                        ass_ts.invar = prop
+                    # add assumptions to main system
+                    problems_config.hts.reset_formulae()
+                    problems_config.hts.add_ts(ass_ts)
+
+                if general_config.time:
+                    problems_config.set_problem_time(problem,
+                                                     Logger.get_timer(timer_solve, False))
+
             except KeyboardInterrupt as e:
                 Logger.msg("\b\b Skipped!\n", 0)
 

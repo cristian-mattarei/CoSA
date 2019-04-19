@@ -15,8 +15,9 @@ import argparse
 import os
 import multiprocessing
 
-from textwrap import TextWrapper
 from argparse import RawTextHelpFormatter
+from textwrap import TextWrapper
+from typing import List, NamedTuple, Union
 
 from pysmt.shortcuts import TRUE, FALSE
 
@@ -29,7 +30,7 @@ from cosa.printers.template import HTSPrinterType, TraceValuesBase
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
-from cosa.problem import Problem, Problems, ProblemsConfig, VerificationStatus, VerificationType
+from cosa.problem import Problem, Problems, ProblemsConfig, Trace, VerificationStatus, VerificationType
 from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
@@ -150,6 +151,8 @@ def get_file_flags(strfile):
     return (strfile, flags)
 
 def translate(hts, config, formulae=None):
+    # TODO: Fix this for the formulae which are not pysmt nodes at this point
+    #       accessing the problem copy of it which is still a string
     Logger.log("\nWriting system to \"%s\""%(config.translate), 0)
     printer = HTSPrintersFactory.printer_by_name(config.printer)
     props = []
@@ -158,20 +161,24 @@ def translate(hts, config, formulae=None):
     with open(config.translate, "w") as f:
         f.write(printer.print_hts(hts, props))
 
-def print_problem_result(pbm, config):
-    traces = config.get_problem_trace[pbm]
+def print_problem_result(pbm:NamedTuple,
+                         problems_config:ProblemsConfig):
+
+    traces = problems_config.get_problem_traces(pbm)
+    status = problems_config.get_problem_status(pbm)
+    general_config = problems_config.general_config
     count = len(traces) + 1
     if pbm.name is None:
         return (0, [])
     ret_status = 0
 
-    unk_k = "" if pbm.status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
+    unk_k = "" if status != VerificationStatus.UNK else "\nBMC depth: %s"%pbm.bmc_length
     Logger.log("\n** Problem %s **"%(pbm.name), 0)
     if pbm.description is not None:
         Logger.log("Description: %s"%(pbm.description), 0)
-    if pbm.formula is not None:
-        Logger.log("Formula: %s"%(pbm.formula.serialize(threshold=100)), 1)
-    Logger.log("Result: %s%s"%(pbm.status, unk_k), 0)
+    if pbm.properties is not None:
+        Logger.log("Formula: %s"%(pbm.properties), 1)
+    Logger.log("Result: %s%s"%(status, unk_k), 0)
     if pbm.verification == VerificationType.PARAMETRIC:
         if pbm.region in [TRUE(),FALSE(),None]:
             Logger.log("Region: %s"%(pbm.region), 0)
@@ -180,29 +187,30 @@ def print_problem_result(pbm, config):
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
         Logger.log("Expected: %s"%(expected), 0)
-        correct = VerificationStatus.compare(VerificationStatus.convert(pbm.expected), pbm.status)
+        correct = VerificationStatus.compare(VerificationStatus.convert(pbm.expected), status)
         if not correct:
-            Logger.log("%s != %s <<<---------| ERROR"%(pbm.status, expected), 0)
+            Logger.log("%s != %s <<<---------| ERROR"%(status, expected), 0)
             ret_status = 1
 
-    assert not(config.force_expected and (pbm.expected is None))
+    assert not(general_config.force_expected and (pbm.expected is None))
 
-    prefix = config.prefix if config.prefix is not None else pbm.trace_prefix
+    prefix = general_config.prefix
 
     traces = []
 
     if (traces is not None) and (len(traces) > 0):
-        if (pbm.verification == VerificationType.PARAMETRIC) and (pbm.status != VerificationStatus.FALSE):
+        if (pbm.verification == VerificationType.PARAMETRIC) and (status != VerificationStatus.FALSE):
             traces = print_traces("Execution", traces, pbm.name, prefix, count)
 
-        if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
+        if (pbm.verification != VerificationType.SIMULATION) and (status == VerificationStatus.FALSE):
             traces = print_traces("Counterexample", traces, pbm.name, prefix, count)
 
-        if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
+        if (pbm.verification == VerificationType.SIMULATION) and (status == VerificationStatus.TRUE):
             traces = print_traces("Execution", traces, pbm.name, prefix, count)
 
-    if pbm.time:
-        Logger.log("Time: %.2f sec"%(pbm.time), 0)
+    if general_config.time:
+        time = problems_config.get_problem_time(pbm)
+        Logger.log("Time: %.2f sec"%(time), 0)
 
     return (ret_status, traces)
 # FIXME: replace old version with this
@@ -236,26 +244,27 @@ def run_problems_new(problems_config:ProblemsConfig):
             return 0
 
     # TODO: Enable all this
+    formulae = []
+    for pbm in problems_config.problems:
+        (status, trace) = print_problem_result(pbm,
+                                               problems_config)
 
-    # formulae = []
-    # for pbm in problems.problems:
-    #     (status, trace) = print_problem_result(pbm, general_config)
-    #     if status != 0:
-    #         global_status = status
-    #     traces += trace
-    #     formulae.append(pbm.formula)
+        if status != 0:
+            global_status = status
+        traces += trace
+        formulae.append(pbm.properties)
 
-    # if len(traces) > 0:
-    #     Logger.log("\n*** TRACES ***\n", 0)
-    #     for trace in traces:
-    #         Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
+    if len(traces) > 0:
+        Logger.log("\n*** TRACES ***\n", 0)
+        for trace in traces:
+            Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
 
-    # if config.translate:
-    #     translate(problems.get_hts(), general_config, formulae)
+    if general_config.translate:
+        translate(problems_config.hts, general_config, formulae)
 
-    # if global_status != 0:
-    #     Logger.log("", 0)
-    #     Logger.warning("Verifications with unexpected result")
+    if global_status != 0:
+        Logger.log("", 0)
+        Logger.warning("Verifications with unexpected result")
 
     return global_status
 
@@ -295,7 +304,7 @@ def run_problems(problems_file, config, problems=None):
         if status != 0:
             global_status = status
         traces += trace
-        formulae.append(pbm.formula)
+        formulae.append(pbm.properties)
 
     if len(traces) > 0:
         Logger.log("\n*** TRACES ***\n", 0)
@@ -517,6 +526,13 @@ def main():
     general_encoding_options.add_argument('--zero-init', dest='zero_init', action='store_true',
                                           help='sets initial state to zero. (Default is \"%s\")'%False)
 
+    # General results options
+    general_results_options = parser.add_general_group('results')
+
+    general_results_options.set_defaults(force_expected=False)
+    general_results_options.add_argument('--force-expected', action='store_true',
+                                         help='Force the result to be the provided expected value')
+
     # Problem-specific processing options
     problem_processing_options = parser.add_problem_group('problem processing')
     problem_processing_options.set_defaults(simplify=True)
@@ -569,6 +585,10 @@ def main():
     # Verification parameters
 
     ver_params = parser.add_problem_group('verification parameters')
+
+    ver_params.set_defaults(expected=None)
+    ver_params.add_argument('--expected', required=False, type=str,
+                            help='Expected verification result')
 
     ver_params.set_defaults(properties=None)
     ver_params.add_argument('-p', '--properties', metavar='<invar list>', type=str, required=False,
@@ -627,7 +647,7 @@ def main():
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%'msat')
 
-    # General rinting parameters
+    # General printing parameters
 
     print_params = parser.add_general_group('trace printing')
 
@@ -652,14 +672,17 @@ def main():
     print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
                        help='write the counterexamples with a specified location prefix.')
 
-    # Translation parameters
-
-    trans_params = parser.add_problem_group('translation')
-
-    trans_params.set_defaults(translate=None)
-    trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
+    # General translation parameters
+    general_trans_params = parser.add_general_group('translation')
+    
+    general_trans_params.set_defaults(translate=None)
+    general_trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
 
+
+    # Problem-specific translation parameters
+
+    trans_params = parser.add_problem_group('translation')
     printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]
 
     printer_default = HTSPrintersFactory.get_default().get_name()

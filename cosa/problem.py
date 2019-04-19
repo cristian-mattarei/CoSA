@@ -79,6 +79,7 @@ class ProblemsConfig:
         self._problems = []
         self._problems_status = dict()
         self._problems_traces  = dict()
+        self._problems_time  = dict()
         self._problem_type = None
         self._hts = None
         self._hts2 = None
@@ -113,6 +114,12 @@ class ProblemsConfig:
 
     def get_problem_traces(self, problem:NamedTuple):
         return self._problems_traces[problem]
+
+    def set_problem_time(self, problem:NamedTuple, time:float):
+        self._problems_time[problem] = time
+
+    def get_problem_time(self, problem:NamedTuple)->float:
+        return self._problems_time[problem]
 
     @property
     def problems(self)->List[NamedTuple]:
