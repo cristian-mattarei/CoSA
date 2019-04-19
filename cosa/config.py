@@ -298,6 +298,10 @@ class CosaArgParser(argparse.ArgumentParser):
             if section == DEFAULT or section == GENERAL:
                 continue
             problem_file_options = dict(config_args[section])
+            unknown_problem_file_options = problem_file_options.keys() - self._problem_options[PROBLEM]
+            if unknown_problem_file_options:
+                raise RuntimeError("Expecting only problem options "
+                                   "in problem section but got {}".format(unknown_problem_file_options))
             problem_file_options['name'] = section
             for arg in self._problem_options[PROBLEM]:
                 if command_line_args[arg] is not None:
