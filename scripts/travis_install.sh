@@ -28,8 +28,12 @@ if [ ! -f "$COREIR" ]; then
     unzip master.zip
     rm master.zip
     mv coreir-master coreir
-    cd coreir && make -j4 && sudo make install
-    cd ..
+    cd coreir
+    mkdir build
+    cd build
+    cmake ..
+    make -j4 && sudo make install
+    cd ../../
 else
     echo "Skipping COREIR installation"
     cd pycoreir && pip install -e . && cd ..
