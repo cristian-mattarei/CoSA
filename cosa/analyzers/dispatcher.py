@@ -552,6 +552,9 @@ class ProblemSolver(object):
                                                               assumptions,
                                                               problem)
 
+                # set status for this problem
+                problems_config.set_problem_status(problem, status)
+
                 # TODO: Determine whether we need both trace and traces
                 if trace is not None:
                     problem_traces = self.__process_trace(hts, trace, general_config, problem)
@@ -588,8 +591,6 @@ class ProblemSolver(object):
             except KeyboardInterrupt as e:
                 Logger.msg("\b\b Skipped!\n", 0)
 
-        print("done")
-        # TODO : FINISH THIS
 
     def convert_formulae(self, formulae:List[Union[str, FNode]],
                          verification_type:str,

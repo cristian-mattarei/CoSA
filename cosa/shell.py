@@ -195,24 +195,24 @@ def print_problem_result(pbm:NamedTuple,
     assert not(general_config.force_expected and (pbm.expected is None))
 
     prefix = general_config.prefix
-
-    traces = []
+    traces_results = []
 
     if (traces is not None) and (len(traces) > 0):
         if (pbm.verification == VerificationType.PARAMETRIC) and (status != VerificationStatus.FALSE):
-            traces = print_traces("Execution", traces, pbm.name, prefix, count)
+            traces_results = print_traces("Execution", traces, pbm.name, prefix, count)
 
         if (pbm.verification != VerificationType.SIMULATION) and (status == VerificationStatus.FALSE):
-            traces = print_traces("Counterexample", traces, pbm.name, prefix, count)
+            traces_results = print_traces("Counterexample", traces, pbm.name, prefix, count)
 
         if (pbm.verification == VerificationType.SIMULATION) and (status == VerificationStatus.TRUE):
-            traces = print_traces("Execution", traces, pbm.name, prefix, count)
+            traces_results = print_traces("Execution", traces, pbm.name, prefix, count)
 
     if general_config.time:
         time = problems_config.get_problem_time(pbm)
         Logger.log("Time: %.2f sec"%(time), 0)
 
-    return (ret_status, traces)
+    return (ret_status, traces_results)
+
 # FIXME: replace old version with this
 def run_problems_new(problems_config:ProblemsConfig):
 
@@ -674,7 +674,7 @@ def main():
 
     # General translation parameters
     general_trans_params = parser.add_general_group('translation')
-    
+
     general_trans_params.set_defaults(translate=None)
     general_trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
                        help='translate input file.')
