@@ -39,7 +39,9 @@ SIMULATION = "simulation"
 DETERMINISTIC = "deterministic"
 FORMULA = "formula"
 MODEL_FILE = "model_file"
+
 MODEL_SP = ";"
+FILE_SP  = ","
 
 class VerificationStatus(object):
     UNC = "UNCHECKED"
@@ -128,8 +130,10 @@ class ProblemsManager:
         '''
         problems = []
         properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
-        name = problem_options['properties']
-        names = [name + str(i) for i in range(len(properties))]
+        name = problem_options['name']
+        names = ['{}_{}'.format(name, i) for i in range(len(properties))]
+
+        print(problem_options)
 
         # Remove old properties and name
         del problem_options['properties']
@@ -139,7 +143,7 @@ class ProblemsManager:
             # create new problems with new name and properties field
             # and the rest of the fields identical
             problems.append(self.__problem_type(name=n, properties=prop,
-                                                _id=get_id(), **problem_options))
+                                                idx=get_id(), **problem_options))
 
         return problems
 

@@ -40,15 +40,12 @@ from cosa.modifiers.model_extension import ModelExtension
 from cosa.encoders.symbolic_transition_system import SymbolicSimpleTSParser
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.hts import STSHTSPrinter
-from cosa.problem import ProblemsManager
+from cosa.problem import ProblemsManager, MODEL_SP, FILE_SP
 
 
 FLAG_SR = "["
 FLAG_ST = "]"
 FLAG_SP = "+"
-
-MODEL_SP = ";"
-FILE_SP  = ","
 
 COSACACHEDIR = ".CoSA/cache"
 
@@ -516,10 +513,7 @@ class ProblemSolver(object):
                                                                                    verification_type=problem.verification,
                                                                                    relative_path=problems_config.relative_path)
 
-                # # TODO: Update this to allow splitting problems
-                if len(prop) > 1:
-                    raise RuntimeError("Expecting a single formula "
-                                       "per problem but got {}".format(prop))
+                assert len(prop) == 1, "Properties should already have been split into multiple problems"
                 prop = prop[0]
 
                 if precondition and problem.verification == VerificationType.SAFETY:
