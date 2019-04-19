@@ -5,7 +5,7 @@ import itertools
 from pathlib import Path
 from typing import Dict, Sequence, NamedTuple
 
-from cosa.problem import ProblemsConfig
+from cosa.problem import ProblemsManager
 
 GENERAL = "GENERAL"
 DEFAULT = "DEFAULT"
@@ -177,7 +177,7 @@ class CosaArgParser(argparse.ArgumentParser):
         self._mutually_exclusive_groups.append(group)
         return group
 
-    def parse_args(self)->ProblemsConfig:
+    def parse_args(self)->ProblemsManager:
         command_line_args = vars(super().parse_args())
         config_files = []
         for config_file in self._config_files:
@@ -195,7 +195,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 else:
                     general_options[option] = self._defaults[option]
 
-            problems = ProblemsConfig(Path("./"), general_options, self._defaults)
+            problems = ProblemsManager(Path("./"), general_options, self._defaults)
 
             # generate a single problem
             problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
@@ -243,7 +243,7 @@ class CosaArgParser(argparse.ArgumentParser):
             problem_defaults[option] = value
 
         # Generate the problems wrapper and populate it
-        problems = ProblemsConfig(config_filepath.parent, general_options, problem_defaults)
+        problems = ProblemsManager(config_filepath.parent, general_options, problem_defaults)
 
         problem_type = problems.get_problem_type(self._problem_options[PROBLEM])
 

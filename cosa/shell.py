@@ -30,7 +30,7 @@ from cosa.printers.template import HTSPrinterType, TraceValuesBase
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.environment import reset_env
-from cosa.problem import Problem, Problems, ProblemsConfig, Trace, VerificationStatus, VerificationType
+from cosa.problem import Problem, Problems, ProblemsManager, Trace, VerificationStatus, VerificationType
 from cosa.utils.generic import bold_text
 
 TRACE_PREFIX = "trace"
@@ -162,7 +162,7 @@ def translate(hts, config, formulae=None):
         f.write(printer.print_hts(hts, props))
 
 def print_problem_result(pbm:NamedTuple,
-                         problems_config:ProblemsConfig):
+                         problems_config:ProblemsManager):
 
     traces = problems_config.get_problem_traces(pbm)
     status = problems_config.get_problem_status(pbm)
@@ -214,7 +214,7 @@ def print_problem_result(pbm:NamedTuple,
     return (ret_status, traces_results)
 
 # FIXME: replace old version with this
-def run_problems_new(problems_config:ProblemsConfig):
+def run_problems_new(problems_config:ProblemsManager):
 
     if sys.version_info[0] < 3:
         if config.devel:

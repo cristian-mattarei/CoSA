@@ -71,7 +71,7 @@ class VerificationType(object):
     PARAMETRIC = PARAMETRIC
 
 
-class ProblemsConfig:
+class ProblemsManager:
     def __init__(self, relative_path:Path, general_config:Dict[str, Any], defaults:Dict[str, Any]):
         self._relative_path = relative_path
         self._general_config = namedtuple('general_config', general_config.keys())(**general_config)

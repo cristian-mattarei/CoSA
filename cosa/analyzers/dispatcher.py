@@ -40,7 +40,7 @@ from cosa.modifiers.model_extension import ModelExtension
 from cosa.encoders.symbolic_transition_system import SymbolicSimpleTSParser
 from cosa.printers.factory import HTSPrintersFactory
 from cosa.printers.hts import STSHTSPrinter
-from cosa.problem import ProblemsConfig
+from cosa.problem import ProblemsManager
 
 
 FLAG_SR = "["
@@ -380,7 +380,7 @@ class ProblemSolver(object):
 
         return (hts, invar_props, ltl_props)
 
-    def solve_problems_new(self, problems_config:ProblemsConfig)->None:
+    def solve_problems_new(self, problems_config:ProblemsManager)->None:
 
         general_config  = problems_config.general_config
         model_extension = general_config.model_extension
