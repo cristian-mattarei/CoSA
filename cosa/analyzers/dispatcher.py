@@ -150,6 +150,7 @@ class ProblemSolver(object):
         accepted_ver = False
 
         if (problem.verification != VerificationType.EQUIVALENCE) and (prop is not None):
+            assert hts.assumptions is None, "There should not be any left-over assumptions from previous problems"
             for assump in assumptions:
                 hts.add_assumption(assump)
             for lemma in lemmas:
