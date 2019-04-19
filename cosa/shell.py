@@ -158,7 +158,9 @@ def translate(hts, config, formulae=None):
     with open(config.translate, "w") as f:
         f.write(printer.print_hts(hts, props))
 
-def print_problem_result(pbm, config, count=-1):
+def print_problem_result(pbm, config):
+    traces = config.get_problem_trace[pbm]
+    count = len(traces) + 1
     if pbm.name is None:
         return (0, [])
     ret_status = 0
@@ -189,15 +191,15 @@ def print_problem_result(pbm, config, count=-1):
 
     traces = []
 
-    if (pbm.traces is not None) and (len(pbm.traces) > 0):
+    if (traces is not None) and (len(traces) > 0):
         if (pbm.verification == VerificationType.PARAMETRIC) and (pbm.status != VerificationStatus.FALSE):
-            traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
+            traces = print_traces("Execution", traces, pbm.name, prefix, count)
 
         if (pbm.verification != VerificationType.SIMULATION) and (pbm.status == VerificationStatus.FALSE):
-            traces = print_traces("Counterexample", pbm.traces, pbm.name, prefix, count)
+            traces = print_traces("Counterexample", traces, pbm.name, prefix, count)
 
         if (pbm.verification == VerificationType.SIMULATION) and (pbm.status == VerificationStatus.TRUE):
-            traces = print_traces("Execution", pbm.traces, pbm.name, prefix, count)
+            traces = print_traces("Execution", traces, pbm.name, prefix, count)
 
     if pbm.time:
         Logger.log("Time: %.2f sec"%(pbm.time), 0)
@@ -237,7 +239,7 @@ def run_problems_new(problems_config:ProblemsConfig):
 
     # formulae = []
     # for pbm in problems.problems:
-    #     (status, trace) = print_problem_result(pbm, general_config, len(traces)+1)
+    #     (status, trace) = print_problem_result(pbm, general_config)
     #     if status != 0:
     #         global_status = status
     #     traces += trace
@@ -479,6 +481,9 @@ def main():
     general_encoding_options.add_argument('--clean-cache', dest='clean_cache', action='store_true',
                                           help="deletes the stored cache. (Default is \"%s\")"%False)
 
+    general_encoding_options.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
+                                          help='semi column separated list of clock behaviors instantiation.')
+
     general_encoding_options.set_defaults(default_initial_value=None)
     general_encoding_options.add_argument('--default-initial-value',
                                           help='Set uninitialized bits to 0 or 1.')
@@ -512,8 +517,11 @@ def main():
     general_encoding_options.add_argument('--zero-init', dest='zero_init', action='store_true',
                                           help='sets initial state to zero. (Default is \"%s\")'%False)
 
-    general_encoding_options.add_argument('--clock-behaviors', metavar='clock_behaviors', type=str, nargs='?',
-                            help='semi column separated list of clock behaviors instantiation.')
+    # Problem-specific processing options
+    problem_processing_options = parser.add_problem_group('problem processing')
+    problem_processing_options.set_defaults(simplify=True)
+    problem_processing_options.add_argument('--simplify', action='store_true',
+                                            help='simplify formulae with pysmt. (Default is \"%s\")'%True)
 
     # Verification Options
 
@@ -611,17 +619,17 @@ def main():
     ver_params.add_argument('-j', dest='processes', metavar="<integer level>", type=int,
                             help="number of multi-processes for MULTI strategy. (Default is \"%s\")"%int(multiprocessing.cpu_count()/2))
 
-    ver_params.set_defaults(ninc=False)
-    ver_params.add_argument('--ninc', dest='ninc', action='store_true',
+    ver_params.set_defaults(incremental=True)
+    ver_params.add_argument('--incremental', action='store_true',
                             help="disables incrementality. (Default is \"%s\")"%True)
 
     ver_params.set_defaults(solver_name='msat')
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%'msat')
 
-    # Printing parameters
+    # General rinting parameters
 
-    print_params = parser.add_problem_group('trace printing')
+    print_params = parser.add_general_group('trace printing')
 
     print_params.set_defaults(trace_vars_change=False)
     print_params.add_argument('--trace-vars-change', dest='trace_vars_change', action='store_true',
@@ -690,17 +698,17 @@ def main():
     meta_options.add_argument('--description', type=str, help=argparse.SUPPRESS)
 
     # Developers
+    # Options are suppressed from help menu if help called without --devel option
+    devel_params = parser.add_problem_group('developer')
+    devel_params.set_defaults(smt2_tracing=None)
+    devel_params.add_argument('--smt2-tracing', metavar='<smt-lib2 file>', type=str, required=False,
+                              help='generates the smtlib2 tracing file for '
+                              'each solver call.' if not devel else argparse.SUPPRESS)
 
-    if devel:
-        devel_params = parser.add_problem_group('developer')
-
-        devel_params.set_defaults(smt2_tracing=None)
-        devel_params.add_argument('--smt2-tracing', metavar='<smt-lib2 file>', type=str, required=False,
-                           help='generates the smtlib2 tracing file for each solver call.')
-
-        devel_params.set_defaults(solver_options=config.solver_options)
-        devel_params.add_argument('--solver-options', metavar='[key:value options]', type=str, required=False,
-                            help='space delimited key:value pairs to set specific SMT solver options (EXPERTS ONLY)')
+    devel_params.set_defaults(solver_options=None)
+    devel_params.add_argument('--solver-options', metavar='[key:value options]', type=str, required=False,
+                              help='space delimited key:value pairs '
+                              'to set specific SMT solver options (EXPERTS ONLY)' if not devel else argparse.SUPPRESS)
 
 
     problems_config = parser.parse_args()

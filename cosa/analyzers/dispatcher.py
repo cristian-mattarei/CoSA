@@ -72,10 +72,10 @@ class ProblemSolver(object):
     def __process_trace(self, hts, trace, config, problem):
         prevass = []
 
-        full_trace = problem.full_trace or config.full_trace
-        trace_vars_change = problem.trace_vars_change or config.trace_vars_change
-        trace_all_vars = problem.trace_all_vars or config.trace_all_vars
-        trace_values_base = problem.trace_values_base or config.trace_values_base
+        full_trace = config.full_trace
+        trace_vars_change = config.trace_vars_change
+        trace_all_vars = config.trace_all_vars
+        trace_values_base = config.trace_values_base
 
         diff_only = not trace_vars_change
         all_vars = trace_all_vars
@@ -111,7 +111,7 @@ class ProblemSolver(object):
 
         # VCD format
         vcd_trace = None
-        if problem.vcd:
+        if config.vcd:
             vcd_printer = VCDTracePrinter()
             vcd_printer.all_vars = all_vars
             vcd_trace = vcd_printer.print_trace(hts=hts, \
@@ -151,9 +151,9 @@ class ProblemSolver(object):
 
         if (problem.verification != VerificationType.EQUIVALENCE) and (prop is not None):
             for assump in assumptions:
-                problem.hts.add_assumption(assump)
+                hts.add_assumption(assump)
             for lemma in lemmas:
-                problem.hts.add_lemma(lemma)
+                hts.add_lemma(lemma)
 
         # TODO: make sure this case can be removed
         # if problem.verification is None:
@@ -184,16 +184,15 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.PARAMETRIC:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(problem.hts), at_most=problem.cardinality)
-
-        hts = problem.hts
+            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(hts), at_most=problem.cardinality)
 
         # TODO: Enable this again
+        # TODO: add hts2 to interface, or bundle things somehow
         if problem.verification == VerificationType.EQUIVALENCE:
             raise RuntimeError("Equivalence not currently supported -- needs to be re-enabled")
             accepted_ver = True
-            htseq, miter_out = Miter.combine_systems(problem.hts, \
-                                                     problem.hts2, \
+            htseq, miter_out = Miter.combine_systems(hts, \
+                                                     hts2, \
                                                      bmc_length, \
                                                      problem.symbolic_init, \
                                                      problem.formula, \
@@ -220,16 +219,8 @@ class ProblemSolver(object):
         if not accepted_ver:
             Logger.error("Invalid verification type")
 
-        problem.status = res
-        if trace is not None:
-            problem.traces = self.__process_trace(hts, trace, config, problem)
-
-        if traces is not None:
-            problem.traces = []
-            for trace in traces:
-                problem.traces += self.__process_trace(hts, trace, config, problem)
-
         Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, res), 1)
+        return res, trace, traces
 
     def get_file_flags(self, strfile):
         if FLAG_SR not in strfile:
@@ -555,11 +546,23 @@ class ProblemSolver(object):
 
                 # TODO: make sure we don't need general_config
                 # as a design rule, we shouldn't -- this is just about the problem now
-                status =  self.__solve_problem(problem_hts,
-                                               prop,
-                                               lemmas,
-                                               assumptions,
-                                               problem)
+                status, trace, traces =  self.__solve_problem(problem_hts,
+                                                              prop,
+                                                              lemmas,
+                                                              assumptions,
+                                                              problem)
+
+                # TODO: Determine whether we need both trace and traces
+                if trace is not None:
+                    problem_traces = self.__process_trace(hts, trace, general_config, problem)
+                    problems_config.set_problem_traces(problem, problem_traces)
+
+                if traces is not None:
+                    problem_traces = []
+                    for trace in traces:
+                        problem_traces.append(self.__process_trace(hts, trace, general_config, problem))
+                    problems_config.set_problem_traces(problem, problem_traces)
+
 
                 # if (assume_if_true) and \
                 #    (status == VerificationStatus.TRUE) and \

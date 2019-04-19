@@ -12,7 +12,7 @@ from collections import namedtuple
 import configparser
 import copy
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Set
+from typing import Any, Dict, List, NamedTuple, Set, Union
 
 
 from cosa.encoders.formulae import StringParser
@@ -78,6 +78,7 @@ class ProblemsConfig:
         self._defaults = defaults
         self._problems = []
         self._problems_status = dict()
+        self._problems_traces  = dict()
         self._problem_type = None
         self._hts = None
         self._hts2 = None
@@ -104,12 +105,18 @@ class ProblemsConfig:
             "Not expecting to reset problem status"
         self._problems_status[problem] = status
 
+    def get_problem_status(self, problem:NamedTuple)->VerificationStatus:
+        return self._problems_status[problem]
+
+    def set_problem_traces(self, problem:NamedTuple, traces:Union[List, object]):
+        self._problems_traces[problem] = traces
+
+    def get_problem_traces(self, problem:NamedTuple):
+        return self._problems_traces[problem]
+
     @property
     def problems(self)->List[NamedTuple]:
         return self._problems
-
-    def get_problem_status(self, problem:NamedTuple)->VerificationStatus:
-        return self._problems_status[problem]
 
     @property
     def general_config(self)->NamedTuple:
