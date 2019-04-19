@@ -164,8 +164,11 @@ def translate(hts, config, formulae=None):
 def print_problem_result(pbm:NamedTuple,
                          problems_config:ProblemsManager):
 
-    traces = problems_config.get_problem_traces(pbm)
     status = problems_config.get_problem_status(pbm)
+    if problems_config.has_problem_trace(pbm):
+        traces = problems_config.get_problem_traces(pbm)
+    else:
+        traces = []
     general_config = problems_config.general_config
     count = len(traces) + 1
     if pbm.name is None:

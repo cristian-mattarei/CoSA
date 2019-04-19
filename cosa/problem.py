@@ -115,6 +115,9 @@ class ProblemsManager:
     def get_problem_traces(self, problem:NamedTuple):
         return self._problems_traces[problem]
 
+    def has_problem_trace(self, problem:NamedTuple):
+        return problem in self._problems_traces
+
     def set_problem_time(self, problem:NamedTuple, time:float):
         self._problems_time[problem] = time
 
