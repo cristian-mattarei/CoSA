@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PYCOREIR="`pwd`/pycoreir/setup.py"
-COREIR="`pwd`/coreir/Makefile"
+COREIR="`pwd`/coreir/build"
 PYSMT="`pwd`/pysmt/setup.py"
 BITVECTOR="`pwd`/bit_vector/setup.py"
 
@@ -36,7 +36,9 @@ if [ ! -f "$COREIR" ]; then
     cd ../../
 else
     echo "Skipping COREIR installation"
-    cd pycoreir && pip install -e . && cd ..
+    cd coreir/build
+    make -j4 && sudo make install
+    cd ../../
 fi
 
 # don't need yosys for now
