@@ -169,17 +169,35 @@ class VCDTracePrinter(TracePrinter):
         ret.append("$end")
 
         def _recover_array(array_model):
-            d = {}
+            # arrays are represented as a tuple of FNodes with
+            # (previous, key, value, key, value, ...)
+            # where previous can itself be another array
             args = array_model.args()
-            assert len(args)%2 == 1
-            default_val = args[0].constant_value()
-            d = dict(
-                zip([a.constant_value() for a in args[1::2]],
-                    [v.constant_value() for v in args[2::2]])
-                )
+            # populate a stack of values to process
+            stack = []
+            while len(args) > 1:
+                assert len(args)%2 == 1
+                stack.append(args[1:])
+                if not args[0].is_constant():
+                    args = args[0].args()
+                else:
+                    args = [args[0]]
+                    break
+
+            symbolic_default = args[0]
+            assert symbolic_default.is_constant()
+            default_val = symbolic_default.constant_value()
+
+            assignments = dict()
+            while stack:
+                args = stack.pop()
+                for a, v in zip([a.constant_value() for a in args[0::2]],
+                                [v.constant_value() for v in args[1::2]]):
+                    assignments[a] = v
+
             if self.all_vars:
-                d[ALLIDX] = default_val
-            return d
+                assignments[ALLIDX] = default_val
+            return assignments
 
         model = dict([(v.symbol_name(), model[v].constant_value()
                           if not v.symbol_type().is_array_type()
