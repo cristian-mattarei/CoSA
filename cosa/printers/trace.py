@@ -289,6 +289,9 @@ class VCDTracePrinter(TracePrinter):
                         vcdname = name + "[%i]"%i
                         ret.append("b%s v%s"%(dec_to_bin(m[ALLIDX],width),var2id[vcdname]))
                     del m[ALLIDX]
+                    for i, v in m.items():
+                        vcdname = name + "[%i]"%i
+                        ret.append("b%s v%s"%(dec_to_bin(v,width),var2id[vcdname]))
                 elif tname in model:
                     for i, v in model[tname].items():
                         vcdname = name + "[%i]"%i
