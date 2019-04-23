@@ -135,8 +135,6 @@ class ProblemsManager:
         name = problem_options['name']
         names = ['{}_{}'.format(name, i) for i in range(len(properties))]
 
-        print(problem_options)
-
         # Remove old properties and name
         del problem_options['properties']
         del problem_options['name']

@@ -232,10 +232,13 @@ class CosaArgParser(argparse.ArgumentParser):
                     single_problem_options[option] = self._defaults[option]
 
             # convert options to expected type
-            try:
-                single_problem_options = {k:self._types[k](v) if v is not None else v for k, v in single_problem_options.items()}
-            except KeyError as e:
-                raise Warning("Missing type information for an option")
+            for k, v in single_problem_options.items():
+                if v is not None:
+                    assert k in self._types, "Expecting to have (at least default) type info for every option"
+                    try:
+                        single_problem_options[k] = self._types[k](v)
+                    except ValueError as e:
+                        raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
             problems_manager.add_problem(**single_problem_options)
 
@@ -313,10 +316,13 @@ class CosaArgParser(argparse.ArgumentParser):
                     problem_file_options[arg] = problem_defaults[arg]
 
             # convert options to expected type
-            try:
-                problem_file_options = {k:self._types[k](v) if v is not None else v for k, v in problem_file_options.items()}
-            except KeyError as e:
-                raise Warning("Missing type information for an option")
+            for k, v in problem_file_options.items():
+                if v is not None:
+                    assert k in self._types, "Expecting to have (at least default) type info for every option"
+                    try:
+                        problem_file_options[k] = self._types[k](v)
+                    except ValueError as e:
+                        raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
             try:
                 problems_manager.add_problem(**problem_file_options)
