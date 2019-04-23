@@ -12,7 +12,7 @@ import pyparsing
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, restOfLine, LineEnd, Combine, White, Group, SkipTo, lineEnd
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
-from pysmt.typing import BOOL, BVType
+from pysmt.typing import BOOL, BVType, FunctionType
 
 from cosa.representation import HTS, TS
 from cosa.utils.logger import Logger
@@ -61,6 +61,7 @@ T_DEF = "DEF"
 
 T_BV = "BV"
 T_BOOL = "Bool"
+T_FUN = "Fun"
 
 T_COM = "#"
 T_TRUE = "True"
@@ -315,7 +316,9 @@ class SymbolicTSParser(ModelParser):
         parlist = (ZeroOrMore(varname)+ZeroOrMore((Literal(T_CM) + varname)))
         modtype = (Word(alphas+T_US+nums) + Literal(T_OP) + parlist + Literal(T_CP))(P_MODTYPE)
         basictype = (Literal(T_BV) + Literal(T_OP) + varsize + Literal(T_CP)) | Literal(T_BOOL)
-        vartype = (basictype | modtype)(P_VARTYPE)
+        resulttype = (Literal("->") + basictype)
+        funtype = (basictype + ZeroOrMore(resulttype))
+        vartype = (basictype | modtype | funtype)(P_VARTYPE)
         vartypedef = (vartype)(P_VARTYPEDEF)
         vardef = varname + Literal(T_CL) + vartypedef + Literal(T_SC)
 
@@ -522,7 +525,14 @@ class SymbolicSimpleTSParser(ModelParser):
         if vartype[0] == T_BV:
             vartype, size = vartype[0], vartype[1]
             return Symbol(varname, BVType(int(size)))
-        
+
+        if vartype[0] == T_FUN:
+            return_size = int(vartype[-1])
+            sizes = [int(v) for v in vartype[1:-1]]
+            return_type = BVType(return_size)
+            param_types = [BVType(s) for s in sizes]
+            return Symbol(varname, FunctionType(return_type, param_types))
+
         Logger.error("Unsupported type: %s"%vartype)
         
     def parse_string(self, lines):
@@ -585,7 +595,13 @@ class SymbolicSimpleTSParser(ModelParser):
             
             if section in [var, state, input, output]:
                 line = line[:-2].replace(" ","").split(":")
-                varname, vartype = line[0], (line[1][:-1].split("(")) if "(" in line[1] else line[1]
+                varname = line[0]
+                if '->' in line[1]:
+                    vartype = [T_FUN]
+                    for e in line[1].replace('BV(', '').replace(')', '').split('->'):
+                        vartype.append(e)
+                else:
+                    vartype = (line[1][:-1].split("(")) if "(" in line[1] else line[1]
                 if varname[0] == "'":
                     varname = varname[1:-1]
                 vardef = self._define_var(varname, vartype)
