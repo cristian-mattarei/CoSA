@@ -115,7 +115,8 @@ class ProblemsManager:
             problem_options[option] = value
 
         # if there were multiple properties, split them into separate problems
-        if MODEL_SP in problem_options['properties']:
+        if problem_options['properties'] is not None and \
+           MODEL_SP in problem_options['properties']:
             problems = self._split_problem(problem_options)
             for pbm in problems:
                 self._problems.append(pbm)

@@ -327,7 +327,10 @@ class CoreIRParser(ModelParser):
 
         return sym
 
-    def parse_file(self, strfile, config, flags=None):
+    def parse_file(self, file_path, config, flags=None):
+        # coreir needs a string representing the path
+        strfile = str(file_path)
+
         self.config = config
         self.__reset_structures()
 
