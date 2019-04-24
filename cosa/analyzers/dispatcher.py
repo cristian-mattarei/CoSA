@@ -178,35 +178,11 @@ class ProblemSolver(object):
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
             res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(hts), at_most=problem.cardinality)
 
-        # TODO: Enable this again
-        # TODO: add hts2 to interface, or bundle things somehow
+        # TODO: Test this
         if problem.verification == VerificationType.EQUIVALENCE:
-            raise RuntimeError("Equivalence not currently supported -- needs to be re-enabled")
             accepted_ver = True
-            # htseq, miter_out = Miter.combine_systems(hts, \
-            #                                          hts2, \
-            #                                          bmc_length, \
-            #                                          problem.symbolic_init, \
-            #                                          problem.formula, \
-            #                                          True)
-
-            if problem.assumptions is not None:
-                assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
-
-            if problem.lemmas is not None:
-                lemmas = [t[1] for t in self.sparser.parse_formulae(problem.lemmas)]
-
-            if assumps is not None:
-                for assumption in assumps:
-                    htseq.add_assumption(assumption)
-
-            if lemmas is not None:
-                for lemma in lemmas:
-                    htseq.add_lemma(lemma)
-
-            bmcseq = BMCSafety(htseq, problem)
-            hts = htseq
-            res, trace, t = bmcseq.safety(miter_out, bmc_length, bmc_length_min)
+            bmcseq = BMCSafety(hts, problem)
+            res, trace, t = bmcseq.safety(prop, bmc_length, bmc_length_min)
 
         if not accepted_ver:
             Logger.error("Invalid verification type")
@@ -511,6 +487,10 @@ class ProblemSolver(object):
 
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
+
+        # ensure the miter_out variable exists
+        miter_out = None
+
         for problem in problems_config.problems:
             problem_hts = problems_config.hts
 
@@ -537,6 +517,14 @@ class ProblemSolver(object):
                                                                                     problem.precondition],
                                                                                    verification_type=problem.verification,
                                                                                    relative_path=problems_config.relative_path)
+
+                if problem.verification == VerificationType.EQUIVALENCE:
+                    assert miter_out is not None
+                    # set the property to be the miter output unless there's another notion of equivalence provided
+                    if prop and prop[0] is not None:
+                        prop = [miter_out]
+                    # reset the miter output
+                    miter_out = None
 
                 assert len(prop) == 1, "Properties should already have been split into multiple problems"
                 prop = prop[0]
