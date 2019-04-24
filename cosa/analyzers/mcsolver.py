@@ -344,10 +344,6 @@ class BMCSolver(object):
             self._add_assertion(self.solver, self.at_time(And(init, Not(lemma)), 0), comment="Init check")
             res = self._solve(self.solver)
 
-            prefix = None
-            if self.config.prefix is not None:
-                prefix = self.config.prefix+"-ind"
-
             if res:
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
                 return False
