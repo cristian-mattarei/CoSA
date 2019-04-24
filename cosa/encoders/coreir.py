@@ -388,12 +388,10 @@ class CoreIRParser(ModelParser):
         if Logger.level(2):
             ttimer = Logger.start_timer("Convertion", False)
 
-        if self.config.deterministic:
-            td_instances = top_def.instances
-            top_def_instances = [(inst.selectpath, inst.config, inst.module) for inst in td_instances]
-            top_def_instances.sort()
-        else:
-            top_def_instances = list(top_def.instances)
+        # This is necessary if checking for determinism
+        td_instances = top_def.instances
+        top_def_instances = [(inst.selectpath, inst.config, inst.module) for inst in td_instances]
+        top_def_instances.sort()
 
         totalinst = len(top_def_instances)
 
@@ -413,13 +411,7 @@ class CoreIRParser(ModelParser):
 
             ts = None
 
-            if self.config.deterministic:
-                (inst_name, inst_conf, inst_mod) = inst
-            else:
-                inst_name = inst.selectpath
-                inst_conf = inst.config
-                inst_mod  = inst.module
-
+            (inst_name, inst_conf, inst_mod) = inst
             inst_type = inst_mod.name
             inst_intr = dict(inst_mod.type.items())
             modname = (SEP.join(inst_name))+SEP
@@ -467,8 +459,8 @@ class CoreIRParser(ModelParser):
 
         Logger.clear_inline(1)
 
-        if self.config.deterministic:
-            interface.sort()
+        # This is necessary if checking for determinism
+        interface.sort()
 
         for var in interface:
             varname = SELF+SEP+var[0]
@@ -499,21 +491,15 @@ class CoreIRParser(ModelParser):
         eq_conns = []
         eq_vars = set([])
 
-        if self.config.deterministic:
-            td_connections = top_def.connections
-            top_def_connections = [((conn.first.selectpath, conn.second.selectpath) if conn.first.selectpath < conn.second.selectpath else (conn.second.selectpath, conn.first.selectpath), conn) for conn in td_connections]
-            top_def_connections.sort()
-        else:
-            top_def_connections = list(top_def.connections)
+        # This is necessary if checking for determinism
+        td_connections = top_def.connections
+        top_def_connections = [((conn.first.selectpath, conn.second.selectpath) if conn.first.selectpath < conn.second.selectpath else (conn.second.selectpath, conn.first.selectpath), conn) for conn in td_connections]
+        top_def_connections.sort()
 
         for conn in top_def_connections:
 
-            if self.config.deterministic:
-                first_selectpath = split_paths(conn[0][0])
-                second_selectpath = split_paths(conn[0][1])
-            else:
-                first_selectpath = split_paths(conn.first.selectpath)
-                second_selectpath = split_paths(conn.second.selectpath)
+            first_selectpath = split_paths(conn[0][0])
+            second_selectpath = split_paths(conn[0][1])
 
             first = SEP.join(first_selectpath)
             second = SEP.join(second_selectpath)
