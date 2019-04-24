@@ -183,12 +183,12 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.EQUIVALENCE:
             raise RuntimeError("Equivalence not currently supported -- needs to be re-enabled")
             accepted_ver = True
-            htseq, miter_out = Miter.combine_systems(hts, \
-                                                     hts2, \
-                                                     bmc_length, \
-                                                     problem.symbolic_init, \
-                                                     problem.formula, \
-                                                     True)
+            # htseq, miter_out = Miter.combine_systems(hts, \
+            #                                          hts2, \
+            #                                          bmc_length, \
+            #                                          problem.symbolic_init, \
+            #                                          problem.formula, \
+            #                                          True)
 
             if problem.assumptions is not None:
                 assumps = [t[1] for t in self.sparser.parse_formulae(problem.assumptions)]
@@ -498,16 +498,16 @@ class ProblemSolver(object):
 
         # TODO: Update this so that we can control whether embedded assertions are solved automatically
         for invar_prop in invar_props:
-            inv_prob = problems.new_problem(verification=VerificationType.SAFETY,
+            inv_prob = problems.add_problem(verification=VerificationType.SAFETY,
                                             name=invar_prop[0],
                                             description=invar_prop[1],
-                                            formula=invar_prop[2])
+                                            properties=invar_prop[2])
 
         for ltl_prop in ltl_props:
-            inv_prob = problems.new_problem(verification=VerificationType.LTL,
+            inv_prob = problems.add_problem(verification=VerificationType.LTL,
                                             name=invar_prop[0],
                                             description=invar_prop[1],
-                                            formula=invar_prop[2])
+                                            properties=invar_prop[2])
 
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
@@ -515,7 +515,14 @@ class ProblemSolver(object):
             problem_hts = problems_config.hts
 
             if problem.verification == VerificationType.EQUIVALENCE:
-                problem_hts2 = problems_config.get_second_model(problem)
+                hts2 = problems_config.get_second_model(problem)
+                problem_hts, miter_out = Miter.combine_systems(hts,
+                                                               hts2,
+                                                               bmc_length,
+                                                               problem.symbolic_init,
+                                                               problem.formula,
+                                                               True)
+
 
             # TODO: Do this somewhere else, these problems aren't modifiable anymore
             # if problem.trace_prefix is not None:
@@ -543,8 +550,8 @@ class ProblemSolver(object):
                 #   during the frontend refactor in April 2019
                 # this is necessary because the problem hts is just a reference to the
                 #   overall (shared) HTS
-                problems_config.hts.assumptions = None
-                problems_config.hts.lemmas = None
+                problem_hts.assumptions = None
+                problem_hts.lemmas = None
 
                 # Compute the Cone Of Influence
                 # Returns a *new* hts (not pointing to the original one anymore)
@@ -594,8 +601,8 @@ class ProblemSolver(object):
                     else:
                         ass_ts.invar = prop
                     # add assumptions to main system
-                    problems_config.hts.reset_formulae()
-                    problems_config.hts.add_ts(ass_ts)
+                    problem_hts.reset_formulae()
+                    problem_hts.add_ts(ass_ts)
 
                 if general_config.time:
                     problems_config.set_problem_time(problem,
