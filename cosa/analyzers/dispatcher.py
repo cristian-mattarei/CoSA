@@ -498,9 +498,9 @@ class ProblemSolver(object):
                 hts2 = problems_config.get_second_model(problem)
                 problem_hts, miter_out = Miter.combine_systems(hts,
                                                                hts2,
-                                                               bmc_length,
-                                                               problem.symbolic_init,
-                                                               problem.formula,
+                                                               problem.bmc_length,
+                                                               general_config.symbolic_init,
+                                                               problem.properties,
                                                                True)
 
 
@@ -520,9 +520,10 @@ class ProblemSolver(object):
 
                 if problem.verification == VerificationType.EQUIVALENCE:
                     assert miter_out is not None
-                    # set the property to be the miter output unless there's another notion of equivalence provided
-                    if prop and prop[0] is not None:
-                        prop = [miter_out]
+                    # set property to be the miter output
+                    # if user provided a different equivalence property, this has already
+                    # been incorporated in the miter_out
+                    prop = [miter_out]
                     # reset the miter output
                     miter_out = None
 
