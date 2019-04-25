@@ -133,7 +133,7 @@ class ProblemSolver(object):
         trace = None
         traces = None
 
-        if prop is None:
+        if not prop:
             if problem.verification == VerificationType.SIMULATION:
                 prop = TRUE()
             elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
@@ -522,8 +522,11 @@ class ProblemSolver(object):
                     # reset the miter output
                     miter_out = None
 
-                assert len(prop) == 1, "Properties should already have been split into multiple problems"
-                prop = prop[0]
+                if len(prop) == 1:
+                    prop = prop[0]
+                else:
+                    assert len(prop) == 0, "Properties should already have been split into " \
+                        "multiple problems but found {} properties here".format(len(prop))
 
                 if precondition and problem.verification == VerificationType.SAFETY:
                     prop = Implies(precondition, prop)
