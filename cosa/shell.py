@@ -197,7 +197,7 @@ def print_problem_result(pbm:NamedTuple,
 
     assert not(general_config.force_expected and (pbm.expected is None))
 
-    prefix = pbm.prefix
+    prefix = pbm.trace_prefix
     traces_results = []
 
     if (traces is not None) and (len(traces) > 0):

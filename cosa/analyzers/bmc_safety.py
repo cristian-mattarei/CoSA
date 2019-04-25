@@ -75,7 +75,6 @@ class BMCSafety(BMCSolver):
         else:
             self._init_at_time(self.hts.vars, k)
             if prop == TRUE():
-                self.config.incremental = False
                 (t, model) = self.solve_safety_fwd(self.hts, Not(prop), k, k)
             else:
                 (t, model) = self.solve_safety(self.hts, Not(prop), k)
