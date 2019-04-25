@@ -1,9 +1,9 @@
 [GENERAL]
 model_file: fifo.sts
-full_trace: True
 
 [DEFAULT]
 bmc_length: 80
+full_trace: True
 
 [scoreboard_end]
 description: "Scoreboard does not reach the end value"
