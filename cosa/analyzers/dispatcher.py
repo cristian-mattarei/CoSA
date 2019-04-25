@@ -393,10 +393,6 @@ class ProblemSolver(object):
         # TODO Use the hierarchical_transition_systems to apply these transformations on ALL systems
         #      Not just the main one
 
-        # TODO: test this
-        if model_extension:
-            hts = ParametricBehavior.apply_to_problem(hts, problem, self.model_info)
-
         # TODO : contain these types of passes in functions
         #        they should be registered as passes
         # set default bit-wise initial values (0 or 1)
@@ -491,7 +487,11 @@ class ProblemSolver(object):
         miter_out = None
 
         for problem in problems_config.problems:
-            problem_hts = problems_config.hts
+
+            # apply parametric behaviors (such as toggling the clock)
+            # Note: This is supposed to be *before* creating the combined system for equivalence checking
+            #       we want this assumption to be applied to both copies of the clock
+            problem_hts = ParametricBehavior.apply_to_problem(problems_config.hts, problem, general_config, self.model_info)
 
             if problem.verification == VerificationType.EQUIVALENCE:
                 hts2 = problems_config.get_second_model(problem)
@@ -502,20 +502,17 @@ class ProblemSolver(object):
                                                                problem.properties,
                                                                True)
 
-
             # TODO: Do this somewhere else, these problems aren't modifiable anymore
             # if problem.trace_prefix is not None:
             #     problem.trace_prefix = "".join([problem.relative_path,problem.trace_prefix])
-            if general_config.time:
-                timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
             try:
                 # convert the formulas to PySMT FNodes
                 prop, lemmas, assumptions, precondition = self.convert_formulae([problem.properties,
-                                                                                    problem.lemmas,
-                                                                                    problem.assumptions,
-                                                                                    problem.precondition],
-                                                                                   verification_type=problem.verification,
-                                                                                   relative_path=problems_config.relative_path)
+                                                                                 problem.lemmas,
+                                                                                 problem.assumptions,
+                                                                                 problem.precondition],
+                                                                                verification_type=problem.verification,
+                                                                                relative_path=problems_config.relative_path)
 
                 if problem.verification == VerificationType.EQUIVALENCE:
                     assert miter_out is not None
@@ -550,6 +547,8 @@ class ProblemSolver(object):
                     if Logger.level(2):
                         Logger.get_timer(timer)
 
+                if general_config.time:
+                    timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
 
                 # TODO: make sure we don't need general_config
                 # as a design rule, we shouldn't -- this is just about the problem now

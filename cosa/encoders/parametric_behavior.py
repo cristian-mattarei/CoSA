@@ -8,7 +8,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import NamedTuple
+
 from cosa.encoders.factory import GeneratorsFactory, ClockBehaviorsFactory
+from cosa.encoders.template import ModelInformation
+from cosa.representation import HTS
 from cosa.utils.logger import Logger
 
 PAR_SP = ","
@@ -17,12 +21,16 @@ MODEL_SP = ";"
 class ParametricBehavior(object):
 
     @staticmethod
-    def apply_to_problem(hts, problems_config, model_info):
-        varsdict = dict([(var.symbol_name(), var) for var in hts.vars])
-        
-        if problems_config.generators is not None:
+    def apply_to_problem(hts:HTS,
+                         problem:NamedTuple,
+                         general_config:NamedTuple,
+                         model_info:ModelInformation)->HTS:
 
-            for strgenerator in problems_config.generators.split(MODEL_SP):
+        varsdict = dict([(var.symbol_name(), var) for var in hts.vars])
+
+        if problem.generators is not None:
+
+            for strgenerator in problem.generators.split(MODEL_SP):
                 strgenerator = strgenerator.replace(" ","")
                 if strgenerator == "":
                     continue
@@ -42,7 +50,7 @@ class ParametricBehavior(object):
 
                 hts.add_ts(ts)
 
-        if problems_config.add_clock and (problems_config.clock_behaviors is None):
+        if general_config.add_clock and (general_config.clock_behaviors is None):
             clk_behs = []
 
             for (clock, (before, after)) in model_info.abstract_clock_list:
@@ -65,9 +73,9 @@ class ParametricBehavior(object):
 
             assert len(clk_behs) == len(set(clk_behs))
 
-        if problems_config.clock_behaviors is not None:
+        if general_config.clock_behaviors is not None:
 
-            for strcb in problems_config.clock_behaviors.split(MODEL_SP):
+            for strcb in general_config.clock_behaviors.split(MODEL_SP):
                 strcb = strcb.replace(" ","")
 
                 if strcb == "":
