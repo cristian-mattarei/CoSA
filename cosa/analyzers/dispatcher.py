@@ -130,10 +130,6 @@ class ProblemSolver(object):
                         assumptions:Optional[List[FNode]],
                         problem:NamedTuple)->str:
 
-        if problem.name is not None:
-            Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem.name), 1)
-            Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
-
         trace = None
         traces = None
 
@@ -487,6 +483,9 @@ class ProblemSolver(object):
         miter_out = None
 
         for problem in problems_config.problems:
+            if problem.name is not None:
+                Logger.log("\n*** Analyzing problem \"%s\" ***"%(problem.name), 1)
+                Logger.msg("Solving \"%s\" "%problem.name, 0, not(Logger.level(1)))
 
             # apply parametric behaviors (such as toggling the clock)
             # Note: This is supposed to be *before* creating the combined system for equivalence checking
