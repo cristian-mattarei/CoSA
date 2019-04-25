@@ -538,9 +538,9 @@ def main():
 
     # Problem-specific processing options
     problem_processing_options = parser.add_problem_group('problem processing')
-    problem_processing_options.set_defaults(simplify=True)
+    problem_processing_options.set_defaults(simplify=False)
     problem_processing_options.add_argument('--simplify', action='store_true',
-                                            help='simplify formulae with pysmt. (Default is \"%s\")'%True)
+                                            help='simplify formulae with pysmt. (Default is \"%s\")'%False)
 
     # Verification Options
 
