@@ -133,12 +133,6 @@ class ProblemSolver(object):
         trace = None
         traces = None
 
-        if not prop:
-            if problem.verification == VerificationType.SIMULATION:
-                prop = TRUE()
-            elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
-                Logger.error("Property not provided for problem {}".format(problem.name))
-
         accepted_ver = False
 
         assert hts.assumptions is None, "There should not be any left-over assumptions from previous problems"
@@ -527,6 +521,10 @@ class ProblemSolver(object):
                 else:
                     assert len(prop) == 0, "Properties should already have been split into " \
                         "multiple problems but found {} properties here".format(len(prop))
+                    if problem.verification == VerificationType.SIMULATION:
+                        prop = TRUE()
+                    elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
+                        Logger.error("Property not provided for problem {}".format(problem.name))
 
                 if precondition and problem.verification == VerificationType.SAFETY:
                     prop = Implies(precondition, prop)
