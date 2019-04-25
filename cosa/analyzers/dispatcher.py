@@ -513,15 +513,14 @@ class ProblemSolver(object):
                 else:
                     parser = self.lparser
 
-                prop = self.convert_formula(problem.properties,
-                                            relative_path=problems_config.relative_path,
-                                            parser=parser)
-
-                if len(prop) == 1:
+                if problem.properties is not None:
+                    prop = self.convert_formula(problem.properties,
+                                                relative_path=problems_config.relative_path,
+                                                parser=parser)
+                    assert len(prop) == 1, "Properties should already have been split into " \
+                        "multiple problems but found {} properties here".format(len(prop))
                     prop = prop[0]
                 else:
-                    assert len(prop) == 0, "Properties should already have been split into " \
-                        "multiple problems but found {} properties here".format(len(prop))
                     if problem.verification == VerificationType.SIMULATION:
                         prop = TRUE()
                     elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
