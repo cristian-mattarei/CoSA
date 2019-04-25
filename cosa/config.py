@@ -219,6 +219,15 @@ class CosaArgParser(argparse.ArgumentParser):
                 else:
                     general_options[option] = self._defaults[option]
 
+            # convert options to expected type
+            for k, v in general_options.items():
+                if v is not None:
+                    assert k in self._types, "Expecting to have (at least default) type info for every option"
+                    try:
+                        general_options[k] = self._types[k](v)
+                    except ValueError as e:
+                        raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
+
             # create default options for only problem fields
             problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
             problems_manager = ProblemsManager(Path("./"), general_options, problem_defaults)
@@ -231,7 +240,6 @@ class CosaArgParser(argparse.ArgumentParser):
                 else:
                     single_problem_options[option] = self._defaults[option]
 
-            # convert options to expected type
             for k, v in single_problem_options.items():
                 if v is not None:
                     assert k in self._types, "Expecting to have (at least default) type info for every option"
@@ -292,6 +300,15 @@ class CosaArgParser(argparse.ArgumentParser):
             # override the defaults with problem defaults
             problem_defaults[option] = value
 
+        # convert options to expected type
+        for k, v in general_options.items():
+            if v is not None:
+                assert k in self._types, "Expecting to have (at least default) type info for every option"
+                try:
+                    general_options[k] = self._types[k](v)
+                except ValueError as e:
+                    raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
+
         # Generate the problems_manager and populate it
         problems_manager = ProblemsManager(config_filepath.parent, general_options, problem_defaults)
 
@@ -315,7 +332,6 @@ class CosaArgParser(argparse.ArgumentParser):
                 if arg not in problem_file_options:
                     problem_file_options[arg] = problem_defaults[arg]
 
-            # convert options to expected type
             for k, v in problem_file_options.items():
                 if v is not None:
                     assert k in self._types, "Expecting to have (at least default) type info for every option"
