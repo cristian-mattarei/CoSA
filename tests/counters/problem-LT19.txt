@@ -9,7 +9,7 @@ smt2_tracing: /tmp/tracing.smt2
 
 [Counter1-LT19-INT]
 description: "Counter 1 is always less than 18"
-formula: count1.r.reg0.out < 19_16
+properties: count1.r.reg0.out < 19_16
 verification: safety
 prove: True
 strategy: INT
@@ -17,7 +17,7 @@ expected: True
 
 [Counter1-LT19-FWD]
 description: "Counter 1 is always less than 18"
-formula: count1.r.reg0.out < 19_16
+properties: count1.r.reg0.out < 19_16
 verification: safety
 strategy: FWD
 prove: True
@@ -25,7 +25,7 @@ expected: True
 
 [Counter1-LT19-BWD]
 description: "Counter 1 is always less than 18"
-formula: count1.r.reg0.out < 19_16
+properties: count1.r.reg0.out < 19_16
 verification: safety
 strategy: BWD
 prove: True
@@ -33,7 +33,7 @@ expected: Unknown
 
 [Counter1-LT19-ZZ]
 description: "Counter 1 is always less than 18"
-formula: count1.r.reg0.out < 19_16
+properties: count1.r.reg0.out < 19_16
 verification: safety
 strategy: ZZ
 prove: True
@@ -41,7 +41,7 @@ expected: Unknown
 
 [Counter1-LT19-MULTI]
 description: "Counter 1 is always less than 18"
-formula: count1.r.reg0.out < 19_16
+properties: count1.r.reg0.out < 19_16
 verification: safety
 strategy: MULTI
 prove: True
