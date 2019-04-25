@@ -500,21 +500,22 @@ class ProblemSolver(object):
             #     problem.trace_prefix = "".join([problem.relative_path,problem.trace_prefix])
             try:
                 # convert the formulas to PySMT FNodes
-                prop, lemmas, assumptions, precondition = self.convert_formulae([problem.properties,
-                                                                                 problem.lemmas,
-                                                                                 problem.assumptions,
-                                                                                 problem.precondition],
-                                                                                verification_type=problem.verification,
-                                                                                relative_path=problems_config.relative_path)
 
-                if problem.verification == VerificationType.EQUIVALENCE:
-                    assert miter_out is not None
-                    # set property to be the miter output
-                    # if user provided a different equivalence property, this has already
-                    # been incorporated in the miter_out
-                    prop = [miter_out]
-                    # reset the miter output
-                    miter_out = None
+                # lemmas, assumptions and precondition always use the regular parser
+                lemmas, assumptions, precondition = self.convert_formulae([problem.lemmas,
+                                                                           problem.assumptions,
+                                                                           problem.precondition],
+                                                                          parser=self.sparser,
+                                                                          relative_path=problems_config.relative_path)
+
+                if problem.verification != VerificationType.LTL:
+                    parser = self.sparser
+                else:
+                    parser = self.lparser
+
+                prop = self.convert_formula(problem.properties,
+                                            relative_path=problems_config.relative_path,
+                                            parser=parser)
 
                 if len(prop) == 1:
                     prop = prop[0]
@@ -525,6 +526,15 @@ class ProblemSolver(object):
                         prop = TRUE()
                     elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
                         Logger.error("Property not provided for problem {}".format(problem.name))
+
+                if problem.verification == VerificationType.EQUIVALENCE:
+                    assert miter_out is not None
+                    # set property to be the miter output
+                    # if user provided a different equivalence property, this has already
+                    # been incorporated in the miter_out
+                    prop = miter_out
+                    # reset the miter output
+                    miter_out = None
 
                 if precondition and problem.verification == VerificationType.SAFETY:
                     prop = Implies(precondition, prop)
@@ -600,10 +610,10 @@ class ProblemSolver(object):
 
 
     def convert_formulae(self, formulae:List[Union[str, FNode]],
-                         verification_type:str,
-                         relative_path:Path=Path(".")):
+                         parser:Union[StringParser, LTLParser],
+                         relative_path:Path=Path("."))->List[List[FNode]]:
         '''
-        Converts string representation of formulae to the internal representation
+        Converts string orepresentation of formulae to the internal representation
         of PySMT FNodes
 
         The string can also point to a file which contains string formulae, this
@@ -611,11 +621,6 @@ class ProblemSolver(object):
 
         If passed None, it replace it with an empty list
         '''
-
-        if verification_type != VerificationType.LTL:
-            parser = self.sparser
-        else:
-            parser = self.lparser
 
         converted_formulae = [None]*len(formulae)
         for i in range(len(formulae)):
@@ -627,23 +632,27 @@ class ProblemSolver(object):
                     converted_formulae[i] = [formulae[i]]
                     continue
 
-                pdef_file = relative_path / formulae[i]
-                if pdef_file.is_file():
-                    with pdef_file.open() as f:
-                        # TODO: Update this to use a grammar or semi-colons
-                        # It would be nice to allow multi-line formulas
-
-                        # TODO: Find out if we even need all the tuple elements (only use the prop now)
-                        converted_tuples = parser.parse_formulae([p.strip() for p in f.read().strip().split("\n")])
-                else:
-                    converted_tuples = parser.parse_formulae([p.strip() for p in formulae[i].split(MODEL_SP)])
-
-                # extract the second tuple argument (the actual property)
-                converted_formulae[i] = [c[1] for c in converted_tuples]
+                converted_formulae[i] = self.convert_formula(formulae[i], relative_path, parser)
             else:
                 converted_formulae[i] = []
 
         return converted_formulae
+
+    def convert_formula(self, formula:str, relative_path:Path,
+                        parser:Union[StringParser, LTLParser])->List[FNode]:
+        pdef_file = relative_path / formula
+        if pdef_file.is_file():
+            with pdef_file.open() as f:
+                # TODO: Update this to use a grammar or semi-colons
+                # It would be nice to allow multi-line formulas
+
+                # TODO: Find out if we even need all the tuple elements (only use the prop now)
+                converted_tuples = parser.parse_formulae([p.strip() for p in f.read().strip().split("\n")])
+        else:
+            converted_tuples = parser.parse_formulae([p.strip() for p in formula.split(MODEL_SP)])
+
+        # extract the second tuple argument (the actual property)
+        return [c[1] for c in converted_tuples]
 
 
     def solve_problems(self, problems, config):
