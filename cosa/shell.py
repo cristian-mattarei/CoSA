@@ -197,7 +197,7 @@ def print_problem_result(pbm:NamedTuple,
 
     assert not(general_config.force_expected and (pbm.expected is None))
 
-    prefix = general_config.prefix
+    prefix = pbm.prefix
     traces_results = []
 
     if (traces is not None) and (len(traces) > 0):
@@ -653,29 +653,28 @@ def main():
     ver_params.add_argument('--solver-name', metavar='<Solver Name>', type=str, required=False,
                         help="name of SMT solver to be use. (Default is \"%s\")"%'msat')
 
-    # General printing parameters
+    # Problem-specific printing parameters
+    problem_print_params = parser.add_problem_group('trace printing')
 
-    print_params = parser.add_general_group('trace printing')
-
-    print_params.set_defaults(trace_vars_change=False)
-    print_params.add_argument('--trace-vars-change', dest='trace_vars_change', action='store_true',
+    problem_print_params.set_defaults(trace_vars_change=False)
+    problem_print_params.add_argument('--trace-vars-change', dest='trace_vars_change', action='store_true',
                               help="show variable assignments in the counterexamples even when unchanged. (Default is \"%s\")"%False)
 
-    print_params.set_defaults(trace_all_vars=False)
-    print_params.add_argument('--trace-all-vars', dest='trace_all_vars', action='store_true',
+    problem_print_params.set_defaults(trace_all_vars=False)
+    problem_print_params.add_argument('--trace-all-vars', dest='trace_all_vars', action='store_true',
                               help="show all variables in the counterexamples. (Default is \"%s\")"%False)
 
-    print_params.set_defaults(full_trace=False)
-    print_params.add_argument('--full-trace', dest='full_trace', action='store_true',
+    problem_print_params.set_defaults(full_trace=False)
+    problem_print_params.add_argument('--full-trace', dest='full_trace', action='store_true',
                               help="sets trace-vars-unchanged and trace-all-vars to True. (Default is \"%s\")"%False)
 
     trace_values_base_default = TraceValuesBase.get_all()[0]
-    print_params.set_defaults(trace_values_base=trace_values_base_default)
-    print_params.add_argument('--trace-values-base', metavar='trace_values_base', type=str, nargs='?',
+    problem_print_params.set_defaults(trace_values_base=trace_values_base_default)
+    problem_print_params.add_argument('--trace-values-base', metavar='trace_values_base', type=str, nargs='?',
                               help="sets the style of Bit-Vector values printing. (Default is \"%s\")"%trace_values_base_default)
 
-    print_params.set_defaults(prefix=None)
-    print_params.add_argument('--prefix', metavar='<prefix location>', type=str, required=False,
+    problem_print_params.set_defaults(trace_prefix=None)
+    problem_print_params.add_argument('--trace-prefix', metavar='<trace prefix location>', type=str, required=False,
                        help='write the counterexamples with a specified location prefix.')
 
     # General translation parameters

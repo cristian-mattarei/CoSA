@@ -69,10 +69,10 @@ class ProblemSolver(object):
     def __process_trace(self, hts, trace, config, problem):
         prevass = []
 
-        full_trace = config.full_trace
-        trace_vars_change = config.trace_vars_change
-        trace_all_vars = config.trace_all_vars
-        trace_values_base = config.trace_values_base
+        full_trace = problem.full_trace
+        trace_vars_change = problem.trace_vars_change
+        trace_all_vars = problem.trace_all_vars
+        trace_values_base = problem.trace_values_base
 
         diff_only = not trace_vars_change
         all_vars = trace_all_vars
