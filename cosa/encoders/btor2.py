@@ -42,7 +42,7 @@ INPUT="input"
 OUTPUT="output"
 ADD="add"
 EQ="eq"
-NE="ne"
+NEQ="neq"
 MUL="mul"
 SLICE="slice"
 CONST="const"
@@ -223,15 +223,14 @@ class BTOR2Parser(ModelParser):
                 ts.add_input_var(nodemap[nid])
 
             if ntype == OUTPUT:
-                if len(nids) > 2:
-                    symbol = Symbol(nids[2], getnode(nids[0]))
-                else:
-                    symbol = Symbol((SN%nid), getnode(nids[0]))
-
-                nodemap[nid] = EqualsOrIff(symbol, B2BV(getnode(nids[1])))
+                # unfortunately we need to create an extra symbol just to have the output name
+                # we could be smarter about this, but then this parser can't be greedy
+                original_symbol = getnode(nids[0])
+                output_symbol = Symbol(nids[1], original_symbol.get_type())
+                nodemap[nid] = EqualsOrIff(output_symbol, original_symbol)
                 invarlist.append(nodemap[nid])
                 node_covered.add(nid)
-                ts.add_output_var(symbol)
+                ts.add_output_var(output_symbol)
 
             if ntype == AND:
                 nodemap[nid] = binary_op(BVAnd, And, getnode(nids[1]), getnode(nids[2]))
@@ -298,7 +297,7 @@ class BTOR2Parser(ModelParser):
             if ntype == EQ:
                 nodemap[nid] = BVComp(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
-            if ntype == NE:
+            if ntype == NEQ:
                 nodemap[nid] = BVNot(BVComp(getnode(nids[1]), getnode(nids[2])))
 
             if ntype == MUL:
