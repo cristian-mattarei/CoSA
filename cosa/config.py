@@ -272,11 +272,6 @@ class CosaArgParser(argparse.ArgumentParser):
         for option in config_args[DEFAULT]:
             general_options.pop(option, None)
 
-        for option, value in general_options.items():
-            # replace empty arguments with default value
-            if value is None:
-                general_options[option] = self._defaults[option]
-
         unknown_gen_options = general_options.keys() - self._problem_options[GENERAL]
         if unknown_gen_options:
             raise RuntimeError("Expecting only general options in section"
