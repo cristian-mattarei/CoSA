@@ -209,7 +209,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 config_files.append(command_line_args[config_file])
         if config_files:
             assert len(config_files) == 1, "Expecting only a single configuration file"
-            problems_manager = self.gen_problems(command_line_args[config_file], command_line_args)
+            problems_manager = self.read_problem_file(command_line_args[config_file], command_line_args)
         else:
             # get general options
             general_options = dict()
@@ -261,7 +261,14 @@ class CosaArgParser(argparse.ArgumentParser):
 
         return parser
 
-    def gen_problems(self, config_file:str, command_line_args:Dict[str, str]):
+    def read_problem_file(self, config_file:str,
+                          __command_line_args:Dict[str, str]=dict())->ProblemsManager:
+        '''
+        Reads a problem file and then overrides defaults with command line options
+        if any were provided.
+
+        Users should not pass __command_line_args directly, that is for internal use only.
+        '''
         config_filepath = Path(config_file)
         config_args = self.parse_config(config_filepath)
         general_options = dict(config_args[GENERAL])
@@ -278,11 +285,17 @@ class CosaArgParser(argparse.ArgumentParser):
                                " [GENERAL] but got {}".format(unknown_gen_options))
 
         # populate with general defaults
-        for option in self._problem_options[GENERAL]:
-            if option not in general_options or general_options[option] is None:
-                if command_line_args[option] is not None:
-                    general_options[option] = command_line_args[option]
-                else:
+        # as an optimization, don't even check __command_line_args if it's empty
+        if __command_line_args:
+            for option in self._problem_options[GENERAL]:
+                if option not in general_options or general_options[option] is None:
+                    if __command_line_args[option] is not None:
+                        general_options[option] = __command_line_args[option]
+                    else:
+                        general_options[option] = self._defaults[option]
+        else:
+            for option in self._problem_options[GENERAL]:
+                if option not in general_options or general_options[option] is None:
                     general_options[option] = self._defaults[option]
 
         problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
@@ -317,15 +330,25 @@ class CosaArgParser(argparse.ArgumentParser):
             if unknown_problem_file_options:
                 raise RuntimeError("Expecting only problem options "
                                    "in problem section but got {}".format(unknown_problem_file_options))
+
+
+            # The [HEADER] style sections become problem names
             problem_file_options['name'] = section
-            for arg in self._problem_options[PROBLEM]:
-                if command_line_args[arg] is not None:
-                    # overwrite config file with command line arguments
-                    problem_file_options[arg] = command_line_args[arg]
-                # if the option has still not been set, find a default
-                # problem defaults were already given priority
-                if arg not in problem_file_options:
-                    problem_file_options[arg] = problem_defaults[arg]
+
+            if __command_line_args:
+                for arg in self._problem_options[PROBLEM]:
+                    if __command_line_args[arg] is not None:
+                        # overwrite config file with command line arguments
+                        problem_file_options[arg] = __command_line_args[arg]
+                    # if the option has still not been set, find a default
+                    # problem defaults were already given priority
+                    if arg not in problem_file_options:
+                        problem_file_options[arg] = problem_defaults[arg]
+            else:
+                # set defaults if not explicitly set in this particular problem
+                for arg in self._problem_options[PROBLEM]:
+                    if arg not in problem_file_options:
+                        problem_file_options[arg] = problem_defaults[arg]
 
             for k, v in problem_file_options.items():
                 if v is not None:
