@@ -167,7 +167,6 @@ class ProblemSolver(object):
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
             res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(hts), at_most=problem.cardinality)
 
-        # TODO: Test this
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
             bmcseq = BMCSafety(hts, problem)
@@ -380,9 +379,6 @@ class ProblemSolver(object):
                 hierarchical_transition_systems.append(hts2)
                 problems_config.add_second_model(problem, hts2)
 
-        # TODO Use the hierarchical_transition_systems to apply these transformations on ALL systems
-        #      Not just the main one
-
         # TODO : contain these types of passes in functions
         #        they should be registered as passes
         # set default bit-wise initial values (0 or 1)
@@ -446,17 +442,6 @@ class ProblemSolver(object):
 
         problems_config.hts = hts
 
-        # TODO: Handle equivalence gracefully
-        #       should be able to specify this per-problem
-        #       requires generating systems for each one
-        #   --> means we need to parse the model file later
-        # if general_config.equivalence is not None:
-        #     hts2, _, _ = self.parse_model(problems_config.relative_path,
-        #                                   general_config,
-        #                                   "System 2",
-        #                                   modifier)
-        #     problems_config.hts2 = hts2
-
         # TODO: Update this so that we can control whether embedded assertions are solved automatically
         for invar_prop in invar_props:
             inv_prob = problems.add_problem(verification=VerificationType.SAFETY,
@@ -495,12 +480,8 @@ class ProblemSolver(object):
                                                                problem.properties,
                                                                True)
 
-            # TODO: Do this somewhere else, these problems aren't modifiable anymore
-            # if problem.trace_prefix is not None:
-            #     problem.trace_prefix = "".join([problem.relative_path,problem.trace_prefix])
             try:
                 # convert the formulas to PySMT FNodes
-
                 # lemmas, assumptions and precondition always use the regular parser
                 lemmas, assumptions, precondition = self.convert_formulae([problem.lemmas,
                                                                            problem.assumptions,
@@ -560,8 +541,6 @@ class ProblemSolver(object):
                 if general_config.time:
                     timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
 
-                # TODO: make sure we don't need general_config
-                # as a design rule, we shouldn't -- this is just about the problem now
                 status, trace, traces =  self.__solve_problem(problem_hts,
                                                               prop,
                                                               lemmas,
