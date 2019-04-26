@@ -42,6 +42,7 @@ MODEL_FILE = "model_file"
 
 MODEL_SP = ";"
 FILE_SP  = ","
+NL       = '\n'
 
 class VerificationStatus(object):
     UNC = "UNCHECKED"
@@ -79,7 +80,12 @@ class VerificationType(object):
     PARAMETRIC = PARAMETRIC
 
 
+# This class should not be instantiated directly
+# it is instantiated and populated with the correct options
+# by cosa.config.CosaArgParser
 class ProblemsManager:
+    '''
+    '''
     def __init__(self, relative_path:Path, general_config:Dict[str, Any], defaults:Dict[str, Any]):
         self._relative_path         = relative_path
         self._general_config        = namedtuple('general_config', general_config.keys())(**general_config)
@@ -115,8 +121,7 @@ class ProblemsManager:
             problem_options[option] = value
 
         # if there were multiple properties, split them into separate problems
-        if problem_options['properties'] is not None and \
-           MODEL_SP in problem_options['properties']:
+        if problem_options['properties'] is not None:
             problems = self._split_problem(problem_options)
             for pbm in problems:
                 self._problems.append(pbm)
@@ -132,7 +137,17 @@ class ProblemsManager:
         Generate a new name for each
         '''
         problems = []
-        properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
+        potential_filepath = self.relative_path / problem_options['properties']
+        if potential_filepath.is_file():
+            with potential_filepath.open() as f:
+                properties = []
+                for line in f.read().split(NL):
+                    line = line.strip()
+                    if line:
+                        properties.append(line)
+        else:
+            properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
+
         name = problem_options['name']
         names = ['{}_{}'.format(name, i) for i in range(len(properties))]
 

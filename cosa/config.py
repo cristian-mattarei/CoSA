@@ -211,6 +211,35 @@ class CosaArgParser(argparse.ArgumentParser):
         self._mutually_exclusive_groups.append(group)
         return group
 
+    def get_default_problem_manager(self, **kwargs)->ProblemsManager:
+        '''
+        Returns the problem manager with default general options, which can be overriden
+        with the keyword arguments.
+
+        See the options.py file for the possible keywords
+          where dashes in long option names are replaced by underscores
+          (and leading dashes are removed)
+          e.g. --trace-prefix is trace_prefix
+        '''
+
+        unknown_gen_options = kwargs.keys() - self._problem_options[GENERAL]
+        if unknown_gen_options:
+            raise RuntimeError("Expecting only general options in section"
+                               "but got {}.\nGeneral options include:\n"
+                               "{}".format(unknown_gen_options,
+                                           '\n\t'.join(self._problem_options[GENERAL])))
+
+        general_options = dict()
+        for option in self._problem_options[GENERAL]:
+            if option in kwargs:
+                general_options[option] = kwargs[option]
+            else:
+                general_options[option] = self._defaults[option]
+
+        problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
+
+        return ProblemsManager(Path("./"), general_options, problem_defaults)
+
     def parse_args(self)->ProblemsManager:
         command_line_args = vars(super().parse_args())
         config_files = []
@@ -292,7 +321,7 @@ class CosaArgParser(argparse.ArgumentParser):
         unknown_gen_options = general_options.keys() - self._problem_options[GENERAL]
         if unknown_gen_options:
             raise RuntimeError("Expecting only general options in section"
-                               " [GENERAL] but got {}".format(unknown_gen_options))
+                               " [GENERAL] but got {} in {}".format(unknown_gen_options, config_file))
 
         # populate with general defaults
         # as an optimization, don't even check __command_line_args if it's empty
@@ -313,7 +342,7 @@ class CosaArgParser(argparse.ArgumentParser):
         unknown_default_options = default_options.keys() - self._problem_options[PROBLEM]
         if unknown_default_options:
             raise RuntimeError("Expecting only problem options in section"
-                               " [DEFAULT] but got {}".format(unknown_default_options))
+                               " [DEFAULT] but got {} in {}".format(unknown_default_options, config_file))
         for option, value in default_options.items():
             # override the defaults with problem defaults
             problem_defaults[option] = value
@@ -339,7 +368,7 @@ class CosaArgParser(argparse.ArgumentParser):
             unknown_problem_file_options = problem_file_options.keys() - self._problem_options[PROBLEM]
             if unknown_problem_file_options:
                 raise RuntimeError("Expecting only problem options "
-                                   "in problem section but got {}".format(unknown_problem_file_options))
+                                   "in problem section but got {} in {}".format(unknown_problem_file_options, config_file))
 
 
             # The [HEADER] style sections become problem names

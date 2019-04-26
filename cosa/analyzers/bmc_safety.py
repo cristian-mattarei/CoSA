@@ -231,8 +231,10 @@ class BMCSafety(BMCSolver):
 
             Logger.msg("(%s)"%(winning[0]), 0, not(Logger.level(1)))
 
-            if winning[0] == VerificationStrategy.BWD:
-                self.config.strategy = VerificationStrategy.BWD
+            # TODO: figure out a better way to handle this
+            #       config object is not settable anymore
+            # if winning[0] == VerificationStrategy.BWD:
+            #     self.config.strategy = VerificationStrategy.BWD
 
             return winning[1]
 
