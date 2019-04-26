@@ -39,7 +39,13 @@ def runtest(problem_file):
     force_expected = True
     translate = "file.ssts"
 
-    problems_manager = cosa_option_manager.read_problem_file(problem_file)
+    problems_manager = cosa_option_manager.read_problem_file(problem_file,
+                                                             verbosity=2,
+                                                             solver_name='msat',
+                                                             prove=True,
+                                                             vcd=True,
+                                                             force_expected=True,
+                                                             translate='file.ssts')
     status = run_problems(problems_manager)
     with open(translate, "r") as f:
         print(f.read())

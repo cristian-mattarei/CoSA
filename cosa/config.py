@@ -248,7 +248,7 @@ class CosaArgParser(argparse.ArgumentParser):
                 config_files.append(command_line_args[config_file])
         if config_files:
             assert len(config_files) == 1, "Expecting only a single configuration file"
-            problems_manager = self.read_problem_file(command_line_args[config_file], command_line_args)
+            problems_manager = self.read_problem_file(command_line_args[config_file], __command_line_args=command_line_args)
         else:
             # get general options
             general_options = dict()
@@ -301,16 +301,43 @@ class CosaArgParser(argparse.ArgumentParser):
         return parser
 
     def read_problem_file(self, config_file:str,
-                          __command_line_args:Dict[str, str]=dict())->ProblemsManager:
+                          __command_line_args:Dict[str, str]=dict(),
+                          **kwargs)->ProblemsManager:
         '''
         Reads a problem file and then overrides defaults with command line options
         if any were provided.
 
         Users should not pass __command_line_args directly, that is for internal use only.
+        Instead, pass options through keyword arguments.
         '''
         config_filepath = Path(config_file)
         config_args = self.parse_config(config_filepath)
         general_options = dict(config_args[GENERAL])
+
+        # populate command line arguments with keyword arguments if provided
+        if kwargs:
+            # check that all options are valid
+            unknown_kwargs = (kwargs.keys() - self._problem_options[GENERAL]) - \
+                              self._problem_options[PROBLEM]
+
+            if unknown_kwargs:
+                raise RuntimeError("Expected only valid CoSA options as "
+                                   "keyword arguments but got {}.\nPlease select "
+                                   "from:\n\t{}\n\nValid options can be also be viewed "
+                                   "with --help".format(unknown_kwargs,
+                                                        '\n\t'.join(
+                                                            sorted(itertools.chain(
+                                                            self._problem_options[GENERAL],
+                                                            self._problem_options[PROBLEM])))))
+
+            # command line arguments should contain everything or nothing
+            # populate with none if we need to override with keyword arguments
+            if not __command_line_args:
+                for option in itertools.chain(self._problem_options[GENERAL],
+                                              self._problem_options[PROBLEM]):
+                    __command_line_args[option] = None
+            for option, v in kwargs.items():
+                __command_line_args[option] = v
 
         # remove default options
         # -- configparser automatically populates defaults
