@@ -356,7 +356,8 @@ class HTS(object):
         if cleanup:
             tmp_input_vars = set([v for v in self.input_vars])
             tmp_output_vars = set([v for v in self.output_vars])
-        output_vars = self._flatten_rec()[3]
+        vardic = dict([(v.symbol_name(), v) for v in self.vars])
+        output_vars = self._flatten_rec(vardic)[3]
         if cleanup:
             self.input_vars = tmp_input_vars
             self.output_vars = tmp_output_vars
@@ -366,9 +367,8 @@ class HTS(object):
 
         self.reset_formulae()
 
-    def _flatten_rec(self, path=[]):
+    def _flatten_rec(self, vardic, path=[]):
         self.is_flatten = True
-        vardic = dict([(v.symbol_name(), v) for v in self.vars])
 
         def full_path(name, path):
             ret = ".".join(path+[name])
@@ -390,7 +390,7 @@ class HTS(object):
              ts.init, \
              ts.trans, \
              ts.ftrans, \
-             ts.invar) = module._flatten_rec(path+[instance])
+             ts.invar) = module._flatten_rec(vardic, path+[instance])
 
             self.add_ts(ts, reset=False)
 
