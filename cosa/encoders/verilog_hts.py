@@ -186,11 +186,11 @@ class VerilogHTSParser(ModelParser):
         # If the assertion line has a comment in the format // <filename>(lineno)
         # it reports the line in the comment
         def extract_lineno(line, linenum):
-            orig_lineno = re.search("/\w.*\(\d+\)", line)
+            orig_lineno = re.search(r"/\w.*\(\d+\)", line)
             if orig_lineno is None:
                 return line, linenum
 
-            strfile, linenum = re.search("/\w.*\(", line), re.search("\(\d+\)", line)
+            strfile, linenum = re.search(r"/\w.*\(", line), re.search(r"\(\d+\)", line)
             if (strfile is None) or (linenum is None):
                 return line, linenum
 
