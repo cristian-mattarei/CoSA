@@ -284,7 +284,7 @@ class ProblemSolver(object):
             else:
                 filepath = Path(strfile)
             if filepath.parts[0] != "/":
-                strfile = relative_path / filepath
+                filepath = relative_path / filepath
             filetype = filepath.suffix[1:]
             parser = None
 
