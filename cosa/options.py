@@ -373,16 +373,15 @@ general_trans_params.set_defaults(translate=None)
 general_trans_params.add_argument('--translate', metavar='<output file>', type=str, required=False,
                    help='translate input file.')
 
+printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]
+printer_default = HTSPrintersFactory.get_default().get_name()
+general_trans_params.set_defaults(printer=printer_default)
+general_trans_params.add_argument('--printer', metavar='printer', type=str, nargs='?',
+                                  help='select the printer between (Default is \"%s\"):\n%s'%(printer_default, "\n".join(printers)))
 
 # Problem-specific translation parameters
 
 trans_params = cosa_option_manager.add_problem_group('translation')
-printers = [" - \"%s\": %s"%(x.get_name(), x.get_desc()) for x in HTSPrintersFactory.get_printers_by_type(HTSPrinterType.TRANSSYS)]
-
-printer_default = HTSPrintersFactory.get_default().get_name()
-trans_params.set_defaults(printer=printer_default)
-trans_params.add_argument('--printer', metavar='printer', type=str, nargs='?',
-                    help='select the printer between (Default is \"%s\"):\n%s'%(printer_default, "\n".join(printers)))
 
 trans_params.set_defaults(skip_solving=False)
 trans_params.add_argument('--skip-solving', dest='skip_solving', action='store_true',

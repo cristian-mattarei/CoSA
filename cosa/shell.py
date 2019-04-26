@@ -80,7 +80,12 @@ def translate(hts, config, formulae=None):
     printer = HTSPrintersFactory.printer_by_name(config.printer)
     props = []
     if formulae is not None:
-        props = [(f.serialize(threshold=100), f, None) for f in formulae if f is not None]
+        for f in formulae:
+            if f is None:
+                continue
+            assert isinstance(f, str), "Expecting strings from problem configuration"
+            props.append(f)
+
     with open(config.translate, "w") as f:
         f.write(printer.print_hts(hts, props))
 
@@ -168,7 +173,6 @@ def run_problems(problems_config:ProblemsManager):
             Logger.log("No problems to solve", 0)
             return 0
 
-    # TODO: Enable all this
     formulae = []
     for pbm in problems_config.problems:
         (status, trace) = print_problem_result(pbm,

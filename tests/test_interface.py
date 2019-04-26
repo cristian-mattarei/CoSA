@@ -34,6 +34,8 @@ def files_eq(file1, file2):
 def run_translation(path):
     reset_env()
 
+    status = True
+
     if "-boolean" in path:
         boolean = True
     else:
@@ -64,12 +66,12 @@ def run_translation(path):
         verbosity=3,
         boolean=boolean,
         translate=path+GENERATED,
+        printer='SMV',
         model_file=",".join(j_files+s_files+v_files))
 
     problems_manager.add_problem(solver_name='msat',
                                  verification='safety' if properties is not None else "simulation",
                                  prove=True if properties is not None else False,
-                                 printer='SMV',
                                  assumptions=assumptions,
                                  properties=properties,
                                  lemmas=lemmas
