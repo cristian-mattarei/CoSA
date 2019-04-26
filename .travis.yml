@@ -19,6 +19,7 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
      - g++-4.9
+     - clang
      - wget
      - unzip
      - build-essential
@@ -39,12 +40,10 @@ addons:
      - iverilog
 
 install:
-  - pip install -r requirements.txt
   - pip install -e .
   - bash ./scripts/travis_install.sh
 
 env:
- - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${LD_LIBRARY_PATH}" COREIRCONFIG=g++-4.9 CXX=g++-4.9 CC=gcc-4.9
+ - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${LD_LIBRARY_PATH}" COREIRCONFIG=clang++ CC=clang CXX=clang++
 
-
-script: nosetests tests -v
+script: nosetests tests -vv

@@ -76,7 +76,7 @@ KEYWORDS = ["not","xor",\
             "False","True",\
             "next","prev",\
             "G","F","X","U","R","O","H",\
-            "ZEXT","bvcomp",\
+            "ZEXT", "SEXT", "bvcomp",\
             "a>>", "s<", "s>",
             "u<", "u<=", "u>", "u>="]
 # rewrite the first entry in the tuple to the second
