@@ -1,4 +1,4 @@
-dist: trusty
+dist: xenial
 language: python
 python:
   - "3.6"
@@ -38,12 +38,14 @@ addons:
      - libncurses5-dev
      - python3-nose
      - iverilog
+     - libreadline-dev
 
 install:
   - pip install -e .
   - bash ./scripts/travis_install.sh
+  - chmod +x ./yosys
 
 env:
- - PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${LD_LIBRARY_PATH}" COREIRCONFIG=clang++ CC=clang CXX=clang++
+ - PATH="$PATH:." PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/pysmt":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/pysmt/bindings:${LD_LIBRARY_PATH}" COREIRCONFIG=clang++ CC=clang CXX=clang++
 
 script: nosetests tests -vv

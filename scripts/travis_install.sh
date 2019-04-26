@@ -41,6 +41,5 @@ else
     cd ../../
 fi
 
-# don't need yosys for now
-# wget http://web.stanford.edu/~makaim/files/yosys
-# export PATH=`pwd`
+# Get yosys -- using for verilog frontend
+wget http://web.stanford.edu/~makaim/files/yosys
