@@ -10,8 +10,9 @@
 
 import os
 
-from cosa.shell import Config, run_verification, run_problems
 from cosa.environment import reset_env
+from cosa.options import cosa_option_manager
+from cosa.shell import Config, run_verification, run_problems
 
 COSADIR = ".CoSA"
 
@@ -38,14 +39,15 @@ def runtest(problem_file):
     config.vcd = True
     config.force_expected = True
     config.translate = "file.ssts"
-    
-    status = run_problems(problem_file, config)
+
+    problems_manager = cosa_option_manager.read_problem_file(problem_file)
+    status = run_problems(problems_manager)
     with open(config.translate, "r") as f:
         print(f.read())
 
     assert status == 0
     return status
-    
+
 def test_problem():
     for problem_file in problem_files:
         yield runtest, problem_file
