@@ -513,6 +513,7 @@ class ProblemSolver(object):
                 else:
                     parser = self.lparser
 
+                prop = None
                 if problem.properties is not None:
                     prop = self.convert_formula(problem.properties,
                                                 relative_path=problems_config.relative_path,
