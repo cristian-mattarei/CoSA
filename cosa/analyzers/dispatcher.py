@@ -24,7 +24,7 @@ from cosa.analyzers.mcsolver import MCConfig, CONST_ARRAYS_SUPPORT
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_parametric import BMCParametric
 from cosa.analyzers.bmc_ltl import BMCLTL
-from cosa.problem import VerificationType, Problem, VerificationStatus, Trace
+from cosa.problem import VerificationType, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS, L_ABV

@@ -19,7 +19,7 @@ from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.environment import reset_env
 from cosa.options import cosa_option_manager
 from cosa.printers.factory import HTSPrintersFactory
-from cosa.problem import Problem, Problems, ProblemsManager, Trace, VerificationStatus, VerificationType
+from cosa.problem import ProblemsManager, Trace, VerificationStatus, VerificationType
 from cosa.utils.logger import Logger
 
 TRACE_PREFIX = "trace"
