@@ -22,6 +22,7 @@ FAIL = "$FAILURE$"
 FAULT = "%s"+FAIL
 
 class ModelExtension(object):
+    parameters = set()
 
     @staticmethod
     def extend(hts, modifier):
@@ -56,7 +57,7 @@ class ModelExtension(object):
 
     @staticmethod
     def get_parameters(hts):
-        return [v for v in hts.vars if FAIL in v.symbol_name()]
+        return [v for v in hts.vars if v in ModelExtension.parameters]
 
     @staticmethod
     def extend_ts(ts, modifier):
@@ -79,6 +80,12 @@ class ModelExtension(object):
             refvar = TS.get_ref_var(var)
             nomvar = Symbol(NOMIN%refvar.symbol_name(), var.symbol_type())
             fvar = Symbol(FAULT%refvar.symbol_name(), BOOL)
+
+            # add fault variable to parameters
+            # note: this class does not get instantiated, so these parameters are a 'singleton'
+            #       should be fine because model extension should apply to entire model only once
+            #       i.e. we don't need multiple distinct copies of fail variables
+            ModelExtension.parameters.add(fvar)
 
             vars.append(nomvar)
             vars.append(fvar)
