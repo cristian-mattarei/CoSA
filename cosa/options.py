@@ -41,7 +41,7 @@ DEVEL_OPT = "--devel"
 #     where
 #       command line argument : a command line argument, this is straightforward
 #       problem option        : when the option is set specifically for a particular
-#                                 for a particular problem in the problem file
+#                                 problem in the problem file
 #       problem file default  : problem files allow setting default options that apply
 #                                 for all the problems in the file
 #       built in default      : these are the defaults specified here. If no default is
