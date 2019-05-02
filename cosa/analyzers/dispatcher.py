@@ -20,7 +20,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol, Implies, get_free_variables, BV, TRUE, simplify, And, EqualsOrIff, Array
 
 from cosa.utils.logger import Logger
-from cosa.analyzers.mcsolver import MCConfig, CONST_ARRAYS_SUPPORT
+from cosa.analyzers.mcsolver import CONST_ARRAYS_SUPPORT
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_parametric import BMCParametric
 from cosa.analyzers.bmc_ltl import BMCLTL
@@ -33,7 +33,7 @@ from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
 from cosa.modifiers.factory import ModelModifiersFactory
 from cosa.modifiers.coi import ConeOfInfluence
-from cosa.encoders.template import EncoderConfig, ModelInformation
+from cosa.encoders.template import ModelInformation
 from cosa.encoders.parametric_behavior import ParametricBehavior
 from cosa.printers.trace import TextTracePrinter, VCDTracePrinter
 from cosa.modifiers.model_extension import ModelExtension
@@ -337,7 +337,7 @@ class ProblemSolver(object):
 
         return (hts, invar_props, ltl_props)
 
-    def solve_problems_new(self, problems_config:ProblemsManager)->None:
+    def solve_problems(self, problems_config:ProblemsManager)->None:
 
         general_config  = problems_config.general_config
         model_extension = general_config.model_extension
@@ -632,173 +632,3 @@ class ProblemSolver(object):
 
         # extract the second tuple argument (the actual property)
         return [c[1] for c in converted_tuples]
-
-
-    def solve_problems(self, problems, config):
-        encoder_config = self.problems2encoder_config(config, problems)
-
-        self.sparser = StringParser(encoder_config)
-        self.lparser = LTLParser()
-
-        self.coi = ConeOfInfluence()
-
-        invar_props = []
-        ltl_props = []
-        si = (config.symbolic_init | problems.symbolic_init)
-
-        if len(problems.symbolic_inits) == 0:
-            problems.symbolic_inits.add(si)
-
-        HTSM = 0
-        HTS2 = 1
-        HTSD = (HTSM, si)
-
-        model_extension = config.model_extension if problems.model_extension is None else problems.model_extension
-        assume_if_true = config.assume_if_true or problems.assume_if_true
-        cache_files = config.cache_files or problems.cache_files
-        clean_cache = config.clean_cache
-
-        modifier = None
-        if model_extension is not None:
-            modifier = lambda hts: ModelExtension.extend(hts, ModelModifiersFactory.modifier_by_name(model_extension))
-
-        # generate systems for each problem configuration
-        systems = {}
-        for si in problems.symbolic_inits:
-            encoder_config.symbolic_init = si
-            (systems[(HTSM, si)], invar_props, ltl_props) = self.parse_model(problems.relative_path, \
-                                                                             problems.model_file, \
-                                                                             encoder_config, \
-                                                                             "System 1", \
-                                                                             modifier, \
-                                                                             cache_files=cache_files, \
-                                                                             clean_cache=clean_cache)
-
-        if problems.equivalence is not None:
-            (systems[(HTS2, si)], _, _) = self.parse_model(problems.relative_path, \
-                                                           problems.equivalence, \
-                                                           encoder_config, \
-                                                           "System 2", \
-                                                           cache_files=cache_files, \
-                                                           clean_cache=clean_cache)
-        else:
-            systems[(HTS2, si)] = None
-
-        if config.safety or config.problems:
-            for invar_prop in invar_props:
-                inv_prob = problems.new_problem()
-                inv_prob.verification = VerificationType.SAFETY
-                inv_prob.name = invar_prop[0]
-                inv_prob.description = invar_prop[1]
-                inv_prob.formula = invar_prop[2]
-                problems.add_problem(inv_prob)
-
-        if config.ltl or config.problems:
-            for ltl_prop in ltl_props:
-                ltl_prob = problems.new_problem()
-                ltl_prob.verification = VerificationType.LTL
-                ltl_prob.name = ltl_prop[0]
-                ltl_prob.description = ltl_prop[1]
-                ltl_prob.formula = ltl_prop[2]
-                problems.add_problem(ltl_prob)
-
-        if HTSD in systems:
-            problems._hts = systems[HTSD]
-
-        for problem in problems.problems:
-            problem.hts = systems[(HTSM, problem.symbolic_init)]
-
-            if problems._hts is None:
-                problems._hts = problem.hts
-            problem.hts2 = systems[(HTS2, problem.symbolic_init)]
-            if problems._hts2 is None:
-                problems._hts2 = problem.hts2
-            problem.vcd = problems.vcd or config.vcd or problem.vcd
-            problem.abstract_clock = problems.abstract_clock or config.abstract_clock
-            problem.add_clock = problems.add_clock or config.add_clock
-            problem.coi = problems.coi or config.coi
-            problem.run_coreir_passes = problems.run_coreir_passes
-            problem.relative_path = problems.relative_path
-            problem.cardinality = max(problems.cardinality, config.cardinality)
-
-            if not problem.full_trace:
-                problem.full_trace = problems.full_trace
-            if not problem.trace_vars_change:
-                problem.trace_vars_change = problems.trace_vars_change
-            if not problem.trace_all_vars:
-                problem.trace_all_vars = problems.trace_all_vars
-            if not problem.clock_behaviors:
-                clk_bhvs = [p for p in [problems.clock_behaviors, config.clock_behaviors] if p is not None]
-                if len(clk_bhvs) > 0:
-                    problem.clock_behaviors = ";".join(clk_bhvs)
-            if not problem.generators:
-                problem.generators = config.generators
-
-            Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(problem.abstract_clock, problem.add_clock), 2)
-
-            if problem.trace_prefix is not None:
-                problem.trace_prefix = "".join([problem.relative_path,problem.trace_prefix])
-
-            if config.time or problems.time:
-                timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
-            try:
-                self.__solve_problem(problem, config)
-
-                if problem.verification is None:
-                    Logger.log("Unset verification", 2)
-                    continue
-
-                Logger.msg(" %s\n"%problem.status, 0, not(Logger.level(1)))
-
-                if (assume_if_true) and \
-                   (problem.status == VerificationStatus.TRUE) and \
-                   (problem.assumptions == None) and \
-                   (problem.verification == VerificationType.SAFETY):
-
-                    ass_ts = TS("Previous assumption from property")
-                    if TS.has_next(problem.formula):
-                        ass_ts.trans = problem.formula
-                    else:
-                        ass_ts.invar = problem.formula
-                    problem.hts.reset_formulae()
-
-                    problem.hts.add_ts(ass_ts)
-
-                if config.time or problems.time:
-                    problem.time = Logger.get_timer(timer_solve, False)
-
-            except KeyboardInterrupt as e:
-                Logger.msg("\b\b Skipped!\n", 0)
-
-    # FIXME: remove this with new frontend -- just use problem object directly
-    def problem2mc_config(self, problem, config):
-        mc_config = MCConfig()
-
-        config_selection = lambda problem, config: config if problem is None else problem
-
-        mc_config.smt2_tracing = config_selection(problem.smt2_tracing, config.smt2_tracing)
-        mc_config.prefix = problem.name
-        mc_config.strategy = config_selection(problem.strategy, config.strategy)
-        mc_config.incremental = config_selection(problem.incremental, config.incremental)
-        mc_config.skip_solving = config_selection(problem.skip_solving, config.skip_solving)
-        mc_config.solver_name = config_selection(problem.solver_name, config.solver_name)
-        mc_config.solver_options = config_selection(problem.solver_options, config.solver_options)
-        mc_config.prove = config_selection(problem.prove, config.prove)
-
-        return mc_config
-
-    # FIXME: remove this with new frontend
-    def problems2encoder_config(self, config, problems):
-        encoder_config = EncoderConfig()
-        encoder_config.abstract_clock = problems.abstract_clock or config.abstract_clock
-        encoder_config.symbolic_init = config.symbolic_init or config.symbolic_init
-        encoder_config.zero_init = problems.zero_init or config.zero_init
-        encoder_config.add_clock = problems.add_clock or config.add_clock
-        encoder_config.deterministic = config.deterministic
-        encoder_config.run_coreir_passes = config.run_coreir_passes
-        encoder_config.boolean = problems.boolean or config.boolean
-        encoder_config.devel = config.devel
-        encoder_config.opt_circuit = problems.opt_circuit or config.opt_circuit
-        encoder_config.no_arrays = problems.no_arrays or config.no_arrays
-
-        return encoder_config

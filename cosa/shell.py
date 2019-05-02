@@ -161,7 +161,7 @@ def run_problems(problems_config:ProblemsManager):
     Logger.time = general_config.time
 
     psol = ProblemSolver()
-    psol.solve_problems_new(problems_config)
+    psol.solve_problems(problems_config)
 
     global_status = 0
     traces = []

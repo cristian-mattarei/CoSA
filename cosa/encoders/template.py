@@ -13,26 +13,11 @@ from cosa.utils.logger import Logger
 class ModelFlags(object):
     NO_INIT = "NO-INIT"
 
-class EncoderConfig(object):
-    abstract_clock = False
-    symbolic_init = False
-    zero_init = False
-    add_clock = False
-    deterministic = False
-    run_coreir_passes = True
-    boolean = False
-    devel = False
-    opt_circuit = False
-    no_arrays = False
-
-    def __init__(self):
-        pass
-
 class ModelInformation(object):
 
     abstract_clock_list = None
     clock_list = None
-    
+
     def __init__(self):
         self.abstract_clock_list = []
         self.clock_list = []
@@ -51,12 +36,12 @@ class ModelInformation(object):
     def __repr__(self):
         return "CL(%s) ACL(%s)"%(", ".join([str(s) for s in self.clock_list]) if self.clock_list is not None else "", \
                                  ", ".join([str(s) for s in self.abstract_clock_list]) if self.abstract_clock_list is not None else "")
-                
+
 class ModelParser(object):
     extensions = None
     name = None
     config = None
-    
+
     def __init__(self):
         pass
 
@@ -68,8 +53,8 @@ class ModelParser(object):
 
     def get_name(self):
         return self.name
-        
-    @staticmethod        
+
+    @staticmethod
     def get_extensions():
         Logger.error("Not implemented")
 
@@ -78,9 +63,9 @@ class ModelParser(object):
 
     def get_model_info(self):
         Logger.error("Not implemented")
-        
+
 from pysmt.parsing import Rule
-        
+
 class SyntacticSugar(object):
     name = "Syntactic Sugar"
     description = "MISSING DESCRIPTION!"
@@ -99,13 +84,13 @@ class SyntacticSugar(object):
 
     def get_interface(self):
         return self.interface
-    
+
     def insert_lexer_rule(self, rules):
         rules.insert(0, Rule(r"(%s)"%self.name, self.adapter(), False))
 
     def adapter(self):
         Logger.error("Adapter not implemented")
-        
+
 class STSGenerator(object):
     name = "GENERATOR"
     description = "MISSING DESCRIPTION!"
@@ -122,10 +107,10 @@ class STSGenerator(object):
 
     def compile_sts(name, params):
         Logger.error("Compile STS not Implemented")
-    
+
     def get_param_length(self):
         Logger.error("Param length not Implemented")
-        
+
     def get_name(self):
         return self.name
 
@@ -137,7 +122,7 @@ class STSGenerator(object):
 
     def get_values(self):
         return self.values
-    
+
 class ClockBehavior(object):
     name = "CLOCK BEHAVIOR"
     description = "MISSING DESCRIPTION!"
@@ -154,10 +139,9 @@ class ClockBehavior(object):
 
     def get_interface(self):
         return self.interface
-    
+
     def get_sts(self, params):
         Logger.error("Param length not Implemented")
 
     def get_default(self, params):
         Logger.error("Param length not Implemented")
-        
