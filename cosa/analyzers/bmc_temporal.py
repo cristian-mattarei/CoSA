@@ -21,7 +21,7 @@ from cosa.representation import TS, HTS
 from cosa.encoders.coreir import CoreIRParser, SEP
 
 from cosa.printers.template import HIDDEN_VAR
-from cosa.analyzers.mcsolver import MCConfig, VerificationStrategy
+from cosa.analyzers.mcsolver import VerificationStrategy
 from cosa.problem import VerificationStatus
 
 from cosa.analyzers.mcsolver import TraceSolver, BMCSolver

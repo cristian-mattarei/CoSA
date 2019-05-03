@@ -33,44 +33,19 @@ class VerificationStrategy(object):
     ALL = "ALL"
     MULTI = "MULTI"
 
-class MCConfig(object):
-
-    incremental = True
-    strategy = None
-    solver = None
-    prefix = None
-    smt2tracing = None
-    simplify = False
-    solver_name = None
-    solver_options = None
-    prove = None
-
-    def __init__(self):
-        self.incremental = True
-        self.strategy = VerificationStrategy.AUTO
-        self.solver_name = "msat"
-        self.solver_options = dict()
-        self.prefix = None
-        self.smt2tracing = None
-        self.simplify = False
-        self.prove = False
-
-        self.strategies = MCConfig.get_strategies()
-
-    @staticmethod
-    def get_strategies():
-        strategies = []
-        strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
-        strategies.append((VerificationStrategy.MULTI, "Parallel multiple techniques"))
-        strategies.append((VerificationStrategy.FWD,   "Forward reachability"))
-        strategies.append((VerificationStrategy.BWD,   "Backward reachability"))
-        strategies.append((VerificationStrategy.ZZ,    "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((VerificationStrategy.INT,   "Interpolation"))
-        strategies.append((VerificationStrategy.NU,    "States picking without unrolling (only for simulation)"))
-        strategies.append((VerificationStrategy.LTL,   "Pure LTL verification (without optimizations)"))
-        strategies.append((VerificationStrategy.ALL,   "Use all techniques"))
-
-        return strategies
+# strategies should be registered here to be visible from command line options
+def get_verification_strategies():
+    strategies = []
+    strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
+    strategies.append((VerificationStrategy.MULTI, "Parallel multiple techniques"))
+    strategies.append((VerificationStrategy.FWD,   "Forward reachability"))
+    strategies.append((VerificationStrategy.BWD,   "Backward reachability"))
+    strategies.append((VerificationStrategy.ZZ,    "Mixed Forward and Backward reachability (Zig-Zag)"))
+    strategies.append((VerificationStrategy.INT,   "Interpolation"))
+    strategies.append((VerificationStrategy.NU,    "States picking without unrolling (only for simulation)"))
+    strategies.append((VerificationStrategy.LTL,   "Pure LTL verification (without optimizations)"))
+    strategies.append((VerificationStrategy.ALL,   "Use all techniques"))
+    return strategies
 
 class TraceSolver(object):
 

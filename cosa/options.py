@@ -14,7 +14,7 @@ import multiprocessing
 import sys
 from textwrap import TextWrapper
 
-from cosa.analyzers.mcsolver import MCConfig
+from cosa.analyzers.mcsolver import get_verification_strategies
 from cosa.config import CosaArgParser
 from cosa.encoders.factory import ModelParsersFactory, GeneratorsFactory, ClockBehaviorsFactory, SyntacticSugarFactory
 from cosa.modifiers.factory import ModelModifiersFactory
@@ -324,8 +324,8 @@ ver_params.set_defaults(equal_to=None)
 ver_params.add_argument('--equal-to', required=False, type=str,
                         help='Model to check equivalence with (assumes common interface)')
 
-strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in MCConfig.get_strategies()]
-defstrategy = MCConfig.get_strategies()[0][0]
+strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in get_verification_strategies()]
+defstrategy = get_verification_strategies()[0][0]
 ver_params.set_defaults(strategy=defstrategy)
 ver_params.add_argument('--strategy', metavar='strategy', type=str, nargs='?',
                     help='select the BMC strategy between (Default is \"%s\"):\n%s'%(defstrategy, "\n".join(strategies)))
