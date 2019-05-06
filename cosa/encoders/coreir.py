@@ -31,6 +31,9 @@ from cosa.utils.generic import bin_to_dec, suppress_output, restore_output
 CR = "_const_replacement"
 RCR = "_reg_const_replacement"
 SELF = "self"
+NAMED = 'Named'
+COREIR_CLK = 'coreir.clkIn'
+
 LIBRARIES = []
 LIBRARIES.append("rtlil")
 
@@ -470,11 +473,26 @@ class CoreIRParser(ModelParser):
             else:
                 hts.add_output_var(bvvar)
 
-            # Adding clock behavior
-            if (self.CLK in var[0].lower()) and (var[1].is_input()):
+            if var[1].kind == NAMED and var[1].name == COREIR_CLK:
                 self.clock_list.add(bvvar)
                 if self.config.abstract_clock:
                     self.abstract_clock_list.add((bvvar, (BV(0, var[1].size), BV(1, var[1].size))))
+                else:
+                    # add clock to state variables
+                    #   Note: it would probably work to pass it straight through to the output
+                    #         but that would break a current invariant that outputs are not
+                    #         also inputs
+                    # it isn't obvious that this is necessary
+                    # imagine if this is an explicit clock encoding (not abstract_clock), e.g.
+                    #   next(state_var) = (!clk & next(clk)) ? <state_update> : <old value>
+                    # and if we're trying to prove something using k-induction, there's a "loop free"
+                    #   constraint that the state and output variables don't repeat in the trace
+                    #   but on a negedge clock, there can be scenarios where no state or outputs
+                    #   can be updated and we'll get a trivial unsat which will be interpreted as
+                    #   a converged proof -- uh oh
+                    # making the clock an output just includes it in the loop free constraint, so that
+                    #   this bad case doesn't occur
+                    hts.add_state_var(bvvar)
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 
@@ -614,6 +632,10 @@ class CoreIRParser(ModelParser):
 
         if Logger.level(2):
             Logger.get_timer(ttimer)
+
+        # check that clocks were detected if there's any state
+        if hts.state_vars:
+            assert self.clock_list, "Expecting clocks if there are state variables"
 
         return (hts, invar_props, ltl_props)
 
