@@ -184,8 +184,10 @@ class CosaArgParser(argparse.ArgumentParser):
         # positionals, optionals and user-defined groups
         current_title = ''
 
-        self._action_groups[1:].sort(key=lambda x: x.title)
-        for action_group in self._action_groups:
+        action_groups = self._action_groups[1:]
+        action_groups.sort(key=lambda x: x.title)
+
+        for action_group in itertools.chain([self._action_groups[0]], action_groups):
             if '.' in action_group.title:
                 title, subtitle = action_group.title.split('.')
                 if current_title != title:
