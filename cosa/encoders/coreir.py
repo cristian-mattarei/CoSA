@@ -391,9 +391,9 @@ class CoreIRParser(ModelParser):
         if Logger.level(2):
             ttimer = Logger.start_timer("Convertion", False)
 
-        # This is necessary if checking for determinism
         td_instances = top_def.instances
         top_def_instances = [(inst.selectpath, inst.config, inst.module) for inst in td_instances]
+        # sorting keeps the behavior deterministic
         top_def_instances.sort()
 
         totalinst = len(top_def_instances)
@@ -462,7 +462,7 @@ class CoreIRParser(ModelParser):
 
         Logger.clear_inline(1)
 
-        # This is necessary if checking for determinism
+        # sorting keeps the behavior deterministic
         interface.sort()
 
         for var in interface:
@@ -509,9 +509,9 @@ class CoreIRParser(ModelParser):
         eq_conns = []
         eq_vars = set([])
 
-        # This is necessary if checking for determinism
         td_connections = top_def.connections
         top_def_connections = [((conn.first.selectpath, conn.second.selectpath) if conn.first.selectpath < conn.second.selectpath else (conn.second.selectpath, conn.first.selectpath), conn) for conn in td_connections]
+        # sorting keeps the behavior deterministic
         top_def_connections.sort()
 
         for conn in top_def_connections:
