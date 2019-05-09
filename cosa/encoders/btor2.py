@@ -10,7 +10,7 @@
 
 import os
 
-from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
+from pysmt.shortcuts import Not, TRUE, And, BVNot, BVNeg, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
     Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
     Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
     BVLShl, BVAShr, BVLShr
@@ -63,6 +63,7 @@ IMPLIES="implies"
 OR="or"
 ITE="ite"
 NOT="not"
+NEG="neg"
 REDOR="redor"
 REDAND="redand"
 UEXT="uext"
@@ -254,6 +255,9 @@ class BTOR2Parser(ModelParser):
 
             if ntype == NOT:
                 nodemap[nid] = unary_op(BVNot, Not, getnode(nids[1]))
+
+            if ntype == NEG:
+                nodemap[nid] = unary_op(BVNeg, Not, getnode(nids[1]))
 
             if ntype == UEXT:
                 nodemap[nid] = BVZExt(B2BV(getnode(nids[1])), int(nids[2]))
