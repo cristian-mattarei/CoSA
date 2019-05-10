@@ -143,6 +143,41 @@ for x in ModelModifiersFactory.get_modifiers():
 
 extra_info.append('\nModel modifiers:\n%s'%("\n".join(modifiers)))
 
+PROBLEM_FILE_INFO="""
+========================================== Problem File Info ==========================================
+CoSA supports problem files (text files describing problem configurations). You can pass a problem file
+to CoSA through the --problems option. Please see the "examples" or "tests" directories for examples of
+the problem file format. Below is a general description of the option rules.
+
+Every command line option can also be used in a problem file
+The option name in a problem file uses the long option (e.g. the one starting with --)
+but any dashes will be replaced with underscores
+
+Example:
+command line option is --bmc-length
+problem file option is bmc_length
+
+Furthermore, options are divided into GENERAL and PROBLEM options (see headers above option sections
+in this help message). This is only relevant for setting options in a problem file.
+    - GENERAL options are set only once per problem file. In general, these are
+        encoding options because the model should only be encoded once per problem file
+    - PROBLEM options are set per-problem within the problem file. These can also be
+        set in the [DEFAULT] section of the problem file
+
+The following priority order is maintained:
+      command line argument > problem option > problem file default > built in default
+
+      where
+      command line argument : a command line argument, this is straightforward
+      problem option        : when the option is set specifically for a particular
+                                problem in the problem file
+      problem file default  : problem files allow setting default options that apply
+                                for all the problems in the file
+      built in default      : these are the defaults specified here. If no default is
+                                provided it will be None
+"""
+extra_info.append(PROBLEM_FILE_INFO)
+
 ########################## create option manager and declare options ##########################
 cosa_option_manager = CosaArgParser(description=bold_text('CoSA: CoreIR Symbolic Analyzer\n..an SMT-based Symbolic Model Checker for Hardware Design'),
                        formatter_class=RawTextHelpFormatter,
