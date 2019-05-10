@@ -166,8 +166,8 @@ av_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extens
 ua_input_types = [" - \"%s\": %s"%(x.name, ", ".join(["*.%s"%e for e in x.extensions])) \
                   for x in ModelParsersFactory.get_parsers() if not x.is_available()]
 
-in_options.set_defaults(model_file=None)
-in_options.add_argument('-i', '--model_file', metavar='<model files>', type=str, required=False,
+in_options.set_defaults(model_files=None)
+in_options.add_argument('-i', '--model_files', metavar='<model files>', type=str, required=False,
                         help='comma separated list of input files.\nSupported types:\n%s%s'%\
                         ("\n".join(av_input_types), "\nNot enabled:\n%s"%("\n".join(ua_input_types)) \
                          if len(ua_input_types) > 0 else ""))

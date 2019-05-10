@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: mpe.json
+model_files: mpe.json
 equivalence: mpe_fc.json[FC-LEMMAS]
 add_clock: True
 

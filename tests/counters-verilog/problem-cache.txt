@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: Counters.v[Counters],toggle-clk1.ssts
+model_files: Counters.v[Counters],toggle-clk1.ssts
 assume_if_true: True
 # note: This implicitly starts clk2 at zero
 #       which is why we need to use toggle-clk1.ssts to start it at 1

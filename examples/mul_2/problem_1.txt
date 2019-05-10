@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: mul_2.json
+model_files: mul_2.json
 equivalence: mul_2_pe.json
 add_clock: True
 

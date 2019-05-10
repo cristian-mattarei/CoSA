@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: counter.v[counter],init.ets
+model_files: counter.v[counter],init.ets
 assume_if_true: True
 abstract_clock: True
 

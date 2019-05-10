@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: robot.sv[robot],robot-reset.ets
+model_files: robot.sv[robot],robot-reset.ets
 assume_if_true: True
 abstract_clock: True
 

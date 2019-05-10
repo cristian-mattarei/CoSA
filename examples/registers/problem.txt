@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: registers.json
+model_files: registers.json
 add_clock: True
 
 [DEFAULT]

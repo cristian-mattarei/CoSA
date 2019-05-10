@@ -356,7 +356,7 @@ class ProblemSolver(object):
         hierarchical_transition_systems = []
 
         # generate main system system
-        hts, invar_props, ltl_props = self.parse_model(general_config.model_file,
+        hts, invar_props, ltl_props = self.parse_model(general_config.model_files,
                                                        problems_config.relative_path,
                                                        general_config,
                                                        "System 1",

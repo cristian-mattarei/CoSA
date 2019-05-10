@@ -67,7 +67,7 @@ def run_translation(path):
         boolean=boolean,
         translate=path+GENERATED,
         printer='SMV',
-        model_file=",".join(j_files+s_files+v_files))
+        model_files=",".join(j_files+s_files+v_files))
 
     problems_manager.add_problem(solver_name='msat',
                                  verification='safety' if properties is not None else "simulation",

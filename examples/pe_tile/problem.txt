@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: pe_tile.json,conf.ets
+model_files: pe_tile.json,conf.ets
 add_clock: True
 
 [DEFAULT]

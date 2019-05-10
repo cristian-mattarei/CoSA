@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: model.json
+model_files: model.json
 add_clock: True
 
 [DEFAULT]

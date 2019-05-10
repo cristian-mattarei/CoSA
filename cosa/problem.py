@@ -38,7 +38,7 @@ EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
 DETERMINISTIC = "deterministic"
 FORMULA = "formula"
-MODEL_FILE = "model_file"
+MODEL_FILE = "model_files"
 
 MODEL_SP = ";"
 FILE_SP  = ","

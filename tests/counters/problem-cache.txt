@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: counters.json
+model_files: counters.json
 abstract_clock: True
 add_clock: True
 cache_files: True

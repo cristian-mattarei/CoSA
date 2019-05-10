@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: oh_fifo_generic-single.v[oh_fifo_generic],reset_beh.ets,rd_clk.ssts
+model_files: oh_fifo_generic-single.v[oh_fifo_generic],reset_beh.ets,rd_clk.ssts
 assume_if_true: True
 clock_behaviors: DetClock(wr_clk, 1)
 

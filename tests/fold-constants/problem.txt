@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: mpe.json
+model_files: mpe.json
 add_clock: True
 
 [DEFAULT]
