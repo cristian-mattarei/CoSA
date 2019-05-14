@@ -132,6 +132,7 @@ class ProblemSolver(object):
 
         trace = None
         traces = None
+        region = None # only used for parametric model checking
 
         accepted_ver = False
 
@@ -165,7 +166,7 @@ class ProblemSolver(object):
         if problem.verification == VerificationType.PARAMETRIC:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
-            res, traces, problem.region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(hts), at_most=problem.cardinality)
+            res, traces, region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(hts), at_most=problem.cardinality)
 
         if problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
@@ -176,7 +177,7 @@ class ProblemSolver(object):
             Logger.error("Invalid verification type")
 
         Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, res), 1)
-        return res, trace, traces
+        return res, trace, traces, region
 
     def get_file_flags(self, strfile):
         if FLAG_SR not in strfile:
@@ -541,7 +542,7 @@ class ProblemSolver(object):
                 if general_config.time:
                     timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
 
-                status, trace, traces =  self.__solve_problem(problem_hts,
+                status, trace, traces, region =  self.__solve_problem(problem_hts,
                                                               prop,
                                                               lemmas,
                                                               assumptions,
@@ -560,6 +561,10 @@ class ProblemSolver(object):
                     for trace in traces:
                         problem_traces.append(self.__process_trace(hts, trace, general_config, problem))
                     problems_config.set_problem_traces(problem, problem_traces)
+
+                if problem.verification == VerificationType.PARAMETRIC:
+                    assert region is not None
+                    problems_config.set_problem_region(problem, region)
 
                 Logger.msg(" %s\n"%status, 0, not(Logger.level(1)))
 

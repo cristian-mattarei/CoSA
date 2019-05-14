@@ -111,10 +111,11 @@ def print_problem_result(pbm:NamedTuple,
         Logger.log("Formula: %s"%(pbm.properties), 1)
     Logger.log("Result: %s%s"%(status, unk_k), 0)
     if pbm.verification == VerificationType.PARAMETRIC:
-        if pbm.region in [TRUE(),FALSE(),None]:
-            Logger.log("Region: %s"%(pbm.region), 0)
+        region = problems_config.get_problem_region(pbm)
+        if region in [TRUE(),FALSE(),None]:
+            Logger.log("Region: %s"%(region), 0)
         else:
-            Logger.log("Region:\n - %s"%(" or \n - ".join([x.serialize(threshold=100) for x in pbm.region])), 0)
+            Logger.log("Region:\n - %s"%(" or \n - ".join([x.serialize(threshold=100) for x in region])), 0)
     if (pbm.expected is not None):
         expected = VerificationStatus.convert(pbm.expected)
         Logger.log("Expected: %s"%(expected), 0)

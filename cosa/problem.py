@@ -13,8 +13,10 @@ import configparser
 import copy
 from itertools import count
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Set, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
 
+# for type hints
+from pysmt.fnode import FNode
 
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS
@@ -91,9 +93,14 @@ class ProblemsManager:
         self._general_config        = namedtuple('general_config', general_config.keys())(**general_config)
         self._defaults              = defaults
         self._problems              = []
+        # solving status
         self._problems_status       = dict()
+        # counter example traces
         self._problems_traces       = dict()
+        # runtime
         self._problems_time         = dict()
+        # region for parametric model checking
+        self._problems_region       = dict()
 
         # The main Hierarchical Transition System that all problems are run on
         self._hts                   = None
@@ -185,6 +192,12 @@ class ProblemsManager:
 
     def get_problem_time(self, problem:NamedTuple)->float:
         return self._problems_time[problem.idx]
+
+    def set_problem_region(self, problem:NamedTuple, region:Optional[List[FNode]])->None:
+        self._problems_region[problem.idx] = region
+
+    def get_problem_region(self, problem:NamedTuple)->Optional[List[FNode]]:
+        return self._problems_region[problem.idx]
 
     def add_second_model(self, problem:NamedTuple, hts:HTS):
         self._problems_second_model[problem.idx] = hts
