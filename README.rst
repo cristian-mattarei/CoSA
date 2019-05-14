@@ -67,7 +67,7 @@ To start playing with the tool, you can run:
 
 0) ``CoSA -h`` shows the helper with command options
 
-1) ``CoSA -i examples/counters/counters.json --simulate -k 7`` generates a system execution with depth 7
+1) ``CoSA -i examples/counters/counters.json --verification simulation -k 7`` generates a system execution with depth 7
 
 2) ``CoSA -i examples/counters/counters.json --safety -p "!(count0.a.out = 5_16)" -k 7`` performs reachability model checking with property count0.a.out != 5 as a 16-bit Bitvector
 
