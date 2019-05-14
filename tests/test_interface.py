@@ -74,9 +74,10 @@ def run_translation(path):
                                  prove=True if properties is not None else False,
                                  assumptions=assumptions,
                                  properties=properties,
-                                 lemmas=lemmas
+                                 lemmas=lemmas,
+                                 frozen=False
                                  )
-
+    problems_manager.freeze()
     run_problems(problems_manager)
 
     # status = files_eq(path+EXPECTED, path+GENERATED)
