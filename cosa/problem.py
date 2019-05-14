@@ -143,6 +143,11 @@ class ProblemsManager:
         Split a problem with multiple properties into multiple problems
         Generate a new name for each
         '''
+
+        if type(problem_options['properties']) != str:
+            # can't split properties that aren't strings
+            return [self.__problem_type(**problem_options, idx=get_id())]
+
         problems = []
         potential_filepath = self.relative_path / problem_options['properties']
         if potential_filepath.is_file():

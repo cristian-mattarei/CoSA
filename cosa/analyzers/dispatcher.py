@@ -445,16 +445,15 @@ class ProblemSolver(object):
 
         # TODO: Update this so that we can control whether embedded assertions are solved automatically
         for invar_prop in invar_props:
-            inv_prob = problems.add_problem(verification=VerificationType.SAFETY,
-                                            name=invar_prop[0],
-                                            description=invar_prop[1],
-                                            properties=invar_prop[2])
-
+            problems_config.add_problem(verification=VerificationType.SAFETY,
+                                        name=invar_prop[0],
+                                        description=invar_prop[1],
+                                        properties=invar_prop[2])
         for ltl_prop in ltl_props:
-            inv_prob = problems.add_problem(verification=VerificationType.LTL,
-                                            name=invar_prop[0],
-                                            description=invar_prop[1],
-                                            properties=invar_prop[2])
+            problems_config.add_problem(verification=VerificationType.LTL,
+                                        name=invar_prop[0],
+                                        description=invar_prop[1],
+                                        properties=invar_prop[2])
 
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
@@ -523,7 +522,7 @@ class ProblemSolver(object):
 
                 # TODO: keep assumptions separate from the hts
                 # IMPORTANT: CLEAR ANY PREVIOUS ASSUMPTIONS AND LEMMAS
-                #   This was previously done in __solve_problems and has been moved here
+                #   This was previously done in __solve_problem and has been moved here
                 #   during the frontend refactor in April 2019
                 # this is necessary because the problem hts is just a reference to the
                 #   overall (shared) HTS
@@ -609,21 +608,21 @@ class ProblemSolver(object):
         converted_formulae = [None]*len(formulae)
         for i in range(len(formulae)):
             if formulae[i] is not None:
-                if isinstance(formulae[i], FNode):
-                    # TODO: There should be a better way to handle this nicely
-                    # Embedded assertions will likely be FNodes, but otherwise
-                    # they will be a property file or string
-                    converted_formulae[i] = [formulae[i]]
-                    continue
-
                 converted_formulae[i] = self.convert_formula(formulae[i], relative_path, parser)
             else:
                 converted_formulae[i] = []
 
         return converted_formulae
 
-    def convert_formula(self, formula:str, relative_path:Path,
+    def convert_formula(self, formula:Union[str, FNode], relative_path:Path,
                         parser:Union[StringParser, LTLParser])->List[FNode]:
+
+        if isinstance(formula, FNode):
+            # TODO: There should be a better way to handle this nicely
+            # Embedded assertions will likely be FNodes, but otherwise
+            # they will be a property file or string
+            return [formula]
+
         pdef_file = relative_path / formula
         if pdef_file.is_file():
             with pdef_file.open() as f:
