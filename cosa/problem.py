@@ -210,7 +210,10 @@ class ProblemsManager:
         self._frozen = True
         # freeze all the problems as (immutable) namedtuples
         for i, pbm in enumerate(self.problems):
-            self._problems[i] = self.__problem_type(**pbm)
+            try:
+                self._problems[i] = self.__problem_type(**pbm)
+            except:
+                pass
 
     def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
         assert self._problems_status[problem.idx] == VerificationStatus.UNC, \
