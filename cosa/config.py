@@ -15,7 +15,7 @@ import itertools
 from pathlib import Path
 from typing import Callable, Dict, Sequence, NamedTuple
 
-from cosa.problem import ProblemsManager
+from cosa.problem import ProblemsManager, VerificationType
 
 GENERAL = "GENERAL"
 DEFAULT = "DEFAULT"
@@ -289,7 +289,16 @@ class CosaArgParser(argparse.ArgumentParser):
                     except ValueError as e:
                         raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
-            problems_manager.add_problem(**single_problem_options)
+            # calling with frozen=False keeps the problem mutable for now (might not to override options)
+            problems_manager.add_problem(**single_problem_options, frozen=False)
+
+        # run any manual option handling
+        # modifies the problems_manager in-place
+        self._option_handling(problems_manager)
+        # freeze the problems
+        # now all existing problems are (immutable) namedtuples
+        # note, you can still add new problems, but they must be frozen (e.g. immutable)
+        problems_manager.freeze()
 
         return problems_manager
 
@@ -427,7 +436,8 @@ class CosaArgParser(argparse.ArgumentParser):
                         raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
             try:
-                problems_manager.add_problem(**problem_file_options)
+                # using frozen=False keeps the problems mutable for now
+                problems_manager.add_problem(**problem_file_options, frozen=False)
             except TypeError as e:
                 if len(e.args) > 0:
                     message = e.args[0]
@@ -436,4 +446,29 @@ class CosaArgParser(argparse.ArgumentParser):
                     raise RuntimeError("Unknown option in problem file: {}".format(unknown_option))
                 else:
                     raise e
+        return problems_manager
+
+    def _option_handling(self, problems_manager:ProblemsManager)->None:
+        '''
+        Do any necessary manual option handling.
+        E.g. if some options implicitly set other options, this needs to happen here
+
+        This method should be (carefully) modified whenever a new option is added that is not
+        completely independent of other options (e.g. might affect how other options need to be set).
+        '''
+
+        # handle case where no properties are given
+        # i.e. expecting embedded assertions in the model file
+        # command_line is True when no problem file was used (e.g. not argument for --problems)
+        command_line = problems_manager.general_config.problems is None
+        if command_line and len(problems_manager.problems) == 1:
+            pbm = problems_manager.problems[0]
+            if pbm.properties is None and \
+               pbm.verification not in {VerificationType.EQUIVALENCE, VerificationType.SIMULATION}:
+                # use the provided (command line) options as defaults
+                problems_manager.set_defaults(pbm)
+                # remove the problem
+                problems_manager._problems = []
+                problems_manager._problems_status = dict()
+
         return problems_manager

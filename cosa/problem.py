@@ -20,7 +20,7 @@ from pysmt.fnode import FNode
 
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS
-from cosa.utils.generic import auto_convert
+from cosa.utils.generic import auto_convert, simple_struct
 from cosa.utils.logger import Logger
 
 
@@ -89,6 +89,9 @@ class ProblemsManager:
     '''
     '''
     def __init__(self, relative_path:Path, general_config:Dict[str, Any], defaults:Dict[str, Any]):
+        # after calling freeze, all existing problems will become immutable
+        # note, can still add new (immutable) problems, but can't modify existing ones
+        self._frozen                = False
         self._relative_path         = relative_path
         self._general_config        = namedtuple('general_config', general_config.keys())(**general_config)
         self._defaults              = defaults
@@ -107,16 +110,48 @@ class ProblemsManager:
         # Per-problem second systems for equivalence checking (of verification=equivalence)
         self._problems_second_model = dict()
 
-        options = set(defaults.keys())
-        options.add('idx') # unique id for internal use
+        # sorting keeps everything deterministic
+        options = sorted(list(defaults.keys()))
+        options.append('idx') # unique id for internal use
         self.__problem_type         = namedtuple('Problem', options)
+        self.__mutable_problem_type = simple_struct('MutableProblem', options)
 
-    def add_problem(self, **kwargs):
+    def set_defaults(self, problem:NamedTuple):
+        '''
+        Set the problem default values based on a given problem. This is used when
+        solving embedded assertions. Problems might be added in analyzer/dispatcher.py,
+        but we should maintain the options that were set from the command line.
+        '''
+        problem_dict = problem._asdict()
+        unknown_problem_dict = problem_dict.keys() - self.__problem_type._fields
+        if unknown_problem_dict:
+            raise RuntimeError("Expecting only known problem "
+                               "options but got {}".format(unknown_problem_dict))
+
+        for k, v in problem_dict.items():
+            if k != 'idx':
+                # don't re-use the index
+                self._defaults[k] = v
+
+    def add_problem(self, frozen=True, **kwargs):
         '''
         Creates a problem with the given kwargs as fields,
         anything not supplied is given the default value
         as determined by the defaults given to CosaArgParser in shell.py
+
+        if frozen, then problem is an immutable namedtuple
+        otherwise, creates a mutable simple_struct (a CoSA data structure)
+        --> this is for post-processing in CosaArgParser
+            some options implicitly set other options and this must be managed
+            once that is all done, the problems should be frozen, by calling
+            .freeze() on the ProblemsManager object (done in config.py)
         '''
+
+        if self._frozen:
+            # problems should not be mutable
+            # the only case is BEFORE implicitly setting options in config.py
+            assert frozen, "Can't add a mutable problem after the manager has been frozen"
+
         unknown_kwargs = kwargs.keys() - self.__problem_type._fields
         if unknown_kwargs:
             raise RuntimeError("Expecting only known problem "
@@ -128,7 +163,7 @@ class ProblemsManager:
             problem_options[option] = value
 
         # if there were multiple properties, split them into separate problems
-        if problem_options['properties'] is not None:
+        if not frozen and problem_options['properties'] is not None:
             problems = self._split_problem(problem_options)
             for pbm in problems:
                 self._problems.append(pbm)
@@ -143,10 +178,6 @@ class ProblemsManager:
         Split a problem with multiple properties into multiple problems
         Generate a new name for each
         '''
-
-        if type(problem_options['properties']) != str:
-            # can't split properties that aren't strings
-            return [self.__problem_type(**problem_options, idx=get_id())]
 
         problems = []
         potential_filepath = self.relative_path / problem_options['properties']
@@ -170,10 +201,16 @@ class ProblemsManager:
         for n, prop in zip(names, properties):
             # create new problems with new name and properties field
             # and the rest of the fields identical
-            problems.append(self.__problem_type(name=n, properties=prop,
-                                                idx=get_id(), **problem_options))
+            problems.append(self.__mutable_problem_type(name=n, properties=prop,
+                                                        idx=get_id(), **problem_options))
 
         return problems
+
+    def freeze(self):
+        self._frozen = True
+        # freeze all the problems as (immutable) namedtuples
+        for i, pbm in enumerate(self.problems):
+            self._problems[i] = self.__problem_type(**pbm)
 
     def set_problem_status(self, problem:NamedTuple, status:VerificationStatus):
         assert self._problems_status[problem.idx] == VerificationStatus.UNC, \
