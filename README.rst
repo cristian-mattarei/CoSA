@@ -14,8 +14,8 @@ CoSA supports a variety of input formats:
 
 - `CoreIR`_
 - `BTOR2`_
-- Verilog
-- SystemVerilog
+- Verilog (with Yosys)
+- SystemVerilog (with Verific)
 - Symbolic Transition System (`STS`_)
 - Explicit states Transition System (`ETS`_)
 
@@ -35,29 +35,53 @@ Installation
 
 1) ``pip3 install cosa`` to install CoSA, and its dependencies i.e., `PySMT`_, `PyCoreIR`_, and `PyVerilog`_
 
-2) ``pysmt-install --msat`` to install `MathSAT5`_ solver (it provides interpolation support), or ``pysmt-install --cvc4`` for `CVC4`_ and ``pysmt-install --z3`` for `Z3`_
+2) ``pysmt-install --msat`` to install `MathSAT5`_ solver (it provides interpolation support), or ``pysmt-install --cvc4`` for `CVC4`_ and ``pysmt-install --z3`` for `Z3`_ and ``pysmt-install --btor`` for `Boolector`_
 
 3) ``pysmt-install --env`` to show the environment variables that need to be exported
 
 Software requirements:
 
-- `CoreIR`_ needs to be installed in order to support CoreIR as input format
-- `Icarus Verilog`_ needs to be installed in order to support Verilog as input format
-- `Verific`_ binaries (i.e., ``verific``) and `Icarus Verilog`_ need to be installed in order to support SystemVerilog as input format
+- `Python3`_
+- `Pip3`_: package manager -- easiest way to install CoSA. On Debian: `apt-get update; apt-get install python3-pip`.
+- `Cmake`_ and a standard C++ compiler for `CoreIR`_ / `PyCoreIR`_
+- `Yosys`_ needs to be installed in order to support Verilog as an input format
+- `Verific`_ binaries or Yosys built with Verific library in order to support SystemVerilog as an input format [Commercial Tool]
 
+.. _BTOR2: https://github.com/Boolector/btor2tools
+.. _Boolector: https://github.com/Boolector/boolector
+.. _Cmake: https://cmake.org/
+.. _CoreIR: https://github.com/rdaly525/coreir
+.. _CVC4: http://cvc4.cs.stanford.edu/web/
+.. _ETS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/ets.rst
+.. _Git: https://www.atlassian.com/git/tutorials/install-git
+.. _Icarus Verilog: https://github.com/steveicarus/iverilog
+.. _MathSAT5: http://mathsat.fbk.eu
+.. _Pip3: https://pypi.org/project/pip/
 .. _PyCoreIR: https://github.com/leonardt/pycoreir
 .. _PySMT: https://github.com/pysmt/pysmt
-.. _MathSAT5: http://mathsat.fbk.eu
-.. _CVC4: http://cvc4.cs.stanford.edu/web/
+.. _Python3: https://www.python.org/downloads/
+.. _PyVerilog: https://github.com/PyHDI/Pyverilog
+.. _STS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/sts.rst
+.. _Verific: http://www.verific.com/
+.. _Yosys: https://github.com/YosysHQ/yosys
 .. _Z3: https://github.com/Z3Prover/z3
 
-.. _CoreIR: https://github.com/rdaly525/coreir
-.. _Icarus Verilog: https://github.com/steveicarus/iverilog
-.. _PyVerilog: https://github.com/PyHDI/Pyverilog
-.. _Verific: http://www.verific.com/
-.. _BTOR2: https://github.com/Boolector/btor2tools
-.. _STS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/sts.rst
-.. _ETS: https://github.com/cristian-mattarei/CoSA/blob/master/doc/ets.rst
+
+========================
+Installation from Source
+========================
+- Install `Git`_
+- ``git clone https://github.com/cristian-mattarei/CoSA.git``
+- ``pip3 install -e .``
+
+Pip will automatically install the Python dependencies. To install Yosys for Verilog support, follow the instructions `here
+<https://github.com/YosysHQ/yosys/blob/master/README.md>`_.
+
+Note: If running in a Python virtualenv, pip will install the ``CoSA`` script in ``~/.local/bin``, so be sure it's added to your ``PATH`` with ``export PATH=~/.local/bin:$PATH``.
+
+To run tests (tests include Veriog models and thus require Yosys):
+
+- ``nosetests tests``
 
 ========================
 Usage
@@ -89,14 +113,6 @@ Docker
 2) build the Docker image: ``cd docker/ubuntu_1604 && docker build -t ubuntu-cosa .``
 
 3) run the Docker image: ``docker run -i -t ubuntu-cosa /bin/bash``
-
-========================
-Development
-========================
-
-- ``pip3 install -e .`` to install CoSA from the source
-  
-- ``nosetests tests`` to run the tests
 
 ========================
 License
