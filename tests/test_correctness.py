@@ -10,8 +10,9 @@
 
 import os
 
-from cosa.shell import Config, run_verification, run_problems
 from cosa.environment import reset_env
+from cosa.options import cosa_option_manager
+from cosa.shell import run_problems
 
 COSADIR = ".CoSA"
 
@@ -29,23 +30,27 @@ problem_files.reverse()
 def runtest(problem_file):
     reset_env()
 
-    config = Config()
+    # actually pass these through? Or just rely on the problem file?
+    safety = True
+    verbosity = 2
+    solver_name = "msat"
+    prove = True
+    vcd = True
+    translate = "file.ssts"
 
-    config.safety = True
-    config.verbosity = 2
-    config.solver_name = "msat"
-    config.prove = True
-    config.vcd = True
-    config.force_expected = True
-    config.translate = "file.ssts"
-    
-    status = run_problems(problem_file, config)
-    with open(config.translate, "r") as f:
+    problems_manager = cosa_option_manager.read_problem_file(problem_file,
+                                                             verbosity=2,
+                                                             solver_name='msat',
+                                                             prove=True,
+                                                             vcd=True,
+                                                             translate='file.ssts')
+    status = run_problems(problems_manager)
+    with open(translate, "r") as f:
         print(f.read())
 
     assert status == 0
     return status
-    
+
 def test_problem():
     for problem_file in problem_files:
         yield runtest, problem_file

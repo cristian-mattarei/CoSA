@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: counters.json
+model_files: counters.json
 abstract_clock: True
 add_clock: True
 boolean: True
@@ -10,13 +10,13 @@ smt2_tracing: /tmp/tracing.smt2
 
 [Counters-SIM]
 description: "Simulation"
-formula: count0.r.reg0.out = 5_16
+properties: count0.r.reg0.out = 5_16
 verification: simulation
 expected: True
 
 [Counters-SIM-NU]
 description: "Simulation with no unrolling"
-formula: count0.r.reg0.out = 5_16
+properties: count0.r.reg0.out = 5_16
 verification: simulation
 strategy: NU
 expected: True

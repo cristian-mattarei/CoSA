@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: counter.json,counter_live.sts
+model_files: counter.json,counter_live.sts
 add_clock: True
 
 [DEFAULT]

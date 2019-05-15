@@ -33,44 +33,19 @@ class VerificationStrategy(object):
     ALL = "ALL"
     MULTI = "MULTI"
 
-class MCConfig(object):
-
-    incremental = True
-    strategy = None
-    solver = None
-    prefix = None
-    smt2file = None
-    simplify = False
-    solver_name = None
-    solver_options = None
-    prove = None
-
-    def __init__(self):
-        self.incremental = True
-        self.strategy = VerificationStrategy.AUTO
-        self.solver_name = "msat"
-        self.solver_options = dict()
-        self.prefix = None
-        self.smt2file = None
-        self.simplify = False
-        self.prove = False
-
-        self.strategies = MCConfig.get_strategies()
-
-    @staticmethod
-    def get_strategies():
-        strategies = []
-        strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
-        strategies.append((VerificationStrategy.MULTI, "Parallel multiple techniques"))
-        strategies.append((VerificationStrategy.FWD,   "Forward reachability"))
-        strategies.append((VerificationStrategy.BWD,   "Backward reachability"))
-        strategies.append((VerificationStrategy.ZZ,    "Mixed Forward and Backward reachability (Zig-Zag)"))
-        strategies.append((VerificationStrategy.INT,   "Interpolation"))
-        strategies.append((VerificationStrategy.NU,    "States picking without unrolling (only for simulation)"))
-        strategies.append((VerificationStrategy.LTL,   "Pure LTL verification (without optimizations)"))
-        strategies.append((VerificationStrategy.ALL,   "Use all techniques"))
-
-        return strategies
+# strategies should be registered here to be visible from command line options
+def get_verification_strategies():
+    strategies = []
+    strategies.append((VerificationStrategy.AUTO,  "Automatic selection"))
+    strategies.append((VerificationStrategy.MULTI, "Parallel multiple techniques"))
+    strategies.append((VerificationStrategy.FWD,   "Forward reachability"))
+    strategies.append((VerificationStrategy.BWD,   "Backward reachability"))
+    strategies.append((VerificationStrategy.ZZ,    "Mixed Forward and Backward reachability (Zig-Zag)"))
+    strategies.append((VerificationStrategy.INT,   "Interpolation"))
+    strategies.append((VerificationStrategy.NU,    "States picking without unrolling (only for simulation)"))
+    strategies.append((VerificationStrategy.LTL,   "Pure LTL verification (without optimizations)"))
+    strategies.append((VerificationStrategy.ALL,   "Use all techniques"))
+    return strategies
 
 class TraceSolver(object):
 
@@ -117,8 +92,8 @@ class BMCSolver(object):
         self.total_time = 0.0
 
         basename = None
-        if self.config.smt2file is not None:
-            basename = ".".join(self.config.smt2file.split(".")[:-1])
+        if self.config.smt2_tracing is not None:
+            basename = ".".join(self.config.smt2_tracing.split(".")[:-1])
         logic = convert_logic_from_string(self.hts.logic)
         self.solver = TraceSolver(config.solver_name, "main", logic=logic, incremental=config.incremental,
                                   solver_options=config.solver_options, basename=basename)
@@ -343,10 +318,6 @@ class BMCSolver(object):
             self._reset_assertions(self.solver)
             self._add_assertion(self.solver, self.at_time(And(init, Not(lemma)), 0), comment="Init check")
             res = self._solve(self.solver)
-
-            prefix = None
-            if self.config.prefix is not None:
-                prefix = self.config.prefix+"-ind"
 
             if res:
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)

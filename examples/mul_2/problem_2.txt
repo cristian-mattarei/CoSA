@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: mul_2_pe.json
+model_files: mul_2_pe.json
 equivalence: mul_2_pe-passes.json
 abstract_clock: True
 add_clock: True

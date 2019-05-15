@@ -52,13 +52,18 @@ class SMVHTSPrinter(HTSPrinter):
         self.write("MODULE main\n")
 
         if properties is not None:
-            for strprop, prop, _ in properties:
-                if has_ltl_operators(prop):
-                    self.write("\nLTLSPEC ")
-                else:
-                    self.write("\nINVARSPEC ")
-                self.printer(prop)
-                self.write(";\n")
+            for prop in properties:
+                self.write('\nPROPERTY')
+                self.write(prop)
+                self.write(';\n')
+            # TODO: decide if it's important to identify the property type
+            # for strprop, prop, _ in properties:
+            #     if has_ltl_operators(prop):
+            #         self.write("\nLTLSPEC ")
+            #     else:
+            #         self.write("\nINVARSPEC ")
+            #     self.printer(prop)
+            #     self.write(";\n")
 
         if hts.assumptions is not None:
             self.write("\n-- ASSUMPTIONS\n")

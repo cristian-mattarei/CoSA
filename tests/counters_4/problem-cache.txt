@@ -1,17 +1,17 @@
 [GENERAL]
-model_file: Counters_4.v[Counters_4],rst_beh.ets
+model_files: Counters_4.v[Counters_4],rst_beh.ets
 clock_behaviors: DetClock(clk, 1)
 assume_if_true: True
-coi: True
 cache_files: True
 
 [DEFAULT]
 bmc_length: 200
 trace_prefix: trace
+coi: True
 
 [reset_check]
 description: "Reset output value"
-formula: posedge(rst) -> (next(out) = 0_16)
+properties: posedge(rst) -> (next(out) = 0_16)
 verification: safety
 prove: True
 expected: True
@@ -25,7 +25,7 @@ expected: True
 
 [fair_count]
 description: "Below 10 it counts correctly"
-formula: (reset_performed & ! posedge(rst) & posedge(clk) & (out < 10_16) & (out != 0_16)) -> ((next(out) = (out + 1_16)))
+properties: (reset_performed & ! posedge(rst) & posedge(clk) & (out < 10_16) & (out != 0_16)) -> ((next(out) = (out + 1_16)))
 assumptions: reset_performed -> (rst = 0_1);out < 10_16
 verification: safety
 prove: True
@@ -33,7 +33,7 @@ expected: True
 
 [fair_count_2]
 description: "Below 10 it counts correctly"
-formula: (reset_performed & ! posedge(rst) & posedge(clk)) -> ((next(out) < (out + 2_16)))
+properties: (reset_performed & ! posedge(rst) & posedge(clk)) -> ((next(out) < (out + 2_16)))
 assumptions: reset_performed -> (rst = 0_1);out < 240_16
 verification: safety
 prove: True

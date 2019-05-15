@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: fifo_pop.sts
+model_files: fifo_pop.sts
 
 [DEFAULT]
 trace_prefix: trace

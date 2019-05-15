@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: Counters.v[Counters],toggle-clk1.ssts
+model_files: Counters.v[Counters],toggle-clk1.ssts
 assume_if_true: True
 # note: This implicitly starts clk2 at zero
 #       which is why we need to use toggle-clk1.ssts to start it at 1
@@ -15,7 +15,7 @@ expected: True
 
 [counter_out]
 description: "Check that the out is always < 12"
-formula: out < 12_8
+properties: out < 12_8
 prove: True
 verification: safety
 strategy: ALL
@@ -23,28 +23,28 @@ expected: True
 
 [counter_2_reaches_1]
 description: "Check that counter 2 eventually reaches 1"
-formula: F(counter_2.out = 1_8)
+properties: F(counter_2.out = 1_8)
 prove: True
 verification: ltl
 expected: True
 
 [counter_2_io_reaches_1]
 description: "Check that counter 2 reaches 1 infinitely often"
-formula: G(F(counter_2.out = 1_8))
+properties: G(F(counter_2.out = 1_8))
 prove: True
 verification: ltl
 expected: True
 
 [counter_1_reaches_1]
 description: "Check that counter 1 eventually reaches 1"
-formula: F(counter_1.out = 1_8)
+properties: F(counter_1.out = 1_8)
 prove: True
 verification: ltl
 expected: True
 
 [counter_1_io_reaches_1]
 description: "Check that counter 1 reaches 1 infinitely often"
-formula: G(F(counter_1.out = 1_8))
+properties: G(F(counter_1.out = 1_8))
 prove: True
 verification: ltl
 expected: True

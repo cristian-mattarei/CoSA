@@ -1,5 +1,5 @@
 [GENERAL]
-model_file: fifo.sts
+model_files: fifo.sts
 
 [DEFAULT]
 bmc_length: 40

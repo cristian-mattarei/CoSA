@@ -13,6 +13,8 @@ import os
 import sys
 import tempfile
 
+from typing import Sequence, Union
+
 STRING_PATTERN = "___STRING_%d___"
 string_id = 0
 
@@ -125,3 +127,49 @@ class color:
 
 def bold_text(text):
     return color.BOLD + text + color.END
+
+def simple_struct(name:str, fields:Union[str, Sequence[str]]):
+    '''
+    Constructs a simple (mutable) struct class with the given fields
+
+    Supports any sequence of strings, or the namedtuple-style single
+    space-delimited string, e.g. 'field1 field2 field3'
+    '''
+
+    if isinstance(fields, str):
+        fields = fields.split()
+
+    class generated_simple_struct:
+        __slots__ = fields
+        def __init__(self, *args, **kwargs):
+            unknown_kwargs = kwargs.keys() - fields
+            assert len(unknown_kwargs) == 0, "unknown fields {}".format(unknown_kwargs)
+
+            positional_args = generated_simple_struct.__slots__[:len(args)]
+            overlapping_args = set(kwargs.keys()).intersection(positional_args)
+            assert len(overlapping_args) == 0, \
+                "Got two values for the following field(s) {}".format(overlapping_args)
+
+            for f, v in zip(positional_args, args):
+                setattr(self, f, v)
+
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+        def _get_assignments(self):
+            str_assignments = ['{}={}'.format(f, getattr(self, f)) for f in generated_simple_struct.__slots__]
+            return ", ".join(str_assignments)
+
+        def __repr__(self):
+            return "{}({})".format(name, self._get_assignments())
+
+        def __str__(self):
+            return "{}({})".format(name, self._get_assignments())
+
+        def keys(self):
+            return generated_simple_struct.__slots__
+
+        def __getitem__(self, key):
+            return getattr(self, key)
+
+    return generated_simple_struct

@@ -1055,7 +1055,7 @@ trace\_vars\_change & False & ~~ & vcd & False
 
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file example,label=problem_file]
 [GENERAL]
-model_file: model.v[main_module]
+model_files: model.v[main_module]
 add_clock: True
 
 [DEFAULT]
@@ -1087,7 +1087,7 @@ command \texttt{CoSA --problems examples/counter/problem.txt --prefix
   
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/counter/problem.txt},label=counter_problem]
 [GENERAL]
-model_file: counter.json,counter_live.sts
+model_files: counter.json,counter_live.sts
 add_clock: True
 
 [DEFAULT]
@@ -1167,7 +1167,7 @@ under analysis is the composition between \texttt{mul\_2.json}, and
   
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/mul\_2/problem\_1.txt},label=equivalence_problem]
 [GENERAL]
-model_file: mul_2.json
+model_files: mul_2.json
 equivalence: mul_2_pe.json
 add_clock: True
 

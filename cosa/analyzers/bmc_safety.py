@@ -75,7 +75,6 @@ class BMCSafety(BMCSolver):
         else:
             self._init_at_time(self.hts.vars, k)
             if prop == TRUE():
-                self.config.incremental = False
                 (t, model) = self.solve_safety_fwd(self.hts, Not(prop), k, k)
             else:
                 (t, model) = self.solve_safety(self.hts, Not(prop), k)
@@ -232,8 +231,10 @@ class BMCSafety(BMCSolver):
 
             Logger.msg("(%s)"%(winning[0]), 0, not(Logger.level(1)))
 
-            if winning[0] == VerificationStrategy.BWD:
-                self.config.strategy = VerificationStrategy.BWD
+            # TODO: figure out a better way to handle this
+            #       config object is not settable anymore
+            # if winning[0] == VerificationStrategy.BWD:
+            #     self.config.strategy = VerificationStrategy.BWD
 
             return winning[1]
 
@@ -473,10 +474,6 @@ class BMCSafety(BMCSolver):
             self._reset_assertions(self.solver)
             self._add_assertion(self.solver, self.at_time(And(init, Not(lemma)), 0), comment="Init check")
             res = self._solve(self.solver)
-
-            prefix = None
-            if self.config.prefix is not None:
-                prefix = self.config.prefix+"-ind"
 
             if res:
                 Logger.log("Lemma \"%s\" failed for I -> L"%lemma, 2)
