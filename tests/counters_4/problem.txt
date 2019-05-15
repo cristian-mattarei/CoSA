@@ -2,6 +2,7 @@
 model_files: Counters_4.v[Counters_4],rst_beh.ets
 clock_behaviors: DetClock(clk, 1)
 assume_if_true: True
+no_arrays: False
 
 [DEFAULT]
 bmc_length: 200
