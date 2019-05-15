@@ -518,7 +518,8 @@ class ProblemSolver(object):
                     miter_out = None
 
                 if precondition and problem.verification == VerificationType.SAFETY:
-                    prop = Implies(precondition, prop)
+                    assert len(precondition) == 1, "There should only be one precondition"
+                    prop = Implies(precondition[0], prop)
 
                 # TODO: keep assumptions separate from the hts
                 # IMPORTANT: CLEAR ANY PREVIOUS ASSUMPTIONS AND LEMMAS
@@ -623,15 +624,14 @@ class ProblemSolver(object):
             # they will be a property file or string
             return [formula]
 
-        pdef_file = relative_path / formula
-        if pdef_file.is_file():
+        try:
+            pdef_file = relative_path / formula
             with pdef_file.open() as f:
                 # TODO: Update this to use a grammar or semi-colons
                 # It would be nice to allow multi-line formulas
-
                 # TODO: Find out if we even need all the tuple elements (only use the prop now)
                 converted_tuples = parser.parse_formulae([p.strip() for p in f.read().strip().split("\n")])
-        else:
+        except OSError:
             converted_tuples = parser.parse_formulae([p.strip() for p in formula.split(MODEL_SP)])
 
         # extract the second tuple argument (the actual property)
