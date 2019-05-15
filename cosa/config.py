@@ -15,6 +15,7 @@ import itertools
 from pathlib import Path
 from typing import Callable, Dict, Sequence, NamedTuple
 
+from cosa.analyzers.mcsolver import VerificationStrategy
 from cosa.problem import ProblemsManager, VerificationType
 
 GENERAL = "GENERAL"
@@ -457,10 +458,12 @@ class CosaArgParser(argparse.ArgumentParser):
         completely independent of other options (e.g. might affect how other options need to be set).
         '''
 
+        general_config = problems_manager.general_config
+
         # handle case where no properties are given
         # i.e. expecting embedded assertions in the model file
         # command_line is True when no problem file was used (e.g. not argument for --problems)
-        command_line = problems_manager.general_config.problems is None
+        command_line = general_config.problems is None
         if command_line and len(problems_manager.problems) == 1:
             pbm = problems_manager.problems[0]
             if pbm.properties is None and \
@@ -470,5 +473,15 @@ class CosaArgParser(argparse.ArgumentParser):
                 # remove the problem
                 problems_manager._problems = []
                 problems_manager._problems_status = dict()
+
+
+        # iterate through problems and fix options
+        for problem in problems_manager.problems:
+
+            ########################### parametric model checking ############################
+            # parametric model checking uses strategy BWD
+            # need to set the strategy for interpreting traces correctly
+            if problem.verification == VerificationType.PARAMETRIC:
+                problem.strategy = VerificationStrategy.BWD
 
         return problems_manager

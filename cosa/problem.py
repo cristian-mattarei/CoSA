@@ -13,7 +13,7 @@ import configparser
 import copy
 from itertools import count
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Sequence, Union
 
 # for type hints
 from pysmt.fnode import FNode
@@ -163,7 +163,11 @@ class ProblemsManager:
             problem_options[option] = value
 
         # if there were multiple properties, split them into separate problems
-        if not frozen and problem_options['properties'] is not None:
+        # doesn't apply for None (obviously) or FNode (which is already a compiled property)
+        #    Note: FNodes are only used for embedded assertions (included in the model file)
+        #          because those are already processed by the encoder
+        if problem_options['properties'] is not None and \
+           type(problem_options['properties']) is not FNode:
             problems = self._split_problem(problem_options)
             for pbm in problems:
                 self._problems.append(pbm)
@@ -180,16 +184,21 @@ class ProblemsManager:
         '''
 
         problems = []
-        potential_filepath = self.relative_path / problem_options['properties']
-        if potential_filepath.is_file():
-            with potential_filepath.open() as f:
-                properties = []
-                for line in f.read().split(NL):
-                    line = line.strip()
-                    if line:
-                        properties.append(line)
+        if isinstance(problem_options['properties'], str):
+            potential_filepath = self.relative_path / problem_options['properties']
+            if potential_filepath.is_file():
+                with potential_filepath.open() as f:
+                    properties = []
+                    for line in f.read().split(NL):
+                        line = line.strip()
+                        if line:
+                            properties.append(line)
+            else:
+                properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
+        elif isinstance(problem_options['properties'], Sequence):
+            properties = problem_options['properties']
         else:
-            properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
+            assert False, "should be unreachable"
 
         name = problem_options['name']
         names = ['{}_{}'.format(name, i) for i in range(len(properties))]
