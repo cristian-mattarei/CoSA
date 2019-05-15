@@ -294,7 +294,7 @@ class BTOR2Parser(ModelParser):
                 nodemap[nid] = BVSLE(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == EQ:
-                nodemap[nid] = BVComp(getnode(nids[1]), getnode(nids[2]))
+                nodemap[nid] = BVComp(B2BV(getnode(nids[1])), B2BV(getnode(nids[2])))
 
             if ntype == NE:
                 nodemap[nid] = BVNot(BVComp(getnode(nids[1]), getnode(nids[2])))
@@ -316,7 +316,7 @@ class BTOR2Parser(ModelParser):
 
             if ntype == ITE:
                 if (get_type(getnode(nids[2])) == BOOL) or (get_type(getnode(nids[3])) == BOOL):
-                    nodemap[nid] = Ite(BV2B(getnode(nids[1])), BV2B(getnode(nids[2])), BV2B(getnode(nids[3])))
+                    nodemap[nid] = Ite(BV2B(getnode(nids[1])), B2BV(getnode(nids[2])), B2BV(getnode(nids[3])))
                 else:
                     nodemap[nid] = Ite(BV2B(getnode(nids[1])), getnode(nids[2]), getnode(nids[3]))
 
