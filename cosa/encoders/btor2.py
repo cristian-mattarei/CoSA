@@ -10,7 +10,7 @@
 
 import os
 
-from pysmt.shortcuts import Not, TRUE, And, BVNot, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
+from pysmt.shortcuts import Not, TRUE, And, BVNot, BVNeg, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
     Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
     Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
     BVLShl, BVAShr, BVLShr
@@ -42,7 +42,7 @@ INPUT="input"
 OUTPUT="output"
 ADD="add"
 EQ="eq"
-NE="ne"
+NE="neq"
 MUL="mul"
 SLICE="slice"
 CONST="const"
@@ -63,6 +63,7 @@ IMPLIES="implies"
 OR="or"
 ITE="ite"
 NOT="not"
+NEG="neg"
 REDOR="redor"
 REDAND="redand"
 UEXT="uext"
@@ -218,15 +219,14 @@ class BTOR2Parser(ModelParser):
                 ts.add_input_var(nodemap[nid])
 
             if ntype == OUTPUT:
-                if len(nids) > 2:
-                    symbol = Symbol(nids[2], getnode(nids[0]))
-                else:
-                    symbol = Symbol((SN%nid), getnode(nids[0]))
-
-                nodemap[nid] = EqualsOrIff(symbol, B2BV(getnode(nids[1])))
+                # unfortunately we need to create an extra symbol just to have the output name
+                # we could be smarter about this, but then this parser can't be greedy
+                original_symbol = getnode(nids[0])
+                output_symbol = Symbol(nids[1], original_symbol.get_type())
+                nodemap[nid] = EqualsOrIff(output_symbol, original_symbol)
                 invarlist.append(nodemap[nid])
                 node_covered.add(nid)
-                ts.add_output_var(symbol)
+                ts.add_output_var(output_symbol)
 
             if ntype == AND:
                 nodemap[nid] = binary_op(BVAnd, And, getnode(nids[1]), getnode(nids[2]))
@@ -250,6 +250,9 @@ class BTOR2Parser(ModelParser):
 
             if ntype == NOT:
                 nodemap[nid] = unary_op(BVNot, Not, getnode(nids[1]))
+
+            if ntype == NEG:
+                nodemap[nid] = BVNeg(getnode(nids[1]))
 
             if ntype == UEXT:
                 nodemap[nid] = BVZExt(B2BV(getnode(nids[1])), int(nids[2]))
