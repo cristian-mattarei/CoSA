@@ -391,7 +391,16 @@ class CosaArgParser(argparse.ArgumentParser):
             if v is not None:
                 assert k in self._types, "Expecting to have (at least default) type info for every option"
                 try:
-                    general_options[k] = self._types[k](v)
+                    # handle the 'False' case, note that bool('False') evaluates to True
+                    if self._types[k] == bool and isinstance(v, str):
+                        if v == 'True':
+                            general_options[k] = True
+                        elif v == 'False':
+                            general_options[k] = False
+                        else:
+                            raise RuntimeError("Expecting True or False as an option for {} but got {}".format(k, v))
+                    else:
+                        general_options[k] = self._types[k](v)
                 except ValueError as e:
                     raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
@@ -432,7 +441,16 @@ class CosaArgParser(argparse.ArgumentParser):
                 if v is not None:
                     assert k in self._types, "Expecting to have (at least default) type info for every option"
                     try:
-                        problem_file_options[k] = self._types[k](v)
+                        # handle the 'False' case, note that bool('False') evaluates to True
+                        if self._types[k] == bool and isinstance(v, str):
+                            if v == 'True':
+                                problem_file_options[k] = True
+                            elif v == 'False':
+                                problem_file_options[k] = False
+                            else:
+                                raise RuntimeError("Expecting True or False as an option for {} but got {}".format(k, v))
+                        else:
+                            problem_file_options[k] = self._types[k](v)
                     except ValueError as e:
                         raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
