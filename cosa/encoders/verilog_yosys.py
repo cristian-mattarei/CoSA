@@ -114,7 +114,7 @@ class VerilogYosysBtorParser(ModelParser):
             files = [abspath]
         else:
             if self.files_from_dir:
-                files = ["%s/%s"%(directory, f) for f in os.listdir(directory) if self._get_extension(f) in self.extensions]
+                files = [str(f) for f in directory.iterdir() if f.suffix[1:] in self.extensions]
             else:
                 files = []
                 with abspath.open("r") as source_list:
