@@ -24,7 +24,7 @@ expected: True
 
 [fair_count]
 description: "Below 10 it counts correctly"
-properties: (reset_performed & ! posedge(rst) & posedge(clk) & (out < 10_16) & (out != 0_16)) -> ((next(out) = (out + 1_16)))
+properties: (reset_performed & ! posedge(rst) & posedge(clk) & (out < 10_16) & (out != 0_16)) -> ((next(out) = (out + 1_16)));
 assumptions: reset_performed -> (rst = 0_1);out < 10_16
 verification: safety
 prove: True
