@@ -111,7 +111,7 @@ class VerilogYosysBtorParser(ModelParser):
                 PASSES.append("opt;;")
 
         if self.single_file:
-            files = [abspath]
+            files = [str(abspath)]
         else:
             if self.files_from_dir:
                 files = [str(f) for f in directory.iterdir() if f.suffix[1:] in self.extensions]
