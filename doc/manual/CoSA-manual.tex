@@ -802,7 +802,7 @@ results of the analysis, given \texttt{bmc\_length} parameter.
 \end{table}
 
 \begin{example}[Simulation]
-  Running \texttt{CoSA -i examples/counters/counters.sts --simulate}
+  Running \texttt{CoSA -i examples/counters/counters.sts --verification simulation}
   will generate a system execution of length equal to the default
   setting for the parameter \texttt{-k}, which is 10.
 \end{example}
@@ -810,8 +810,8 @@ results of the analysis, given \texttt{bmc\_length} parameter.
 \subsection{Safety and LTL verification}
 \label{sec:safety_and_ltl}
 
-Safety (parameter \texttt{--safety}) and LTL (parameter
-\texttt{--ltl}) verifications require to provide a property using the
+Safety (parameter \texttt{--verification safety}) and LTL (parameter
+\texttt{--verification ltl}) verifications require to provide a property using the
 parameter \texttt{-p}. An additional parameter \texttt{--prove}
 requires the tool to try to prove that the property holds,
 independently from the depth of the analysis (i.e.,
@@ -820,8 +820,8 @@ analysis can be either \texttt{FALSE}, \texttt{TRUE}, or
 \texttt{UNKNOWN}. The latter is provided when only a bounded proof
 exists, and the probability to find an unbounded proof is dependent
 from the depth of the analysis. Some input files can contain also
-property definitions, and the usage of \texttt{--safety} or
-\texttt{--ltl} parameter includes also those properties in the
+property definitions, and the usage of \texttt{--verification safety} or
+\texttt{--verification ltl} parameter includes also those properties in the
 verification task.  Table~\ref{tab:safety_results} summarizes the
 possible results according with the parameter \texttt{--prove}, and
 the existence of a proof.
@@ -842,7 +842,7 @@ the existence of a proof.
 
 \begin{example}[Prove property]
   Running \texttt{CoSA -i examples/counters/counters.json --add-clock
-    --safety\\ -p "count1.r.reg0.out < 19\_16"} performs a safety
+    --verification safety\\ -p "count1.r.reg0.out < 19\_16"} performs a safety
   analysis of the property \texttt{count1.r.reg0.out < 19\_16}, and
   the result is shown in Figure~\ref{safety_unk}. While adding the
   parameter \texttt{--prove} to the command, CoSA is able to prove the
@@ -861,6 +861,27 @@ Result: TRUE
 
 \end{example}
 
+\subsubsection{Formula Syntax}
+
+For properties, assumptions and lemmas, we rely on the PySMT parser to interpret
+logical formulas. Please see the \texttt{HRLexer} rules
+\href{https://pysmt.readthedocs.io/en/latest/_modules/pysmt/parsing.html}{here}
+for a list of the supported operators.
+
+Useful hint: Note that these logical formulas are ``strongly typed''. In
+particular, there is a difference between a boolean variable and a bit-vector
+size one and they cannot be used interchangeably. By default, variables obtained
+from input models that do not distinguish between the two (e.g. Verilog, BTOR2)
+are encoded as bit-vectors. Thus it is common to convert bit-vectors to booleans
+by comparing to a bit-vector constant for use in boolean formulae.
+
+Example:
+\begin{lstlisting}
+(rst = 1_1) -> (next(config_reg) = 0_16)
+\end{lstlisting}
+
+where bit-vector constants are written \texttt{<value>\_<bitwidth>}, e.g. a
+bit-vector of size one with value zero is \texttt{0\_1}.
 
 \subsection{Equivalence checking}
 \label{sec:equivalence_checking}
@@ -939,7 +960,7 @@ the upper bound of the number of failure that can occur in the system.
   \label{ex:param_nominal}
   Running \texttt{CoSA -i
     examples/counters\_4/\\counters\_4.v[Counters\_4],examples/counters\_4/
-    rst\_beh.ets --add-clock --safety -p "(reset\_performed \& !
+    rst\_beh.ets --add-clock --verification safety -p "(reset\_performed \& !
     posedge(rst) \& posedge(clk)) -> ((next(out) < (out + 2\_16)))" -a
     "reset\_performed -> (rst = 0\_1);out < 240\_16" --prove --prefix
     trace} performs a safety analysis over the given model, property,
@@ -985,7 +1006,7 @@ Traces (max) length: 4
 
 \end{example}
 
-\section{Problem file}
+\section{Problem Files}
 \label{sec:problem_file}
 
 In order to facilitate the usage of the tool in case of complex and
@@ -1003,16 +1024,17 @@ composed of the following sections:
   paths are local to the problem file, unless they start with
   \texttt{/} symbol,
 \item \texttt{[DEFAULT]}: this section is optional, and it defines the
-  default values of the verifications, in case they are not provided,
-\item a list of verifications: each of them starts with a unique
-  identifier in square brackets, and they set all the possible
-  parameters that define the verification task.
+  default values for all the problems in this problem file.
+\item a list of verification tasks (problems): each of them starts with a unique
+  identifier in square brackets, and they set all the possible parameters that
+  define the verification task.
 \end{itemize}
 
 Table~\ref{tab:general_section} lists the possible parameters for the
 \texttt{[GENERAL]} section, while Table~\ref{tab:verification_section}
 lists the parameters for the \texttt{[DEFAULT]} section and each
-verification.
+verification. For more information about each parameter, see the help message,
+\texttt{CoSA --help}.
 
 \begin{table}[h]
   \centering
@@ -1021,7 +1043,7 @@ verification.
 abstract\_clock & False & ~~ & add\_clock & False \\
 assume\_if\_true & False & ~~ & boolean & None \\
 clock\_behaviors & None & ~~ & equivalence & None \\
-model\_extension & None & ~~ & model\_file & None \\
+model\_extension & None & ~~ & model\_files & None \\
 run\_coreir\_passes & True & ~~ & symbolic\_init & False \\
 vcd & False & ~~ & verbosity & None \\
 zero\_init & None
@@ -1038,7 +1060,7 @@ assumptions & None & ~~ & bmc\_length & 10 \\
 bmc\_length\_min & 0 & ~~ & cache\_files & False \\
 cardinality & -1 & ~~ & coi & False \\
 description & None & ~~ & expected & None \\
-formula & None & ~~ & full\_trace & False \\
+properties & None & ~~ & full\_trace & False \\
 generators & None & ~~ & incremental & None \\
 lemmas & None & ~~ & precondition & None \\
 prove & False & ~~ & smt2\_tracing & None \\
@@ -1051,7 +1073,23 @@ trace\_vars\_change & False & ~~ & vcd & False
 \label{tab:verification_section}
 \end{table}
 
+\subsection{Useful Hints}
+\label{problem.hints}
 
+\begin{itemize}
+  \item properties, assumptions and lemmas can have multiple entries separated
+    by ';'. Note: it is best practice to create a new problem for each property
+    though, so that each property has a description
+  \item option values can span multiple lines, provided the subsequent lines are
+    indented. Example:
+\begin{lstlisting}
+assumptions: <assumption 1>;
+             <assumption 2>
+\end{lstlisting}
+\end{itemize}
+
+\subsection{Examples}
+\label{problem.examples}
 
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file example,label=problem_file]
 [GENERAL]
@@ -1063,7 +1101,7 @@ bmc_length: 40
 
 [safety_verification_1_id]
 description: "Description of the safety verification 1"
-formula: <property to be verified>
+properties: <property to be verified>
 assumptions: <assumptions for the verification>
 verification: safety
 prove: True
@@ -1095,7 +1133,7 @@ bmc_length: 40
 
 [Globally]
 description: "Globally Check"
-formula: self.out < 4_16
+properties: self.out < 4_16
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: safety
 prove: True
@@ -1103,7 +1141,7 @@ expected: False
 
 [Finally]
 description: "Finally Check"
-formula: F(self.out = 4_16)
+properties: F(self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
@@ -1111,7 +1149,7 @@ expected: True
 
 [Liveness]
 description: "Liveness Check"
-formula: F(G(self.out = 4_16))
+properties: F(G(self.out = 4_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
@@ -1168,7 +1206,6 @@ under analysis is the composition between \texttt{mul\_2.json}, and
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/mul\_2/problem\_1.txt},label=equivalence_problem]
 [GENERAL]
 model_files: mul_2.json
-equivalence: mul_2_pe.json
 add_clock: True
 
 [DEFAULT]
@@ -1177,6 +1214,7 @@ bmc_length: 5
 [Equivalence Checking]
 description: "Mul2 is equivalent to Mul2 PE"
 verification: equivalence
+equal_to: mul_2_pe.json
 prove: True
 expected: Unknown
 \end{lstlisting}
@@ -1209,7 +1247,7 @@ variables that do not change their value, and this option can be
 disabled with the parameter \texttt{--trace-vars-change}.
 
 \begin{example}[Safety counterexample trace]
-  Running \texttt{CoSA -i examples/counters\_4/\\counters\_4.v[Counters\_4] --simulate -k5}
+  Running \texttt{CoSA -i examples/counters\_4/\\counters\_4.v[Counters\_4] --verification simulation -k5}
   will generate a system execution of length equal to 6 (5 steps + initial state), as
   shown in Figure~\ref{simulation_trace}.
 
@@ -1241,7 +1279,7 @@ Execution:
 
 \begin{example}[Counterexample with all variables]
   Running \texttt{CoSA -i
-    examples/counters\_4/\\counters\_4.v[Counters\_4] --simulate -k5
+    examples/counters\_4/\\counters\_4.v[Counters\_4] --verification simulation -k5
     --trace-vars-change} will generate a system execution of length
   equal to 6 (5 steps + initial state), showing also the variables
   that change value, as shown in Figure~\ref{simulation_trace_change}.
@@ -1295,7 +1333,7 @@ file.
 
 \begin{example}[VCD trace generation]
   Running \texttt{CoSA -i
-    examples/counters\_4/counters\_4.v[Counters\_4] --simulate -k5
+    examples/counters\_4/counters\_4.v[Counters\_4] --verification simulation -k5
     --vcd --prefix trace} will generate a system execution of length
   equal to 6, and save it to a file with prefix ``trace'', as shown in
   Figure~\ref{simulation_trace_prefix}. A VCD trace is also generated
@@ -1331,7 +1369,7 @@ and so on.
 \begin{example}[Infinite trace (LTL)]
   Running \texttt{CoSA -i
     examples/counter/counter.json,examples/counter/\\counter\_live.sts
-    --ltl -a "en\_clr = 0\_1 -> self.clr = 0\_1" -p "F(self.out =
+    --verification ltl -a "en\_clr = 0\_1 -> self.clr = 0\_1" -p "F(self.out =
     4\_16)" \\--trace-vars-change} will generate a counterexample trace
   for the property \texttt{F(self.out = 4\_16)}, as shown in
   Figure~\ref{ltl_trace}.
