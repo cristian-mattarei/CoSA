@@ -195,6 +195,8 @@ class ProblemsManager:
                             properties.append(line)
             else:
                 properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
+                if not properties[-1]:
+                    properties = properties[:-1]
         elif isinstance(problem_options['properties'], Sequence):
             properties = problem_options['properties']
         else:
