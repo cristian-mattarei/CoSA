@@ -1003,10 +1003,10 @@ composed of the following sections:
   paths are local to the problem file, unless they start with
   \texttt{/} symbol,
 \item \texttt{[DEFAULT]}: this section is optional, and it defines the
-  default values of the verifications, in case they are not provided,
-\item a list of verifications: each of them starts with a unique
-  identifier in square brackets, and they set all the possible
-  parameters that define the verification task.
+  default values for all the problems in this problem file.
+\item a list of verification tasks (problems): each of them starts with a unique
+  identifier in square brackets, and they set all the possible parameters that
+  define the verification task.
 \end{itemize}
 
 Table~\ref{tab:general_section} lists the possible parameters for the
@@ -1051,7 +1051,23 @@ trace\_vars\_change & False & ~~ & vcd & False
 \label{tab:verification_section}
 \end{table}
 
+\subsection{Useful Hints}
+\label{problem.hints}
 
+\begin{itemize}
+  \item properties, assumptions and lemmas can have multiple entries separated
+    by ';'. Note: it is best practice to create a new problem for each property
+    though, so that each property has a description
+  \item option values can span multiple lines, provided the subsequent lines are
+    indented. Example:
+\begin{lstlisting}
+properties: <property to verify>;
+            <property to verify>
+\end{lstlisting}
+\end{itemize}
+
+\subsection{Examples}
+\label{problem.examples}
 
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file example,label=problem_file]
 [GENERAL]
@@ -1063,7 +1079,7 @@ bmc_length: 40
 
 [safety_verification_1_id]
 description: "Description of the safety verification 1"
-formula: <property to be verified>
+properties: <property to be verified>
 assumptions: <assumptions for the verification>
 verification: safety
 prove: True
@@ -1095,7 +1111,7 @@ bmc_length: 40
 
 [Globally]
 description: "Globally Check"
-formula: self.out < 4_16
+properties: self.out < 4_16
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: safety
 prove: True
@@ -1103,7 +1119,7 @@ expected: False
 
 [Finally]
 description: "Finally Check"
-formula: F(self.out = 4_16)
+properties: F(self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
@@ -1111,7 +1127,7 @@ expected: True
 
 [Liveness]
 description: "Liveness Check"
-formula: F(G(self.out = 4_16))
+properties: F(G(self.out = 4_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
@@ -1168,7 +1184,6 @@ under analysis is the composition between \texttt{mul\_2.json}, and
 \begin{lstlisting}[frame=single,language=Ini,caption=Problem file in \texttt{examples/mul\_2/problem\_1.txt},label=equivalence_problem]
 [GENERAL]
 model_files: mul_2.json
-equivalence: mul_2_pe.json
 add_clock: True
 
 [DEFAULT]
@@ -1177,6 +1192,7 @@ bmc_length: 5
 [Equivalence Checking]
 description: "Mul2 is equivalent to Mul2 PE"
 verification: equivalence
+equal_to: mul_2_pe.json
 prove: True
 expected: Unknown
 \end{lstlisting}
