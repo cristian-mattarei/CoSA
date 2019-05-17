@@ -176,7 +176,7 @@ class ProblemSolver(object):
         if not accepted_ver:
             Logger.error("Invalid verification type")
 
-        Logger.log("\n*** Problem \"%s\" is %s ***"%(problem, res), 1)
+        Logger.log("\n*** Problem \"%s\" is %s ***"%(problem.name, res), 1)
         return res, trace, traces, region
 
     def get_file_flags(self, strfile):
