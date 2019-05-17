@@ -80,15 +80,15 @@ class VerilogYosysBtorParser(ModelParser):
     def _get_extension(self, strfile):
         return strfile.split(".")[-1]
 
-    def parse_file(self, strfile, config, flags=None):
+    def parse_file(self, filepath, config, flags=None):
         if flags is None:
             Logger.error("Top module not provided")
 
         topmodule = flags[0]
-        absstrfile = os.path.abspath(strfile)
-        directory = "/".join(absstrfile.split("/")[:-1])
-        filename = absstrfile.split("/")[-1]
-        if os.path.isdir(absstrfile):
+        abspath = filepath.absolute()
+        directory = filepath.parent
+        filename = filepath.name
+        if abspath.is_dir():
             # TODO: Test this feature
             self.files_from_dir = True
         else:
@@ -111,13 +111,13 @@ class VerilogYosysBtorParser(ModelParser):
                 PASSES.append("opt;;")
 
         if self.single_file:
-            files = [absstrfile]
+            files = [str(abspath)]
         else:
             if self.files_from_dir:
-                files = ["%s/%s"%(directory, f) for f in os.listdir(directory) if self._get_extension(f) in self.extensions]
+                files = [str(f) for f in directory.iterdir() if f.suffix[1:] in self.extensions]
             else:
                 files = []
-                with open(absstrfile, "r") as source_list:
+                with abspath.open("r") as source_list:
                     Logger.msg("Reading source files from \"%s\"... "%(filename), 0)
                     for source in source_list.read().split("\n"):
                         source = source.strip()
