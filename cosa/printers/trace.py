@@ -185,6 +185,11 @@ class VCDTracePrinter(TracePrinter):
                     break
 
             symbolic_default = args[0]
+            if symbolic_default.get_type().is_array_type():
+                symbolic_default = symbolic_default.array_value_default()
+                if symbolic_default.get_type().is_array_type():
+                    Logger.error("Nested arrays are not supported in VCD output yet")
+
             assert symbolic_default.is_constant()
             default_val = symbolic_default.constant_value()
 
