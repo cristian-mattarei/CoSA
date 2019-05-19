@@ -5,9 +5,9 @@ OUTPUT
 STATE
 
 INIT
-clk1 = 1_1 ;
+clk1 = 1_1;
 
 INVAR
 
 TRANS
-next(clk1) = !clk1 ;
+next(clk1) = !clk1;
