@@ -39,7 +39,7 @@ OPT_PASSES.append("pmuxtree")
 OPT_PASSES.append("proc")
 OPT_PASSES.append("opt;;")
 COMMANDS = []
-COMMANDS.append("read_verilog -sv {FILES}")
+COMMANDS.append("read_verilog -nomem2reg -sv {FILES}")
 COMMANDS.append("prep -top {TARGET}")
 COMMANDS.append("{PASSES}")
 COMMANDS.append("setundef -undriven -anyseq")
