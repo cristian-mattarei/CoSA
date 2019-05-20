@@ -77,24 +77,17 @@ class SyntacticSugarFactory(object):
 class VerilogEncoder(object):
     INTERNAL = 0
     YOSYS_BTOR = 1
-    YOSYS_BTOR_VERIFIC = 2
-    YOSYS_COREIR = 3
+    YOSYS_COREIR = 2
 
 VERILOG_INTERNAL = VerilogEncoder.INTERNAL
 VERILOG_YOSYS_BTOR = VerilogEncoder.YOSYS_BTOR
-VERILOG_YOSYS_BTOR_VERIFIC = VerilogEncoder.YOSYS_BTOR_VERIFIC
 VERILOG_YOSYS_COREIR = VerilogEncoder.YOSYS_COREIR
 
 class ModelParsersFactory(object):
     parsers = []
-    yosys_available = available("yosys")
-    yosys_verific_available = available("yosys", optiongrep="Verific")
-    if yosys_verific_available:
-        verilog_encoder = VerilogEncoder.YOSYS_BTOR_VERIFIC
-    elif yosys_available:
-        verilog_encoder = VerilogEncoder.YOSYS_BTOR
-    else:
-        verilog_encoder = VerilogEncoder.INTERNAL
+    verilog_encoder = VerilogEncoder.YOSYS_BTOR
+    # Other option -- to be deprecated soon
+    # verilog_encoder = VerilogEncoder.INTERNAL
 
     # Additional parsers should be registered here #
     @staticmethod
@@ -115,13 +108,10 @@ class ModelParsersFactory(object):
         ModelParsersFactory.register_parser(SystemVerilogVerificParser())
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
-            ModelParsersFactory.register_parser(VerilogHTSParser())
+            Logger.error("Internal verilog parser support is deprecated.")
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_BTOR:
-            ModelParsersFactory.register_parser(VerilogYosysBtorParser(verific=False))
-
-        if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_BTOR_VERIFIC:
-            ModelParsersFactory.register_parser(VerilogYosysBtorParser(verific=True))
+            ModelParsersFactory.register_parser(VerilogYosysBtorParser())
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.YOSYS_COREIR:
             Logger.error("Not supported")
