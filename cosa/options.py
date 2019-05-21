@@ -273,6 +273,12 @@ general_encoding_options.set_defaults(vcd=False)
 general_encoding_options.add_argument('--vcd', dest='vcd', action='store_true',
                                       help="generate traces also in vcd format. (Default is \"%s\")"%False)
 
+general_encoding_options.set_defaults(verific=False)
+general_encoding_options.add_argument('--verific', action='store_true',
+                                      help="Use the verific frontend through Yosys for (System)Verilog "
+                                      "input files -- requires a version of Yosys built with Verific "
+                                      "bindings. (Default is \"%s\")"%False)
+
 general_encoding_options.set_defaults(zero_init=False)
 general_encoding_options.add_argument('--zero-init', dest='zero_init', action='store_true',
                                       help='sets initial state to zero. (Default is \"%s\")'%False)

@@ -67,9 +67,8 @@ class VerilogYosysBtorParser(ModelParser):
 
     commands = []
 
-    def __init__(self, verific=False):
-        if verific:
-            COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
+    def __init__(self):
+        pass
 
     def is_available(self):
         return shutil.which(CMD) is not None
@@ -83,6 +82,9 @@ class VerilogYosysBtorParser(ModelParser):
     def parse_file(self, filepath, config, flags=None):
         if flags is None:
             Logger.error("Top module not provided")
+
+        if config.verific:
+            COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
 
         topmodule = flags[0]
         abspath = filepath.absolute()
