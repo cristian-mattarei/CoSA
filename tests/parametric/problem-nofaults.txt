@@ -10,3 +10,5 @@ precondition: reset_done
 description: "Check that the property holds without faults (no model extension)"
 properties: next(out) = out + 1_16
 verification: safety
+expected: True
+prove: True

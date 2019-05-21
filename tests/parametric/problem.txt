@@ -11,4 +11,5 @@ precondition: reset_done
 description: "Enumerate faults that can lead to property violations"
 properties: next(out) = out + 1_16
 verification: parametric
-cardinality: 2
+cardinality: 1
+expected: Unknown
