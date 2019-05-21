@@ -188,6 +188,7 @@ class ProblemsManager:
         if isinstance(problem_options['properties'], str):
             try:
                 potential_filepath = self.relative_path / problem_options['properties']
+                properties = []
                 with potential_filepath.open() as f:
                     for line in f.read().split(NL):
                         line = line.strip()
