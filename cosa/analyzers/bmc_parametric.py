@@ -46,15 +46,19 @@ class BMCParametric(BMCSafety):
         fwd = False
 
         for p in parameters:
-            p_time = model[TS.get_ptimed(p, 0)]
-            if p.symbol_type() == BOOL:
-                if monotonic:
+            # search the trace for any enabled faults
+            ever_true = False
+            for t in range(time+1):
+                p_time = model[TS.get_ptimed(p, 0)]
+                if p.symbol_type() == BOOL:
                     if p_time == TRUE():
-                        p_ass.append(p)
-                else:
-                    p_ass.append(p if p_time == TRUE() else Not(p))
-            else:
-                p_ass.append(EqualsOrIff(p, p_time))
+                        ever_true = True
+                        break
+
+            if ever_true:
+                p_ass.append(p)
+            elif not monotonic:
+                p_ass.append(EqualsOrIff(p, FALSE()))
 
         p_ass = And(p_ass)
         self.region = simplify(Or(self.region, p_ass))
@@ -78,6 +82,9 @@ class BMCParametric(BMCSafety):
 
         monotonic = True
 
+        # FIXME : we should do this if the solver supports it
+        #         otherwise, we should prune the traces afterwards to show only minimal ones
+        #         and maybe print a performance warning
         # if monotonic:
         #     for p in parameters:
         #         self.set_preferred((p, False))

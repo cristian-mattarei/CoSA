@@ -517,7 +517,7 @@ class ProblemSolver(object):
                     # reset the miter output
                     miter_out = None
 
-                if precondition and problem.verification == VerificationType.SAFETY:
+                if precondition:
                     assert len(precondition) == 1, "There should only be one precondition"
                     prop = Implies(precondition[0], prop)
 
@@ -552,15 +552,18 @@ class ProblemSolver(object):
                 problems_config.set_problem_status(problem, status)
 
                 # TODO: Determine whether we need both trace and traces
+                assert trace is None or traces is None, "Expecting either a trace or a list of traces"
                 if trace is not None:
                     problem_traces = self.__process_trace(hts, trace, general_config, problem)
                     problems_config.set_problem_traces(problem, problem_traces)
 
                 if traces is not None:
-                    problem_traces = []
+                    traces_to_add = []
                     for trace in traces:
-                        problem_traces.append(self.__process_trace(hts, trace, general_config, problem))
-                    problems_config.set_problem_traces(problem, problem_traces)
+                        problem_trace = self.__process_trace(hts, trace, general_config, problem)
+                        for pt in problem_trace:
+                            traces_to_add.append(pt)
+                    problems_config.set_problem_traces(problem, traces_to_add)
 
                 if problem.verification == VerificationType.PARAMETRIC:
                     assert region is not None
