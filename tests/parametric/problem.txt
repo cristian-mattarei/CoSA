@@ -1,0 +1,15 @@
+[GENERAL]
+model_files: pipelined_counter.v[pipelined_counter],rst.ets
+abstract_clock: True
+model_extension: Inverted
+
+[DEFAULT]
+bmc_length: 10
+precondition: reset_done
+
+[PARAMETRIC]
+description: "Enumerate faults that can lead to property violations"
+properties: next(out) = out + 1_16
+verification: parametric
+cardinality: 1
+expected: Unknown
