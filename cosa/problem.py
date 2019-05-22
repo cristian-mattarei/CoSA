@@ -184,16 +184,17 @@ class ProblemsManager:
         '''
 
         problems = []
+        properties = None
         if isinstance(problem_options['properties'], str):
-            potential_filepath = self.relative_path / problem_options['properties']
-            if potential_filepath.is_file():
+            try:
+                potential_filepath = self.relative_path / problem_options['properties']
+                properties = []
                 with potential_filepath.open() as f:
-                    properties = []
                     for line in f.read().split(NL):
                         line = line.strip()
                         if line:
                             properties.append(line)
-            else:
+            except OSError:
                 properties = [p.strip() for p in problem_options['properties'].strip().split(MODEL_SP)]
                 if not properties[-1]:
                     properties = properties[:-1]
@@ -202,6 +203,7 @@ class ProblemsManager:
         else:
             assert False, "should be unreachable"
 
+        assert properties is not None
         name = problem_options['name']
         names = ['{}_{}'.format(name, i) for i in range(len(properties))]
 
