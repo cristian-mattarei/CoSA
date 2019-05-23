@@ -44,7 +44,10 @@ addons:
 
 install:
   - pip install -e .
-  - bash ./scripts/travis_install.sh
+  - pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
+#  - bash ./scripts/travis_install.sh
+  - wget http://web.stanford.edu/~makaim/files/yosys.tar.xz
+  - tar -xf yosys.tar.xz
   - chmod +x ./yosys
 
 env:
