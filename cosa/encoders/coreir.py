@@ -26,6 +26,7 @@ from cosa.utils.generic import is_number, status_bar
 from cosa.utils.logger import Logger
 from cosa.encoders.template import ModelParser, ModelFlags, ModelInformation
 from cosa.encoders.modules import Modules, ModuleSymbols, SEP, CSEP
+from cosa.printers.template import HIDDEN_VAR
 from cosa.utils.generic import bin_to_dec, suppress_output, restore_output
 
 CR = "_const_replacement"
@@ -495,7 +496,9 @@ class CoreIRParser(ModelParser):
                     #   be violated trivially
                     # e.g. on a neg-edge clock, this new state element will have changed
 
-                    trailing_clock_var = self.BVVar(varname + "-prev", var[1].size)
+                    # make it hidden (won't be printed)
+                    # HIDDEN_VAR is a prefix that printers check for
+                    trailing_clock_var = self.BVVar("{}{}__prev".format(HIDDEN_VAR, varname), var[1].size)
 
                     ts = TS()
                     ts.add_state_var(trailing_clock_var)
