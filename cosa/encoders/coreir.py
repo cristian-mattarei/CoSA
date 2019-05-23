@@ -478,21 +478,31 @@ class CoreIRParser(ModelParser):
                 if self.config.abstract_clock:
                     self.abstract_clock_list.add((bvvar, (BV(0, var[1].size), BV(1, var[1].size))))
                 else:
-                    # add clock to state variables
-                    #   Note: it would probably work to pass it straight through to the output
-                    #         but that would break a current invariant that outputs are not
-                    #         also inputs
-                    # it isn't obvious that this is necessary
-                    # imagine if this is an explicit clock encoding (not abstract_clock), e.g.
+                    # add state variable that stores the previous clock value
+                    # This is IMPORTANT for model checking soundness, but
+                    #    it isn't obvious that this is necessary
+                    #
+                    # imagine we have an explicit clock encoding (not abstract_clock), e.g.
                     #   next(state_var) = (!clk & next(clk)) ? <state_update> : <old value>
                     # and if we're trying to prove something using k-induction, there's a "loop free"
-                    #   constraint that the state and output variables don't repeat in the trace
+                    #   constraint that the state and output variables don't repeat (reach the same
+                    #   state twice) in the trace
                     #   but on a negedge clock, there can be scenarios where no state or outputs
                     #   can be updated and we'll get a trivial unsat which will be interpreted as
                     #   a converged proof -- uh oh
-                    # making the clock an output just includes it in the loop free constraint, so that
-                    #   this bad case doesn't occur
-                    hts.add_state_var(bvvar)
+                    #
+                    # adding this state element just ensures that the loop free constraint won't
+                    #   be violated trivially
+                    # e.g. on a neg-edge clock, this new state element will have changed
+
+                    trailing_clock_var = self.BVVar(varname + "-prev", var[1].size)
+
+                    ts = TS()
+                    ts.add_state_var(trailing_clock_var)
+                    # the initial state for this trailing variable is unconstrained
+                    ts.set_behavior(TRUE(), EqualsOrIff(TS.get_prime(trailing_clock_var), bvvar), TRUE())
+
+                    hts.add_ts(ts)
 
         varmap = dict([(s.symbol_name(), s) for s in hts.vars])
 
