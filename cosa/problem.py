@@ -39,7 +39,7 @@ LTL = "ltl"
 EQUIVALENCE = "equivalence"
 SIMULATION = "simulation"
 DETERMINISTIC = "deterministic"
-FORMULA = "formula"
+COMPOSITIONAL = "compositional"
 MODEL_FILE = "model_files"
 
 MODEL_SP = ";"
@@ -80,6 +80,7 @@ class VerificationType(object):
     SIMULATION = SIMULATION
     LTL = LTL
     PARAMETRIC = PARAMETRIC
+    COMPOSITIONAL = COMPOSITIONAL
 
 
 # This class should not be instantiated directly
@@ -169,16 +170,19 @@ class ProblemsManager:
         # doesn't apply for None (obviously) or FNode (which is already a compiled property)
         #    Note: FNodes are only used for embedded assertions (included in the model file)
         #          because those are already processed by the encoder
-        if problem_options['properties'] is not None and \
-           type(problem_options['properties']) is not FNode:
-            problems = self._split_problem(problem_options)
-            for pbm in problems:
-                self._problems.append(pbm)
-                self._problems_status[pbm.idx] = VerificationStatus.UNC
-        else:
-            problem = self.__problem_type(idx=get_id(), **problem_options)
-            self._problems.append(problem)
-            self._problems_status[problem.idx] = VerificationStatus.UNC
+        # if problem_options['properties'] is not None and \
+        #    type(problem_options['properties']) is not FNode:
+        #     problems = self._split_problem(problem_options)
+        #     for pbm in problems:
+        #         self._problems.append(pbm)
+        #         self._problems_status[pbm.idx] = VerificationStatus.UNC
+        # else:
+            # problem = self.__problem_type(idx=get_id(), **problem_options)
+            # self._problems.append(problem)
+            # self._problems_status[problem.idx] = VerificationStatus.UNC
+        problem = self.__problem_type(idx=get_id(), **problem_options)
+        self._problems.append(problem)
+        self._problems_status[problem.idx] = VerificationStatus.UNC
 
     def _split_problem(self, problem_options:Dict[str, Any]):
         '''

@@ -62,6 +62,8 @@ class HTS(object):
         self.input_vars = set([])
         self.output_vars = set([])
 
+        self.random_vars = set([])
+
         self.assumptions = None
         self.lemmas = None
 
@@ -163,6 +165,9 @@ class HTS(object):
 
                 if (v in ts.output_vars) and (v not in self.input_vars):
                     self.output_vars.add(v)
+
+            for v in ts.random_vars:
+                self.random_vars.add(v)
 
         self.update_logic(ts.logic)
 
@@ -553,6 +558,7 @@ class TS(object):
         self.input_vars = set([])
         self.output_vars = set([])
         self.hidden_vars = set([])
+        self.random_vars = set([])
         self.init = TRUE()
         self.trans = TRUE()
         self.invar = TRUE()
@@ -609,6 +615,10 @@ class TS(object):
         self.invar = invar
 
     def add_var(self, var):
+        self.vars.add(var)
+
+    def add_random_var(self, var):
+        self.random_vars.add(var)
         self.vars.add(var)
 
     def add_hidden_var(self, var):

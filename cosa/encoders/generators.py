@@ -29,7 +29,7 @@ class FixedScoreBoardGenerator(STSGenerator):
 
     def get_param_length(self):
         return 3
-    
+
     def compile_sts(self, name, params):
         in_port, max_val, clk = list(params)
 
@@ -66,7 +66,7 @@ class ScoreBoardGenerator(STSGenerator):
         one = BV(1, max_width)
         count = Symbol("%s.count"%name, BVType(max_width))
         size = Symbol("%s.size"%name, BVType(max_width))
-        
+
         pos_c_push = BV2B(c_push)
         neg_c_push = Not(BV2B(c_push))
 
@@ -76,7 +76,7 @@ class ScoreBoardGenerator(STSGenerator):
         init = []
         trans = []
         invar = []
-        
+
         # INIT DEFINITION #
 
         # count = 0
@@ -92,7 +92,7 @@ class ScoreBoardGenerator(STSGenerator):
 
         # !done -> (end = (tracking & (size = count)))
         invar.append(Implies(Not(done), EqualsOrIff(end, And(tracking, EqualsOrIff(size, count)))))
-        
+
         # count <= size
         invar.append(BVULE(count, size))
         # count <= maxval
@@ -108,7 +108,7 @@ class ScoreBoardGenerator(STSGenerator):
         invar.append(Implies(done, EqualsOrIff(size, BV(0, max_width))))
         # done -> (packet = 0_8);
         invar.append(Implies(done, EqualsOrIff(packet, BV(0, in_port.symbol_type().width))))
-        
+
         # TRANS DEFINITION #
 
         # (!end & !done) -> next(!done);
@@ -117,7 +117,7 @@ class ScoreBoardGenerator(STSGenerator):
         trans.append(Implies(end, TS.to_next(done)))
         # done -> next(done);
         trans.append(Implies(done, TS.to_next(done)))
-        
+
         # tracking -> next(tracking);
         trans.append(Implies(Not(done), Implies(tracking, TS.to_next(tracking))))
         # tracking -> (next(packet) = packet);
@@ -148,7 +148,7 @@ class ScoreBoardGenerator(STSGenerator):
 
         # (!c_push) -> (next(count) = count);
         trans.append(Implies(Not(done), Implies(neg_c_push, EqualsOrIff(TS.to_next(count), count))))
-        
+
         init = And(init)
         invar = And(invar)
         trans = And(trans)
@@ -157,7 +157,7 @@ class ScoreBoardGenerator(STSGenerator):
         ts.vars, ts.init, ts.invar, ts.trans = set([tracking, end, packet, count, size]), init, invar, trans
 
         return ts
-    
+
 class RandomGenerator(STSGenerator):
     name = "Random"
     description = "Random Generator"
@@ -166,12 +166,12 @@ class RandomGenerator(STSGenerator):
 
     def get_param_length(self):
         return 1
-    
+
     def compile_sts(self, name, params):
         ts = TS()
         parsize = params[0]
         size = None
-        
+
         if type(parsize) == str:
             sparser = StringParser()
             parsize = sparser.parse_formula(parsize)
@@ -181,13 +181,12 @@ class RandomGenerator(STSGenerator):
 
         if get_type(parsize).is_bv_type():
             size = get_type(parsize).width
-            
+
         if size is None:
             Logger.error("Undefined size for symbol \"%s\""%(params[0]))
 
         value = Symbol("%s.value"%name, BVType(size))
-        ts.add_var(value)
+        ts.add_random_var(value)
         ts.trans = EqualsOrIff(value, TS.get_prime(value))
 
         return ts
-    

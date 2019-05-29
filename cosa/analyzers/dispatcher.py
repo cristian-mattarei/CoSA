@@ -24,6 +24,7 @@ from cosa.analyzers.mcsolver import CONST_ARRAYS_SUPPORT
 from cosa.analyzers.bmc_safety import BMCSafety
 from cosa.analyzers.bmc_parametric import BMCParametric
 from cosa.analyzers.bmc_ltl import BMCLTL
+from cosa.analyzers.compositional import CompositionalEngine
 from cosa.problem import VerificationType, VerificationStatus, Trace
 from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
@@ -130,6 +131,10 @@ class ProblemSolver(object):
                         assumptions:Optional[List[FNode]],
                         problem:NamedTuple)->str:
 
+        if problem.verification != VerificationType.COMPOSITIONAL:
+            assert len(prop) == 1, 'Expecting a single property'
+            prop = prop[0]
+
         trace = None
         traces = None
         region = None # only used for parametric model checking
@@ -155,23 +160,32 @@ class ProblemSolver(object):
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
             res, trace, _ = bmc_safety.safety(prop, bmc_length, bmc_length_min, problem.processes)
 
-        if problem.verification == VerificationType.LTL:
+        elif problem.verification == VerificationType.LTL:
             accepted_ver = True
             res, trace, _ = bmc_ltl.ltl(prop, bmc_length, bmc_length_min)
 
-        if problem.verification == VerificationType.SIMULATION:
+        elif problem.verification == VerificationType.SIMULATION:
             accepted_ver = True
             res, trace = bmc_safety.simulate(prop, bmc_length)
 
-        if problem.verification == VerificationType.PARAMETRIC:
+        elif problem.verification == VerificationType.PARAMETRIC:
             accepted_ver = True
             Logger.log("Property: %s"%(prop.serialize(threshold=100)), 2)
             res, traces, region = bmc_parametric.parametric_safety(prop, bmc_length, bmc_length_min, ModelExtension.get_parameters(hts), at_most=problem.cardinality)
 
-        if problem.verification == VerificationType.EQUIVALENCE:
+        elif problem.verification == VerificationType.EQUIVALENCE:
             accepted_ver = True
             bmcseq = BMCSafety(hts, problem)
             res, trace, t = bmcseq.safety(prop, bmc_length, bmc_length_min)
+
+        elif problem.verification == VerificationType.COMPOSITIONAL:
+            accepted_ver = True
+            comp = CompositionalEngine(hts, problem)
+            comp.simple_search(prop, bmc_length, bmc_length_min)
+            raise RuntimeError
+
+        else:
+            raise RuntimeError("Unhandled verification type: {}".format(problem.verification))
 
         if not accepted_ver:
             Logger.error("Invalid verification type")
@@ -499,9 +513,9 @@ class ProblemSolver(object):
                     prop = self.convert_formula(problem.properties,
                                                 relative_path=problems_config.relative_path,
                                                 parser=parser)
-                    assert len(prop) == 1, "Properties should already have been split into " \
-                        "multiple problems but found {} properties here".format(len(prop))
-                    prop = prop[0]
+                    # assert len(prop) == 1, "Properties should already have been split into " \
+                    #     "multiple problems but found {} properties here".format(len(prop))
+                    # prop = prop[0]
                 else:
                     if problem.verification == VerificationType.SIMULATION:
                         prop = TRUE()
@@ -519,7 +533,8 @@ class ProblemSolver(object):
 
                 if precondition:
                     assert len(precondition) == 1, "There should only be one precondition"
-                    prop = Implies(precondition[0], prop)
+                    for i, p in enumerate(prop):
+                        prop[i] = Implies(precondition[0], p)
 
                 # TODO: keep assumptions separate from the hts
                 # IMPORTANT: CLEAR ANY PREVIOUS ASSUMPTIONS AND LEMMAS
