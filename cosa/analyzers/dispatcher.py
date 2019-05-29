@@ -181,9 +181,7 @@ class ProblemSolver(object):
         elif problem.verification == VerificationType.COMPOSITIONAL:
             accepted_ver = True
             comp = CompositionalEngine(hts, problem)
-            comp.simple_search(prop, bmc_length, bmc_length_min)
-            raise RuntimeError
-
+            res, trace, t = comp.simple_search(prop, bmc_length, bmc_length_min)
         else:
             raise RuntimeError("Unhandled verification type: {}".format(problem.verification))
 

@@ -3,7 +3,7 @@ import itertools
 from typing import Dict, List, Set, Tuple
 
 from cosa.analyzers.mcsolver import BMCSolver
-from cosa.problem import Trace
+from cosa.problem import Trace, VerificationStatus
 from cosa.utils.formula_mngm import get_free_variables, get_ground_terms
 from cosa.utils.logger import Logger
 
@@ -30,6 +30,8 @@ class CompositionalEngine(BMCSolver):
         solver_name = "compositional"
         solver = self.solver.copy(solver_name)
         self._reset_assertions(solver)
+        solver_ind = self.solver.copy("%s_ind"%solver_name)
+        self._reset_assertions(solver_ind)
 
         if bmc_length != 1 or bmc_length_min != 0:
             raise NotImplementedError("Not handling k-induction for k != 1 yet")
@@ -55,9 +57,9 @@ class CompositionalEngine(BMCSolver):
             self._push(solver)
             self._add_assertion(solver, nprop0)
             if self._solve(solver):
-                Logger.msg("Property violated in initial state")
+                Logger.msg("Property violated in initial state", 0)
                 failed_base = True
-                model = self._get_model(self.solver)
+                model = self._get_model(solver)
                 model = self._remap_model(self.hts.vars, model, 0)
                 trace = self.generate_trace(model, 0, get_free_variables(p))
                 return (VerificationStatus.FALSE, trace, 0)
@@ -69,27 +71,52 @@ class CompositionalEngine(BMCSolver):
 
         # because these are random, properties over these variables are universally quantified
         universal_variables = self.hts.random_vars
-
-        trans_t = self.unroll(trans, invar, 1)
-
         universal_formulae = dict()
         for p in properties:
             overlap = universal_variables.intersection(get_free_variables(p))
             if overlap:
                 universal_formulae[p] = tuple(overlap)
 
-        # test
-        instantiations = self.heuristic_instantiation(universal_formulae, properties[1])
-        for u in universal_formulae:
-            print("universal", u.serialize(100))
-        print("test")
-        print(properties[1].serialize(100))
-        ground_terms = get_ground_terms(properties[1])
-        print('ground_terms', [v.serialize(100) for v in ground_terms])
-        print([i.serialize(100) for i in instantiations])
+        # TODO: Debug this -- getting counterexamples that violate model invariants
+        #       something is not being added as an assertion to the solver correctly
 
         # try to prove inductively using the other properties
-        
+        invar0 = self.at_time(invar, 0)
+        self._add_assertion(solver_ind, invar0)
+        trans1 = self.unroll(trans, invar, 1)
+        self._add_assertion(solver_ind, trans1)
+
+
+        # can assume all properties in the pre-state
+        for prop in properties:
+            if prop in universal_formulae:
+                instantiations = self.heuristic_instantiation(universal_formulae, prop)
+                instantiations.append(prop)
+                assert len(instantiations) != 0
+                for i in instantiations:
+                    timed_inst = self.at_time(i, 0)
+                    print("assuming", timed_inst.serialize(100))
+                    self._add_assertion(solver_ind, timed_inst)
+            else:
+                timed_prop = self.at_time(prop, 0)
+                print("assuming", timed_prop.serialize(100))
+                self._add_assertion(solver_ind, timed_prop)
+
+        for p in properties:
+            self._push(solver_ind)
+            self._add_assertion(solver_ind, self.at_time(Not(p), 1))
+
+            if self._solve(solver_ind):
+                Logger.msg("Property violated in inductive step", 1)
+                model = self._get_model(solver_ind)
+                model = self._remap_model(self.hts.vars, model, 1)
+                trace = self.generate_trace(model, 1, get_free_variables(p))
+                return (VerificationStatus.FALSE, trace, 1)
+
+            self._pop(solver_ind)
+
+        return (VerificationStatus.TRUE, None, bmc_length)
+
 
     def heuristic_instantiation(self, universal_assumptions:Dict[FNode, Tuple[FNode]],
                                 prop:FNode)->List[FNode]:
@@ -98,6 +125,8 @@ class CompositionalEngine(BMCSolver):
           the syntax of the provided property (which we are currently trying to prove)
 
         This is heuristic and entirely syntactic.
+
+        It also checks that prop is not the formula being instantiated.
 
         INPUTS:
            universal_assumptions: a dictionary from universally quantified formulae to their universal variables
@@ -110,6 +139,9 @@ class CompositionalEngine(BMCSolver):
         instantiated_formulae = []
 
         for formula, univ_vars in universal_assumptions.items():
+            if formula == prop:
+                continue
+
             types2idx = defaultdict(set)
             for i, s in enumerate(univ_vars):
                 assert s.is_symbol()
