@@ -53,6 +53,21 @@ class SymbolsWalker(IdentityDagWalker):
         self.symbols.add(formula)
         return formula
 
+class GroundTermsWalker(IdentityDagWalker):
+    ground_terms = set([])
+
+    def reset_symbols(self):
+        self.ground_terms = set([])
+
+    def walk_symbol(self, formula, args, **kwargs):
+        self.ground_terms.add(formula)
+        return formula
+
+    def walk_array_select(self, formula, args, **kwargs):
+        self.ground_terms.add(formula)
+        return formula
+
+
 def substitute(formula, mapsym, reset_walker=False):
     subwalker = SubstituteWalker()
     subwalker.set_substitute_map(mapsym)
@@ -69,6 +84,18 @@ def get_free_variables(formula):
     ret = symwalker.symbols
     free_variables_dic[formula] = ret
     return ret
+
+ground_terms_dic = {}
+def get_ground_terms(formula):
+    if formula in ground_terms_dic:
+        return set([x for x in ground_terms_dic[formula]])
+    termwalker = GroundTermsWalker()
+    termwalker.reset_symbols()
+    termwalker.walk(formula)
+    ret = termwalker.ground_terms
+    ground_terms_dic[formula] = ret
+    return ret
+
 
 ############### Values and Helper Functions for quote_names #################
 # don't treat these as variables in quote_names
