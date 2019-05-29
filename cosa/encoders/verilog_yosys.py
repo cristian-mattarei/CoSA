@@ -112,6 +112,9 @@ class VerilogYosysBtorParser(ModelParser):
         if config.synchronize:
             COPY_PASSES.append("async2sync")
 
+        if config.synchronize:
+            PASSES.append("async2sync")
+
         if config.opt_circuit:
             for op in COPY_OPT_PASSES:
                 COPY_PASSES.append(op)
