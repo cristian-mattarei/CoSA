@@ -492,6 +492,9 @@ class CosaArgParser(argparse.ArgumentParser):
                 problems_manager._problems = []
                 problems_manager._problems_status = dict()
 
+        ################## synchronizing clock automatically abstracts ###################
+        if general_config.synchronize:
+            general_config.abstract_clock = True
 
         # iterate through problems and fix options
         for problem in problems_manager.problems:

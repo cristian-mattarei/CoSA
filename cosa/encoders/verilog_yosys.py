@@ -101,6 +101,9 @@ class VerilogYosysBtorParser(ModelParser):
         else:
             PASSES.append("memory -nomap")
 
+        if config.synchronize:
+            PASSES.append("async2sync")
+
         if config.opt_circuit:
             for op in OPT_PASSES:
                 PASSES.append(op)
