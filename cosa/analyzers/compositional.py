@@ -115,6 +115,10 @@ class CompositionalEngine(BMCSolver):
 
             self._pop(solver_ind)
 
+            # property was proven, we can add it to the post-state
+            self._add_assertion(solver_ind, self.at_time(p, 1))
+            print("assuming property in post-state", self.at_time(p, 1).serialize(100))
+
         return (VerificationStatus.TRUE, None, bmc_length)
 
 
