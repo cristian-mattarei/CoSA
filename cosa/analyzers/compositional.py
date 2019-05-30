@@ -89,21 +89,21 @@ class CompositionalEngine(BMCSolver):
 
         # can assume all properties in the pre-state
         for prop in properties:
-            if prop in universal_formulae:
-                instantiations = self.heuristic_instantiation(universal_formulae, prop)
-                instantiations.append(prop)
-                assert len(instantiations) != 0
-                for i in instantiations:
-                    timed_inst = self.at_time(i, 0)
-                    print("assuming", timed_inst.serialize(100))
-                    self._add_assertion(solver_ind, timed_inst)
-            else:
-                timed_prop = self.at_time(prop, 0)
-                print("assuming", timed_prop.serialize(100))
-                self._add_assertion(solver_ind, timed_prop)
+            timed_prop = self.at_time(prop, 0)
+            print("assuming", timed_prop.serialize(100))
+            self._add_assertion(solver_ind, timed_prop)
 
-        for p in properties:
+        for num, p in enumerate(properties):
+            print("Solving P{}: {}".format(num, p.serialize(100)))
             self._push(solver_ind)
+
+            # add heuristic instantiations
+            instantiations = self.heuristic_instantiation(universal_formulae, p)
+            for i in instantiations:
+                timed_inst = self.at_time(i, 0)
+                print('assuming instantiation', timed_inst.serialize(100))
+                self._add_assertion(solver_ind, timed_inst)
+
             self._add_assertion(solver_ind, self.at_time(Not(p), 1))
 
             if self._solve(solver_ind):
