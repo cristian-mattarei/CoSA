@@ -90,18 +90,18 @@ class CompositionalEngine(BMCSolver):
         # can assume all properties in the pre-state
         for prop in properties:
             timed_prop = self.at_time(prop, 0)
-            print("assuming", timed_prop.serialize(100))
+            Logger.msg("assuming: " + timed_prop.serialize(100), 2)
             self._add_assertion(solver_ind, timed_prop)
 
         for num, p in enumerate(properties):
-            print("Solving P{}: {}".format(num, p.serialize(100)))
+            Logger.msg("Solving property {}: {}".format(num, p.serialize(100)), 1)
             self._push(solver_ind)
 
             # add heuristic instantiations
             instantiations = self.heuristic_instantiation(universal_formulae, p)
             for i in instantiations:
                 timed_inst = self.at_time(i, 0)
-                print('assuming instantiation', timed_inst.serialize(100))
+                Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
                 self._add_assertion(solver_ind, timed_inst)
 
             self._add_assertion(solver_ind, self.at_time(Not(p), 1))
@@ -117,7 +117,7 @@ class CompositionalEngine(BMCSolver):
 
             # property was proven, we can add it to the post-state
             self._add_assertion(solver_ind, self.at_time(p, 1))
-            print("assuming property in post-state", self.at_time(p, 1).serialize(100))
+            Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
         return (VerificationStatus.TRUE, None, bmc_length)
 
