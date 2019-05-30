@@ -111,7 +111,7 @@ class CompositionalEngine(BMCSolver):
                 model = self._get_model(solver_ind)
                 model = self._remap_model(self.hts.vars, model, 1)
                 trace = self.generate_trace(model, 1, get_free_variables(p))
-                return (VerificationStatus.FALSE, trace, 1)
+                return (VerificationStatus.UNK, trace, 1)
 
             self._pop(solver_ind)
 

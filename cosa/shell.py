@@ -99,6 +99,7 @@ def print_problem_result(pbm:NamedTuple,
         traces = []
     general_config = problems_config.general_config
     count = len(traces) + 1
+
     if pbm.name is None:
         return (0, [])
     ret_status = 0
@@ -138,6 +139,9 @@ def print_problem_result(pbm:NamedTuple,
 
         if (pbm.verification == VerificationType.SIMULATION) and (status == VerificationStatus.TRUE):
             traces_results = print_traces("Execution", traces, pbm.name, prefix, count)
+
+        if (pbm.verification == VerificationType.COMPOSITIONAL and (status == VerificationStatus.UNK)):
+            traces_results = print_traces("Counterexample to Induction", traces, pbm.name, prefix, count)
 
     if general_config.time:
         time = problems_config.get_problem_time(pbm)
