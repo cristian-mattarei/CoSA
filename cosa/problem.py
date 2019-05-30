@@ -180,7 +180,7 @@ class ProblemsManager:
             # problem = self.__problem_type(idx=get_id(), **problem_options)
             # self._problems.append(problem)
             # self._problems_status[problem.idx] = VerificationStatus.UNC
-        problem = self.__problem_type(idx=get_id(), **problem_options)
+        problem = self.__mutable_problem_type(idx=get_id(), **problem_options)
         self._problems.append(problem)
         self._problems_status[problem.idx] = VerificationStatus.UNC
 

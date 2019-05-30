@@ -126,14 +126,13 @@ class ProblemSolver(object):
 
     def __solve_problem(self,
                         hts:HTS,
-                        prop:Optional[FNode],
+                        prop:Optional[List[FNode]],
                         lemmas:Optional[List[FNode]],
                         assumptions:Optional[List[FNode]],
                         problem:NamedTuple)->str:
 
         if problem.verification != VerificationType.COMPOSITIONAL:
-            assert len(prop) == 1, 'Expecting a single property'
-            prop = prop[0]
+            prop = And(prop)
 
         trace = None
         traces = None
@@ -506,17 +505,14 @@ class ProblemSolver(object):
                 else:
                     parser = self.lparser
 
-                prop = None
+                properties = None
                 if problem.properties is not None:
-                    prop = self.convert_formula(problem.properties,
-                                                relative_path=problems_config.relative_path,
-                                                parser=parser)
-                    # assert len(prop) == 1, "Properties should already have been split into " \
-                    #     "multiple problems but found {} properties here".format(len(prop))
-                    # prop = prop[0]
+                    properties = self.convert_formula(problem.properties,
+                                                      relative_path=problems_config.relative_path,
+                                                      parser=parser)
                 else:
                     if problem.verification == VerificationType.SIMULATION:
-                        prop = TRUE()
+                        properties = [TRUE()]
                     elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
                         Logger.error("Property not provided for problem {}".format(problem.name))
 
@@ -525,14 +521,14 @@ class ProblemSolver(object):
                     # set property to be the miter output
                     # if user provided a different equivalence property, this has already
                     # been incorporated in the miter_out
-                    prop = miter_out
+                    properties = [miter_out]
                     # reset the miter output
                     miter_out = None
 
-                if precondition:
+                if precondition and properties is not None:
                     assert len(precondition) == 1, "There should only be one precondition"
-                    for i, p in enumerate(prop):
-                        prop[i] = Implies(precondition[0], p)
+                    for i, p in enumerate(properties):
+                        properties[i] = Implies(precondition[0], p)
 
                 # TODO: keep assumptions separate from the hts
                 # IMPORTANT: CLEAR ANY PREVIOUS ASSUMPTIONS AND LEMMAS
@@ -548,7 +544,7 @@ class ProblemSolver(object):
                 if problem.coi:
                     if Logger.level(2):
                         timer = Logger.start_timer("COI")
-                    hts = self.coi.compute(hts, prop)
+                    hts = self.coi.compute(hts, And(properties))
                     if Logger.level(2):
                         Logger.get_timer(timer)
 
@@ -556,7 +552,7 @@ class ProblemSolver(object):
                     timer_solve = Logger.start_timer("Problem %s"%problem.name, False)
 
                 status, trace, traces, region =  self.__solve_problem(problem_hts,
-                                                              prop,
+                                                              properties,
                                                               lemmas,
                                                               assumptions,
                                                               problem)
@@ -593,10 +589,11 @@ class ProblemSolver(object):
                     #       can still add it, just need to make it an implication
 
                     ass_ts = TS("Previous assumption from property")
-                    if TS.has_next(prop):
-                        ass_ts.trans = prop
+                    conjuncted_prop = And(properties)
+                    if TS.has_next(conjuncted_prop):
+                        ass_ts.trans = conjuncted_prop
                     else:
-                        ass_ts.invar = prop
+                        ass_ts.invar = conjuncted_prop
                     # add assumptions to main system
                     problem_hts.reset_formulae()
                     problem_hts.add_ts(ass_ts)
