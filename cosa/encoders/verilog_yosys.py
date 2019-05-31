@@ -80,11 +80,19 @@ class VerilogYosysBtorParser(ModelParser):
         return strfile.split(".")[-1]
 
     def parse_file(self, filepath, config, flags=None):
+
+        # create copy of yosys commands (will be modified below)
+        # Note: This class is only instantiated once per python environment
+        #       but we don't want subsequent calls to parse_file to be coupled
+        COPY_PASSES = PASSES.copy()
+        COPY_OPT_PASSES = OPT_PASSES.copy()
+        COPY_COMMANDS = COMMANDS.copy()
+
         if flags is None:
             Logger.error("Top module not provided")
 
         if config.verific:
-            COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
+            COPY_COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
 
         topmodule = flags[0]
         abspath = filepath.absolute()
@@ -97,20 +105,23 @@ class VerilogYosysBtorParser(ModelParser):
             self.single_file = filename.split(".")[-1] != MULTI_FILE_EXT
 
         if config.no_arrays:
-            PASSES.append("memory")
+            COPY_PASSES.append("memory")
         else:
-            PASSES.append("memory -nomap")
+            COPY_PASSES.append("memory -nomap")
+
+        if config.synchronize:
+            COPY_PASSES.append("async2sync")
 
         if config.opt_circuit:
-            for op in OPT_PASSES:
-                PASSES.append(op)
+            for op in COPY_OPT_PASSES:
+                COPY_PASSES.append(op)
         else:
-            PASSES.append("flatten;")
+            COPY_PASSES.append("flatten;")
 
         if not config.abstract_clock:
-            PASSES.append("clk2fflogic;")
+            COPY_PASSES.append("clk2fflogic;")
             if config.opt_circuit:
-                PASSES.append("opt;;")
+                COPY_PASSES.append("opt;;")
 
         if self.single_file:
             files = [str(abspath)]
@@ -126,10 +137,10 @@ class VerilogYosysBtorParser(ModelParser):
                         if source:
                             files.append(source)
 
-        command = "%s -p \"%s\""%(CMD, "; ".join(COMMANDS))
+        command = "%s -p \"%s\""%(CMD, "; ".join(COPY_COMMANDS))
         command = command.format(FILES=" ".join(files), \
                                  TARGET=topmodule, \
-                                 PASSES="; ".join(PASSES), \
+                                 PASSES="; ".join(COPY_PASSES), \
                                  BTORFILE=TMPFILE)
 
         Logger.log("Command: %s"%command, 2)

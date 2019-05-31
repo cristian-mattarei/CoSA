@@ -1,0 +1,11 @@
+[GENERAL]
+model_files: counters2clks.v[counters2clks]
+# removing this line should make the property Unknown
+synchronize: True
+
+[REACH_10]
+description: "Check if the clocks can reach 10"
+properties: out0 < 10_16
+verification: safety
+expected: False
+bmc_length: 10

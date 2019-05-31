@@ -93,7 +93,10 @@ class ProblemsManager:
         # note, can still add new (immutable) problems, but can't modify existing ones
         self._frozen                = False
         self._relative_path         = relative_path
-        self._general_config        = namedtuple('general_config', general_config.keys())(**general_config)
+        # sorting keeps everything deterministic
+        general_config_options      = sorted(list(general_config.keys()))
+        self._general_config        = simple_struct('general_config',
+                                                    general_config_options)(**general_config)
         self._defaults              = defaults
         self._problems              = []
         # solving status
@@ -220,7 +223,11 @@ class ProblemsManager:
         return problems
 
     def freeze(self):
+        assert not self._frozen, "Already frozen -- not expecting to have freeze called twice"
         self._frozen = True
+        # freeze the general_config
+        self._general_config = namedtuple('general_config',
+                                          self._general_config.keys())(**self._general_config)
         # freeze all the problems as (immutable) namedtuples
         for i, pbm in enumerate(self.problems):
             try:

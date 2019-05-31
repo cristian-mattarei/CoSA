@@ -44,6 +44,13 @@ def runtest(problem_file):
                                                              prove=True,
                                                              vcd=True,
                                                              translate='file.ssts')
+
+    # run option handling code then freeze problem manager
+    # TODO: Update this to make a better API
+    # problems_manager modified in place
+    cosa_option_manager._option_handling(problems_manager)
+    problems_manager.freeze()
+
     status = run_problems(problems_manager)
     with open(translate, "r") as f:
         print(f.read())

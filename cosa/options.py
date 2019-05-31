@@ -265,6 +265,11 @@ general_encoding_options.set_defaults(run_coreir_passes=True)
 general_encoding_options.add_argument('--no-run-coreir-passes', dest='run_coreir_passes', action='store_false',
                                       help='does not run CoreIR passes. (Default is \"%s\")'%True)
 
+general_encoding_options.set_defaults(synchronize=False)
+general_encoding_options.add_argument('--synchronize', dest='synchronize', action='store_true',
+                                      help='Sychronizes asynchronous behavior, including synchronizing multiple '
+                                      'clocks, and abstracts clocks - EXPERTS ONLY. (Default is \"%s\")'%False)
+
 general_encoding_options.set_defaults(symbolic_init=False)
 general_encoding_options.add_argument('--symbolic-init', dest='symbolic_init', action='store_true',
                                       help='removes constraints on the initial state. (Default is \"%s\")'%False)
