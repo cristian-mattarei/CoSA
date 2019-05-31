@@ -735,6 +735,14 @@ class BMCSafety(BMCSolver):
                 for j in range(t+1):
                     self._add_assertion(solver, self.at_ptime(constraints, j-1), "Addditional Constraints")
 
+            if self.preferred is not None:
+                try:
+                    for (var, val) in self.preferred:
+                        solver.solver.set_preferred_var(TS.get_timed(var, t), val)
+                except:
+                    Logger.warning("Current solver does not support preferred variables")
+                    self.preferred = None
+
             if (t >= k_min) and self._solve(solver):
                 Logger.log("Counterexample found with k=%s"%(t), 1)
                 model = self._get_model(solver)
