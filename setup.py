@@ -33,7 +33,7 @@ For more information visit http://github.com/cristian-mattarei/CoSA
 """
 
 setup(name='CoSA',
-      version='0.3.1',
+      version='0.4',
       description='CoreIR Symbolic Analyzer',
       long_description=long_description,
       url='http://github.com/cristian-mattarei/CoSA',
@@ -42,7 +42,7 @@ setup(name='CoSA',
       license='BSD',
       packages = find_packages(),
       include_package_data = True,
-      install_requires=["six","pyparsing","pysmt","coreir","hwtypes","pyverilog"],
+      install_requires=["six","pyparsing","pysmt","coreir","hwtypes"],
       entry_points={
           'console_scripts': [
               'CoSA = cosa.shell:main'
