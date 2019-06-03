@@ -172,4 +172,7 @@ def simple_struct(name:str, fields:Union[str, Sequence[str]]):
         def __getitem__(self, key):
             return getattr(self, key)
 
+        def _asdict(self):
+            return {f:getattr(self, f) for f in generated_simple_struct.__slots__}
+
     return generated_simple_struct
