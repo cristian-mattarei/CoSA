@@ -97,15 +97,12 @@ class ModelParsersFactory(object):
         from cosa.encoders.btor2 import BTOR2Parser
         from cosa.encoders.coreir import CoreIRParser
         from cosa.encoders.verilog_yosys import VerilogYosysBtorParser
-        from cosa.encoders.verilog_hts import VerilogHTSParser
-        from cosa.encoders.systemverilog_verific import SystemVerilogVerificParser
 
         ModelParsersFactory.register_parser(CoreIRParser())
         ModelParsersFactory.register_parser(SymbolicTSParser())
         ModelParsersFactory.register_parser(SymbolicSimpleTSParser())
         ModelParsersFactory.register_parser(ExplicitTSParser())
         ModelParsersFactory.register_parser(BTOR2Parser())
-        ModelParsersFactory.register_parser(SystemVerilogVerificParser())
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
             Logger.error("Internal verilog parser support is deprecated.")
