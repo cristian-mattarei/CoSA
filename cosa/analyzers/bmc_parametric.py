@@ -82,12 +82,10 @@ class BMCParametric(BMCSafety):
 
         monotonic = True
 
-        # FIXME : we should do this if the solver supports it
-        #         otherwise, we should prune the traces afterwards to show only minimal ones
-        #         and maybe print a performance warning
-        # if monotonic:
-        #     for p in parameters:
-        #         self.set_preferred((p, False))
+        # TODO: Verify that this works as expected
+        if monotonic:
+            for p in parameters:
+                self.set_preferred((p, False))
 
         self.region = FALSE()
 
