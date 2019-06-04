@@ -30,8 +30,6 @@ class CompositionalEngine(BMCSolver):
         solver_name = "compositional"
         solver = self.solver.copy(solver_name)
         self._reset_assertions(solver)
-        solver_ind = self.solver.copy("%s_ind"%solver_name)
-        self._reset_assertions(solver_ind)
 
         if bmc_length != 1 or bmc_length_min != 0:
             raise NotImplementedError("Not handling k-induction for k != 1 yet")
@@ -69,18 +67,27 @@ class CompositionalEngine(BMCSolver):
 
         Logger.msg("No properties violated in initial state", 1)
 
-        # because these are random, properties over these variables are universally quantified
-        universal_variables = self.hts.random_vars
-        universal_formulae = dict()
-        for p in properties:
-            overlap = universal_variables.intersection(get_free_variables(p))
-            if overlap:
-                universal_formulae[p] = tuple(overlap)
+        universal_formulae = self.get_universal_formulae(properties)
+        res, unproven = self.inductive_step(universal_formulae, properties)
 
-        # TODO: Debug this -- getting counterexamples that violate model invariants
-        #       something is not being added as an assertion to the solver correctly
+        assert ((res[0] != VerificationStatus.TRUE) or not unproven), \
+            'If true then unproven should be empty'
 
-        # try to prove inductively using the other properties
+        return (VerificationStatus.TRUE, None, bmc_length)
+
+    def inductive_step(self, universal_formulae:Dict[FNode, Tuple[FNode]],
+                       properties:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode]]:
+        '''
+        Check the inductive step compositionally
+        Assumes that _init_at_time has already been called
+        (i.e. unrolled symbols already created)
+        '''
+
+        solver_ind = self.solver.copy("compositional-s_ind")
+        self._reset_assertions(solver_ind)
+
+        trans = self.hts.single_trans()
+        invar = self.hts.single_invar()
         invar0 = self.at_time(invar, 0)
         self._add_assertion(solver_ind, invar0)
         trans1 = self.unroll(trans, invar, 1)
@@ -92,6 +99,7 @@ class CompositionalEngine(BMCSolver):
             Logger.msg("assuming: " + timed_prop.serialize(100), 2)
             self._add_assertion(solver_ind, timed_prop)
 
+        unproven = list()
         for num, p in enumerate(properties):
             Logger.msg("Solving property {}: {}".format(num, p.serialize(100)), 1)
             self._push(solver_ind)
@@ -110,7 +118,7 @@ class CompositionalEngine(BMCSolver):
                 model = self._get_model(solver_ind)
                 model = self._remap_model(self.hts.vars, model, 1)
                 trace = self.generate_trace(model, 1, get_free_variables(p))
-                return (VerificationStatus.UNK, trace, 1)
+                return (VerificationStatus.UNK, trace, 1), unproven
             else:
                 # property was proven, we can add it to the post-state
                 self._add_assertion(solver_ind, self.at_time(p, 1))
@@ -119,8 +127,20 @@ class CompositionalEngine(BMCSolver):
 
             self._pop(solver_ind)
 
-        return (VerificationStatus.TRUE, None, bmc_length)
+        return (VerificationStatus.TRUE, None, bmc_length), unproven
 
+    def get_universal_formulae(self, properties:List[FNode])->Dict[FNode, Tuple[FNode]]:
+        '''
+        Returns a dictionary from universally quantified properties to a tuple their free variables
+        '''
+        # because these are random, properties over these variables are universally quantified
+        universal_variables = self.hts.random_vars
+        universal_formulae = dict()
+        for p in properties:
+            overlap = universal_variables.intersection(get_free_variables(p))
+            if overlap:
+                universal_formulae[p] = tuple(overlap)
+        return universal_formulae
 
     def heuristic_instantiation(self, universal_assumptions:Dict[FNode, Tuple[FNode]],
                                 prop:FNode)->List[FNode]:
@@ -139,6 +159,11 @@ class CompositionalEngine(BMCSolver):
 
         # TODO: Figure out how this works if there are other free variables in the formula
         #       i.e. ones that aren't universally quantified
+
+        # TODO: Figure out how to deal with two properties with the same bound variable
+        #       e.g. we're using a skolemized "Random" var to represent a bound universally quantified variable
+        #       there's nothing stopping the user from re-using it
+        #       the right thing to do is probably just to throw an error -- easier than replacing them ourselves
 
         instantiated_formulae = []
 
