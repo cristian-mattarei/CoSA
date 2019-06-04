@@ -86,7 +86,6 @@ class CompositionalEngine(BMCSolver):
         trans1 = self.unroll(trans, invar, 1)
         self._add_assertion(solver_ind, trans1)
 
-
         # can assume all properties in the pre-state
         for prop in properties:
             timed_prop = self.at_time(prop, 0)
@@ -112,13 +111,13 @@ class CompositionalEngine(BMCSolver):
                 model = self._remap_model(self.hts.vars, model, 1)
                 trace = self.generate_trace(model, 1, get_free_variables(p))
                 return (VerificationStatus.UNK, trace, 1)
+            else:
+                # property was proven, we can add it to the post-state
+                self._add_assertion(solver_ind, self.at_time(p, 1))
+                Logger.msg("p", 0, not(Logger.level(1)))
+                Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
             self._pop(solver_ind)
-
-            # property was proven, we can add it to the post-state
-            self._add_assertion(solver_ind, self.at_time(p, 1))
-            Logger.msg("p", 0, not(Logger.level(1)))
-            Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
         return (VerificationStatus.TRUE, None, bmc_length)
 
