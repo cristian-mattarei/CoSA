@@ -119,15 +119,15 @@ class CompositionalEngine(BMCSolver):
                 model = self._remap_model(self.hts.vars, model, 1)
                 trace = self.generate_trace(model, 1, get_free_variables(p))
                 return (VerificationStatus.UNK, trace, 1), unproven
-            else:
-                # property was proven, we can add it to the post-state
-                self._add_assertion(solver_ind, self.at_time(p, 1))
-                Logger.msg("p", 0, not(Logger.level(1)))
-                Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
             self._pop(solver_ind)
 
-        return (VerificationStatus.TRUE, None, bmc_length), unproven
+            # property was proven, we can add it to the post-state
+            self._add_assertion(solver_ind, self.at_time(p, 1))
+            Logger.msg("p", 0, not(Logger.level(1)))
+            Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
+
+        return (VerificationStatus.TRUE, None, self.config.bmc_length), unproven
 
     def get_universal_formulae(self, properties:List[FNode])->Dict[FNode, Tuple[FNode]]:
         '''
