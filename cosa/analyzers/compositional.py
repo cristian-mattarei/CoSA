@@ -70,10 +70,11 @@ class CompositionalEngine(BMCSolver):
         universal_formulae = self.get_universal_formulae(properties)
         res, unproven = self.inductive_step(universal_formulae, properties)
 
-        assert ((res[0] != VerificationStatus.TRUE) or not unproven), \
-            'If true then unproven should be empty'
-
-        return (VerificationStatus.TRUE, None, bmc_length)
+        if unproven:
+            # TODO: Return traces here
+            return (VerificationStatus.UNK, None, 1), unproven
+        else:
+            return (VerificationStatus.TRUE, None, bmc_length)
 
     def inductive_step(self, universal_formulae:Dict[FNode, Tuple[FNode]],
                        properties:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode]]:
@@ -113,19 +114,25 @@ class CompositionalEngine(BMCSolver):
 
             self._add_assertion(solver_ind, self.at_time(Not(p), 1))
 
+            passed = True
             if self._solve(solver_ind):
+                Logger.msg("f", 0, not(Logger.level(1)))
                 Logger.msg("Property violated in inductive step", 1)
-                model = self._get_model(solver_ind)
-                model = self._remap_model(self.hts.vars, model, 1)
-                trace = self.generate_trace(model, 1, get_free_variables(p))
-                return (VerificationStatus.UNK, trace, 1), unproven
+                unproven.append((num, p))
+                passed = False
+                # TODO: Remove this
+                # model = self._get_model(solver_ind)
+                # model = self._remap_model(self.hts.vars, model, 1)
+                # trace = self.generate_trace(model, 1, get_free_variables(p))
+                # return (VerificationStatus.UNK, trace, 1), unproven
 
             self._pop(solver_ind)
 
-            # property was proven, we can add it to the post-state
-            self._add_assertion(solver_ind, self.at_time(p, 1))
-            Logger.msg("p", 0, not(Logger.level(1)))
-            Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
+            if passed:
+                # property was proven, we can add it to the post-state
+                self._add_assertion(solver_ind, self.at_time(p, 1))
+                Logger.msg("p", 0, not(Logger.level(1)))
+                Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
         return (VerificationStatus.TRUE, None, self.config.bmc_length), unproven
 
