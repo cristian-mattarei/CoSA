@@ -3,13 +3,14 @@ import itertools
 from typing import Dict, List, Set, Tuple
 
 from cosa.analyzers.mcsolver import BMCSolver
+from cosa.analyzers.mus import get_mucs
 from cosa.problem import Trace, VerificationStatus
 from cosa.utils.formula_mngm import get_free_variables, get_ground_terms
 from cosa.utils.logger import Logger
 
 from pysmt.fnode import FNode
 # NOTE: Using the substitute from pysmt here
-from pysmt.shortcuts import And, EqualsOrIff, Not, Or, simplify, substitute
+from pysmt.shortcuts import And, EqualsOrIff, Int, INT, LT, Minus, Not, Or, simplify, Solver, substitute, TRUE
 
 class CompositionalEngine(BMCSolver):
 
@@ -68,7 +69,7 @@ class CompositionalEngine(BMCSolver):
         Logger.msg("No properties violated in initial state", 1)
 
         universal_formulae = self.get_universal_formulae(properties)
-        res, unproven = self.inductive_step(universal_formulae, properties)
+        res, unproven, solver_ind = self.inductive_step(universal_formulae, properties)
 
         if unproven:
             # TODO: Return traces here
@@ -77,7 +78,7 @@ class CompositionalEngine(BMCSolver):
             return (VerificationStatus.TRUE, None, bmc_length)
 
     def inductive_step(self, universal_formulae:Dict[FNode, Tuple[FNode]],
-                       properties:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode]]:
+                       properties:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode], Solver]:
         '''
         Check the inductive step compositionally
         Assumes that _init_at_time has already been called
@@ -105,6 +106,7 @@ class CompositionalEngine(BMCSolver):
             Logger.msg("Solving property {}: {}".format(num, p.serialize(100)), 1)
             self._push(solver_ind)
 
+            # TODO: Add instantiations in post-state for proven properties
             # add heuristic instantiations
             instantiations = self.heuristic_instantiation(universal_formulae, p)
             for i in instantiations:
@@ -134,7 +136,71 @@ class CompositionalEngine(BMCSolver):
                 Logger.msg("p", 0, not(Logger.level(1)))
                 Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
-        return (VerificationStatus.TRUE, None, self.config.bmc_length), unproven
+        return (VerificationStatus.TRUE, None, self.config.bmc_length), unproven, solver_ind
+
+    def dependency_search(self, solver_ind, universal_formulae:Dict[FNode, Tuple[FNode]],
+                          unproven:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode]]:
+
+        # check to make sure all properties are provable with other properties as assumptions
+        unproven_set = set(unproven)
+        for prop in unproven:
+            self._push(solver_ind)
+
+            for other in unproven_set - {prop}:
+                self._add_assertion(solver_ind, self.at_time(other, 1))
+
+            instantiations = self.heuristic_instantiation(universal_formulae, p)
+            for i in instantiations:
+                timed_inst = self.at_time(i, 0)
+                Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
+                self._add_assertion(solver_ind, timed_inst)
+
+            self._add_assertion(solver_ind, self.at_time(Not(prop), 1))
+            if not self._solver(solver_ind):
+                model = self._get_model(solver_ind)
+                model = self._remap_model(self.hts.vars, model, 1)
+                trace = self.generate_trace(model, 1, get_free_variables(p))
+                return (VerificationStatus.FALSE, trace, 1)
+
+            self._pop(solver_ind)
+
+        del unproven_set
+
+        # TODO: don't rely on z3 exclusively -- but MathSAT has a bug
+        qf_idl_solver = Solver(name='z3', logic='QF_IDL')
+
+        # add a representative integer for each unproven property
+        # will be used to find a dependency order
+        dependency_vars = []
+        for i, prop in enumerate(unproven):
+            dependency_vars.append(Symbol(str(i), INT))
+
+        for i, prop in enumerate(unproven):
+            soft_constraints = []
+            for p in unproven:
+                # IMPORTANT : don't assume the property itself in the post state
+                if p != prop:
+                    # TODO: Support arbitrary k
+                    soft_constraints.append(self.at_time(p, 1))
+                else:
+                    # but we want to keep the indices the same, so add a dummy TRUE
+                    soft_constraints.append(TRUE())
+
+            disjunction_of_dependencies = []
+            prop_dep_var = Symbol(str(i), INT)
+            for muc in get_mucs(self.config.solver_name, solver_ind.assertions, soft_constraints):
+                assert muc, "expecting a non-empty unsatisfiable subset"
+                dependency_constraint = []
+                for idx in muc:
+                    # can't precede itself
+                    if idx != i:
+                        dependency_constraint.append(LT(Minus(prop_dep_var, Symbol(str(idx), INT), Int(0))))
+                disjunction_of_dependencies.append(And(dependency_constraint))
+
+            # add the possible dependency orders to the solver
+            self._add_assertion(qf_idl_solver, Or(disjunction_of_dependencies))
+
+        # TODO: Enumerate all possible dependency orders and check for one that works
 
     def get_universal_formulae(self, properties:List[FNode])->Dict[FNode, Tuple[FNode]]:
         '''
