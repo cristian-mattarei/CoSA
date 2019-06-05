@@ -3,7 +3,7 @@ import itertools
 from typing import Dict, List, Set, Tuple
 
 from cosa.analyzers.mcsolver import BMCSolver
-from cosa.analyzers.mus import get_mucs
+from cosa.analyzers.marco import get_mucs
 from cosa.problem import Trace, VerificationStatus
 from cosa.utils.formula_mngm import get_free_variables, get_ground_terms
 from cosa.utils.logger import Logger
