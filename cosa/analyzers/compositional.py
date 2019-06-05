@@ -72,7 +72,7 @@ class CompositionalEngine(BMCSolver):
 
         if unproven:
             # TODO: Return traces here
-            return (VerificationStatus.UNK, None, 1), unproven
+            return (VerificationStatus.UNK, None, 1)
         else:
             return (VerificationStatus.TRUE, None, bmc_length)
 
@@ -118,7 +118,7 @@ class CompositionalEngine(BMCSolver):
             if self._solve(solver_ind):
                 Logger.msg("f", 0, not(Logger.level(1)))
                 Logger.msg("Property violated in inductive step", 1)
-                unproven.append((num, p))
+                unproven.append(p)
                 passed = False
                 # TODO: Remove this
                 # model = self._get_model(solver_ind)
