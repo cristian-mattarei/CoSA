@@ -10,5 +10,3 @@ prove: True
 expected: True
 bmc_length: 10
 strategy: INT
-smt2_tracing: simple_alu.smt2
-incremental: False
