@@ -92,7 +92,7 @@ class VerilogYosysBtorParser(ModelParser):
             Logger.error("Top module not provided")
 
         if config.verific:
-            COPY_COMMANDS[0] = "verific -sv2009 {FILES}; verific -import {TARGET};"
+            COPY_COMMANDS[0] = "verific -sv2009 {FILES}; verific -import -extnets {TARGET};"
 
         topmodule = flags[0]
         abspath = filepath.absolute()
