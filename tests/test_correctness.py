@@ -29,21 +29,13 @@ problem_files.reverse()
 
 def runtest(problem_file):
     reset_env()
-
-    # actually pass these through? Or just rely on the problem file?
-    safety = True
-    verbosity = 2
-    solver_name = "msat"
-    prove = True
-    vcd = True
-    translate = "file.ssts"
-
+    translate_file = 'file.ssts'
     problems_manager = cosa_option_manager.read_problem_file(problem_file,
                                                              verbosity=2,
                                                              solver_name='msat',
                                                              prove=True,
                                                              vcd=True,
-                                                             translate='file.ssts')
+                                                             translate=translate_file)
 
     # run option handling code then freeze problem manager
     # TODO: Update this to make a better API
@@ -52,7 +44,7 @@ def runtest(problem_file):
     problems_manager.freeze()
 
     status = run_problems(problems_manager)
-    with open(translate, "r") as f:
+    with open(translate_file, "r") as f:
         print(f.read())
 
     assert status == 0
