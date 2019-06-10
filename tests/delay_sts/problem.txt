@@ -8,3 +8,4 @@ bmc_length: 10
 verification: safety
 properties: prop
 prove: True
+expected: True
