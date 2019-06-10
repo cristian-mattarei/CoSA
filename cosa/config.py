@@ -240,6 +240,14 @@ class CosaArgParser(argparse.ArgumentParser):
                 general_options[option] = self._defaults[option]
 
         problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
+        # convert defaults to expected type
+        for k, v in problem_defaults.items():
+            if v is not None:
+                assert k in self._types, "Expecting to have (at least default) type info for every option"
+                try:
+                    problem_defaults[k] = self._types[k](v)
+                except ValueError as e:
+                    raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
         return ProblemsManager(Path("./"), general_options, problem_defaults)
 
@@ -272,6 +280,16 @@ class CosaArgParser(argparse.ArgumentParser):
 
             # create default options for only problem fields
             problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
+
+            # convert defaults to expected type
+            for k, v in problem_defaults.items():
+                if v is not None:
+                    assert k in self._types, "Expecting to have (at least default) type info for every option"
+                    try:
+                        problem_defaults[k] = self._types[k](v)
+                    except ValueError as e:
+                        raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
+
             problems_manager = ProblemsManager(Path("./"), general_options, problem_defaults)
 
             # generate a single problem
@@ -377,6 +395,7 @@ class CosaArgParser(argparse.ArgumentParser):
                     general_options[option] = self._defaults[option]
 
         problem_defaults = {o:self._defaults[o] for o in self._problem_options[PROBLEM]}
+
         default_options = dict(config_args[DEFAULT])
         unknown_default_options = default_options.keys() - self._problem_options[PROBLEM]
         if unknown_default_options:
@@ -385,6 +404,15 @@ class CosaArgParser(argparse.ArgumentParser):
         for option, value in default_options.items():
             # override the defaults with problem defaults
             problem_defaults[option] = value
+
+        # convert defaults to expected type
+        for k, v in problem_defaults.items():
+            if v is not None:
+                assert k in self._types, "Expecting to have (at least default) type info for every option"
+                try:
+                    problem_defaults[k] = self._types[k](v)
+                except ValueError as e:
+                    raise ValueError("Cannot convert '{}' to expected type {}".format(v, self._types[k]))
 
         # convert options to expected type
         for k, v in general_options.items():
