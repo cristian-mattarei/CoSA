@@ -1,0 +1,12 @@
+[GENERAL]
+model_files: SimpleALU.json,SimpleALU.ets
+add_clock: True
+
+[Problem 0]
+assumptions: self.a < 32768_16;self.b < 32768_16
+properties: pokes_done -> (self.c >= self.a & self.c >= self.b)
+verification: safety
+prove: True
+expected: True
+bmc_length: 10
+strategy: INT
