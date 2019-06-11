@@ -60,7 +60,7 @@ class SubsetSolver:
         Note: The solver can be in any state/context (it might have assertions already added)
         '''
         self.soft_constraints = soft_constraints
-        self.solver = Solver(name=name, unsat_cores_mode='named')
+        self.solver = Solver(name=name, unsat_cores_mode='all')
         for c in hard_constraints:
             self.solver.add_assertion(c)
         self.n = len(soft_constraints)
@@ -91,6 +91,7 @@ class SubsetSolver:
         assert self._unsat_core is not None
         core = self._unsat_core
         for x in core:
+            print('x in core:', x.serialize(50))
             if x.is_symbol():
                 try:
                     idx = int(x.symbol_name())
@@ -136,9 +137,16 @@ def enumerate_sets(csolver, msolver):
 
 def get_mucs(name, hard_constraints, soft_constraints):
     csolver = SubsetSolver(name, hard_constraints, soft_constraints)
-    msolver = MapSolver(len(constraints))
+    msolver = MapSolver(len(soft_constraints))
 
-    for t, w in enumerate_set(csolver, mcsolver):
+    print('soft constraints')
+    for s in soft_constraints:
+        print('\t', s.serialize(100))
+
+    res = csolver.check_subset(list(range(csolver.n)))
+    assert not res, "expecting constraints to be unsatisfiable"
+
+    for t, w in enumerate_sets(csolver, msolver):
         if t == 'MUS':
             yield w
 
@@ -146,7 +154,7 @@ def main():
     a = Symbol('a', BOOL)
     b = Symbol('b', BOOL)
     constraints = [a, Not(a), b, Not(b), Or(a, b)]
-    csolver = SubsetSolver(constraints, [])
+    csolver = SubsetSolver('csolver', [], constraints)
     msolver = MapSolver(len(constraints))
 
     for t, w in enumerate_sets(csolver, msolver):
