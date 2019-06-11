@@ -2,7 +2,7 @@ from collections import defaultdict
 import itertools
 from typing import Dict, List, Set, Tuple
 
-from cosa.analyzers.mcsolver import BMCSolver
+from cosa.analyzers.mcsolver import BMCSolver, TraceSolver
 from cosa.analyzers.marco import get_mucs
 from cosa.problem import Trace, VerificationStatus
 from cosa.utils.formula_mngm import get_free_variables, get_ground_terms
@@ -10,7 +10,7 @@ from cosa.utils.logger import Logger
 
 from pysmt.fnode import FNode
 # NOTE: Using the substitute from pysmt here
-from pysmt.shortcuts import And, EqualsOrIff, Int, INT, LT, Minus, Not, Or, simplify, Solver, substitute, TRUE
+from pysmt.shortcuts import And, EqualsOrIff, Int, INT, LT, Minus, Not, Or, simplify, Solver, Symbol, substitute, TRUE
 
 class CompositionalEngine(BMCSolver):
 
@@ -69,24 +69,33 @@ class CompositionalEngine(BMCSolver):
         Logger.msg("No properties violated in initial state", 1)
 
         universal_formulae = self.get_universal_formulae(properties)
-        unproven, solver_ind = self.inductive_step(universal_formulae, properties)
+
+        solver_ind = self.solver.copy("compositional-s_ind")
+        self._reset_assertions(solver_ind)
+
+        unproven = self.inductive_step(universal_formulae, properties, solver_ind)
+
+        # do a second pass using all the proven properties
+        Logger.msg(" - retrying failed properties - ", 0, not(Logger.level(1)))
+        Logger.msg("Trying a second pass on unproven properties", 1)
+        unproven = self.inductive_step(universal_formulae, unproven, solver_ind)
 
         if unproven:
-            # TODO: Return traces here
-            return (VerificationStatus.UNK, None, 1)
+            if self.dependency_search(solver_ind, universal_formulae, properties, unproven):
+                return (VerificationStatus.TRUE, None, bmc_length)
+            else:
+                # TODO: Return traces here
+                return (VerificationStatus.UNK, None, 1)
         else:
             return (VerificationStatus.TRUE, None, bmc_length)
 
     def inductive_step(self, universal_formulae:Dict[FNode, Tuple[FNode]],
-                       properties:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode], Solver]:
+                       properties:List[FNode], solver_ind:TraceSolver) -> List[FNode]:
         '''
         Check the inductive step compositionally
         Assumes that _init_at_time has already been called
         (i.e. unrolled symbols already created)
         '''
-
-        solver_ind = self.solver.copy("compositional-s_ind")
-        self._reset_assertions(solver_ind)
 
         trans = self.hts.single_trans()
         invar = self.hts.single_invar()
@@ -136,10 +145,10 @@ class CompositionalEngine(BMCSolver):
                 Logger.msg("p", 0, not(Logger.level(1)))
                 Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
-        return unproven, solver_ind
+        return unproven
 
     def dependency_search(self, solver_ind, universal_formulae:Dict[FNode, Tuple[FNode]],
-                          unproven:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode]]:
+                          properties:List[FNode], unproven:List[FNode]) -> bool:
 
         # check to make sure all properties are provable with other properties as assumptions
         unproven_set = set(unproven)
@@ -149,14 +158,14 @@ class CompositionalEngine(BMCSolver):
             for other in unproven_set - {prop}:
                 self._add_assertion(solver_ind, self.at_time(other, 1))
 
-            instantiations = self.heuristic_instantiation(universal_formulae, p)
+            instantiations = self.heuristic_instantiation(universal_formulae, prop)
             for i in instantiations:
                 timed_inst = self.at_time(i, 0)
                 Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
                 self._add_assertion(solver_ind, timed_inst)
 
             self._add_assertion(solver_ind, self.at_time(Not(prop), 1))
-            if not self._solver(solver_ind):
+            if self._solve(solver_ind):
                 model = self._get_model(solver_ind)
                 model = self._remap_model(self.hts.vars, model, 1)
                 trace = self.generate_trace(model, 1, get_free_variables(p))
@@ -173,34 +182,54 @@ class CompositionalEngine(BMCSolver):
         # will be used to find a dependency order
         dependency_vars = []
         for i, prop in enumerate(unproven):
-            dependency_vars.append(Symbol(str(i), INT))
+            dependency_vars.append(Symbol("I%i"%i, INT))
 
         for i, prop in enumerate(unproven):
             soft_constraints = []
-            for p in unproven:
+            for p in properties:
                 # IMPORTANT : don't assume the property itself in the post state
                 if p != prop:
                     # TODO: Support arbitrary k
                     soft_constraints.append(self.at_time(p, 1))
                 else:
-                    # but we want to keep the indices the same, so add a dummy TRUE
-                    soft_constraints.append(TRUE())
+                    # but we want to keep the indices the same, so add the negated property here
+                    soft_constraints.append(Not(self.at_time(p, 1)))
 
             disjunction_of_dependencies = []
-            prop_dep_var = Symbol(str(i), INT)
-            for muc in get_mucs(self.config.solver_name, solver_ind.assertions, soft_constraints):
+            prop_dep_var = Symbol("I%i"%i, INT)
+
+            for muc in get_mucs(self.config.solver_name, list(hard_constraints), soft_constraints):
                 assert muc, "expecting a non-empty unsatisfiable subset"
                 dependency_constraint = []
                 for idx in muc:
                     # can't precede itself
                     if idx != i:
-                        dependency_constraint.append(LT(Minus(prop_dep_var, Symbol(str(idx), INT), Int(0))))
+                        dependency_constraint.append(LT(Minus(prop_dep_var, Symbol("I%i"%idx, INT), Int(0))))
                 disjunction_of_dependencies.append(And(dependency_constraint))
 
             # add the possible dependency orders to the solver
-            self._add_assertion(qf_idl_solver, Or(disjunction_of_dependencies))
+            assert disjunction_of_dependencies, "expecting dependencies to be non-empty"
+            assertion = Or(disjunction_of_dependencies)
+            qf_idl_solver.add_assertion(assertion)
 
         # TODO: Enumerate all possible dependency orders and check for one that works
+        res = qf_idl_solver.check_sat()
+        while res:
+            model = self._get_model(solver)
+
+            # TODO: try to prove the properties with this order
+            proven = False
+
+            # block this model
+            # TODO: need to block the dependency relationship
+            block = And([Not(EqualsOrIff(m[0], m[1].constant_value())) for m in model])
+
+            if proven:
+                return True
+
+            res = qf_idl_solver.check_sat()
+
+        return False
 
     def get_universal_formulae(self, properties:List[FNode])->Dict[FNode, Tuple[FNode]]:
         '''
