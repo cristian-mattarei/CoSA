@@ -74,11 +74,11 @@ class CompositionalEngine(BMCSolver):
         self._reset_assertions(solver_ind)
 
         unproven = self.inductive_step(universal_formulae, properties, solver_ind)
-
-        # do a second pass using all the proven properties
-        Logger.msg(" - retrying failed properties - ", 0, not(Logger.level(1)))
-        Logger.msg("Trying a second pass on unproven properties", 1)
-        unproven = self.inductive_step(universal_formulae, unproven, solver_ind)
+        if unproven:
+            # do a second pass using all the proven properties
+            Logger.msg(" - retrying failed properties - ", 0, not(Logger.level(1)))
+            Logger.msg("Trying a second pass on unproven properties", 1)
+            unproven = self.inductive_step(universal_formulae, unproven, solver_ind)
 
         if unproven:
             if self.dependency_search(solver_ind, universal_formulae, properties, unproven):
