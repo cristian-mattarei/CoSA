@@ -69,7 +69,7 @@ class CompositionalEngine(BMCSolver):
         Logger.msg("No properties violated in initial state", 1)
 
         universal_formulae = self.get_universal_formulae(properties)
-        res, unproven, solver_ind = self.inductive_step(universal_formulae, properties)
+        unproven, solver_ind = self.inductive_step(universal_formulae, properties)
 
         if unproven:
             # TODO: Return traces here
@@ -136,7 +136,7 @@ class CompositionalEngine(BMCSolver):
                 Logger.msg("p", 0, not(Logger.level(1)))
                 Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
-        return (VerificationStatus.TRUE, None, self.config.bmc_length), unproven, solver_ind
+        return unproven, solver_ind
 
     def dependency_search(self, solver_ind, universal_formulae:Dict[FNode, Tuple[FNode]],
                           unproven:List[FNode]) -> Tuple[Tuple[str, Trace, int], List[FNode]]:
