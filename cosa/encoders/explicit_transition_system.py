@@ -11,9 +11,10 @@
 import math
 from pathlib import Path
 import pyparsing
-from typing import NamedTuple
+from typing import List, NamedTuple, Tuple
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
+from pysmt.fnode import FNode
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
 from pysmt.typing import BOOL, BVType
 
