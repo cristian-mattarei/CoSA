@@ -79,7 +79,10 @@ class VerilogYosysBtorParser(ModelParser):
     def _get_extension(self, strfile):
         return strfile.split(".")[-1]
 
-    def parse_file(self, filepath, config, flags=None):
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
 
         # create copy of yosys commands (will be modified below)
         # Note: This class is only instantiated once per python environment

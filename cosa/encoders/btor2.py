@@ -10,6 +10,10 @@
 
 import os
 
+from pathlib import Path
+from typing import List, NamedTuple, Tuple
+
+from pysmt.fnode import FNode
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVNeg, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
     Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
     Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
@@ -94,9 +98,12 @@ class BTOR2Parser(ModelParser):
     def get_model_info(self):
         return None
 
-    def parse_file(self, strfile, config, flags=None):
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
         self.symbolic_init = config.symbolic_init
-        with open(strfile, "r") as f:
+        with filepath.open("r") as f:
             return self.parse_string(f.read())
 
     def is_available(self):

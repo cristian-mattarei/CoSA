@@ -9,7 +9,9 @@
 # limitations under the License.
 
 import math
+from pathlib import Path
 import pyparsing
+from typing import NamedTuple
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, restOfLine, LineEnd, Combine, White
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, BVULE
@@ -65,7 +67,7 @@ class ExplicitTSParser(ModelParser):
     parser = None
     extensions = ["ets"]
     name = "ETS"
-    
+
     state_id = 0
 
     pyparsing_version = PYPARSING_220
@@ -74,8 +76,12 @@ class ExplicitTSParser(ModelParser):
         self.parser = self.__init_parser()
         self.pyparsing_version = pyparsing.__version__
 
-    def parse_file(self, strfile, config, flags=None):
-        with open(strfile, "r") as f:
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
+
+        with filepath.open("r") as f:
             return self.parse_string(f.read())
 
     def is_available(self):
@@ -83,7 +89,7 @@ class ExplicitTSParser(ModelParser):
 
     def get_model_info(self):
         return None
-     
+
     def parse_string(self, strinput):
         lines = []
         for line in strinput.split(T_NL):
@@ -101,11 +107,11 @@ class ExplicitTSParser(ModelParser):
         varname = Word(alphas+nums+T_US+T_MIN+T_DOT)(P_VARNAME)
         sname = Word(alphas+nums+T_I+T_S+T_US)(P_SNAME)
         boolvalue = Literal(T_TRUE) | Literal(T_FALSE)
-        
+
         ivalue = Word(nums)
         hexvalue = Word(nums + T_A + T_B + T_C + T_D + T_E + T_F)
         bvvalue = Combine(ivalue + T_US + ivalue)
-        
+
         value = (boolvalue | bvvalue | hexvalue)(P_VALUE)
 
         comment = (T_COM + restOfLine + LineEnd())(P_COMMENT)
@@ -119,7 +125,7 @@ class ExplicitTSParser(ModelParser):
 
         trans = (sname(P_START) + Literal(T_ARROW) + sname(P_END) + restOfLine)(P_TRANS)
         transs = OneOrMore(trans)
-        
+
         ets = OneOrMore(comment | inits | states | transs | emptyline)
 
         return ets
@@ -141,7 +147,7 @@ class ExplicitTSParser(ModelParser):
             var = Symbol(name, vtype)
             ts.add_state_var(var)
             return var
-        
+
         for line in lines:
             if line.comment:
                 continue
@@ -156,19 +162,19 @@ class ExplicitTSParser(ModelParser):
                     dline = dict(line)
                     init_varname = dline[P_VARNAME] if P_VARNAME in dline else ""
                     init_value = dline[P_VALUE]
-                    
+
                 if init_varname != "":
                     (value, typev) = self.__get_value(init_value)
                     ivar = def_var(init_varname, typev)
                     state = EqualsOrIff(ivar, value)
                 else:
                     state = TRUE() if init_value == T_TRUE else FALSE()
-                
+
                 states[T_I] = And(states[T_I], state)
 
                 # Optimization for the initial state assignment
                 init = And(init, state)
-                
+
             state = TRUE()
             if line.state:
                 if self.pyparsing_version == PYPARSING_220:
@@ -192,19 +198,19 @@ class ExplicitTSParser(ModelParser):
                         Logger.error("Double assignment for variable \"%s\" at state \"%s\""%(state_varname, sname))
                 else:
                     state = TRUE() if state_value == T_TRUE else FALSE()
-                        
+
                 if sname not in states:
                     states[sname] = TRUE()
 
                 states[sname] = And(states[sname], state)
-                
+
         stateid_width = math.ceil(math.log(len(states))/math.log(2))
         stateid_var = Symbol(self.new_state_id(), BVType(stateid_width))
 
         init = And(init, EqualsOrIff(stateid_var, BV(0, stateid_width)))
         invar = And(invar, Implies(EqualsOrIff(stateid_var, BV(0, stateid_width)), states[T_I]))
         states[T_I] = EqualsOrIff(stateid_var, BV(0, stateid_width))
-        
+
         count = 1
         state_items = list(states.keys())
         state_items.sort()
@@ -220,7 +226,7 @@ class ExplicitTSParser(ModelParser):
         for line in lines:
             if line.comment:
                 continue
-                
+
             if line.trans:
                 if self.pyparsing_version == PYPARSING_220:
                     line_start = line.trans.start
@@ -228,7 +234,7 @@ class ExplicitTSParser(ModelParser):
                 else:
                     line_start = dict(line)[P_START]
                     line_end = dict(line)[P_END]
-                    
+
                 if states[line_start] not in transdic:
                     transdic[states[line_start]] = []
                 transdic[states[line_start]].append(states[line_end])
@@ -249,16 +255,16 @@ class ExplicitTSParser(ModelParser):
         hts.add_ts(ts)
         invar_props = []
         ltl_props = []
-        
+
         return (hts, invar_props, ltl_props)
-                
+
     def __get_value(self, value):
         if value == T_FALSE:
             return (FALSE(), BOOL)
 
         if value == T_TRUE:
             return (TRUE(), BOOL)
-        
+
         if T_US in value:
             width = int(value.split(T_US)[1])
             value = int(value.split(T_US)[0])
@@ -267,14 +273,13 @@ class ExplicitTSParser(ModelParser):
             value = int(("0x%s"%value).lower(), 0)
 
         return (BV(value, width), BVType(width))
-            
+
     def remap_an2or(self, name):
         return name
 
     def remap_or2an(self, name):
         return name
 
-    @staticmethod        
+    @staticmethod
     def get_extensions():
         return ExplicitTSParser.extensions
-    

@@ -8,6 +8,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+from typing import List, NamedTuple, Tuple
+
+from pysmt.fnode import FNode
+
 from cosa.utils.logger import Logger
 
 class ModelFlags(object):
@@ -48,7 +53,10 @@ class ModelParser(object):
     def parse_string(self, string):
         Logger.error("Not implemented")
 
-    def parse_file(self, strfile, config, flags=None):
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
         Logger.error("Not implemented")
 
     def get_name(self):
