@@ -13,6 +13,7 @@ from typing import List, NamedTuple, Tuple
 
 from pysmt.fnode import FNode
 
+from cosa.representation import HTS
 from cosa.utils.logger import Logger
 
 class ModelFlags(object):
