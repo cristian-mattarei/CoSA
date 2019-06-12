@@ -8,9 +8,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 import pyparsing
+from typing import List, NamedTuple, Tuple
 
 from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, restOfLine, LineEnd, Combine, White, Group, SkipTo, lineEnd
+from pysmt.fnode import FNode
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, BVType
 
@@ -134,8 +137,11 @@ class SymbolicTSParser(ModelParser):
         self.parser.ignore(T_COM + SkipTo(lineEnd))
         self.pyparsing_version = pyparsing.__version__
 
-    def parse_file(self, strfile, config, flags=None):
-        with open(strfile, "r") as f:
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
+        with filepath.open("r") as f:
             return self.parse_string(f.read())
 
     def is_available(self):
@@ -510,8 +516,11 @@ class SymbolicSimpleTSParser(ModelParser):
     def remap_or2an(self, name):
         return name
 
-    def parse_file(self, strfile, config, flags=None):
-        with open(strfile, "r") as f:
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
+        with filepath.open("r") as f:
             lines = (f.read().replace("\\\n","")).splitlines(True)
             return self.parse_string(lines)
 

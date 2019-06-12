@@ -9,16 +9,18 @@
 # limitations under the License.
 
 import os
-import shutil
+from pathlib import Path
 import re
+import shutil
+from typing import List, NamedTuple, Tuple
 
-from cosa.representation import HTS, TS
-from cosa.utils.logger import Logger
+from pysmt.fnode import FNode
 
 from cosa.encoders.template import ModelParser
 from cosa.encoders.btor2 import BTOR2Parser
-
+from cosa.representation import HTS, TS
 from cosa.utils.generic import suppress_output, restore_output, check_command
+from cosa.utils.logger import Logger
 
 PASSES = []
 PASSES.append("hierarchy -check")
@@ -79,7 +81,10 @@ class VerilogYosysBtorParser(ModelParser):
     def _get_extension(self, strfile):
         return strfile.split(".")[-1]
 
-    def parse_file(self, filepath, config, flags=None):
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
 
         # create copy of yosys commands (will be modified below)
         # Note: This class is only instantiated once per python environment
@@ -159,7 +164,7 @@ class VerilogYosysBtorParser(ModelParser):
             Logger.error("Error in Verilog conversion.\nSee %s for more info."%YOSYSERRLOG)
 
         parser = BTOR2Parser()
-        ret = parser.parse_file(TMPFILE, config)
+        ret = parser.parse_file(Path(TMPFILE), config)
 
         if not Logger.level(1):
             os.remove(TMPFILE)
