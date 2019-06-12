@@ -516,8 +516,11 @@ class SymbolicSimpleTSParser(ModelParser):
     def remap_or2an(self, name):
         return name
 
-    def parse_file(self, strfile, config, flags=None):
-        with open(strfile, "r") as f:
+    def parse_file(self,
+                   filepath:Path,
+                   config:NamedTuple,
+                   flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
+        with filepath.open("r") as f:
             lines = (f.read().replace("\\\n","")).splitlines(True)
             return self.parse_string(lines)
 
