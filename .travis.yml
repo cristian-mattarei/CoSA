@@ -2,6 +2,8 @@ dist: xenial
 language: python
 python:
   - "3.6"
+  - "3.5"
+  - "3.4"
 
 sudo: required
 
