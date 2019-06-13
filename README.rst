@@ -41,8 +41,7 @@ Installation
 
 Software requirements:
 
-- `Python3`_
-  - Full support requires Python3.6 or higher, however running without the `CoreIR`_ inputs should work on older Python 3 versions
+- `Python3`_ -- Full support requires Python3.6 or higher, however running without the `CoreIR`_ inputs should work on older Python 3 versions
 - `Pip3`_: package manager -- easiest way to install CoSA. On Debian: `apt-get update; apt-get install python3-pip`.
 - `Cmake`_ and a standard C++ compiler for `CoreIR`_ / `PyCoreIR`_
 - `Yosys`_ needs to be installed in order to support Verilog as an input format
