@@ -13,6 +13,7 @@ from argparse import RawTextHelpFormatter
 import multiprocessing
 import sys
 from textwrap import TextWrapper
+from typing import Dict
 
 from cosa.analyzers.mcsolver import get_verification_strategies
 from cosa.config import CosaArgParser
@@ -467,8 +468,21 @@ devel_params.add_argument('--smt2-tracing', metavar='<smt-lib2 file>', type=str,
                           help='generates the smtlib2 tracing file for '
                           'each solver call.' if not devel else argparse.SUPPRESS)
 
+def solver_options_to_dict(solver_options:str)->Dict[str, str]:
+    '''
+    Takes a space-delimited list of key value pairs (delimited by ":") and turns it into a dictionary
+    '''
+    d = {}
+    for option in solver_options.split():
+        res = option.split(":")
+        if len(res) != 2:
+            raise RuntimeError("Expecting a list of key:value pairs but got {}".format(res))
+        k, v = option.split(":")
+        d[k] = v
+    return d
+
 devel_params.set_defaults(solver_options=None)
-devel_params.add_argument('--solver-options', metavar='[key:value options]', type=str, required=False,
-                          help='space delimited key:value pairs '
+devel_params.add_argument('--solver-options', metavar='[key:value options]', required=False,
+                          type=solver_options_to_dict, help='space delimited key:value pairs '
                           'to set specific SMT solver options (EXPERTS ONLY)' if not devel else argparse.SUPPRESS)
 
