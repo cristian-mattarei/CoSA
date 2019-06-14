@@ -72,6 +72,7 @@ Installation from Source
 ========================
 - Install `Git`_
 - ``git clone https://github.com/cristian-mattarei/CoSA.git``
+- ``cd CoSA``
 - ``pip3 install -e .``
 
 Pip will automatically install the Python dependencies. To install Yosys for Verilog support, follow the instructions `here
