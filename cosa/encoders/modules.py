@@ -202,7 +202,17 @@ class Modules(object):
 
     @staticmethod
     def Mul(in0,in1,out):
-        return Modules.Bop(BVMul,None,in0,in1,out)
+        in0type = in0.get_type()
+        in1type = in1.get_type()
+        in0width = in0type.width
+        in1width = in1type.width
+        UF = Symbol('FloatAdd_{}_{}'.format(in0width, in1width), FunctionType(out.get_type(), [in0type, in1type]))
+        ts = TS("FloatAddUF")
+        invar = And(EqualsOrIff(out, Function(UF, (in0, in1))), EqualsOrIff(out, BV(0, out.get_type().width)))
+        ts.set_behavior(TRUE(), TRUE(), invar)
+        ts.vars, ts.invar = {in0, in1, out}, invar
+        return ts
+        # return Modules.Bop(BVMul,None,in0,in1,out)
 
     @staticmethod
     def Udiv(in0,in1,out):
@@ -719,7 +729,7 @@ class Modules(object):
         ts = TS("FloatAddUF")
         invar = EqualsOrIff(out, Function(UF, (in0, in1)))
         ts.set_behavior(TRUE(), TRUE(), invar)
-        ts.vars, ts.invar = get_free_variables(invar), invar
+        ts.vars, ts.invar = {in0, in1, out}, invar
         return ts
 
     @staticmethod
@@ -730,9 +740,9 @@ class Modules(object):
         in1width = in1type.width
         UF = Symbol('FloatMul_{}_{}'.format(in0width, in1width), FunctionType(out.get_type(), [in0type, in1type]))
         ts = TS("FloatMulUF")
-        invar= EqualsOrIff(out, Function(UF, (in0, in1)))
+        invar = EqualsOrIff(out, Function(UF, (in0, in1)))
         ts.set_behavior(TRUE(), TRUE(), invar)
-        ts.vars, ts.invar = get_free_variables(invar), invar
+        ts.vars, ts.invar = {in0, in1, out}, invar
         return ts
 
 class ModuleSymbols(object):

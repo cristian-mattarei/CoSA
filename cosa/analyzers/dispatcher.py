@@ -505,7 +505,8 @@ class ProblemSolver(object):
                 else:
                     if problem.verification == VerificationType.SIMULATION:
                         prop = TRUE()
-                    elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE):
+                    elif (problem.verification is not None) and (problem.verification != VerificationType.EQUIVALENCE) and \
+                         (problem.verification != VerificationType.DETERMINISTIC):
                         Logger.error("Property not provided for problem {}".format(problem.name))
 
                 if problem.verification == VerificationType.EQUIVALENCE:

@@ -69,6 +69,10 @@ class TraceSolver(object):
         self.basename = basename
         self.smt2vars = set([])
         self.solver = Solver(name=solver_name, logic=logic, incremental=incremental, solver_options=solver_options)
+
+        if solver_name == 'btor':
+            self.solver.btor.Set_sat_solver('cadical')
+
         self.smt2vars_inc = []
         if basename is not None:
             self.trace_file = "%s-%s.smt2"%(basename, name)
