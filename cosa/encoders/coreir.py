@@ -37,6 +37,7 @@ COREIR_CLK = 'coreir.clkIn'
 
 LIBRARIES = []
 LIBRARIES.append("rtlil")
+LIBRARIES.append("float")
 
 PASSES = []
 PASSES.append("clockifyinterface")
@@ -53,6 +54,7 @@ PASSES.append("removeunconnected")
 #PASSES.append("fold")
 #PASSES.append("constants")
 PASSES.append("flatten")
+PASSES.append("cullgraph")
 PASSES.append("flattentypes")
 PASSES.append("packconnections")
 PASSES.append("cullzexts")
@@ -201,47 +203,52 @@ class CoreIRParser(ModelParser):
 
     def _init_mod_map(self):
         mod_map = []
-        mod_map.append(("not",  (Modules.Not,  [self.IN, self.OUT])))
-        mod_map.append(("not",  (Modules.Not,  [self.IN, self.OUT])))
-        mod_map.append(("zext", (Modules.Zext, [self.IN, self.OUT])))
-        mod_map.append(("orr",  (Modules.Orr,  [self.IN, self.OUT])))
-        mod_map.append(("andr", (Modules.Andr, [self.IN, self.OUT])))
-        mod_map.append(("wrap", (Modules.Wrap, [self.IN, self.OUT])))
+        mod_map.append(("coreir.not",  (Modules.Not,  [self.IN, self.OUT])))
+        mod_map.append(("coreir.neg",  (Modules.Neg,  [self.IN, self.OUT])))
+        mod_map.append(("coreir.zext", (Modules.Zext, [self.IN, self.OUT])))
+        mod_map.append(("coreir.orr",  (Modules.Orr,  [self.IN, self.OUT])))
+        mod_map.append(("coreir.andr", (Modules.Andr, [self.IN, self.OUT])))
+        mod_map.append(("coreir.wrap", (Modules.Wrap, [self.IN, self.OUT])))
 
-        mod_map.append(("shl",  (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("lshl", (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("lshr", (Modules.LShr, [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("ashr", (Modules.AShr, [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("add",  (Modules.Add,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("and",  (Modules.And,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("xor",  (Modules.Xor,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("udiv",  (Modules.Udiv,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("sdiv",  (Modules.Sdiv,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("neq",  (Modules.Neq,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.shl",  (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.lshl", (Modules.LShl, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.lshr", (Modules.LShr, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.ashr", (Modules.AShr, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.add",  (Modules.Add,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.and",  (Modules.And,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.xor",  (Modules.Xor,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.sub",  (Modules.Sub,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.mul",  (Modules.Mul,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.udiv",  (Modules.Udiv,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.sdiv",  (Modules.Sdiv,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.eq",   (Modules.Eq,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.neq",  (Modules.Neq,  [self.IN0, self.IN1, self.OUT])))
 
-        mod_map.append(("ult",  (Modules.Ult,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("ule",  (Modules.Ule,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("ugt",  (Modules.Ugt,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("uge",  (Modules.Uge,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("slt",  (Modules.Slt,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("sle",  (Modules.Sle,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.ult",  (Modules.Ult,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.ule",  (Modules.Ule,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.ugt",  (Modules.Ugt,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.uge",  (Modules.Uge,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.slt",  (Modules.Slt,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.sle",  (Modules.Sle,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("coreir.sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
 
-        mod_map.append(("const",  (Modules.Const, [self.OUT, self.VALUE])))
-        mod_map.append(("reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
-        mod_map.append(("mem", (Modules.Mem, [self.CLK, self.WDATA, self.WADDR, self.WEN, self.RDATA, self.RADDR])))
-        mod_map.append(("regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
-        mod_map.append(("reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
-        mod_map.append(("mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
-        mod_map.append(("slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
-        mod_map.append(("concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.and",  (Modules.And,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.xor",  (Modules.Xor,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.not",  (Modules.Not,  [self.IN, self.OUT])))
 
-        mod_map.append(('term', (Modules.Term, [self.IN])))
+        mod_map.append(("coreir.const",  (Modules.Const, [self.OUT, self.VALUE])))
+        mod_map.append(("coreir.reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("coreir.mem", (Modules.Mem, [self.CLK, self.WDATA, self.WADDR, self.WEN, self.RDATA, self.RADDR])))
+        mod_map.append(("coreir.regrst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("coreir.reg_arst", (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
+        mod_map.append(("coreir.mux",    (Modules.Mux, [self.IN0, self.IN1, self.SEL, self.OUT])))
+        mod_map.append(("coreir.slice",  (Modules.Slice, [self.IN, self.OUT, self.LOW, self.HIGH])))
+        mod_map.append(("coreir.concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
+
+        mod_map.append(('coreir.term', (Modules.Term, [self.IN])))
 
         self.mod_map = dict(mod_map)
 
@@ -416,7 +423,7 @@ class CoreIRParser(ModelParser):
             ts = None
 
             (inst_name, inst_conf, inst_mod) = inst
-            inst_type = inst_mod.name
+            inst_type = "{}.{}".format(inst_mod.namespace.name, inst_mod.name)
             inst_intr = dict(inst_mod.type.items())
             modname = (SEP.join(inst_name))+SEP
 

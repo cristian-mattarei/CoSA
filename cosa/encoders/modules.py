@@ -11,9 +11,10 @@
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
     TRUE, FALSE, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
-    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVZExt, \
-    BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, BVConcat, \
-    BVUDiv, BVSDiv, BVComp, Array, Select, Store, get_type
+    BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVNeg, \
+    BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, \
+    BVSLT, BVSGT, BVSGE, BVSLE, \
+    BVConcat, BVUDiv, BVSDiv, BVComp, Array, Select, Store, get_type
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import TS, HTS, L_BV, L_ABV
@@ -72,6 +73,10 @@ class Modules(object):
     @staticmethod
     def Not(in_,out):
         return Modules.Uop(BVNot,Not,in_,out)
+
+    @staticmethod
+    def Neg(in_,out):
+        return Modules.Uop(BVNeg,Not,in_,out)
 
     @staticmethod
     def Wrap(in_, out):
@@ -225,19 +230,19 @@ class Modules(object):
 
     @staticmethod
     def Slt(in0,in1,out):
-        return Modules.Bop(BVSlt,None,in0,in1,out)
+        return Modules.BopBool(BVSLT,in0,in1,out)
 
     @staticmethod
     def Sle(in0,in1,out):
-        return Modules.Bop(BVSle,None,in0,in1,out)
+        return Modules.BopBool(BVSLE,in0,in1,out)
 
     @staticmethod
     def Sgt(in0,in1,out):
-        return Modules.Bop(BVSgt,None,in0,in1,out)
+        return Modules.BopBool(BVSGT,in0,in1,out)
 
     @staticmethod
     def Sge(in0,in1,out):
-        return Modules.Bop(BVSge,None,in0,in1,out)
+        return Modules.BopBool(BVSGE,in0,in1,out)
 
     @staticmethod
     def Concat(in0,in1,out):
