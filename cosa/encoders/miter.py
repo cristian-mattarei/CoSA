@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import TRUE, FALSE, BOOL, And, EqualsOrIff, Iff, Symbol, Implies
+from pysmt.shortcuts import TRUE, FALSE, BOOL, And, EqualsOrIff, Iff, Symbol, Implies, simplify
 
 from cosa.representation import HTS, TS
 from cosa.encoders.coreir import SEP
@@ -41,6 +41,10 @@ class Miter(object):
         if not symbolic_init:
             ts1_init = substitute(hts.single_init(), map1)
             ts2_init = substitute(hts2.single_init(), map2)
+
+        print('ts1_init free vars', get_free_variables(simplify(ts1_init)))
+        print('hts states', hts.state_vars)
+
 
         ts1 = TS()
         ts1.vars = set([TS.get_prefix(v, S1) for v in hts.vars])
@@ -107,7 +111,7 @@ class Miter(object):
 
             if c_lemma != TRUE():
                 htseq.add_lemma(c_lemma)
-                
+
         miter_out = Symbol(EQS, BOOL)
 
         inputs = hts.input_vars.intersection(hts2.input_vars)

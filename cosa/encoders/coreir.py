@@ -234,11 +234,6 @@ class CoreIRParser(ModelParser):
         mod_map.append(("coreir.sgt",  (Modules.Sgt,  [self.IN0, self.IN1, self.OUT])))
         mod_map.append(("coreir.sge",  (Modules.Sge,  [self.IN0, self.IN1, self.OUT])))
 
-        mod_map.append(("corebit.and",  (Modules.And,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("corebit.xor",  (Modules.Xor,  [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("corebit.or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
-        mod_map.append(("corebit.not",  (Modules.Not,  [self.IN, self.OUT])))
-
         mod_map.append(("coreir.const",  (Modules.Const, [self.OUT, self.VALUE])))
         mod_map.append(("coreir.reg",    (Modules.Reg, [self.IN, self.CLK, self.CLR, self.RST, self.ARST, self.OUT, self.INIT, self.CLK_POSEDGE, self.ARST_POSEDGE])))
         mod_map.append(("coreir.mem", (Modules.Mem, [self.CLK, self.WDATA, self.WADDR, self.WEN, self.RDATA, self.RADDR])))
@@ -249,6 +244,17 @@ class CoreIRParser(ModelParser):
         mod_map.append(("coreir.concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
 
         mod_map.append(('coreir.term', (Modules.Term, [self.IN])))
+
+        # Corebit versions
+        mod_map.append(("corebit.and",  (Modules.And,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.xor",  (Modules.Xor,  [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.or",   (Modules.Or,   [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(("corebit.not",  (Modules.Not,  [self.IN, self.OUT])))
+        mod_map.append(("corebit.const",  (Modules.Const, [self.OUT, self.VALUE])))
+
+        # Uses uninterpreted functions for floats currently
+        mod_map.append(('float.add', (Modules.FloatAdd, [self.IN0, self.IN1, self.OUT])))
+        mod_map.append(('float.mul', (Modules.FloatMul, [self.IN0, self.IN1, self.OUT])))
 
         self.mod_map = dict(mod_map)
 

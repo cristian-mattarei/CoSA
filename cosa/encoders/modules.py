@@ -9,7 +9,7 @@
 # limitations under the License.
 
 from pysmt.shortcuts import get_env, Symbol, BV, simplify, \
-    TRUE, FALSE, \
+    TRUE, FALSE, Function, FunctionType, \
     And, Implies, Iff, Not, BVAnd, EqualsOrIff, Ite, Or, Xor, \
     BVExtract, BVSub, BVOr, BVAdd, BVXor, BVMul, BVNot, BVNeg, \
     BVZExt, BVLShr, BVLShl, BVAShr, BVULT, BVUGT, BVUGE, BVULE, \
@@ -698,12 +698,41 @@ class Modules(object):
         ts.set_behavior(init, trans, invar)
         return ts
 
+    @staticmethod
     def Term(_in):
         '''
         Term is a no-op. Just terminates a coreir wireable
         '''
         vars_ = [_in]
         ts = TS("Terminate wire")
+        return ts
+
+
+    ### FLOATING POINT UNINTERPRETED FUNCTIONS ###
+    @staticmethod
+    def FloatAdd(in0,in1,out):
+        in0type = in0.get_type()
+        in1type = in1.get_type()
+        in0width = in0type.width
+        in1width = in1type.width
+        UF = Symbol('FloatAdd_{}_{}'.format(in0width, in1width), FunctionType(out.get_type(), [in0type, in1type]))
+        ts = TS("FloatAddUF")
+        invar = EqualsOrIff(out, Function(UF, (in0, in1)))
+        ts.set_behavior(TRUE(), TRUE(), invar)
+        ts.vars, ts.invar = get_free_variables(invar), invar
+        return ts
+
+    @staticmethod
+    def FloatMul(in0,in1,out):
+        in0type = in0.get_type()
+        in1type = in1.get_type()
+        in0width = in0type.width
+        in1width = in1type.width
+        UF = Symbol('FloatMul_{}_{}'.format(in0width, in1width), FunctionType(out.get_type(), [in0type, in1type]))
+        ts = TS("FloatMulUF")
+        invar= EqualsOrIff(out, Function(UF, (in0, in1)))
+        ts.set_behavior(TRUE(), TRUE(), invar)
+        ts.vars, ts.invar = get_free_variables(invar), invar
         return ts
 
 class ModuleSymbols(object):
