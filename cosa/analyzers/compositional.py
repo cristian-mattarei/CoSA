@@ -73,29 +73,39 @@ class CompositionalEngine(BMCSolver):
         solver_ind = self.solver.copy("compositional-s_ind")
         self._reset_assertions(solver_ind)
 
-        unproven = self.inductive_step(universal_formulae, properties, solver_ind)
+        unproven, _ = self.inductive_step(universal_formulae, properties, solver_ind)
         if unproven:
             # do a second pass using all the proven properties
             Logger.msg(" - retrying failed properties - ", 0, not(Logger.level(1)))
             Logger.msg("Trying a second pass on unproven properties", 1)
-            unproven = self.inductive_step(universal_formulae, unproven, solver_ind)
+            unproven, traces = self.inductive_step(universal_formulae, unproven, solver_ind, return_traces=True)
 
         if unproven:
-            if self.dependency_search(solver_ind, universal_formulae, properties, unproven):
-                return (VerificationStatus.TRUE, None, bmc_length)
-            else:
-                # TODO: Return traces here
-                return (VerificationStatus.UNK, None, 1)
+            return (VerificationStatus.UNK, traces, bmc_length)
         else:
             return (VerificationStatus.TRUE, None, bmc_length)
+        # if unproven:
+        #     if self.dependency_search(solver_ind, universal_formulae, properties, unproven):
+        #         return (VerificationStatus.TRUE, None, bmc_length)
+        #     else:
+        #         # TODO: Return traces here
+        #         return (VerificationStatus.UNK, None, 1)
+        # else:
+        #     return (VerificationStatus.TRUE, None, bmc_length)
 
     def inductive_step(self, universal_formulae:Dict[FNode, Tuple[FNode]],
-                       properties:List[FNode], solver_ind:TraceSolver) -> List[FNode]:
+                       properties:List[FNode], solver_ind:TraceSolver,
+                       return_traces=False) -> List[FNode]:
         '''
         Check the inductive step compositionally
         Assumes that _init_at_time has already been called
         (i.e. unrolled symbols already created)
         '''
+
+        if return_traces:
+            traces = []
+        else:
+            traces = None
 
         trans = self.hts.single_trans()
         invar = self.hts.single_invar()
@@ -111,6 +121,7 @@ class CompositionalEngine(BMCSolver):
             self._add_assertion(solver_ind, timed_prop)
 
         unproven = list()
+        proven = set()
         for num, p in enumerate(properties):
             Logger.msg("Solving property {}: {}".format(num, p.serialize(100)), 1)
             self._push(solver_ind)
@@ -118,10 +129,16 @@ class CompositionalEngine(BMCSolver):
             # TODO: Add instantiations in post-state for proven properties
             # add heuristic instantiations
             instantiations = self.heuristic_instantiation(universal_formulae, p)
-            for i in instantiations:
-                timed_inst = self.at_time(i, 0)
-                Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
-                self._add_assertion(solver_ind, timed_inst)
+            for univ_prop, insts in instantiations.items():
+                for i in insts:
+                    timed_inst = self.at_time(i, 0)
+                    Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
+                    self._add_assertion(solver_ind, timed_inst)
+
+                if univ_prop in proven:
+                    timed_inst = self.at_time(i, 1)
+                    Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
+                    self._add_assertion(solver_ind, timed_inst)
 
             self._add_assertion(solver_ind, self.at_time(Not(p), 1))
 
@@ -131,11 +148,13 @@ class CompositionalEngine(BMCSolver):
                 Logger.msg("Property violated in inductive step", 1)
                 unproven.append(p)
                 passed = False
-                # TODO: Remove this
-                # model = self._get_model(solver_ind)
-                # model = self._remap_model(self.hts.vars, model, 1)
-                # trace = self.generate_trace(model, 1, get_free_variables(p))
-                # return (VerificationStatus.UNK, trace, 1), unproven
+                if return_traces:
+                    model = self._get_model(solver_ind)
+                    model = self._remap_model(self.hts.vars, model, 1)
+                    trace = self.generate_trace(model, 1, get_free_variables(p))
+                    traces.append(trace)
+            else:
+                proven.add(p)
 
             self._pop(solver_ind)
 
@@ -145,8 +164,9 @@ class CompositionalEngine(BMCSolver):
                 Logger.msg("p", 0, not(Logger.level(1)))
                 Logger.msg("assuming property in post-state: " + self.at_time(p, 1).serialize(100), 2)
 
-        return unproven
+        return unproven, traces
 
+    # TODO: consider removing this
     def dependency_search(self, solver_ind, universal_formulae:Dict[FNode, Tuple[FNode]],
                           properties:List[FNode], unproven:List[FNode]) -> bool:
 
@@ -159,10 +179,11 @@ class CompositionalEngine(BMCSolver):
                 self._add_assertion(solver_ind, self.at_time(other, 1))
 
             instantiations = self.heuristic_instantiation(universal_formulae, prop)
-            for i in instantiations:
-                timed_inst = self.at_time(i, 0)
-                Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
-                self._add_assertion(solver_ind, timed_inst)
+            for insts in instantiations.values():
+                for i in insts:
+                    timed_inst = self.at_time(i, 0)
+                    Logger.msg('assuming instantiation: ' + timed_inst.serialize(100), 2)
+                    self._add_assertion(solver_ind, timed_inst)
 
             self._add_assertion(solver_ind, self.at_time(Not(prop), 1))
             if self._solve(solver_ind):
@@ -267,7 +288,7 @@ class CompositionalEngine(BMCSolver):
         #       there's nothing stopping the user from re-using it
         #       the right thing to do is probably just to throw an error -- easier than replacing them ourselves
 
-        instantiated_formulae = []
+        instantiated_formulae = defaultdict(list)
 
         for formula, univ_vars in universal_assumptions.items():
             if formula == prop:
@@ -288,6 +309,6 @@ class CompositionalEngine(BMCSolver):
                 d = {
                     i:u for i, u in zip(univ_vars, instvars)
                 }
-                instantiated_formulae.append(substitute(formula, d))
+                instantiated_formulae[formula].append(substitute(formula, d))
 
         return instantiated_formulae
