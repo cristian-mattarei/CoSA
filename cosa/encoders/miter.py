@@ -42,10 +42,6 @@ class Miter(object):
             ts1_init = substitute(hts.single_init(), map1)
             ts2_init = substitute(hts2.single_init(), map2)
 
-        print('ts1_init free vars', get_free_variables(simplify(ts1_init)))
-        print('hts states', hts.state_vars)
-
-
         ts1 = TS()
         ts1.vars = set([TS.get_prefix(v, S1) for v in hts.vars])
         ts1.set_behavior(ts1_init,\

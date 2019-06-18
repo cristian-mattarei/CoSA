@@ -554,7 +554,7 @@ class ProblemSolver(object):
                 # TODO: Determine whether we need both trace and traces
                 assert trace is None or traces is None, "Expecting either a trace or a list of traces"
                 if trace is not None:
-                    problem_traces = self.__process_trace(hts, trace, general_config, problem)
+                    problem_traces = self.__process_trace(problem_hts, trace, general_config, problem)
                     problems_config.set_problem_traces(problem, problem_traces)
 
                 if traces is not None:

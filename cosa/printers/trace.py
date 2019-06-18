@@ -17,6 +17,7 @@ from pysmt.shortcuts import BOOL
 from cosa.representation import TS
 from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex, sort_system_variables
+from cosa.utils.logger import Logger
 from cosa.printers.template import TracePrinter, TraceValuesBase
 from cosa.problem import Trace
 
@@ -251,6 +252,8 @@ class VCDTracePrinter(TracePrinter):
                     arr_varlist.append((indexed_name, elemtype.width))
                     var2id[indexed_name] = idvar
                     idvar += 1
+            elif v.symbol_type().is_function_type():
+                Logger.msg("Not printing function types", 1)
             else:
                 Logger.error("Unhandled type in VCD printer")
 
