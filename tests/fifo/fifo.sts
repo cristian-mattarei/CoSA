@@ -5,8 +5,10 @@ OUTPUT
  output: BV(8);
 
 VAR
- clk: BV(1);
  fifo_1: FIFO(input, output, clk);
+
+STATE
+ clk: BV(1);
 
 INIT
 clk = 0_1;

@@ -245,7 +245,7 @@ class ProblemSolver(object):
 
         parser = SymbolicSimpleTSParser()
 
-        hts = parser.parse_file(hts_file, config, flags)[0]
+        hts = parser.parse_file(Path(hts_file), config, flags)[0]
 
         with open(mi_file, 'rb') as f:
             model_info = pickle.load(f)
