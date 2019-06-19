@@ -280,7 +280,7 @@ class BMCSafety(BMCSolver):
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
 
-        itp = Interpolator(logic=get_logic(trans))
+        itp = Interpolator(logic=get_logic(trans), name='cvc4')
         init = And(init, invar)
         nprop = Not(prop)
 
@@ -354,7 +354,7 @@ class BMCSafety(BMCSolver):
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
 
-        itp = Interpolator(logic=get_logic(trans))
+        itp = Interpolator(logic=get_logic(trans), name='cvc4')
         init = And(init, invar)
         nprop = Not(prop)
 
@@ -404,6 +404,10 @@ class BMCSafety(BMCSolver):
 
                 if t > 0:
                     trans_tB = And(trans_t[pivot:(t*2)])
+                    print('===================== A =====================')
+                    print(And(R, trans_tA).serialize(100))
+                    print('===================== B =====================')
+                    print(And(trans_tB, npropt).serialize(100))
                     Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
                     is_sat = Ri == None
 
