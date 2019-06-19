@@ -10,10 +10,13 @@
 
 import time
 
+from six.moves import cStringIO
+
 from multiprocessing import Process, Manager
 
 from pysmt.shortcuts import And, Or, Solver, TRUE, FALSE, Not, EqualsOrIff, Implies, Iff, Symbol, BOOL, simplify
 from pysmt.shortcuts import Interpolator
+from pysmt.smtlib.printers import SmtDagPrinter
 from pysmt.oracles import get_logic
 
 from cosa.utils.logger import Logger
@@ -404,11 +407,42 @@ class BMCSafety(BMCSolver):
 
                 if t > 0:
                     trans_tB = And(trans_t[pivot:(t*2)])
-                    print('===================== A =====================')
-                    print(And(R, trans_tA).serialize(100))
-                    print('===================== B =====================')
-                    print(And(trans_tB, npropt).serialize(100))
-                    Ri = And(itp.binary_interpolant(And(R, trans_tA), And(trans_tB, npropt)))
+
+                    # debugging
+                    dump_interp=True
+                    A = And(R, trans_tA)
+                    B = And(trans_tB, npropt)
+
+                    if dump_interp:
+                        smt2 = "(set-logic QF_BV)\n"
+                        for v in get_free_variables(And(A, B)):
+                            symbol_name = v.symbol_name()
+                            if v.symbol_type() == BOOL:
+                                smt2 += "(declare-fun %s () Bool)\n" % (symbol_name)
+                            elif v.symbol_type().is_array_type():
+                                st = v.symbol_type()
+                                assert st.index_type.is_bv_type(), "Expecting BV indices"
+                                assert st.elem_type.is_bv_type(), "Expecting BV elements"
+                                smt2 += "(declare-fun %s () (Array (_ BitVec %s) (_ BitVec %s)))\n"%(symbol_name, st.index_type.width, st.elem_type.width)
+                            elif v.symbol_type().is_bv_type():
+                                smt2 += "(declare-fun %s () (_ BitVec %s))\n" % (symbol_name, v.symbol_type().width)
+
+                        Abuf = cStringIO()
+                        printer = SmtDagPrinter(Abuf)
+                        printer.printer(A)
+                        smt2 += "(assert %s)\n"%Abuf.getvalue()
+
+                        Bbuf = cStringIO()
+                        printer = SmtDagPrinter(Bbuf)
+                        printer.printer(B)
+                        smt2 += "(check-sat-assuming (%s))"%Bbuf.getvalue()
+
+                        with open('interp-dump.smt2', 'w') as f:
+                            f.write(smt2)
+
+                    # end debugging
+
+                    Ri = And(itp.binary_interpolant(A, B))
                     is_sat = Ri == None
 
                 if is_sat and self._solve(solver):
