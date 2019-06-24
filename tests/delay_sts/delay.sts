@@ -1,0 +1,223 @@
+##########################
+# main module #
+##########################
+
+INPUT 
+a : BV(1);
+b: BV(1);
+VAR 
+inst : UxAS_responds_i(a,b);
+prop: Bool;
+
+INVAR
+prop <-> (((((inst.amonitor.holds = 1_1) &       ((inst.AutomationRequestValidator.g1monitor.holds = 1_1) & (inst.AutomationRequestValidator.g2monitor.holds = 1_1)) &      ((inst.PlanBuilder.g1monitor.holds = 1_1) & (inst.PlanBuilder.g2monitor.holds = 1_1)) &      ((inst.TaskServiceBase.g1monitor.holds = 1_1) & (inst.TaskServiceBase.g2monitor.holds = 1_1)) &      ((inst.RouteAggregator.g1monitor.holds = 1_1) & (inst.RouteAggregator.g2monitor.holds = 1_1)) &      (inst.Planner.gmonitor.holds = 1_1))) -> ((inst.gmonitor.holds = 1_1) & (inst.obs.holds = 1_1))));
+
+
+##########################
+# delay module           #
+##########################
+
+DEF delay(input: BV(1), n: BV(11)):
+  VAR
+  state: BV(1); #represents the two states s0 and s1
+  i: BV(11);
+
+  OUTPUT
+  output: BV(1);
+  
+  INVAR
+  output = (state & !next(state));
+
+  INIT
+  i = 1_11;
+  state = 0_1;
+
+  TRANS
+  ((state = 0_1) & (input = 1_1)) -> (next(state)=1_1);
+  ((state = 1_1) & (i < n)) -> ( (next(state) = 1_1) |  (next(state) = 0_1) );
+  ((state = 1_1) & (i >= n) ) -> (next(state)=0_1);
+  (!(((state = 0_1) & (input = 1_1)) | ((state = 1_1) & (i < n)) | ((state = 1_1) & (i >= n) ) )) -> (next(state)= state);
+
+  (state = 0_1) -> (next(i)=1_11);
+  #the next line assumes there was a mistake in the original file,
+  (state != 0_1) -> (next(i) = (i + 1_11));
+
+
+##########################
+# delayobs module        #
+##########################
+
+DEF delayobs(from: BV(1), to: BV(1), m: BV(11)):
+  VAR
+  state: BV(2);
+  i: BV(11);
+  holds: BV(1);
+
+  INVAR
+  #There are only 3 states, so the range is 0,1,2
+  state != 3_2;
+
+  #The original DEFINE block
+  holds = (!(state = 2_2) ? 1_1 : 0_1);
+
+  INIT
+  state = 0_2;
+  i = 1_11;
+
+  TRANS
+  ((state = 0_2) & (from = 1_1) & (! (to = 1_1))) -> (next(state)=1_2);
+  ((state = 1_2) & (i < m) & (to = 1_1)) -> (next(state)=0_2);
+  ((state = 1_2) & (i >= m)) -> (next(state)=2_2);
+  (!(((state = 0_2) & (from = 1_1) & (! (to = 1_1))) | ((state = 1_2) & (i < m) & (to = 1_1)) | ((state = 1_2) & (i >= m)))) -> (next(state)=state);
+
+  (state = 0_2) -> (next(i) = 1_11);
+  (state = 1_2) -> (next(i) = i + 1_11);
+  (! (state = 0_2) | (state = 1_2)) -> next(i) = i;
+
+
+##########################
+# delayobs module        #
+##########################
+
+DEF delaysource():
+  VAR
+  output: BV(1);
+  INIT
+  output = 1_1;
+  TRANS
+  next(output)=0_1;
+
+
+##########################
+# responds_once module   #
+##########################
+DEF responds_once(a: BV(1), b: BV(1)):
+  VAR
+  state: BV(2);
+  holds: BV(1);
+
+  INVAR
+  #There are only 3 states, so the range is 0,1,2
+  state != 3_2;
+  #corresponds to the DEFINE part
+  holds = ((state = 0_2 | state = 1_2) ? 1_1 : 0_1);
+
+  INIT
+  state = 0_2;
+
+  TRANS
+  ((state = 0_2) & (b = 1_1) & (! (a = 1_1))) -> (next(state) = 1_2);
+  ((state = 0_2) & (a = 1_1) ) -> (next(state) = 2_2);
+  ((state = 1_2) & (a = 1_1) ) -> (next(state) = 0_2);
+  (!(((state = 0_2) & (b = 1_1) & (! (a = 1_1))) | ((state = 0_2) & (a = 1_1) ) | ((state = 1_2) & (a = 1_1) ))) -> (next(state) = state);
+
+
+####################################
+# one_request_at_a_time module     #
+####################################
+DEF one_request_at_a_time(a: BV(1), b: BV(1)):
+  VAR
+  s: BV(2);
+  holds: BV(1);
+
+  INVAR
+  #There are only 3 states, so the range is 0,1,2
+  s != 3_2;
+  #original DEFINE part
+  holds = ((s = 0_2 | s = 1_2) ? 1_1 : 0_1);
+
+  INIT
+  s = 0_2;
+  
+  TRANS
+  ((s = 0_2) & (b = 1_1)) -> (next(s) = 1_2);
+  ((s = 1_2) & (b = 1_1)) -> (next(s) = 2_2);
+  ((s = 1_2) & (a = 1_1) & (! (b = 1_1)) ) -> (next(s) = 0_2);
+  (!(((s = 0_2) & (b = 1_1)) | ((s = 1_2) & (b = 1_1)) | ((s = 1_2) & (a = 1_1) & (! (b = 1_1)) ))) -> (next(s) = s);
+
+
+####################################
+# GenericService module            #
+####################################
+
+DEF GenericService(CmdRequest_in_event: BV(1), CmdRequest_in_data: BV(1), SubResponse_in_event: BV(1), SubResponse_in_data: BV(1)): 
+  VAR 
+  CmdResponse_out_data : BV(1) ;
+  SubRequest_out_data : BV(1) ;
+  one: BV(11);
+  hun: BV(11);
+  g1 : delay(CmdRequest_in_event,hun) ;
+  g2 : delay(SubResponse_in_event,hun) ;
+  CmdResponse_out_event: BV(1);
+  SubRequest_out_event: BV(1);
+  g1monitor : responds_once(SubRequest_out_event, CmdRequest_in_event) ;
+  g2monitor : responds_once(CmdResponse_out_event,SubResponse_in_event) ;
+
+  INVAR
+  CmdResponse_out_event = g2.output ;
+  SubRequest_out_event = g1.output;
+  one = 1_11;
+  hun = 100_11;
+
+
+#####################################
+## GenericLastService module        #
+#####################################
+
+DEF GenericLastService(CmdRequest_in_event: BV(1), CmdRequest_in_data: BV(1)):
+  
+  VAR 
+  CmdResponse_out_event: BV(1);
+  gmonitor : responds_once(CmdResponse_out_event,CmdRequest_in_event);
+  one: BV(11);
+  hun: BV(11);
+  g : delay(CmdRequest_in_event,hun);
+  #TODO I added this, check with Alessandro.
+  CmdResponse_out_data: BV(1);
+  
+  INVAR
+  CmdResponse_out_event = g.output;
+  #TODO I added this, check with Alessandro.
+  CmdResponse_out_data = g.output;
+  one = 1_11;
+  hun = 100_11;
+  
+
+#####################################
+## UxAS_responds_i module        #
+#####################################
+DEF UxAS_responds_i(AutomationRequest_in_event: BV(1), AutomationRequest_in_data: BV(1)):
+  VAR 
+  PlanBuilder_CmdResponse_out_event: BV(1);
+  PlanBuilder_CmdResponse_out_data: BV(1);
+  AutomationRequestValidator: GenericService(AutomationRequest_in_event, AutomationRequest_in_data, PlanBuilder_CmdResponse_out_event, PlanBuilder_CmdResponse_out_data);
+  TaskServiceBase_CmdResponse_out_event: BV(1);
+  TaskServiceBase_CmdResponse_out_data: BV(1);
+  PlanBuilder: GenericService(AutomationRequestValidator.SubRequest_out_event, AutomationRequestValidator.SubRequest_out_data, TaskServiceBase_CmdResponse_out_event, TaskServiceBase_CmdResponse_out_data);
+  RouteAggregator_CmdResponse_out_event: BV(1);
+  RouteAggregator_CmdResponse_out_data: BV(1);
+  TaskServiceBase: GenericService(PlanBuilder.SubRequest_out_event,  PlanBuilder.SubRequest_out_data,  RouteAggregator_CmdResponse_out_event,  RouteAggregator_CmdResponse_out_data );
+  Planner_CmdResponse_out_event: BV(1);
+  Planner_CmdResponse_out_data: BV(1);
+  RouteAggregator: GenericService(TaskServiceBase.SubRequest_out_event,  TaskServiceBase.SubRequest_out_data,  Planner_CmdResponse_out_event,  Planner_CmdResponse_out_data  );
+  Planner: GenericLastService(TaskServiceBase.SubRequest_out_event,                  TaskServiceBase.SubRequest_out_data);
+  amonitor : one_request_at_a_time(AutomationRequestValidator.CmdResponse_out_event,AutomationRequest_in_event) ;
+  gmonitor : responds_once(AutomationRequestValidator.CmdResponse_out_event,AutomationRequest_in_event) ;
+  nine: BV(11);
+  nin_hun: BV(11);
+  #obs : delayobs(AutomationRequest_in_event,AutomationRequestValidator.CmdResponse_out_event, nine);
+  obs : delayobs(AutomationRequest_in_event,AutomationRequestValidator.CmdResponse_out_event, nin_hun);
+
+  INVAR
+  nine = 9_11;
+  nin_hun = 900_11;
+  PlanBuilder_CmdResponse_out_event = PlanBuilder.CmdResponse_out_event;
+  PlanBuilder_CmdResponse_out_data = PlanBuilder.CmdResponse_out_data;
+  TaskServiceBase_CmdResponse_out_event = TaskServiceBase.CmdResponse_out_event;
+  TaskServiceBase_CmdResponse_out_data = TaskServiceBase.CmdResponse_out_data;
+  RouteAggregator_CmdResponse_out_event = RouteAggregator.CmdResponse_out_event;
+  RouteAggregator_CmdResponse_out_data = RouteAggregator.CmdResponse_out_data;
+  Planner_CmdResponse_out_event = Planner.CmdResponse_out_event;
+  Planner_CmdResponse_out_data = Planner.CmdResponse_out_data;
+
+

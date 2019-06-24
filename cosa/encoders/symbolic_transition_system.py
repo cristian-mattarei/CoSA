@@ -370,7 +370,7 @@ class SymbolicTSParser(ModelParser):
     def _concat_names(self, prefix, name):
         return ".".join([x for x in [prefix,name] if x != ""])
 
-    def _collect_sub_variables(self, module, modulesdic, path=[], varlist=[], statelist=[], inputlist=[], outputlist=[]):
+    def _collect_sub_variables(self, module, modulesdic, path, varlist, statelist, inputlist, outputlist):
 
         for var in module.vars+module.pars:
             varlist.append((".".join(path+[str(var[0])]), var[1:]))
@@ -411,7 +411,7 @@ class SymbolicTSParser(ModelParser):
 
         sparser = StringParser()
 
-        (vars, states, inputs, outputs) = self._collect_sub_variables(module, modulesdic, path=[], varlist=[])
+        (vars, states, inputs, outputs) = self._collect_sub_variables(module, modulesdic, path=[], varlist=[], statelist=[], inputlist=[], outputlist=[])
 
         for var in vars:
             ts.add_var(self._define_var(var, module.name))

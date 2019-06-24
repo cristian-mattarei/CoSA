@@ -1,0 +1,11 @@
+[GENERAL]
+model_files: delay.sts
+
+[DEFAULT]
+bmc_length: 10
+
+[ex2]
+verification: safety
+properties: prop
+prove: True
+expected: True
