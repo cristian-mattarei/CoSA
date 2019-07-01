@@ -29,6 +29,9 @@ from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
 FWDK = "FWD-K"
 
+# for debug printing
+interp_counter = 0
+
 class BMCSafety(BMCSolver):
 
     hts = None
@@ -283,7 +286,7 @@ class BMCSafety(BMCSolver):
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
 
-        itp = Interpolator(logic=get_logic(trans), name='cvc4')
+        itp = Interpolator(logic=get_logic(trans), name='msat')
         init = And(init, invar)
         nprop = Not(prop)
 
@@ -413,7 +416,10 @@ class BMCSafety(BMCSolver):
                     A = And(R, trans_tA)
                     B = And(trans_tB, npropt)
 
-                    if dump_interp:
+                    Ri = And(itp.binary_interpolant(A, B))
+
+                    if dump_interp and Ri is not None:
+                        print("got an interpolant, dumping it now")
                         smt2 = "(set-logic QF_BV)\n"
                         for v in get_free_variables(And(A, B)):
                             symbol_name = v.symbol_name()
@@ -437,12 +443,13 @@ class BMCSafety(BMCSolver):
                         printer.printer(B)
                         smt2 += "(check-sat-assuming (%s))"%Bbuf.getvalue()
 
-                        with open('interp-dump.smt2', 'w') as f:
+                        global interp_counter
+                        with open('interp-dump{}.smt2'.format(interp_counter), 'w') as f:
                             f.write(smt2)
 
-                    # end debugging
+                        interp_counter += 1
 
-                    Ri = And(itp.binary_interpolant(A, B))
+                    # end debugging
                     is_sat = Ri == None
 
                 if is_sat and self._solve(solver):
