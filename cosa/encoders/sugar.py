@@ -8,7 +8,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Not, And, get_type, BV, EqualsOrIff, get_env, get_type
+from pysmt.shortcuts import Not, And, get_type, BV, EqualsOrIff, Select, get_env, get_type
 from pysmt.parsing import Rule, UnaryOpAdapter, InfixOpAdapter, FunctionCallAdapter
 from cosa.utils.logger import Logger
 from cosa.representation import TS
@@ -39,7 +39,7 @@ class Negedge(SyntacticSugar):
 
     def adapter(self):
         return UnaryOpAdapter(self.Negedge, 100)
-        
+
     def Negedge(self, x):
         if get_type(x).is_bool_type():
             if (self.encoder_config is not None) and (self.encoder_config.abstract_clock):
@@ -48,7 +48,7 @@ class Negedge(SyntacticSugar):
         if (self.encoder_config is not None) and (self.encoder_config.abstract_clock):
             return EqualsOrIff(x, BV(0,1))
         return And(BV2B(x), EqualsOrIff(TS.to_next(x), BV(0,1)))
-    
+
 class Change(SyntacticSugar):
     name = "change"
     description = "Signal Changes"
@@ -56,7 +56,7 @@ class Change(SyntacticSugar):
 
     def adapter(self):
         return UnaryOpAdapter(self.Change, 100)
-    
+
     def Change(self, x):
         return Not(EqualsOrIff(x), TS.to_next(x))
 
@@ -112,12 +112,12 @@ class Dec2BV(SyntacticSugar):
             size = right.constant_value()
         else:
             size = get_type(right).width
-            
+
         if not left.is_int_constant():
             Logger.error("Left argument of dec2bv should be a number")
-            
+
         return BV(left.constant_value(), size)
-    
+
 class MemAccess(SyntacticSugar):
     name = "memacc"
     description = "Memory Access"
@@ -127,33 +127,10 @@ class MemAccess(SyntacticSugar):
         return FunctionCallAdapter(self.MemAcc, 60)
 
     def MemAcc(self, left, right):
-        primed = False
-        if TS.is_prime(left):
-            primed = True
-            left = TS.get_ref_var(left)
+        ltype = left.get_type()
+        assert ltype.is_array_type()
 
-        timed_symbol = lambda v: v if not primed else TS.get_prime(v)
-            
-        memname = left.symbol_name()
-        allsymbols = list(get_env().formula_manager.get_all_symbols())
-        memsymbols = [(v.symbol_name(), timed_symbol(v)) for v in allsymbols \
-                      if (not TS.is_prime(v)) and (not TS.is_timed(v)) and (v.symbol_name()[:len(memname)] == memname) \
-                      and v.symbol_name() != memname]
-        memsymbols.sort()
-        memsize = len(memsymbols)
+        if right.is_constant() and right.get_type().is_int_type():
+            right = BV(right.constant_value(), ltype.index_type.width)
 
-        if memsize < 1:
-            Logger.error("Memory \"%s\" has size 1"%(memname))
-        
-        if right.is_int_constant():
-            location = right.constant_value()
-            if location > memsize-1:
-                Logger.error("Out of bound access for memory \"%s\", size %d"%(memname, memsize))
-            return memsymbols[location][1]
-        else:
-            if not (right.is_symbol() and right.symbol_type().is_bv_type()):
-                Logger.error("Symbolic memory access requires Bitvector indexing")
-            width_idx = right.symbol_type().width
-            width_mem = min(memsize, width_idx)
-            return mem_access(right, [m[1] for m in memsymbols], width_idx)
-    
+        return Select(left, right)
