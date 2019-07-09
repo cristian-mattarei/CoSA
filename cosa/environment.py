@@ -9,6 +9,7 @@
 # limitations under the License.
 
 import re
+from typing import Set
 
 from pysmt.shortcuts import TRUE, FALSE, And, Or, Symbol, BV, EqualsOrIff, Implies, get_env
 from pysmt.typing import BOOL, BVType
@@ -44,10 +45,21 @@ def Finally(arg):
     return get_env().formula_manager.F(arg)
 
 class FormulaManager(pysmt.formula.FormulaManager):
-    """Extension of FormulaManager to handle LTL Operators."""
+    """Extension of FormulaManager to handle LTL Operators and store state variables."""
+    def __init__(self):
+        super().__init__()
+        self._state_symbols = set()
+
+    @property
+    def state_symbols(self)->Set[Symbol]:
+        return self._state_symbols
+
+    def is_state_symbol(self, sym:Symbol)->bool:
+        return sym in self._state_symbols
+
     def X(self, formula):
         return self.create_node(node_type=LTL_X, args=(formula,))
-    
+
     def F(self, formula):
         return self.create_node(node_type=LTL_F, args=(formula,))
 
@@ -71,7 +83,7 @@ class FormulaManager(pysmt.formula.FormulaManager):
 
     def Define(self, left, right):
         return self.create_node(node_type=DEFINE, args=(left, right), payload=(1,))
-    
+
 class ExtLexer(HRLexer):
     def __init__(self, env=None):
         HRLexer.__init__(self, env=env)
