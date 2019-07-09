@@ -92,17 +92,19 @@ class ModelParsersFactory(object):
     # Additional parsers should be registered here #
     @staticmethod
     def init_parsers():
-        from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
-        from cosa.encoders.explicit_transition_system import ExplicitTSParser
         from cosa.encoders.btor2 import BTOR2Parser
         from cosa.encoders.coreir import CoreIRParser
+        from cosa.encoders.explicit_transition_system import ExplicitTSParser
+        from cosa.encoders.init_state import InitParser
+        from cosa.encoders.symbolic_transition_system import SymbolicTSParser, SymbolicSimpleTSParser
         from cosa.encoders.verilog_yosys import VerilogYosysBtorParser
 
+        ModelParsersFactory.register_parser(BTOR2Parser())
         ModelParsersFactory.register_parser(CoreIRParser())
+        ModelParsersFactory.register_parser(ExplicitTSParser())
+        ModelParsersFactory.register_parser(InitParser())
         ModelParsersFactory.register_parser(SymbolicTSParser())
         ModelParsersFactory.register_parser(SymbolicSimpleTSParser())
-        ModelParsersFactory.register_parser(ExplicitTSParser())
-        ModelParsersFactory.register_parser(BTOR2Parser())
 
         if ModelParsersFactory.verilog_encoder == VerilogEncoder.INTERNAL:
             Logger.error("Internal verilog parser support is deprecated.")
