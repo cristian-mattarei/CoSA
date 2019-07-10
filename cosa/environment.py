@@ -46,8 +46,8 @@ def Finally(arg):
 
 class FormulaManager(pysmt.formula.FormulaManager):
     """Extension of FormulaManager to handle LTL Operators and store state variables."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, env=None):
+        super().__init__(env)
         self._state_symbols = set()
 
     @property
