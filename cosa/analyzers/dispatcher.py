@@ -381,13 +381,14 @@ class ProblemSolver(object):
 
         if general_config.init is not None:
             iparser = InitParser()
-            init = iparser.parse_file(general_config.init)
+            init_hts, inv_a, ltl_a = iparser.parse_file(general_config.init, general_config)
+            assert inv_a is None and ltl_a is None, "Not expecting assertions from init state file"
 
             # remove old inits
             for ts in hts.tss:
                 ts.init = TRUE()
 
-            hts.add_ts(init)
+            hts.combine(init_hts)
             hts.single_init(rebuild=True)
 
         # set default bit-wise initial values (0 or 1)

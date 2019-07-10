@@ -56,6 +56,9 @@ def remove_extract(var:str, size:int)->str:
             return var
 
 def memacc(mem, idx):
+    # unescape memories
+    if mem[0] == '\\':
+        mem = mem[1:]
     return "memacc({}, {})".format(mem, idx[1:-1])
 
 def find_extracts(var:str):

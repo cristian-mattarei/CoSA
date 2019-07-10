@@ -11,6 +11,7 @@
 import argparse
 from argparse import RawTextHelpFormatter
 import multiprocessing
+from pathlib import Path
 import sys
 from textwrap import TextWrapper
 from typing import Dict
@@ -250,7 +251,7 @@ general_encoding_options.add_argument('--default-initial-value',
                                       help='Set uninitialized bits to 0 or 1.')
 
 general_encoding_options.set_defaults(init=None)
-general_encoding_options.add_argument('--init', type=str,
+general_encoding_options.add_argument('--init', type=Path,
                                       help='Set the initial state values, using the *.init format.'
                                       ' All other initial state constraints (e.g. embedded in Verilog) will be ignored.')
 
@@ -373,7 +374,7 @@ ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=
                         help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%5)
 
 ver_params.set_defaults(equal_to=None)
-ver_params.add_argument('--equal-to', required=False, type=str,
+ver_params.add_argument('--equal-to', required=False, type=Path,
                         help='Model to check equivalence with (assumes common interface)')
 
 strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in get_verification_strategies()]
