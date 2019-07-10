@@ -1,12 +1,14 @@
 from pathlib import Path
 from typing import List, NamedTuple, Tuple, Union
 
+from pysmt.exceptions import UndefinedSymbolError
 from pysmt.fnode import FNode
 from pysmt.shortcuts import And, EqualsOrIff, get_env, TRUE
 
 from cosa.encoders.template import ModelParser
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS
+from cosa.utils.logger import Logger
 from cosa.utils.formula_mngm import get_free_variables
 
 class InitParser(ModelParser):
@@ -27,8 +29,11 @@ class InitParser(ModelParser):
 
         lhs, rhs = split
 
-        lhs = self.parser.parse_formula(lhs)
-        rhs = self.parser.parse_formula(rhs)
+        try:
+            lhs = self.parser.parse_formula(lhs)
+            rhs = self.parser.parse_formula(rhs)
+        except UndefinedSymbolError:
+            return None
 
         for fv in get_free_variables(lhs):
             if not self._pysmt_formula_manager.is_state_symbol(fv):
@@ -64,12 +69,11 @@ class InitParser(ModelParser):
             if not line:
                 continue
             else:
-                print(line)
                 res = self.parse_line(line)
                 if res is not None:
                     init.append(res)
 
-        print('init', init)
+        Logger.msg("Initial state file set concrete values for {} state variables".format(len(init)), 1)
 
         ts.init = And(init)
         ts.invar = TRUE()
