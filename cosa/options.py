@@ -249,6 +249,11 @@ general_encoding_options.set_defaults(default_initial_value=None)
 general_encoding_options.add_argument('--default-initial-value',
                                       help='Set uninitialized bits to 0 or 1.')
 
+general_encoding_options.set_defaults(init=None)
+general_encoding_options.add_argument('--init', type=str,
+                                      help='Set the initial state values, using the *.init format.'
+                                      ' All other initial state constraints (e.g. embedded in Verilog) will be ignored.')
+
 general_encoding_options.set_defaults(model_extension=None)
 general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
                         help='select the model modifier. (Default is \"%s\")'%(None))
