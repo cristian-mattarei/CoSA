@@ -374,7 +374,7 @@ ver_params.add_argument('--cardinality', dest='cardinality', type=int, required=
                         help="bounds number of active parameters. -1 is unbounded. (Default is \"%s\")"%5)
 
 ver_params.set_defaults(equal_to=None)
-ver_params.add_argument('--equal-to', required=False, type=Path,
+ver_params.add_argument('--equal-to', required=False, type=str,
                         help='Model to check equivalence with (assumes common interface)')
 
 strategies = [" - \"%s\": %s"%(x[0], x[1]) for x in get_verification_strategies()]
