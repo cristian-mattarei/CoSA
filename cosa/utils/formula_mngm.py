@@ -37,6 +37,10 @@ def parse_typestr(string:str)->PySMTType:
     return parse(string.replace("(", "{").replace(")", "}"))
 
 def to_typestr(_type:PySMTType)->str:
+    '''
+    Converts a PySMTType to the CoSA string representation, i.e.
+    using parentheses instead of curly brackets
+    '''
     return str(_type).replace("{", "(").replace("}", ")")
 
 class SubstituteWalker(IdentityDagWalker):

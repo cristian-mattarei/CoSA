@@ -66,8 +66,6 @@ class SMVHTSPrinter(HTSPrinter):
 
         printed_vars = set([])
         self.__print_single_ts(hts.get_TS(), printed_vars)
-        # for ts in hts.tss:
-        #     printed_vars = self.__print_single_ts(ts, printed_vars)
 
         if hts.assumptions is not None:
             self.write("\n-- ASSUMPTIONS\n")
