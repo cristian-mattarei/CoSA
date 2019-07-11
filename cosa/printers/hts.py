@@ -24,7 +24,7 @@ from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex
 from cosa.encoders.ltl import has_ltl_operators
 from cosa.environment import ExtHRPrinter
-from cosa.utils.formula_mngm import get_free_variables
+from cosa.utils.formula_mngm import get_free_variables, to_typestr
 from cosa.utils.generic import sort_system_variables
 
 from cosa.printers.template import HTSPrinter, HTSPrinterType
@@ -201,10 +201,8 @@ class STSHTSPrinter(HTSPrinter):
             varsort = sort_system_variables(vars)
             for var in varsort:
                 sname = self.names(var.symbol_name())
-                if var.symbol_type() == BOOL:
-                    self.write("%s : Bool;\n"%(sname))
-                else:
-                    self.write("%s : BV(%s);\n"%(sname, var.symbol_type().width))
+                typestr = to_typestr(var.symbol_type())
+                self.write("{} : {};\n".format(sname, typestr))
             self.write("\n")
 
         sections = [((ts.init),"INIT"), ((ts.invar),"INVAR"), ((ts.trans),"TRANS")]
