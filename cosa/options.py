@@ -317,7 +317,7 @@ verification_choices = [
 ver_options.set_defaults(verification=None)
 ver_options.add_argument('--verification', type=str,
                          choices=verification_choices,
-                         help="Choose the verification type from: {}"
+                         help="Choose the verification type from: \n{}"
                          "".format("\n".join("\t%s"%v for v in verification_choices)))
 
 # Verification parameters
