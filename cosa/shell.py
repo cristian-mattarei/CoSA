@@ -14,6 +14,7 @@ import sys
 from typing import List, NamedTuple, Union
 
 from pysmt.shortcuts import TRUE, FALSE
+from pysmt.fnode import FNode
 
 from cosa.analyzers.dispatcher import ProblemSolver, FILE_SP, MODEL_SP
 from cosa.environment import reset_env
@@ -83,7 +84,7 @@ def translate(hts, config, formulae=None):
         for f in formulae:
             if f is None:
                 continue
-            assert isinstance(f, str), "Expecting strings from problem configuration"
+            assert isinstance(f, FNode), "Expecting parsed properties"
             props.append(f)
 
     with open(config.translate, "w") as f:
@@ -174,7 +175,6 @@ def run_problems(problems_config:ProblemsManager):
             Logger.log("No problems to solve", 0)
             return 0
 
-    formulae = []
     for pbm in problems_config.problems:
         (status, trace) = print_problem_result(pbm,
                                                problems_config)
@@ -182,7 +182,6 @@ def run_problems(problems_config:ProblemsManager):
         if status != 0:
             global_status = status
         traces += trace
-        formulae.append(pbm.properties)
 
     if len(traces) > 0:
         Logger.log("\n*** TRACES ***\n", 0)
@@ -190,7 +189,8 @@ def run_problems(problems_config:ProblemsManager):
             Logger.log("[%d]:\t%s"%(traces.index(trace)+1, trace), 0)
 
     if general_config.translate:
-        translate(problems_config.hts, general_config, formulae)
+        # using parsed properties from ProblemSolver
+        translate(problems_config.hts, general_config, psol.properties)
 
     if global_status != 0:
         Logger.log("", 0)

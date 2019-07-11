@@ -64,19 +64,10 @@ class SMVHTSPrinter(HTSPrinter):
     def print_hts(self, hts, properties=None):
         self.write("MODULE main\n")
 
-        if properties is not None:
-            for prop in properties:
-                self.write('\nPROPERTY')
-                self.write(prop)
-                self.write(';\n')
-            # TODO: decide if it's important to identify the property type
-            # for strprop, prop, _ in properties:
-            #     if has_ltl_operators(prop):
-            #         self.write("\nLTLSPEC ")
-            #     else:
-            #         self.write("\nINVARSPEC ")
-            #     self.printer(prop)
-            #     self.write(";\n")
+        printed_vars = set([])
+        self.__print_single_ts(hts.get_TS(), printed_vars)
+        # for ts in hts.tss:
+        #     printed_vars = self.__print_single_ts(ts, printed_vars)
 
         if hts.assumptions is not None:
             self.write("\n-- ASSUMPTIONS\n")
@@ -85,14 +76,19 @@ class SMVHTSPrinter(HTSPrinter):
                 self.printer(assmp)
                 self.write(";\n")
 
-        printed_vars = set([])
-        self.__print_single_ts(hts.get_TS(), printed_vars)
-        # for ts in hts.tss:
-        #     printed_vars = self.__print_single_ts(ts, printed_vars)
+        if properties is not None:
+            for prop in properties:
+                if has_ltl_operators(prop):
+                    self.write('\nLTLSPEC ')
+                else:
+                    self.write('\nINVARSPEC ')
+                self.printer(prop)
+                self.write('\n')
 
         ret = self.stream.getvalue()
         self.stream.truncate(0)
         self.stream.seek(0)
+
         return ret
 
     def __print_single_ts(self, ts, printed_vars):

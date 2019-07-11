@@ -61,6 +61,7 @@ class ProblemSolver(object):
         self.lparser = None
         self.coi = None
         self.model_info = ModelInformation()
+        self.properties = [] # contains the parsed properties -- PySMT objects
 
         GeneratorsFactory.init_generators()
         ClockBehaviorsFactory.init_clockbehaviors()
@@ -449,11 +450,13 @@ class ProblemSolver(object):
                                         name=invar_prop[0],
                                         description=invar_prop[1],
                                         properties=invar_prop[2])
+            self.properties.append(invar_prop[2])
         for ltl_prop in ltl_props:
             problems_config.add_problem(verification=VerificationType.LTL,
                                         name=invar_prop[0],
                                         description=invar_prop[1],
                                         properties=invar_prop[2])
+            self.properties.append(ltl_prop[2])
 
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
@@ -502,6 +505,7 @@ class ProblemSolver(object):
                     assert len(prop) == 1, "Properties should already have been split into " \
                         "multiple problems but found {} properties here".format(len(prop))
                     prop = prop[0]
+                    self.properties.append(prop)
                 else:
                     if problem.verification == VerificationType.SIMULATION:
                         prop = TRUE()
