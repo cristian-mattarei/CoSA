@@ -254,6 +254,7 @@ class VCDTracePrinter(TracePrinter):
             else:
                 Logger.error("Unhandled type in VCD printer")
 
+        ret.append("$scope module top $end")
         for el in varlist + arr_varlist:
             (varname, width) = el
             idvar = var2id[varname]
@@ -272,7 +273,6 @@ class VCDTracePrinter(TracePrinter):
                 ret.append("$var reg %d v%s %s[%d:0] $end"%(width, idvar, varname, width-1))
 
 
-        ret.append("$upscope $end")
         ret.append("$upscope $end")
         ret.append("$enddefinitions $end")
 
