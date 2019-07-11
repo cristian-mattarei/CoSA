@@ -176,12 +176,13 @@ def run_problems(problems_config:ProblemsManager):
             return 0
 
     for pbm in problems_config.problems:
-        (status, trace) = print_problem_result(pbm,
-                                               problems_config)
+        if pbm.verification is not None:
+            (status, trace) = print_problem_result(pbm,
+                                                   problems_config)
 
-        if status != 0:
-            global_status = status
-        traces += trace
+            if status != 0:
+                global_status = status
+            traces += trace
 
     if len(traces) > 0:
         Logger.log("\n*** TRACES ***\n", 0)
