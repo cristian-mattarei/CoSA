@@ -252,8 +252,10 @@ general_encoding_options.add_argument('--default-initial-value',
 
 general_encoding_options.set_defaults(init=None)
 general_encoding_options.add_argument('--init', type=Path,
-                                      help='Set the initial state values, using the *.init format.'
-                                      ' All other initial state constraints (e.g. embedded in Verilog) will be ignored.')
+                                      help='Set the initial state values, using the *.init format.\n'
+                                      'All other initial state constraints (e.g. embedded in Verilog) will be ignored.\n'
+                                      'See scripts/vcd2init.py for a convenient .vcd to .init converter\n'
+                                      'Note: for Verilog input, this only works if running with --abstract-clock or --synchronize. See manual for more details')
 
 general_encoding_options.set_defaults(model_extension=None)
 general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
