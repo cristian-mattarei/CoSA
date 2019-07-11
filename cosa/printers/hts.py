@@ -85,10 +85,21 @@ class SMVHTSPrinter(HTSPrinter):
     def names(self, name):
         return "\"%s\""%name
 
+    def __to_smv_type(self, _type):
+        if _type.is_bool_type():
+            return "boolean"
+        elif _type.is_array_type():
+            return "array {} of {}".format(self.__to_smv_type(_type.index_type),
+                                           self.__to_smv_type(_type.elem_type))
+        elif _type.is_bv_type():
+            return "unsigned word[{}]".format(_type.width)
+        else:
+            raise RuntimeError("Unhandled case")
+
     def __print_single_ts(self, ts, printed_vars):
 
         has_comment = len(ts.comment) > 0
-        
+
         if has_comment:
             lenstr = len(ts.comment)+3
 
@@ -103,11 +114,8 @@ class SMVHTSPrinter(HTSPrinter):
 
         if locvars: self.write("\nVAR\n")
         for var in locvars:
-            sname = self.names(var.symbol_name())
-            if var.symbol_type() == BOOL:
-                self.write("%s : boolean;\n"%(sname))
-            else:
-                self.write("%s : word[%s];\n"%(sname, var.symbol_type().width))
+            self.write("{} : {};\n".format(var.symbol_name(),
+                                           self.__to_smv_type(var.get_type())))
 
         sections = [((ts.init),"INIT"), ((ts.invar),"INVAR"), ((ts.trans),"TRANS")]
 
@@ -176,11 +184,11 @@ class STSHTSPrinter(HTSPrinter):
             for i in range(-1, -step, -1):
                 newcp.append(cp[i])
         return newcp
-    
+
     def __print_single_ts(self, ts, ftrans=False):
 
         has_comment = len(ts.comment) > 0
-        
+
         if has_comment:
             lenstr = len(ts.comment)+3
 
@@ -239,10 +247,10 @@ class STSHTSPrinter(HTSPrinter):
                         self.printer(value)
                         self.write("}")
                     self.write(";\n")
-                
+
         if has_comment:
             self.write("\n%s\n"%("-"*lenstr))
-    
+
 
 class SMVPrinter(ExtHRPrinter):
 
@@ -280,7 +288,7 @@ class SMVPrinter(ExtHRPrinter):
     def walk_bv_ult(self, formula): return self.walk_nary(formula, " < ")
 
     def walk_bv_ule(self, formula): return self.walk_nary(formula, " <= ")
-    
+
     def walk_symbol(self, formula):
         if TS.is_prime(formula):
             self.write("next(\"%s\")"%TS.get_ref_var(formula).symbol_name())
