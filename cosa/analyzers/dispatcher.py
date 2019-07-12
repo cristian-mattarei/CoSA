@@ -29,6 +29,7 @@ from cosa.encoders.miter import Miter
 from cosa.encoders.formulae import StringParser
 from cosa.representation import HTS, TS, L_ABV
 from cosa.encoders.btor2 import BTOR2Parser
+from cosa.encoders.init_state import InitParser
 from cosa.encoders.ltl import LTLParser
 from cosa.encoders.factory import ModelParsersFactory, ClockBehaviorsFactory, GeneratorsFactory
 from cosa.modifiers.factory import ModelModifiersFactory
@@ -354,16 +355,12 @@ class ProblemSolver(object):
             modifier = lambda hts: ModelExtension.extend(hts,
                         ModelModifiersFactory.modifier_by_name(general_config.model_extension))
 
-        hierarchical_transition_systems = []
-
         # generate main system system
         hts, invar_props, ltl_props = self.parse_model(general_config.model_files,
                                                        problems_config.relative_path,
                                                        general_config,
                                                        "System 1",
                                                        modifier)
-
-        hierarchical_transition_systems.append(hts)
 
         # Generate second models if any are necessary
         for problem in problems_config.problems:
@@ -377,11 +374,23 @@ class ProblemSolver(object):
                                               general_config,
                                               "System 2",
                                               modifier)
-                hierarchical_transition_systems.append(hts2)
                 problems_config.add_second_model(problem, hts2)
 
         # TODO : contain these types of passes in functions
         #        they should be registered as passes
+
+        if general_config.init is not None:
+            iparser = InitParser()
+            init_hts, inv_a, ltl_a = iparser.parse_file(general_config.init, general_config)
+            assert inv_a is None and ltl_a is None, "Not expecting assertions from init state file"
+
+            # remove old inits
+            for ts in hts.tss:
+                ts.init = TRUE()
+
+            hts.combine(init_hts)
+            hts.single_init(rebuild=True)
+
         # set default bit-wise initial values (0 or 1)
         if general_config.default_initial_value is not None:
             def_init_val = int(general_config.default_initial_value)

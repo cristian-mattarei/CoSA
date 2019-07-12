@@ -11,6 +11,7 @@
 import argparse
 from argparse import RawTextHelpFormatter
 import multiprocessing
+from pathlib import Path
 import sys
 from textwrap import TextWrapper
 from typing import Dict
@@ -248,6 +249,13 @@ general_encoding_options.add_argument('--clock-behaviors', metavar='clock_behavi
 general_encoding_options.set_defaults(default_initial_value=None)
 general_encoding_options.add_argument('--default-initial-value',
                                       help='Set uninitialized bits to 0 or 1.')
+
+general_encoding_options.set_defaults(init=None)
+general_encoding_options.add_argument('--init', type=Path,
+                                      help='Set the initial state values, using the *.init format.\n'
+                                      'All other initial state constraints (e.g. embedded in Verilog) will be ignored.\n'
+                                      'See scripts/vcd2init.py for a convenient .vcd to .init converter\n'
+                                      'Note: for Verilog input, this only works if running with --abstract-clock or --synchronize. See manual for more details')
 
 general_encoding_options.set_defaults(model_extension=None)
 general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
