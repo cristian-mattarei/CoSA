@@ -203,7 +203,7 @@ def main():
     problems_config = cosa_option_manager.parse_args()
 
     if len(sys.argv)==1:
-        parser.print_help()
+        cosa_option_manager.print_help()
         sys.exit(1)
 
     sys.exit(run_problems(problems_config))
