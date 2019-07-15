@@ -12,8 +12,9 @@ import itertools
 import re
 
 from pysmt.walkers.identitydag import IdentityDagWalker
+from pysmt.parsing import parse
 from pysmt.shortcuts import Ite, EqualsOrIff, BV, get_type, simplify, And, Or
-from pysmt.typing import BOOL, BVType, ArrayType
+from pysmt.typing import BOOL, BVType, ArrayType, PySMTType
 
 from cosa.utils.generic import new_string
 
@@ -26,6 +27,21 @@ def BV2B(f):
     if get_type(f).is_bool_type():
         return f
     return EqualsOrIff(f, BV(1,1))
+
+def parse_typestr(string:str)->PySMTType:
+    '''
+    Takes a string and returns the PySMTType.
+    We use parentheses instead of curly-brackets in CoSA, e.g.
+    Array(BV(3), BV(8)) instead of Array{BV{3}, BV{8}}
+    '''
+    return parse(string.replace("(", "{").replace(")", "}"))
+
+def to_typestr(_type:PySMTType)->str:
+    '''
+    Converts a PySMTType to the CoSA string representation, i.e.
+    using parentheses instead of curly brackets
+    '''
+    return str(_type).replace("{", "(").replace("}", ")")
 
 class SubstituteWalker(IdentityDagWalker):
 

@@ -62,6 +62,7 @@ class ProblemSolver(object):
         self.lparser = None
         self.coi = None
         self.model_info = ModelInformation()
+        self.properties = [] # contains the parsed properties -- PySMT objects
 
         GeneratorsFactory.init_generators()
         ClockBehaviorsFactory.init_clockbehaviors()
@@ -150,6 +151,10 @@ class ProblemSolver(object):
 
         bmc_length = problem.bmc_length
         bmc_length_min = problem.bmc_length_min
+
+        if problem.verification is None:
+            Logger.log("Skipping problem because no verification is selected.", 0)
+            return None, None, None, None
 
         if problem.verification == VerificationType.SAFETY:
             accepted_ver = True
@@ -458,11 +463,13 @@ class ProblemSolver(object):
                                         name=invar_prop[0],
                                         description=invar_prop[1],
                                         properties=invar_prop[2])
+            self.properties.append(invar_prop[2])
         for ltl_prop in ltl_props:
             problems_config.add_problem(verification=VerificationType.LTL,
                                         name=invar_prop[0],
                                         description=invar_prop[1],
                                         properties=invar_prop[2])
+            self.properties.append(ltl_prop[2])
 
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
@@ -511,6 +518,7 @@ class ProblemSolver(object):
                     assert len(prop) == 1, "Properties should already have been split into " \
                         "multiple problems but found {} properties here".format(len(prop))
                     prop = prop[0]
+                    self.properties.append(prop)
                 else:
                     if problem.verification == VerificationType.SIMULATION:
                         prop = TRUE()
@@ -578,7 +586,8 @@ class ProblemSolver(object):
                     assert region is not None
                     problems_config.set_problem_region(problem, region)
 
-                Logger.msg(" %s\n"%status, 0, not(Logger.level(1)))
+                if status is not None:
+                    Logger.msg(" %s\n"%status, 0, not(Logger.level(1)))
 
                 if (assume_if_true) and \
                    (status == VerificationStatus.TRUE) and \
