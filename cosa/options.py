@@ -220,6 +220,10 @@ general_solving_options.set_defaults(assume_if_true=False)
 general_solving_options.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
                         help="add true properties as assumptions. (Default is \"%s\")"%False)
 
+general_solving_options.set_defaults(skip_embedded=False)
+general_solving_options.add_argument('--skip-embedded', dest='skip_embedded', action='store_true',
+                        help="don't solve embedded assertions. (Default is \"%s\")"%False)
+
 general_encoding_options = cosa_option_manager.add_general_group('encoding')
 
 general_encoding_options.set_defaults(abstract_clock=False)
