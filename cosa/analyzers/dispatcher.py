@@ -458,18 +458,19 @@ class ProblemSolver(object):
         problems_config.hts = hts
 
         # TODO: Update this so that we can control whether embedded assertions are solved automatically
-        for invar_prop in invar_props:
-            problems_config.add_problem(verification=VerificationType.SAFETY,
-                                        name=invar_prop[0],
-                                        description=invar_prop[1],
-                                        properties=invar_prop[2])
-            self.properties.append(invar_prop[2])
-        for ltl_prop in ltl_props:
-            problems_config.add_problem(verification=VerificationType.LTL,
-                                        name=invar_prop[0],
-                                        description=invar_prop[1],
-                                        properties=invar_prop[2])
-            self.properties.append(ltl_prop[2])
+        if not general_config.skip_embedded:
+            for invar_prop in invar_props:
+                problems_config.add_problem(verification=VerificationType.SAFETY,
+                                            name=invar_prop[0],
+                                            description=invar_prop[1],
+                                            properties=invar_prop[2])
+                self.properties.append(invar_prop[2])
+            for ltl_prop in ltl_props:
+                problems_config.add_problem(verification=VerificationType.LTL,
+                                            name=invar_prop[0],
+                                            description=invar_prop[1],
+                                            properties=invar_prop[2])
+                self.properties.append(ltl_prop[2])
 
         Logger.log("Solving with abstract_clock=%s, add_clock=%s"%(general_config.abstract_clock,
                                                                    general_config.add_clock), 2)
