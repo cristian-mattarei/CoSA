@@ -120,7 +120,7 @@ def partition(val:str, key:Dict[Any, Any])->List[str]:
 
 ################################# VCD Reading functions ########################################
 
-def read_header(header:str)->Dict[str, List[var]]:
+def read_header(header:str, hiermod:str)->Dict[str, List[var]]:
     hier = []
     varmap = defaultdict(list)
 
@@ -132,6 +132,10 @@ def read_header(header:str)->Dict[str, List[var]]:
             _, _type, size, code, *rest = line.split()
             size = int(size)
             name = "".join(rest[:-1])
+            # create hierarchical name
+            name = "{}.{}".format('.'.join(hier), name)
+            # strip leading hiermod -- the testbench modules, etc...
+            name = name.replace(hiermod + '.', '', 1)
             name = remove_extract(name, size)
             # replace extracts with pysmt version -- [lsb:msb]
             for m in find_extracts(name):
@@ -218,7 +222,7 @@ def parse_vcd(filename:str, hiermod:str)->List[bv]:
 
     assert header is not None
     assert contents is not None
-    varmap = read_header(header)
+    varmap = read_header(header, hiermod)
 
     assignment = get_last_state(contents, varmap)
 
@@ -227,7 +231,7 @@ def parse_vcd(filename:str, hiermod:str)->List[bv]:
     for tag, ext_val in assignment.items():
         var = None
         for v in varmap[tag]:
-            if v.hier == hiermod:
+            if '.' in v.hier and v.hier.split(".")[0] == hiermod:
                 var = v
                 break
         if var is None:
