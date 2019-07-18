@@ -231,7 +231,7 @@ def parse_vcd(filename:str, hiermod:str)->List[bv]:
     for tag, ext_val in assignment.items():
         var = None
         for v in varmap[tag]:
-            if '.' in v.hier and v.hier.split(".")[0] == hiermod:
+            if v.hier == hiermod or ('.' in v.hier and v.hier.split(".")[0] == hiermod):
                 var = v
                 break
         if var is None:
