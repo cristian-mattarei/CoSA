@@ -347,7 +347,7 @@ class BTOR2Parser(ModelParser):
                     rval = BV2B(getnode(nids[2]))
                 else:
                     lval = TS.get_prime(getnode(nids[1]))
-                    rval = getnode(nids[2])
+                    rval = B2BV(getnode(nids[2]))
 
                 nodemap[nid] = EqualsOrIff(lval, rval)
 
