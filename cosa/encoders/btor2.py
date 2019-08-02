@@ -7,7 +7,7 @@ from pysmt.shortcuts import Not, TRUE, And, BVNot, BVNeg, BVAnd, BVOr, BVAdd, Or
     Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
     Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
     BVLShl, BVAShr, BVLShr, BVType, ArrayType
-from pysmt.typing import PySMTType
+from pysmt.typing import PySMTType, BOOL
 
 from cosa.encoders.template import ModelParser
 from cosa.representation import HTS, TS
@@ -102,16 +102,16 @@ class BTOR2Converter:
         # these btor operators interpret some of the arguments as integers
         self.mixed_op_map = {
             # PySMT uses [low:high] for slicing, aka Extract
-            "slice"   : lambda x, h, l : BVExtract(B2BV(x), int(l), int(h)),
-            "uext"    : lambda x, w    : BVZExt(B2BV(x), int(w)),
-            "sext"    : lambda x, w    : BVSExt(B2BV(x), int(w)),
-            "zero"    : lambda w       : BV(0, int(w)),
-            "one"     : lambda w       : BV(1, int(w)),
-            "ones"    : lambda w       : BV((2**int(w))-1, int(w)),
-            "constd"  : lambda s, a    : BV(int(a), self.getnode(s).width),
-            "const"   : lambda s, a    : BV(int(a, 2), self.getnode(s).width),
-            "consth"  : lambda s, a    : BV(int(a, 16), self.getnode(s).width),
-            "sort"    : BTOR2Converter._to_pysmt_type
+            "slice"   : lambda s, x, h, l : BVExtract(B2BV(x), int(l), int(h)),
+            "uext"    : lambda s, x, w    : BVZExt(B2BV(x), int(w)),
+            "sext"    : lambda s, x, w    : BVSExt(B2BV(x), int(w)),
+            "zero"    : lambda s, w       : BV(0, int(w)),
+            "one"     : lambda s, w       : BV(1, int(w)),
+            "ones"    : lambda s, w       : BV((2**int(w))-1, int(w)),
+            "constd"  : lambda s, a       : BV(int(a), self.getnode(s).width),
+            "const"   : lambda s, a       : BV(int(a, 2), self.getnode(s).width),
+            "consth"  : lambda s, a       : BV(int(a, 16), self.getnode(s).width),
+            "sort"    : self._to_pysmt_type
         }
 
     def getnode(self, nid:str)->FNode:
@@ -185,7 +185,7 @@ class BTOR2Converter:
                 self.nodemap[nid] = Symbol(nids[1], self.getnode(nids[0]))
             else:
                 self.nodemap[nid] = Symbol((SN%nid), self.getnode(nids[0]))
-            self.ts.add_input_var(nodemap[nid])
+            self.ts.add_input_var(self.nodemap[nid])
 
         elif ntype == OUTPUT:
             # unfortunately we need to create an extra symbol just to have the output name
@@ -230,7 +230,9 @@ class BTOR2Converter:
             raise RuntimeError("Justice (e.g. Buchi automata / liveness) properties are not yet supported for BTOR")
 
         elif ntype in self.all_fnode_op_map:
-            nids = [self.getnode(a) for a in nids]
+            # remove the first element because that's the sort
+            # not necessary -- pysmt does its own type checking
+            nids = [self.getnode(a) for a in nids[1:]]
             self.nodemap[nid] = self.all_fnode_op_map[ntype](*nids)
 
         elif ntype in self.mixed_op_map:
@@ -258,8 +260,7 @@ class BTOR2Converter:
     def _identity(a):
         return a
 
-    @staticmethod
-    def _to_pysmt_type(sort:str, *args)->PySMTType:
+    def _to_pysmt_type(self, sort:str, *args)->PySMTType:
         if sort == "bitvec":
             return BVType(int(args[0]))
         elif sort == "array":
@@ -285,9 +286,9 @@ class BTOR2Converter:
 
         # preference for bit-vector operations
         if num_bv_args > len(_types)/2:
-            return BTOR2Parser._apply_bv_op(bv_op, args, negate=negate)
+            return BTOR2Converter._apply_bv_op(bv_op, *args, negate=negate)
         else:
-            return BTOR2Parser._apply_bool_op(bool_op, args, negate=negate)
+            return BTOR2Converter._apply_bool_op(bool_op, *args, negate=negate)
 
     @staticmethod
     def _apply_bv_op(bv_op:Callable[...,FNode], *args:FNode, negate:bool=False)->FNode:
