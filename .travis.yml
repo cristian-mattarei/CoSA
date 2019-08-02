@@ -44,7 +44,7 @@ addons:
      - libmpc-dev
 
 install:
-  - pip install coreir
+  # - pip install coreir
   - bash ./scripts/travis_install.sh
   # - pip install -e .
   # - pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
@@ -57,4 +57,4 @@ env:
 # script: nosetests tests -vv
 script:
   - coreir --help
-  - python3 -c "import coreir; print(coreir)"
+  # - python3 -c "import coreir; print(coreir)"
