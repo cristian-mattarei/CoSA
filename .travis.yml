@@ -55,4 +55,6 @@ env:
  - PATH="$PATH:." PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/solvers/":"${TRAVIS_BUILD_DIR}/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/bindings:${TRAVIS_BUILD_DIR}/solvers:${LD_LIBRARY_PATH}" COREIRCONFIG=g++-7 CC=gcc-7 CXX=g++-7
 
 # script: nosetests tests -vv
-script: python3 -c "import coreir; print(coreir)"
+script:
+  - ls /usr/local/lib
+  - python3 -c "import coreir; print(coreir)"
