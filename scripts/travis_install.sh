@@ -13,6 +13,8 @@ if [ ! -f "$COREIR" ]; then
     mkdir build
     cd build
     cmake ..
+    cd verilogAST-build
+    make -j4 && sudo make install && cd ../
     make -j4 && sudo make install
     cd ../../
 else
