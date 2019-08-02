@@ -102,9 +102,9 @@ class BTOR2Converter:
         # these btor operators interpret some of the arguments as integers
         self.mixed_op_map = {
             # PySMT uses [low:high] for slicing, aka Extract
-            "slice"   : lambda s, x, h, l : BVExtract(B2BV(x), int(l), int(h)),
-            "uext"    : lambda s, x, w    : BVZExt(B2BV(x), int(w)),
-            "sext"    : lambda s, x, w    : BVSExt(B2BV(x), int(w)),
+            "slice"   : lambda s, x, h, l : BVExtract(B2BV(self.getnode(x)), int(l), int(h)),
+            "uext"    : lambda s, x, w    : BVZExt(B2BV(self.getnode(x)), int(w)),
+            "sext"    : lambda s, x, w    : BVSExt(B2BV(self.getnode(x)), int(w)),
             "zero"    : lambda s, w       : BV(0, int(w)),
             "one"     : lambda s, w       : BV(1, int(w)),
             "ones"    : lambda s, w       : BV((2**int(w))-1, int(w)),
@@ -170,9 +170,11 @@ class BTOR2Converter:
             self.ts.add_state_var(self.nodemap[nid])
 
         elif ntype == NEXT:
-            # state elements are always bit-vectors -- convert the righthand side if necessary
-            lval = TS.get_prime(getnode(nids[1]))
-            rval = B2BV(self.getnode(nids[2]))
+            # state elements are never bool -- convert the righthand side if necessary
+            lval = TS.get_prime(self.getnode(nids[1]))
+            rval = self.getnode(nids[2])
+            if rval.get_type().is_bool_type():
+                rval = B2BV(rval)
 
             self.nodemap[nid] = EqualsOrIff(lval, rval)
             self.ftrans.append(
