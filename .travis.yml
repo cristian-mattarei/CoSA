@@ -56,5 +56,5 @@ env:
 
 # script: nosetests tests -vv
 script:
-  - ls /usr/local/lib
+  - coreir --help
   - python3 -c "import coreir; print(coreir)"
