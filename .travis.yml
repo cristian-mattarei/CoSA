@@ -44,7 +44,7 @@ addons:
      - libmpc-dev
 
 install:
-  # - pip install coreir
+  - pip install coreir
   - bash ./scripts/travis_install.sh
   # - pip install -e .
   # - pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
