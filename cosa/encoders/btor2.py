@@ -19,7 +19,6 @@ COLON_REP = "_c_"
 SN="N%s"
 COM=";"
 
-SORT="sort"
 STATE="state"
 NEXT="next"
 INIT="init"
@@ -110,6 +109,7 @@ class BTOR2Converter:
             "constd"  : lambda s, a       : BV(int(a), self.getnode(s).width),
             "const"   : lambda s, a       : BV(int(a, 2), self.getnode(s).width),
             "consth"  : lambda s, a       : BV(int(a, 16), self.getnode(s).width),
+            "sort"    : self._to_pysmt_type
         }
 
     def getnode(self, nid:str)->FNode:
@@ -191,16 +191,7 @@ class BTOR2Converter:
 
     def process_line(self, nid:str, ntype:str, nids:Tuple[str])->None:
 
-        if ntype == SORT:
-            (stype, *attr) = nids
-            if stype == 'bitvec':
-                self.nodemap[nid] = BVType(int(attr[0]))
-                self.node_covered.add(nid)
-            if stype == 'array':
-                self.nodemap[nid] = ArrayType(self.getnode(attr[0]), self.getnode(attr[1]))
-                self.node_covered.add(nid)
-
-        elif ntype == STATE:
+        if ntype == STATE:
             if len(nids) > 1:
                 self.nodemap[nid] = Symbol(nids[1], self.getnode(nids[0]))
             else:
@@ -270,11 +261,19 @@ class BTOR2Converter:
             self.nodemap[nid] = self.mixed_op_map[ntype](*nids)
 
         else:
-            raise RuntimeError("Unhandled BTOR op: {}".format(ntype))
+            raise RuntimeError("Unhandled combinational BTOR op: {}".format(ntype))
 
     @staticmethod
     def _identity(a):
         return a
+
+    def _to_pysmt_type(self, sort:str, *args)->PySMTType:
+        if sort == "bitvec":
+            return BVType(int(args[0]))
+        elif sort == "array":
+            return ArrayType(self.getnode(args[0]), self.getnode(args[1]))
+        else:
+            raise RuntimeError("Unsupported btor sort: {}".format(sort))
 
     @staticmethod
     def _apply_bv_or_bool_op(bv_op:Callable[...,FNode],
