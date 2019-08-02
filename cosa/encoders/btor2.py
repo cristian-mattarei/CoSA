@@ -18,7 +18,6 @@ NL = "\n"
 COLON_REP = "_c_"
 SN="N%s"
 COM=";"
-ASSERTINFO="btor-assert"
 
 STATE="state"
 NEXT="next"
@@ -57,7 +56,6 @@ class BTOR2Converter:
 
         self.invar_props = []
         self.ltl_props = []
-        self.prop_count = 0
 
         # converter should only be used once
         self.converted = False
@@ -237,15 +235,6 @@ class BTOR2Converter:
 
         elif ntype == BAD:
             nodemap[nid] = getnode(nids[0])
-
-            if ASSERTINFO in line:
-                filename_lineno = os.path.basename(nids[3])
-                assert_name = 'embedded_assertion_%s'%filename_lineno
-                description = "Embedded assertion at line {1} in {0}".format(*filename_lineno.split(COLON_REP))
-            else:
-                assert_name = 'embedded_assertion_%i'%prop_count
-                description = 'Embedded assertion number %i'%prop_count
-                prop_count += 1
 
             # Following problem format (name, description, strformula)
             self.invar_props.append((assert_name, description, Not(BV2B(self.getnode(nid)))))
