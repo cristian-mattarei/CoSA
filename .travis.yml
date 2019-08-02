@@ -18,7 +18,8 @@ addons:
     sources:
     - ubuntu-toolchain-r-test
     packages:
-     - g++-4.9
+     - g++-7
+     - gcc-7
      - clang
      - wget
      - unzip
@@ -49,6 +50,6 @@ install:
   - chmod +x ./yosys
 
 env:
- - PATH="$PATH:." PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/solvers/":"${TRAVIS_BUILD_DIR}/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/bindings:${TRAVIS_BUILD_DIR}/solvers:${LD_LIBRARY_PATH}" COREIRCONFIG=clang++ CC=clang CXX=clang++
+ - PATH="$PATH:." PYTHONPATH="${TRAVIS_BUILD_DIR}/pycoreir":"${TRAVIS_BUILD_DIR}/solvers/":"${TRAVIS_BUILD_DIR}/bindings:${PYTHONPATH}" LD_LIBRARY_PATH="${TRAVIS_BUILD_DIR}/coreir/lib":"${TRAVIS_BUILD_DIR}/bindings:${TRAVIS_BUILD_DIR}/solvers:${LD_LIBRARY_PATH}" COREIRCONFIG=g++-7 CC=gcc-7 CXX=g++-7
 
 script: nosetests tests -vv
