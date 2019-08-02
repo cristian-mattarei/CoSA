@@ -44,6 +44,7 @@ addons:
      - libmpc-dev
 
 install:
+  - python -m pip install cmake twine wheel pytest
   - pip install coreir
   - bash ./scripts/travis_install.sh
   # - pip install -e .
@@ -57,4 +58,4 @@ env:
 # script: nosetests tests -vv
 script:
   - coreir --help
-  # - python3 -c "import coreir; print(coreir)"
+  - python3 -c "import coreir; print(coreir)"
