@@ -44,9 +44,12 @@ addons:
      - libmpc-dev
 
 install:
-  - python -m pip install cmake twine wheel pytest
-  - pip install coreir
-  - bash ./scripts/travis_install.sh
+  - git clone https://github.com/leonardt/pycoreir.git
+  - cd pycoreir
+  - pip install -e .
+#  - python -m pip install cmake twine wheel pytest
+#  - pip install coreir
+  # - bash ./scripts/travis_install.sh
   # - pip install -e .
   # - pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
   # - bash ./scripts/travis_install.sh
