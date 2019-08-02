@@ -155,7 +155,16 @@ class BTOR2Converter:
         self.converted = True
 
         if Logger.level(1):
-            name = lambda x: str(self.nodemap[x]) if self.nodemap[x].is_symbol() else x
+            def name(x):
+                try:
+                    n = self.nodemap[x]
+                    if n.is_symbol():
+                        return str(n)
+                    else:
+                        return x
+                except:
+                    return x
+
             uncovered = [name(x) for x in self.nodemap if x not in self.node_covered]
             uncovered.sort()
             if len(uncovered) > 0:
