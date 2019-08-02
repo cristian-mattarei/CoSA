@@ -118,7 +118,7 @@ class BTOR2Converter:
         self.node_covered.add(nid)
         return self.nodemap[nid]
 
-    def convert(self, lines:List[str])->Tuple[HTS, List[FNode], List[FNode]]:
+    def convert(self, lines:List[str], symbolic_init:bool)->Tuple[HTS, List[FNode], List[FNode]]:
         if self.converted:
             # converter should only be used once
             raise RuntimeError("Should not be calling convert more than once, construct a new object")
@@ -131,7 +131,28 @@ class BTOR2Converter:
                 continue
 
             (nid, ntype, *nids) = linetok
+
+            # TODO: handle comments that occur on the same line
+            exists_wirename = False
+            # get wirenames for signals
+            # unfortunately we need to create a new symbol for this -- e.g. there's no define-fun
+            if ntype not in {STATE, INPUT, OUTPUT, BAD}:
+                # check for wirename, if it's an integer, then it's a node ref not a wirename
+                try:
+                    a = int(nids[-1])
+                except:
+                    try:
+                        wire = Symbol(str(nids[-1]), self.getnode(nids[0]))
+                        exists_wirename = True
+                        self.ts.add_var(wire)
+                        nids = nids[:-1]
+                    except:
+                        pass
+
             self.process_line(nid, ntype, nids)
+
+            if exists_wirename:
+                self.invarlist.append(EqualsOrIff(wire, B2BV(self.nodemap[nid])))
 
         self.converted = True
 
@@ -142,26 +163,27 @@ class BTOR2Converter:
             if len(uncovered) > 0:
                 Logger.warning("Unlinked nodes \"%s\""%",".join(uncovered))
 
-        if not self.symbolic_init:
-            init = simplify(And(initlist))
+        if not symbolic_init:
+            init = simplify(And(self.initlist))
         else:
             init = TRUE()
 
-        invar = simplify(And(invarlist))
+        invar = simplify(And(self.invarlist))
 
         # instead of trans, we're using the ftrans format -- see below
         self.ts.set_behavior(init, TRUE(), invar)
 
         # add ftrans
-        for var, cond_assign_list in ftrans:
-            ts.add_func_trans(var, cond_assign_list)
+        for var, cond_assign_list in self.ftrans:
+            self.ts.add_func_trans(var, cond_assign_list)
 
-        self.hts.add_ts(ts)
+        self.hts.add_ts(self.ts)
 
         return (self.hts, self.invar_props, self.ltl_props)
 
 
     def process_line(self, nid:str, ntype:str, nids:Tuple[str])->None:
+
         if ntype == STATE:
             if len(nids) > 1:
                 self.nodemap[nid] = Symbol(nids[1], self.getnode(nids[0]))
@@ -242,21 +264,6 @@ class BTOR2Converter:
 
         else:
             raise RuntimeError("Unhandled combinational BTOR op: {}".format(ntype))
-
-        # get wirenames for signals
-        # unfortunately we need to create a new symbol for this -- e.g. there's no define-fun
-        if ntype not in {STATE, INPUT, OUTPUT, BAD}:
-            # check for wirename, if it's an integer, then it's a node ref not a wirename
-            try:
-                a = int(nids[-1])
-            except:
-                try:
-                    wire = Symbol(str(nids[-1]), getnode(nids[0]))
-                    self.invarlist.append(EqualsOrIff(wire, B2BV(self.nodemap[nid])))
-                    self.ts.add_var(wire)
-                except:
-                    pass
-
 
     @staticmethod
     def _identity(a):
@@ -426,6 +433,12 @@ class BTOR2Parser(ModelParser):
     def get_extensions():
         return BTOR2Parser.extensions
 
+    def remap_an2or(self, name):
+        return name
+
+    def remap_or2an(self, name):
+        return name
+
     def parse_string(self, strinput:str)->Tuple[HTS, List[FNode], List[FNode]]:
         converter = BTOR2Converter()
 
@@ -433,4 +446,4 @@ class BTOR2Parser(ModelParser):
         for sc, rep in special_char_replacements.items():
             strinput = strinput.replace(sc, rep)
 
-        return converter.convert(strinput.split(NL))
+        return converter.convert(strinput.split(NL), self.symbolic_init)
