@@ -43,9 +43,9 @@ addons:
      - libmpc-dev
 
 install:
+  - bash ./scripts/travis_install.sh
   - pip install -e .
   - pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
-  - bash ./scripts/travis_install.sh
   - chmod +x ./yosys
 
 env:

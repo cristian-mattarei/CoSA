@@ -23,11 +23,11 @@
 # fi
 
 # use latest master instead of release
-pip uninstall coreir
 git clone https://github.com/leonardt/pycoreir.git
 cd pycoreir
 pip install cmake twine wheel pytest
 pip install -e .
+cd ../
 
 # Get yosys -- using for verilog frontend
 wget http://web.stanford.edu/~makaim/files/yosys.tar.xz
