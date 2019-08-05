@@ -56,6 +56,7 @@ class BTOR2Converter:
 
         self.invar_props = []
         self.ltl_props = []
+        self.prop_count = 0
 
         # converter should only be used once
         self.converted = False
@@ -238,15 +239,18 @@ class BTOR2Converter:
             self.initlist.append(node)
 
         elif ntype == CONSTRAINT:
-            node = BV2B(getnode(nids[0]))
+            node = BV2B(self.getnode(nids[0]))
             self.nodemap[nid] = node
             self.invarlist.append(node)
 
         elif ntype == BAD:
-            nodemap[nid] = getnode(nids[0])
+            self.nodemap[nid] = self.getnode(nids[0])
 
             # Following problem format (name, description, strformula)
-            self.invar_props.append((assert_name, description, Not(BV2B(self.getnode(nid)))))
+            self.invar_props.append(("embedded_assertion_%i"%self.prop_count,
+                                     "Embedded assertion number %i"%self.prop_count,
+                                     Not(BV2B(self.getnode(nid)))))
+            self.prop_count += 1
 
         elif ntype == JUSTICE:
             raise RuntimeError("Justice (e.g. Buchi automata / liveness) properties are not yet supported for BTOR")
