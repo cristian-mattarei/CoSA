@@ -344,7 +344,7 @@ class BTOR2Parser(ModelParser):
             if ntype == NEXT:
                 if (get_type(getnode(nids[1])) == BOOL) or (get_type(getnode(nids[2])) == BOOL):
                     lval = TS.get_prime(getnode(nids[1]))
-                    rval = BV2B(getnode(nids[2]))
+                    rval = B2BV(getnode(nids[2]))
                 else:
                     lval = TS.get_prime(getnode(nids[1]))
                     rval = getnode(nids[2])
