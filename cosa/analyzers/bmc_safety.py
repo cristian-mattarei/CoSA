@@ -406,17 +406,19 @@ class BMCSafety(BMCSolver):
                 Logger.log("Add property time %d"%t, 2)
                 self._add_assertion(solver, npropt)
 
-                Logger.log("Interpolation at k=%s"%(t), 2)
 
                 if t > 0:
                     trans_tB = And(trans_t[pivot:(t*2)])
 
                     # debugging
-                    dump_interp=True
+                    dump_interp=False
                     A = And(R, trans_tA)
                     B = And(trans_tB, npropt)
 
+                    Logger.log("Interpolation at k=%s"%(t), 2)
                     Ri = And(itp.binary_interpolant(A, B))
+                    if Ri is not None:
+                        Logger.log("Produced interpolant: %s"%Ri.serialize(100), 2)
 
                     if dump_interp and Ri is not None:
                         print("got an interpolant, dumping it now")
