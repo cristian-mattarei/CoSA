@@ -361,8 +361,8 @@ class BMCSafety(BMCSolver):
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
 
-        interpsolvername = 'cvc4'
-        itp = Interpolator(logic=get_logic(trans), name=interpsolvername)
+        solver_name=self.config.solver_name
+        itp = Interpolator(logic=get_logic(trans), name=solver_name)
         init = And(init, invar)
         nprop = Not(prop)
 
@@ -448,7 +448,7 @@ class BMCSafety(BMCSolver):
                         smt2 += "(check-sat-assuming (%s))"%Bbuf.getvalue()
 
                         global interp_counter
-                        with open('{}-interp-dump{}.smt2'.format(interpsolvername, interp_counter), 'w') as f:
+                        with open('{}-interp-dump{}.smt2'.format(solver_name, interp_counter), 'w') as f:
                             f.write(smt2)
 
                         interp_counter += 1
