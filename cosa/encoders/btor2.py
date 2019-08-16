@@ -214,7 +214,16 @@ class BTOR2Parser(ModelParser):
 
             if ntype == CONST:
                 width = getnode(nids[0]).width
-                nodemap[nid] = BV(bin_to_dec(nids[1]), width)
+                try:
+                    nodemap[nid] = BV(bin_to_dec(nids[1]), width)
+                except ValueError:
+                    if not all([i == 'x' or i == 'z' for i in nids[1]]):
+                        raise RuntimeError("If not a valid number, only support "
+                                           "all don't cares or high-impedance but got {}".format(nids[1]))
+                    # create a fresh variable for this non-deterministic constant
+                    nodemap[nid] = Symbol('const_'+nids[1], BVType(width))
+                    ts.add_state_var(nodemap[nid])
+                    Logger.warning("Creating a fresh symbol for unsupported X/Z constant %s"%nids[1])
 
             if ntype == STATE:
                 if len(nids) > 1:

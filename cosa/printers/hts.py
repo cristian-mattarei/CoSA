@@ -16,7 +16,7 @@ from six.moves import cStringIO
 from pysmt.printers import HRPrinter
 from pysmt.walkers import TreeWalker
 from pysmt.utils import quote
-from pysmt.shortcuts import Symbol, simplify, TRUE, FALSE, BOOL, And
+from pysmt.shortcuts import And, Array, BOOL, FALSE, simplify, Symbol, Store, TRUE
 from pysmt.rewritings import conjunctive_partition
 
 from cosa.representation import TS
@@ -24,7 +24,7 @@ from cosa.encoders.coreir import SEP
 from cosa.utils.generic import dec_to_bin, dec_to_hex
 from cosa.encoders.ltl import has_ltl_operators
 from cosa.environment import ExtHRPrinter
-from cosa.utils.formula_mngm import get_free_variables
+from cosa.utils.formula_mngm import get_free_variables, to_typestr
 from cosa.utils.generic import sort_system_variables
 
 from cosa.printers.template import HTSPrinter, HTSPrinterType
@@ -34,6 +34,19 @@ VCD_SEP = "-"
 
 # Variables starting with HIDDEN are not printed
 HIDDEN = "_-_"
+
+######################## helper functions ##########################3
+def to_smv_type(_type):
+    if _type.is_bool_type():
+        return "boolean"
+    elif _type.is_array_type():
+        return "array {} of {}".format(to_smv_type(_type.index_type),
+                                       to_smv_type(_type.elem_type))
+    elif _type.is_bv_type():
+        return "word[{}]".format(_type.width)
+    else:
+        raise RuntimeError("Unhandled case")
+
 
 class SMVHTSPrinter(HTSPrinter):
     name = "SMV"
@@ -51,19 +64,8 @@ class SMVHTSPrinter(HTSPrinter):
     def print_hts(self, hts, properties=None):
         self.write("MODULE main\n")
 
-        if properties is not None:
-            for prop in properties:
-                self.write('\nPROPERTY')
-                self.write(prop)
-                self.write(';\n')
-            # TODO: decide if it's important to identify the property type
-            # for strprop, prop, _ in properties:
-            #     if has_ltl_operators(prop):
-            #         self.write("\nLTLSPEC ")
-            #     else:
-            #         self.write("\nINVARSPEC ")
-            #     self.printer(prop)
-            #     self.write(";\n")
+        printed_vars = set([])
+        self.__print_single_ts(hts.get_TS(), printed_vars)
 
         if hts.assumptions is not None:
             self.write("\n-- ASSUMPTIONS\n")
@@ -72,23 +74,25 @@ class SMVHTSPrinter(HTSPrinter):
                 self.printer(assmp)
                 self.write(";\n")
 
-        printed_vars = set([])
-        self.__print_single_ts(hts.get_TS(), printed_vars)
-        # for ts in hts.tss:
-        #     printed_vars = self.__print_single_ts(ts, printed_vars)
+        if properties is not None:
+            for prop in properties:
+                if has_ltl_operators(prop):
+                    self.write('\nLTLSPEC ')
+                else:
+                    self.write('\nINVARSPEC ')
+                self.printer(prop)
+                self.write('\n')
 
         ret = self.stream.getvalue()
         self.stream.truncate(0)
         self.stream.seek(0)
-        return ret
 
-    def names(self, name):
-        return "\"%s\""%name
+        return ret
 
     def __print_single_ts(self, ts, printed_vars):
 
         has_comment = len(ts.comment) > 0
-        
+
         if has_comment:
             lenstr = len(ts.comment)+3
 
@@ -103,11 +107,8 @@ class SMVHTSPrinter(HTSPrinter):
 
         if locvars: self.write("\nVAR\n")
         for var in locvars:
-            sname = self.names(var.symbol_name())
-            if var.symbol_type() == BOOL:
-                self.write("%s : boolean;\n"%(sname))
-            else:
-                self.write("%s : word[%s];\n"%(sname, var.symbol_type().width))
+            self.write("{} : {};\n".format(var.symbol_name(),
+                                           to_smv_type(var.get_type())))
 
         sections = [((ts.init),"INIT"), ((ts.invar),"INVAR"), ((ts.trans),"TRANS")]
 
@@ -176,11 +177,11 @@ class STSHTSPrinter(HTSPrinter):
             for i in range(-1, -step, -1):
                 newcp.append(cp[i])
         return newcp
-    
+
     def __print_single_ts(self, ts, ftrans=False):
 
         has_comment = len(ts.comment) > 0
-        
+
         if has_comment:
             lenstr = len(ts.comment)+3
 
@@ -198,10 +199,8 @@ class STSHTSPrinter(HTSPrinter):
             varsort = sort_system_variables(vars)
             for var in varsort:
                 sname = self.names(var.symbol_name())
-                if var.symbol_type() == BOOL:
-                    self.write("%s : Bool;\n"%(sname))
-                else:
-                    self.write("%s : BV(%s);\n"%(sname, var.symbol_type().width))
+                typestr = to_typestr(var.symbol_type())
+                self.write("{} : {};\n".format(sname, typestr))
             self.write("\n")
 
         sections = [((ts.init),"INIT"), ((ts.invar),"INVAR"), ((ts.trans),"TRANS")]
@@ -239,20 +238,59 @@ class STSHTSPrinter(HTSPrinter):
                         self.printer(value)
                         self.write("}")
                     self.write(";\n")
-                
+
         if has_comment:
             self.write("\n%s\n"%("-"*lenstr))
-    
+
 
 class SMVPrinter(ExtHRPrinter):
 
     # Override walkers for SMV specific syntax
+
+    def walk_array_store(self, formula):
+        self.write("WRITE(")
+        yield formula.arg(0)
+        self.write(", ")
+        yield formula.arg(1)
+        self.write(", ")
+        yield formula.arg(2)
+        self.write(")")
+
+    def walk_array_select(self, formula):
+        self.write("READ(")
+        yield formula.arg(0)
+        self.write(", ")
+        yield formula.arg(1)
+        self.write(")")
+
+    def walk_array_value(self, formula):
+        assign = formula.array_value_assigned_values_map()
+        # First, rewrite it as a sequence of Stores on a constant array
+        if assign:
+            # Print array assignments in lexicographic order for deterministic printing
+            _type = formula.get_type()
+            formula = Array(_type.index_type, formula.array_value_default())
+            for k in sorted(assign, key=str, reversed=True):
+                formula = Store(formula, k, assign[k])
+            yield formula
+        else:
+            arrtype = to_smv_type(formula.get_type())
+            self.write("CONSTARRAY({}, ".format(arrtype))
+            yield formula.array_value_default()
+            self.write(")")
 
     def walk_bool_constant(self, formula):
         if formula.constant_value():
             self.write("TRUE")
         else:
             self.write("FALSE")
+
+    def walk_bv_comp(self, formula):
+        self.write("word1(")
+        yield formula.arg(0)
+        self.write(" = ")
+        yield formula.arg(1)
+        self.write(")")
 
     def walk_bv_constant(self, formula):
         self.write("0ud%d_%d" % (formula.bv_width(), formula.constant_value()))
@@ -280,12 +318,12 @@ class SMVPrinter(ExtHRPrinter):
     def walk_bv_ult(self, formula): return self.walk_nary(formula, " < ")
 
     def walk_bv_ule(self, formula): return self.walk_nary(formula, " <= ")
-    
+
     def walk_symbol(self, formula):
         if TS.is_prime(formula):
-            self.write("next(\"%s\")"%TS.get_ref_var(formula).symbol_name())
+            self.write("next(%s)"%TS.get_ref_var(formula).symbol_name())
         else:
-            self.write("\"%s\""%formula.symbol_name())
+            self.write("%s"%formula.symbol_name())
 
 class STSPrinter(ExtHRPrinter):
 

@@ -54,6 +54,24 @@ frame=lines,
 xleftmargin=2.5em,
 }
 
+\lstdefinelanguage{init}
+{
+alsoletter={-,>,<},
+morecomment=[l]\#,%
+commentstyle=\color{red}\ttfamily,
+%backgroundcolor=\color{gray!10},
+keywordstyle=\color{blue}\bfseries,
+numbers=left,
+basicstyle=\footnotesize\ttfamily,
+numberstyle=\small\ttfamily,
+numbersep=1.5em,
+showstringspaces=false,
+breaklines=false,
+frame=lines,
+%framexleftmargin=2.5em,
+xleftmargin=2.5em,
+}
+
 \lstdefinelanguage{Ini}
 {
     basicstyle=\ttfamily\small,
@@ -567,6 +585,43 @@ SE -> SE
   product between them.
 \end{example}
 
+\subsection{Initial State Constraints (INIT)}
+When performing formal verification, it can often be useful to start the model
+in a custom initial state. In fact, this can be necessary for reaching deep bugs
+or avoiding long reset sequences.
+
+CoSA supports a special format using the \texttt{.init} extension to set the
+initial values of state elements. A \texttt{*.init} file can be passed to CoSA
+through the \texttt{--init} command line flag or problem file option. Using
+\texttt{ETS} or \texttt{STS}, a user can add to the initial state constraints,
+whereas the \texttt{INIT} format replaces any existing initial state constraints
+with a concrete state. Typically this concrete state was obtained from a
+simulation.
+
+The syntax resembles that of the \texttt{ETS} format without state labels, but
+ignores previously undefined or non-state symbols. This is necessary because the
+initial state is often obtained from a VCD trace which might include non-state
+values. Note, ``reg'' signals in Verilog are not necessarily state elements, so
+VCD traces don't contain enough information to distinguish state elements from
+combinational logic. Please see the \texttt{scripts/vcd2init.py} script for
+producing a \texttt{.init} file from the final state of a VCD trace.
+
+\textit{Current limitation:} Due to the communication format between Yosys and
+CoSA for Verilog input, the \texttt{vcd2init.py} will not behave as expected
+unless you run CoSA with \texttt{--abstract-clock}, or an option that implies an
+abstract clock, such as \texttt{--synchronize}. This is because the BTOR format
+for an explicit clock encoding does not preserve user-defined state variable
+names. The name still exists in the system, but it becomes a wire instead of a
+state element.
+
+\begin{lstlisting}[frame=single,language=init,caption=Initial state
+example,label=init]
+A = 0_4
+B = 3_4
+mem[0_4] = 0_4
+memacc(mem, 1) = 1_4 # memacc let's you access a memory with an integer instead of a bit-vector
+\end{lstlisting}
+
 \section{Properties}
 \label{sec:properties}
 
@@ -1043,8 +1098,9 @@ verification. For more information about each parameter, see the help message,
 abstract\_clock & False & ~~ & add\_clock & False \\
 assume\_if\_true & False & ~~ & boolean & None \\
 clock\_behaviors & None & ~~ & equivalence & None \\
-model\_extension & None & ~~ & model\_files & None \\
-run\_coreir\_passes & True & ~~ & symbolic\_init & False \\
+init & None & ~~ & model\_extension & None \\
+model\_files & None & ~~ & run\_coreir\_passes & True \\
+synchronize & False & ~~ & symbolic\_init & False \\
 vcd & False & ~~ & verbosity & None \\
 zero\_init & None
 \end{tabular}

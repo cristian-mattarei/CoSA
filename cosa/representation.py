@@ -8,7 +8,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pysmt.shortcuts import Symbol, And, Or, TRUE, simplify, EqualsOrIff, get_type, Implies, Not, Ite
+from pysmt.shortcuts import Symbol, And, Or, TRUE, simplify, EqualsOrIff, get_env, get_type, Implies, Not, Ite
+
 from cosa.utils.formula_mngm import get_free_variables, substitute
 from cosa.utils.logger import Logger
 
@@ -75,6 +76,8 @@ class HTS(object):
         self.logic = L_BV
         self.en_simplify = False
 
+        self._pysmt_formula_mngr = get_env().formula_manager
+
     def apply_var_prefix(self, prefix):
         remapdic = dict([(v.symbol_name(), apply_prefix(v.symbol_name(), prefix)) for v in self.vars]+\
                         [(TS.get_prime(v).symbol_name(), apply_prefix(TS.get_prime(v).symbol_name(), prefix)) for v in self.vars])
@@ -134,6 +137,7 @@ class HTS(object):
 
     def add_state_var(self, var):
         self.state_vars.add(var)
+        self._pysmt_formula_mngr._state_symbols.add(var)
         self.vars.add(var)
 
     def add_var(self, var):
@@ -561,6 +565,8 @@ class TS(object):
         self.comment = comment
         self.logic = L_BV
 
+        self._pysmt_formula_mngr = get_env().formula_manager
+
     def __repr__(self):
         return "V: %s\nSV: %s\nI: %s\nT: %s\nC: %s"%(str(self.vars), str(self.state_vars), str(self.init), str(self.trans), str(self.invar))
 
@@ -616,6 +622,7 @@ class TS(object):
 
     def add_state_var(self, var):
         self.state_vars.add(var)
+        self._pysmt_formula_mngr._state_symbols.add(var)
         if var.symbol_type().is_array_type():
             self.logic = L_ABV
         self.vars.add(var)

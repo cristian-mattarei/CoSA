@@ -10,16 +10,17 @@
 
 from pathlib import Path
 import pyparsing
+from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, Forward, restOfLine, LineEnd, Combine, White, Group, SkipTo, lineEnd
 from typing import List, NamedTuple, Tuple
 
-from pyparsing import Literal, Word, nums, alphas, OneOrMore, ZeroOrMore, Optional, restOfLine, LineEnd, Combine, White, Group, SkipTo, lineEnd
+from pysmt.exceptions import UndefinedSymbolError
 from pysmt.fnode import FNode
 from pysmt.shortcuts import TRUE, And, Or, Symbol, BV, EqualsOrIff, Implies
 from pysmt.typing import BOOL, BVType
 
 from cosa.representation import HTS, TS
 from cosa.utils.logger import Logger
-from cosa.utils.formula_mngm import quote_names
+from cosa.utils.formula_mngm import parse_typestr, to_typestr, quote_names
 from cosa.encoders.template import ModelParser
 from cosa.encoders.formulae import StringParser
 
@@ -62,6 +63,7 @@ T_FTRANS = "FUNC"
 T_INVAR = "INVAR"
 T_DEF = "DEF"
 
+T_ARRAY = "Array"
 T_BV = "BV"
 T_BOOL = "Bool"
 
@@ -200,9 +202,13 @@ class SymbolicTSParser(ModelParser):
                 for vardef in self._split_list(vardefs, T_CM):
                     varname = vardef[0]
                     vartype = vardef[2]
-                    varpar = vardef[4:-1] if vartype != T_BOOL else None
 
-                    par_str.append((varname, vartype, varpar))
+                    try:
+                        vartype = parse_typestr(vartype)
+                        par_str.append((varname, vartype))
+                    except UndefinedSymbolError:
+                        varpar = vardef[4:-1]
+                        par_str.append((varname, vartype, varpar))
 
             dpsts = dict(psts)
 
@@ -218,11 +224,11 @@ class SymbolicTSParser(ModelParser):
                          varname = varname[1:-1]
 
                     vartype = vardef[2]
-                    varpar = vardef[4:-1] if vartype != T_BOOL else None
-
-                    if vartype in (T_BV, T_BOOL):
-                        var_str.append((varname, vartype, varpar))
-                    else:
+                    try:
+                        vartype = parse_typestr(vartype)
+                        var_str.append((varname, vartype))
+                    except UndefinedSymbolError:
+                        varpar = vardef[4:-1]
                         sub_str.append((varname, vartype, self._split_list(varpar, T_CM)))
 
             if P_STATEDEFS in dpsts:
@@ -236,10 +242,8 @@ class SymbolicTSParser(ModelParser):
                     if statename[0] == "'":
                          statename = statename[1:-1]
 
-                    statetype = statedef[2]
-                    statepar = statedef[4:-1] if statetype != T_BOOL else None
-
-                    state_str.append((statename, statetype, statepar))
+                    statetype = parse_typestr(statedef[2])
+                    state_str.append((statename, statetype))
 
             if P_INPUTDEFS in dpsts:
                 if self.pyparsing_version == PYPARSING_220:
@@ -252,10 +256,8 @@ class SymbolicTSParser(ModelParser):
                     if inputname[0] == "'":
                          inputname = inputname[1:-1]
 
-                    inputtype = inputdef[2]
-                    inputpar = inputdef[4:-1] if inputtype != T_BOOL else None
-
-                    input_str.append((inputname, inputtype, inputpar))
+                    inputtype = parse_typestr(inputdef[2])
+                    input_str.append((inputname, inputtype))
 
             if P_OUTPUTDEFS in dpsts:
                 if self.pyparsing_version == PYPARSING_220:
@@ -268,10 +270,8 @@ class SymbolicTSParser(ModelParser):
                     if outputname[0] == "'":
                          outputname = outputname[1:-1]
 
-                    outputtype = outputdef[2]
-                    outputpar = outputdef[4:-1] if outputtype != T_BOOL else None
-
-                    output_str.append((outputname, outputtype, outputpar))
+                    outputtype = parse_typestr(outputdef[2])
+                    output_str.append((outputname, outputtype))
 
             if P_INIT in dpsts:
                 if self.pyparsing_version == PYPARSING_220:
@@ -320,7 +320,11 @@ class SymbolicTSParser(ModelParser):
         varsize = (Word(nums))(P_VARSIZE)
         parlist = (ZeroOrMore(varname)+ZeroOrMore((Literal(T_CM) + varname)))
         modtype = (Word(alphas+T_US+nums) + Literal(T_OP) + parlist + Literal(T_CP))(P_MODTYPE)
-        basictype = (Literal(T_BV) + Literal(T_OP) + varsize + Literal(T_CP)) | Literal(T_BOOL)
+
+        basictype = Forward()
+        basictype << (Combine(Literal(T_BV) + Literal(T_OP) + varsize + Literal(T_CP)) | Combine(Literal(T_BOOL)) |
+                      Combine(Literal(T_ARRAY) + Literal(T_OP) + basictype + Literal(T_CM) + basictype + Literal(T_CP)))
+
         vartype = (basictype | modtype)(P_VARTYPE)
         vartypedef = (vartype)(P_VARTYPEDEF)
         vardef = varname + Literal(T_CL) + vartypedef + Literal(T_SC)
@@ -345,44 +349,26 @@ class SymbolicTSParser(ModelParser):
         return (OneOrMore(sts))(P_STSS)
 
     def _define_var(self, var, prefix=""):
-        varname, (vartype, size) = var
+        varname, vartype = var
         fullname = self._concat_names(prefix, varname)
-
-        if vartype == T_BV:
-            return Symbol(fullname, BVType(int(size[0])))
-
-        if vartype == T_BOOL:
-            return Symbol(fullname, BOOL)
-
-        Logger.error("Unsupported type: %s"%vartype)
-
-    def _get_type(self, strtype):
-        (vartype, size) = strtype
-
-        if vartype == T_BV:
-            return BVType(int(size[0]))
-
-        if vartype == T_BOOL:
-            return BOOL
-
-        Logger.error("Unsupported type: %s"%vartype)
+        return Symbol(fullname, vartype)
 
     def _concat_names(self, prefix, name):
         return ".".join([x for x in [prefix,name] if x != ""])
 
-    def _collect_sub_variables(self, module, modulesdic, path=[], varlist=[], statelist=[], inputlist=[], outputlist=[]):
+    def _collect_sub_variables(self, module, modulesdic, path, varlist, statelist, inputlist, outputlist):
 
         for var in module.vars+module.pars:
-            varlist.append((".".join(path+[str(var[0])]), var[1:]))
+            varlist.append((".".join(path+[str(var[0])]), var[1]))
 
         for var in module.states:
-            statelist.append((".".join(path+[str(var[0])]), var[1:]))
+            statelist.append((".".join(path+[str(var[0])]), var[1]))
 
         for var in module.inputs:
-            inputlist.append((".".join(path+[str(var[0])]), var[1:]))
+            inputlist.append((".".join(path+[str(var[0])]), var[1]))
 
         for var in module.outputs:
-            outputlist.append((".".join(path+[str(var[0])]), var[1:]))
+            outputlist.append((".".join(path+[str(var[0])]), var[1]))
 
         for sub in module.subs:
             (varlist, statelist, inputlist, outputlist) = self._collect_sub_variables(modulesdic[sub[1]], modulesdic, path + [sub[0]], varlist, statelist, inputlist, outputlist)
@@ -394,7 +380,7 @@ class SymbolicTSParser(ModelParser):
         vartypes = dict([(v.symbol_name(), v.symbol_type()) for v in vars_])
 
         for sub in module.subs:
-            formal_pars = [self._get_type(t[1:]) for t in modulesdic[sub[1]].pars]
+            formal_pars = [t[1] for t in modulesdic[sub[1]].pars]
             actual_pars = [vartypes[self._concat_names(module.name, v[0])] for v in sub[2]]
 
             if formal_pars != actual_pars:
@@ -411,7 +397,7 @@ class SymbolicTSParser(ModelParser):
 
         sparser = StringParser()
 
-        (vars, states, inputs, outputs) = self._collect_sub_variables(module, modulesdic, path=[], varlist=[])
+        (vars, states, inputs, outputs) = self._collect_sub_variables(module, modulesdic, path=[], varlist=[], statelist=[], inputlist=[], outputlist=[])
 
         for var in vars:
             ts.add_var(self._define_var(var, module.name))
@@ -428,7 +414,8 @@ class SymbolicTSParser(ModelParser):
         self._check_parameters(module, modulesdic, ts.vars)
 
         for par in module.pars:
-            hts.add_param(self._define_var((par[0], tuple(par[1:])), module.name))
+            assert len(par) == 2, "Expecting a variable"
+            hts.add_param(self._define_var((par[0], par[1]), module.name))
 
         for init_s in module.init:
             formula = sparser.parse_formula(quote_names(init_s, module.name), False)
@@ -525,14 +512,7 @@ class SymbolicSimpleTSParser(ModelParser):
             return self.parse_string(lines)
 
     def _define_var(self, varname, vartype):
-        if vartype == T_BOOL:
-            return Symbol(varname, BOOL)
-
-        if vartype[0] == T_BV:
-            vartype, size = vartype[0], vartype[1]
-            return Symbol(varname, BVType(int(size)))
-
-        Logger.error("Unsupported type: %s"%vartype)
+        return Symbol(varname, vartype)
 
     def parse_string(self, lines):
 
@@ -593,10 +573,10 @@ class SymbolicSimpleTSParser(ModelParser):
                 continue
 
             if section in [var, state, input, output]:
-                line = line[:-2].replace(" ","").split(":")
-                varname, vartype = line[0], (line[1][:-1].split("(")) if "(" in line[1] else line[1]
+                varname, vartype = line[:-2].replace(" ","").split(":")
                 if varname[0] == "'":
                     varname = varname[1:-1]
+                vartype = parse_typestr(vartype)
                 vardef = self._define_var(varname, vartype)
 
                 vars.add(vardef)

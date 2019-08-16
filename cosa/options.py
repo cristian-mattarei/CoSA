@@ -11,6 +11,7 @@
 import argparse
 from argparse import RawTextHelpFormatter
 import multiprocessing
+from pathlib import Path
 import sys
 from textwrap import TextWrapper
 from typing import Dict
@@ -219,6 +220,10 @@ general_solving_options.set_defaults(assume_if_true=False)
 general_solving_options.add_argument('--assume-if-true', dest='assume_if_true', action='store_true',
                         help="add true properties as assumptions. (Default is \"%s\")"%False)
 
+general_solving_options.set_defaults(skip_embedded=False)
+general_solving_options.add_argument('--skip-embedded', dest='skip_embedded', action='store_true',
+                        help="don't solve embedded assertions. (Default is \"%s\")"%False)
+
 general_encoding_options = cosa_option_manager.add_general_group('encoding')
 
 general_encoding_options.set_defaults(abstract_clock=False)
@@ -248,6 +253,13 @@ general_encoding_options.add_argument('--clock-behaviors', metavar='clock_behavi
 general_encoding_options.set_defaults(default_initial_value=None)
 general_encoding_options.add_argument('--default-initial-value',
                                       help='Set uninitialized bits to 0 or 1.')
+
+general_encoding_options.set_defaults(init=None)
+general_encoding_options.add_argument('--init', type=Path,
+                                      help='Set the initial state values, using the *.init format.\n'
+                                      'All other initial state constraints (e.g. embedded in Verilog) will be ignored.\n'
+                                      'See scripts/vcd2init.py for a convenient .vcd to .init converter\n'
+                                      'Note: for Verilog input, this only works if running with --abstract-clock or --synchronize. See manual for more details')
 
 general_encoding_options.set_defaults(model_extension=None)
 general_encoding_options.add_argument('--model-extension', metavar='model_extension', type=str, nargs='?',
@@ -317,7 +329,7 @@ verification_choices = [
 ver_options.set_defaults(verification=None)
 ver_options.add_argument('--verification', type=str,
                          choices=verification_choices,
-                         help="Choose the verification type from: {}"
+                         help="Choose the verification type from: \n{}"
                          "".format("\n".join("\t%s"%v for v in verification_choices)))
 
 # Verification parameters
