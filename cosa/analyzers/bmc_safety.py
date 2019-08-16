@@ -29,6 +29,7 @@ from cosa.analyzers.mcsolver import TraceSolver, BMCSolver, VerificationStrategy
 
 FWDK = "FWD-K"
 
+# debugging
 # for debug printing
 interp_counter = 0
 
@@ -360,7 +361,8 @@ class BMCSafety(BMCSolver):
 
         map_10 = dict([(TS.get_timed_name(v.symbol_name(), 1), TS.get_timed_name(v.symbol_name(), 0)) for v in hts.vars])
 
-        itp = Interpolator(logic=get_logic(trans), name='cvc4')
+        interpsolvername = 'cvc4'
+        itp = Interpolator(logic=get_logic(trans), name=interpsolvername)
         init = And(init, invar)
         nprop = Not(prop)
 
@@ -446,7 +448,7 @@ class BMCSafety(BMCSolver):
                         smt2 += "(check-sat-assuming (%s))"%Bbuf.getvalue()
 
                         global interp_counter
-                        with open('interp-dump{}.smt2'.format(interp_counter), 'w') as f:
+                        with open('{}-interp-dump{}.smt2'.format(interpsolvername, interp_counter), 'w') as f:
                             f.write(smt2)
 
                         interp_counter += 1
