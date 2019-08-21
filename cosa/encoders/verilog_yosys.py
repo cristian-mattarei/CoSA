@@ -44,7 +44,7 @@ COMMANDS = []
 COMMANDS.append("read_verilog -nomem2reg -sv {FILES}")
 COMMANDS.append("prep -top {TARGET}")
 COMMANDS.append("{PASSES}")
-COMMANDS.append("setundef -undriven -expose")
+COMMANDS.append("setundef -undriven -anyseq")
 COMMANDS.append("write_btor {BTORFILE}")
 
 DFFSR2DFF_CMD = "yosys -p 'techmap -map +/dffsr2dff.v'"
