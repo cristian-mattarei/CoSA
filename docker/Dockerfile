@@ -2,7 +2,7 @@ FROM ubuntu:18.04
 WORKDIR /home/CoSA
 
 RUN apt-get update
-RUN apt-get install -y python3-pip libpcre* wget unzip build-essential python3 automake libgmp-dev curl nano python3-dev libboost-dev default-jdk libclang-dev llvm llvm-dev lbzip2 libncurses5-dev git libtool iverilog
+RUN apt-get install -y python3-pip libpcre* wget unzip build-essential python3 automake libgmp-dev curl nano python3-dev libboost-dev default-jdk libclang-dev llvm llvm-dev lbzip2 libncurses5-dev git libtool iverilog libmpfr-dev libmpc-dev
 
 RUN wget https://github.com/pysmt/pysmt/archive/master.zip
 RUN unzip master.zip
@@ -11,12 +11,6 @@ RUN mv pysmt-master pysmt
 RUN cd pysmt && pip3 install -e . && pysmt-install --msat --confirm-agreement --install-path solvers --bindings-path bindings
 ENV PYTHONPATH="/home/CoSA/pysmt/bindings:${PYTHONPATH}"
 ENV LD_LIBRARY_PATH="/home/CoSA/pysmt/bindings:${LD_LIBRARY_PATH}"
-
-RUN wget https://github.com/rdaly525/coreir/archive/master.zip
-RUN unzip master.zip
-RUN rm master.zip
-RUN mv coreir-master coreir
-RUN cd coreir && make -j4 && make install
 
 RUN wget https://github.com/leonardt/pycoreir/archive/master.zip
 RUN unzip master.zip
