@@ -103,7 +103,7 @@ class BTOR2Parser(ModelParser):
                    config:NamedTuple,
                    flags:str=None)->Tuple[HTS, List[FNode], List[FNode]]:
         self.symbolic_init = config.symbolic_init
-        with filepath.open("r") as f:
+        with filepath.open("r", errors='surrogateescape') as f:
             return self.parse_string(f.read())
 
     def is_available(self):
