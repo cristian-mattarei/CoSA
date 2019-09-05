@@ -1,0 +1,5 @@
+INIT
+clk1 = 1_1 ;
+
+TRANS
+next(clk1) = !clk1 ;

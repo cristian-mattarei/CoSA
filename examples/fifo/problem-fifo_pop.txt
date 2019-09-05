@@ -9,15 +9,14 @@ bmc_length: 40
 
 [Scoreboard_end]
 description: "Scoreboard does not reach the end value"
-formula: !sb.end
+properties: !sb.end
 generators: sb=Scoreboard(input, 6, (posedge(clk) & (write = 1_1)), (posedge(clk) & (read = 1_1) & (write = 0_1)))
 verification: safety
 prove: True
-expected: False
 
 [FifoCorrectness]
 description: "FIFO correctness with scoreboard"
-formula: sb.end -> (sb.packet = output)
+properties: sb.end -> (sb.packet = output)
 generators: sb=Scoreboard(input, 6, (posedge(clk) & (write = 1_1)), (posedge(clk) & (read = 1_1) & (write = 0_1)))
 assumptions: (read = 1_1) <-> (write = 0_1)
 verification: safety

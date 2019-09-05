@@ -7,7 +7,7 @@ bmc_length: 40
 
 [Globally]
 description: "Globally Check"
-formula: self.out < 4_16
+properties: self.out < 4_16
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: safety
 prove: True
@@ -15,7 +15,7 @@ expected: False
 
 [Finally]
 description: "Finally Check"
-formula: F(self.out = 4_16)
+properties: F(self.out = 4_16)
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
@@ -23,7 +23,7 @@ expected: True
 
 [Liveness]
 description: "Liveness Check"
-formula: F(G(self.out = 4_16))
+properties: F(G(self.out = 4_16))
 assumptions: en_clr = 0_1 -> self.clr = 0_1
 verification: ltl
 prove: True
