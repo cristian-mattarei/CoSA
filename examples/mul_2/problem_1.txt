@@ -1,6 +1,5 @@
 [GENERAL]
 model_files: mul_2.json
-equivalence: mul_2_pe.json
 add_clock: True
 
 [DEFAULT]
@@ -9,5 +8,6 @@ bmc_length: 5
 [Equivalence Checking]
 description: "Mul2 is equivalent to Mul2 PE"
 verification: equivalence
+equal_to: mul_2_pe.json
 prove: True
 expected: Unknown

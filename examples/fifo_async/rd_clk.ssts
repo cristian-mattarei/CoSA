@@ -1,0 +1,5 @@
+INIT
+rd_clk = 1_1
+
+TRANS
+next(rd_clk) = !rd_clk
