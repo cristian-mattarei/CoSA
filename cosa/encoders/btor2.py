@@ -17,7 +17,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Not, TRUE, And, BVNot, BVNeg, BVAnd, BVOr, BVAdd, Or, Symbol, BV, EqualsOrIff, \
     Implies, BVMul, BVExtract, BVUGT, BVUGE, BVULT, BVULE, BVSGT, BVSGE, BVSLT, BVSLE, \
     Ite, BVZExt, BVSExt, BVXor, BVConcat, get_type, BVSub, Xor, Select, Store, BVComp, simplify, \
-    BVLShl, BVAShr, BVLShr
+    BVLShl, BVAShr, BVLShr, Array
 from pysmt.typing import BOOL, BVType, ArrayType
 
 from cosa.representation import HTS, TS
@@ -359,6 +359,9 @@ class BTOR2Parser(ModelParser):
             if ntype == INIT:
                 if (get_type(getnode(nids[1])) == BOOL) or (get_type(getnode(nids[2])) == BOOL):
                     nodemap[nid] = EqualsOrIff(BV2B(getnode(nids[1])), BV2B(getnode(nids[2])))
+                elif get_type(getnode(nids[1])).is_array_type():
+                    _type = get_type(getnode(nids[1]))
+                    nodemap[nid] = EqualsOrIff(getnode(nids[1]), Array(_type.index_type, default=getnode(nids[2])))
                 else:
                     nodemap[nid] = EqualsOrIff(getnode(nids[1]), getnode(nids[2]))
                 initlist.append(getnode(nid))
