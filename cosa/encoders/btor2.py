@@ -82,7 +82,6 @@ INIT="init"
 NEXT="next"
 CONSTRAINT="constraint"
 BAD="bad"
-ASSERTINFO="btor-assert"
 
 special_char_replacements = {"$": "", "\\": ".", ":": COLON_REP}
 
@@ -373,10 +372,9 @@ class BTOR2Parser(ModelParser):
             if ntype == BAD:
                 nodemap[nid] = getnode(nids[0])
 
-                if ASSERTINFO in line:
-                    filename_lineno = os.path.basename(nids[3])
-                    assert_name = 'embedded_assertion_%s'%filename_lineno
-                    description = "Embedded assertion at line {1} in {0}".format(*filename_lineno.split(COLON_REP))
+                if len(nids) > 1:
+                    assert_name = nids[1]
+                    description = "Embedded assertion: {}".format(assert_name)
                 else:
                     assert_name = 'embedded_assertion_%i'%prop_count
                     description = 'Embedded assertion number %i'%prop_count
