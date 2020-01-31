@@ -242,6 +242,7 @@ class CoreIRParser(ModelParser):
         mod_map.append(("concat", (Modules.Concat, [self.IN0, self.IN1, self.OUT])))
 
         mod_map.append(('term', (Modules.Term, [self.IN])))
+        mod_map.append(('undriven', (Modules.Undriven, [self.OUT])))
 
         self.mod_map = dict(mod_map)
 
