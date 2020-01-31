@@ -701,6 +701,16 @@ class Modules(object):
         ts = TS("Terminate wire")
         return ts
 
+    def Undriven(_out):
+        '''
+        Undriven is a no-op. _out is just undriven
+        '''
+        vars_ = [_out]
+        ts = TS("Undriven wire")
+        ts.vars = set(vars_)
+        return ts
+
+
 class ModuleSymbols(object):
 
     @staticmethod
