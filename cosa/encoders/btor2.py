@@ -393,7 +393,7 @@ class BTOR2Parser(ModelParser):
                     a = int(nids[-1])
                 except:
                     try:
-                        wire = FreshSymbol(getnode(nids[0]), template=str(nids[-1])+"%d")
+                        wire = Symbol(str(nids[-1]), getnode(nids[0]))
                         invarlist.append(EqualsOrIff(wire, B2BV(nodemap[nid])))
                         ts.add_var(wire)
                     except:
