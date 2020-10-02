@@ -46,6 +46,7 @@ def run_translation(path):
     j_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] == "json"]
     s_files = ["%s/%s"%(path,f) for f in models if f.split(".")[1] in ["sts","ets"]]
     v_files = ["%s/%s[%s]"%(path,f, f.split(".")[0]) for f in models if f.split(".")[1] in ["v"]]
+    btor2_files = ["%s/%s[%s]"%(path,f, f.split(".")[0]) for f in models if f.split(".")[1] in ["btor", 'btor2']]
 
     if os.path.isfile("%s/assumptions.txt"%path):
         assumptions = "%s/assumptions.txt"%path
@@ -67,7 +68,7 @@ def run_translation(path):
         boolean=boolean,
         translate=path+GENERATED,
         printer='SMV',
-        model_files=",".join(j_files+s_files+v_files))
+        model_files=",".join(j_files+s_files+v_files+btor2_files))
 
     problems_manager.add_problem(solver_name='msat',
                                  verification='safety' if properties is not None else "simulation",

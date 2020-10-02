@@ -216,7 +216,7 @@
 215 state 1 $techmap\dut.bbox.$auto$verificsva.cc:1795:import$5245
 216 not 1 214
 217 and 1 215 216
-218 bad 217 ./rast.sv:484
+218 bad 217 rast.sv:484
 219 state 1 $techmap\dut.bbox.$auto$verificsva.cc:1794:import$5215
 220 state 1 $techmap\dut.bbox.$auto$verificsva.cc:1795:import$5216
 221 not 1 219
