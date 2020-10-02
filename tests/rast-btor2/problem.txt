@@ -1,0 +1,8 @@
+[GENERAL]
+model_files: rast.btor2
+add_clock: True
+
+[DEFAULT]
+bmc_length: 1
+prove: True
+expected: False
