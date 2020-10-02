@@ -1,5 +1,5 @@
 pyparsing
-pysmt
+pysmt==0.8.0
 coreir
 six
 pyverilog
