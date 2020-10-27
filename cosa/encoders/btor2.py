@@ -388,12 +388,20 @@ class BTOR2Parser(ModelParser):
 
             # get wirename if it exists
             if ntype not in {STATE, INPUT, OUTPUT, BAD}:
+                # disregard comments at the end of the line
+                try:
+                    symbol_idx = nids.index(';')
+                    symbol_idx -= 1 # the symbol should be before the comment
+                except:
+                    # the symbol is just the end
+                    symbol_idx = -1
+
                 # check for wirename, if it's an integer, then it's a node ref
                 try:
-                    a = int(nids[-1])
+                    a = int(nids[symbol_idx])
                 except:
                     try:
-                        name = str(nids[-1])
+                        name = str(nids[symbol_idx])
                         # use the exact name, unless it has already been used
                         wire = Symbol(name, getnode(nids[0]))
                         if wire in ts.vars:
